@@ -236,4 +236,29 @@ extension IncomingStreamManagerTests {
         let openAfterReconnect = await coordinator.openStreamCount()
         #expect(openAfterReconnect == 0)
     }
+
+    /// The info reports how the stream arrived, not how the room is set up: a plaintext stream in
+    /// a room with encryption reads as plaintext.
+    @Test(arguments: [false, true], [EncryptionType.none, .gcm])
+    func infoReportsArrivalEncryption(roomIsEncrypted: Bool, arrival: EncryptionType) async throws {
+        if roomIsEncrypted {
+            try reconnect(encryptionOptions: EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: "key")))
+        }
+        let info = AsyncCompleter<TextStreamInfo>(label: "Stream opened", defaultTimeout: 10)
+        try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in info.resume(returning: reader.info) }
+        feedHeader(streamID: UUID().uuidString, byte: false, encryptionType: arrival, inlineContent: Data("hi".utf8))
+
+        #expect(try await info.wait().encryptionType == arrival)
+    }
+
+    /// A stream whose header, chunks and trailer all arrive encrypted reads normally.
+    @Test func consistentlyEncryptedStreamReads() async throws {
+        let read = try readingTextStreams()
+        let streamID = UUID().uuidString
+        feedHeader(streamID: streamID, byte: false, totalLength: 5, encryptionType: .gcm)
+        feedChunk(streamID: streamID, index: 0, content: Data("hello".utf8), encryptionType: .gcm)
+        feedTrailer(streamID: streamID, reason: "", encryptionType: .gcm)
+
+        #expect(try await read.wait() == "hello")
+    }
 }
