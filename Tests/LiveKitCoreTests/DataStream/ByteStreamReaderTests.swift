@@ -89,6 +89,26 @@ struct ByteStreamReaderTests {
         }
     }
 
+    /// The sender chooses the stored name, so a name that leaves the directory is refused before
+    /// any file opens. An empty name from the sender means "no name", so it is not listed here.
+    @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", "."])
+    func writeToFileRejectsSenderName(_ fileName: String) async throws {
+        let (reader, manager) = await openReader(fileName: fileName)
+        try await expectNothingWritten { directory in
+            try await reader.writeToFile(in: directory)
+        }
+        _ = manager
+    }
+
+    @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", ".", ""])
+    func writeToFileRejectsNameOverride(_ fileName: String) async throws {
+        let (reader, manager) = await openReader()
+        try await expectNothingWritten { directory in
+            try await reader.writeToFile(in: directory, name: fileName)
+        }
+        _ = manager
+    }
+
     @Test func info() async {
         let (reader, manager) = await openReader()
         #expect(reader.info.topic == topic)
@@ -149,7 +169,10 @@ struct ByteStreamReaderTests {
     /// Opens a byte stream through the FFI incoming manager and returns the public reader plus the
     /// manager, which the caller must keep alive while reading. A `nil` reason leaves the stream
     /// open by sending no trailer.
-    private func openReader(trailerReason: String? = "") async -> (LiveKit.ByteStreamReader, IncomingDataStreamManager) {
+    private func openReader(
+        fileName: String? = nil,
+        trailerReason: String? = "",
+    ) async -> (LiveKit.ByteStreamReader, IncomingDataStreamManager) {
         let capture = Capture()
         let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
         let streamID = UUID().uuidString
@@ -161,7 +184,7 @@ struct ByteStreamReaderTests {
                 $0.streamID = streamID
                 $0.topic = topic
                 $0.mimeType = mimeType
-                $0.contentHeader = .byteHeader(.with { $0.name = name })
+                $0.contentHeader = .byteHeader(.with { $0.name = fileName ?? name })
             }
             feed(manager) { $0.streamHeader = header }
 
@@ -183,6 +206,21 @@ struct ByteStreamReaderTests {
             }
         }
         return (reader, manager)
+    }
+
+    /// Runs `write` against a fresh directory and expects it to throw before creating anything,
+    /// inside the directory or next to it.
+    private func expectNothingWritten(_ write: (URL) async throws -> URL) async throws {
+        let parent = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let directory = parent.appendingPathComponent("target", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: parent) }
+
+        await #expect(throws: StreamError.fileInfoUnavailable) {
+            _ = try await write(directory)
+        }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: parent.path) == ["target"])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
     }
 
     private func feed(_ manager: IncomingDataStreamManager, _ configure: (inout Livekit_DataPacket.Builder) -> Void) {

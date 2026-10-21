@@ -71,7 +71,11 @@ extension ByteStreamReader {
     ///   - nameOverride: The name to use for the written file. If not specified, file name and extension will be automatically
     ///                   inferred from the stream information.
     /// - Returns: The URL of the written file on disk.
-    /// - Throws: ``StreamError`` if an error occurs while reading the stream.
+    /// - Throws: ``StreamError/notDirectory`` if `directory` is not a directory.
+    ///   ``StreamError/fileInfoUnavailable`` if the file name is not a single plain path component,
+    ///   for example one that contains `/` or is `..`. The sender chooses the name in the stream
+    ///   information, so this check keeps the file inside `directory`. Another ``StreamError`` if
+    ///   reading the stream fails.
     ///
     public func writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
@@ -80,11 +84,15 @@ extension ByteStreamReader {
         guard directory.hasDirectoryPath else {
             throw StreamError.notDirectory
         }
+        let preferredName = nameOverride ?? info.name
         let fileName = Self.resolveFileName(
-            preferredName: nameOverride ?? info.name,
+            preferredName: preferredName,
             fallbackName: info.id,
             mimeType: info.mimeType,
         )
+        guard Self.isPlainFileName(preferredName ?? info.id), Self.isPlainFileName(fileName) else {
+            throw StreamError.fileInfoUnavailable
+        }
         let fileURL = directory.appendingPathComponent(fileName)
 
         try await Task {
@@ -122,6 +130,11 @@ extension ByteStreamReader {
             return "\(preferredName).\(resolvedExtension)"
         }
         return preferredName
+    }
+
+    /// Whether `name` names a file directly inside the directory it is appended to.
+    static func isPlainFileName(_ name: String) -> Bool {
+        !name.isEmpty && name != "." && name != ".." && !name.contains("/")
     }
 
     private static let defaultFileExtension = "bin"
