@@ -76,21 +76,20 @@ struct DataStreamTests {
         let testDescription: String
         /// Each receiver's protocol; `nil` is the SDK's own, v2.
         let receivers: [ClientProtocol?]
-        /// The sender's protocol. A v1 sender also frames its streams as one would.
+        /// The sender's protocol; `nil` is the SDK's own, v2.
         var sender: ClientProtocol?
-        /// Whether some peer predates v2, so the stream has to go out in the legacy framing.
-        let isLegacy: Bool
     }
 
     static let peers = [
-        Peers(testDescription: "v2 to v2", receivers: [nil], isLegacy: false),
-        Peers(testDescription: "v2 to v1", receivers: [.v1], isLegacy: true),
-        Peers(testDescription: "v1 to v2", receivers: [nil], sender: .v1, isLegacy: true),
-        Peers(testDescription: "v2 broadcast to v1 and v2", receivers: [.v1, nil], isLegacy: true),
+        Peers(testDescription: "v2 to v2", receivers: [nil]),
+        Peers(testDescription: "v2 to v1", receivers: [.v1]),
+        Peers(testDescription: "v1 to v2", receivers: [nil], sender: .v1),
+        Peers(testDescription: "v2 broadcast to v1 and v2", receivers: [.v1, nil]),
     ]
 
-    /// A stream between real rooms whose peers advertise different protocols: the sender picks a
-    /// framing every receiver can read, and each receiver reads exactly what was sent.
+    /// A stream between real rooms whose peers advertise different protocols. Each side sees the
+    /// protocol the other advertised, the sender picks a framing every receiver it sees can read,
+    /// and each receiver reads exactly what was sent.
     @Test(arguments: peers, Send.allCases)
     func streamRoundTrips(between peers: Peers, via send: Send) async throws {
         let payload = send.isText ? Data("Hello world!".utf8) : Data(repeating: 0xFF, count: 256)
@@ -99,8 +98,18 @@ struct DataStreamTests {
 
         try await TestEnvironment.withRooms(options) { rooms in
             let sender = rooms[rooms.count - 1]
-            let received = try await Self.receiving(on: Array(rooms.dropLast()), from: sender)
-            let packets = try sender.recordDataStreamPackets(framesAsLegacySender: peers.sender == .v1)
+            let receivers = Array(rooms.dropLast())
+
+            // The protocol each side reports for the other is the one that side advertised.
+            let senderIdentity = try #require(sender.localParticipant.identity)
+            for (receiver, advertised) in zip(receivers, peers.receivers) {
+                let identity = try #require(receiver.localParticipant.identity)
+                #expect(sender.remoteParticipants[identity]?.clientProtocol == advertised ?? .v2)
+                #expect(receiver.remoteParticipants[senderIdentity]?.clientProtocol == peers.sender ?? .v2)
+            }
+
+            let received = try await Self.receiving(on: receivers, from: sender)
+            let packets = try sender.recordDataStreamPackets()
 
             try await send.perform(payload, topic: "some-topic", from: sender.localParticipant)
 
@@ -111,8 +120,14 @@ struct DataStreamTests {
                 Issue.record("The first packet is not a stream header")
                 return
             }
-            #expect(header.hasInlineContent == (send.mayGoInline && !peers.isLegacy))
-            if peers.isLegacy {
+            // Expected from what the sender sees of the participants a broadcast goes to, which is
+            // what its registry reports to the core.
+            let recipients = Array(sender.remoteParticipants.values)
+            #expect(recipients.count == receivers.count)
+            let allReadV2 = recipients.allSatisfy { $0.clientProtocol >= .v2 }
+            let allDecompress = allReadV2 && recipients.allSatisfy { $0.capabilities.contains(.compressionDeflateRaw) }
+            #expect(header.hasInlineContent == (send.mayGoInline && allReadV2))
+            if !allDecompress {
                 #expect(header.compression.rawValue == Livekit_DataStream_CompressionType.none.rawValue)
             }
         }

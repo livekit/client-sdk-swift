@@ -20,17 +20,14 @@ import LiveKitFFI
 
 extension Room {
     /// Records every data stream packet this connected room sends, on its way to the real
-    /// transport, so a test against a server can check the framing the core picked.
-    ///
-    /// With `framesAsLegacySender`, the core is told every recipient is a legacy client, so the
-    /// room frames its streams the way an SDK that predates data streams v2 does: no inline
-    /// content and no compression.
-    func recordDataStreamPackets(framesAsLegacySender: Bool = false) throws -> StateSync<[Livekit_DataPacket]> {
+    /// transport, so a test against a server can check the framing the core picked. The core still
+    /// decides from the room's own view of its participants.
+    func recordDataStreamPackets() throws -> StateSync<[Livekit_DataPacket]> {
         guard let connection = _state.stage.connection else {
             throw LiveKitError(.invalidState, message: "Room is not connected")
         }
         let packets = StateSync<[Livekit_DataPacket]>([])
-        let registry: any RemoteParticipantRegistryDelegate = framesAsLegacySender ? LegacyRecipients(room: self) : DataStreams.Registry(room: self)
+        let registry = DataStreams.Registry(room: self)
         connection.outgoingDataStreams.mutate {
             let recorder = PacketRecorder(forwardingTo: $0.delegate, packets: packets)
             $0 = DataStreams.Outgoing(manager: OutgoingDataStreamManager(delegate: recorder, registry: registry), delegate: $0.delegate)
@@ -53,26 +50,5 @@ private final class PacketRecorder: OutgoingDataStreamManagerDelegate, Sendable 
         let decoded = emitted.compactMap { try? Livekit_DataPacket(serializedBytes: $0) }
         packets.mutate { $0.append(contentsOf: decoded) }
         try await delegate.onPacketsAvailable(packets: emitted)
-    }
-}
-
-/// The room's participants, each reported as a v1 client with no capabilities.
-private final class LegacyRecipients: RemoteParticipantRegistryDelegate, @unchecked Sendable {
-    private let registry: DataStreams.Registry
-
-    init(room: Room) {
-        registry = DataStreams.Registry(room: room)
-    }
-
-    func remoteClientProtocol(identity _: String) -> Int32 {
-        Int32(ClientProtocol.v1.rawValue)
-    }
-
-    func remoteCapabilities(identity _: String) -> [LiveKitFFI.ClientCapability] {
-        []
-    }
-
-    func remoteIdentities() -> [String] {
-        registry.remoteIdentities()
     }
 }
