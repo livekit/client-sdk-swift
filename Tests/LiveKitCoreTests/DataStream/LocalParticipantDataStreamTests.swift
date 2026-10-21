@@ -106,6 +106,69 @@ struct LocalParticipantDataStreamTests {
         #expect(info.encryptionType == .none)
     }
 
+    // MARK: - Cancellation
+
+    enum BlockedCall: CaseIterable {
+        case sendText, sendBytes, sendFile, openStream, write, close
+    }
+
+    /// Holds each delivery while `blocks` is set, until `release` resolves, and reports when one
+    /// starts waiting.
+    private final class BlockingDelegate: OutgoingDataStreamManagerDelegate, @unchecked Sendable {
+        let blocks = StateSync(true)
+        let entered = AsyncCompleter<Void>(label: "Delivery blocked", defaultTimeout: 10)
+        let release = AsyncCompleter<Void>(label: "Delivery released", defaultTimeout: 10)
+
+        func onPacketsAvailable(packets _: [Data]) async throws {
+            guard blocks.copy() else { return }
+            entered.resume(returning: ())
+            try await release.wait()
+        }
+    }
+
+    /// UniFFI's async calls ignore Swift cancellation. A send, stream open, write or close whose
+    /// delivery is stuck in the transport must still return when its task is cancelled.
+    @Test(arguments: BlockedCall.allCases)
+    func cancellingBlockedCallReturns(_ call: BlockedCall) async throws {
+        let delegate = BlockingDelegate()
+        defer { delegate.release.resume(returning: ()) }
+        let room = try room(sendingThrough: delegate)
+        let participant = room.localParticipant
+
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).txt")
+        try Data("hi".utf8).write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        // The write and close cases need a writer, opened before deliveries start to block.
+        var writer: LiveKit.TextStreamWriter?
+        if call == .write || call == .close {
+            delegate.blocks.mutate { $0 = false }
+            writer = try await participant.streamText(for: "topic")
+            delegate.blocks.mutate { $0 = true }
+        }
+
+        let returned = AsyncCompleter<Error?>(label: "Cancelled call returned", defaultTimeout: 5)
+        let task = Task { [writer] in
+            do {
+                switch call {
+                case .sendText: _ = try await participant.sendText("hi", for: "topic")
+                case .sendBytes: _ = try await participant.sendBytes(Data([1]), for: "topic")
+                case .sendFile: _ = try await participant.sendFile(fileURL, for: "topic")
+                case .openStream: _ = try await participant.streamText(for: "topic")
+                case .write: try await writer?.write("hi")
+                case .close: try await writer?.close()
+                }
+                returned.resume(returning: nil)
+            } catch {
+                returned.resume(returning: error)
+            }
+        }
+        try await delegate.entered.wait()
+        task.cancel()
+
+        #expect(try await returned.wait() is CancellationError)
+    }
+
     // MARK: - Helpers
 
     /// A room whose connection sends through `delegate`, so the public API runs end to end with no

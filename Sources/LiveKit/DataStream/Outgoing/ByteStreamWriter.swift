@@ -41,11 +41,12 @@ public final class ByteStreamWriter: NSObject, Sendable {
     /// - Parameter data: Data to be sent.
     /// - Throws: ``StreamError/alreadyClosed`` if the stream is closed, or
     ///   ``StreamError/sendFailed`` or another ``StreamError`` if the data cannot be delivered, for
-    ///   example because the room disconnected. Then ``isOpen`` is `false`.
+    ///   example because the room disconnected. Then ``isOpen`` is `false`. `CancellationError` at
+    ///   once if the calling task is cancelled, but the write can still go out.
     ///
     public func write(_ data: Data) async throws {
         do {
-            try await writer.write(data: data)
+            try await abandoningOnCancel { [writer] in try await writer.write(data: data) }
         } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
@@ -56,14 +57,17 @@ public final class ByteStreamWriter: NSObject, Sendable {
     /// - Parameter reason: A textual description of why the stream is being closed. Absense
     ///   of a reason indicates a normal closure.
     /// - Throws: ``StreamError/alreadyClosed`` if the stream is already closed, or another
-    ///   ``StreamError`` if the end of the stream cannot be delivered.
+    ///   ``StreamError`` if the end of the stream cannot be delivered. `CancellationError` at once
+    ///   if the calling task is cancelled, but the stream can still close.
     ///
     public func close(reason: String? = nil) async throws {
         do {
-            if let reason {
-                try await writer.closeWithReason(reason: reason)
-            } else {
-                try await writer.close()
+            try await abandoningOnCancel { [writer] in
+                if let reason {
+                    try await writer.closeWithReason(reason: reason)
+                } else {
+                    try await writer.close()
+                }
             }
         } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)

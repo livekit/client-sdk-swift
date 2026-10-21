@@ -16,6 +16,9 @@
 
 import Foundation
 
+// The async methods are `final`: an `@objc` method in a class extension is otherwise called
+// through `objc_msgSend` and its completion-handler thunk, which runs it in a new task, so a Swift
+// caller's cancellation never reaches it.
 public extension LocalParticipant {
     // MARK: - Send
 
@@ -26,10 +29,11 @@ public extension LocalParticipant {
     ///   - topic: Topic identifier used to route the stream to appropriate handlers.
     /// - Returns: Information about the text stream used during the operation.
     /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
-    ///   connected.
+    ///   connected. `CancellationError` at once if the calling task is cancelled, but the call can
+    ///   still complete.
     ///
     @discardableResult
-    func sendText(_ text: String, for topic: String) async throws -> TextStreamInfo {
+    final func sendText(_ text: String, for topic: String) async throws -> TextStreamInfo {
         try await sendText(text, options: StreamTextOptions(topic: topic))
     }
 
@@ -38,7 +42,7 @@ public extension LocalParticipant {
     /// - SeeAlso: ``sendText(_:for:)``
     ///
     @discardableResult
-    func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
+    final func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
         let room = try requireRoom()
         return try await room.dataStreams.sendText(text, options: options)
     }
@@ -50,13 +54,14 @@ public extension LocalParticipant {
     ///   - topic: Topic identifier used to route the stream to appropriate handlers.
     /// - Returns: Information about the byte stream used during the operation.
     /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
-    ///   connected.
+    ///   connected. `CancellationError` at once if the calling task is cancelled, but the call can
+    ///   still complete.
     ///
     /// For data that is not in memory yet, use ``streamBytes(for:)``. For a file on disk, use
     /// ``sendFile(_:for:)``.
     ///
     @discardableResult
-    func sendBytes(_ data: Data, for topic: String) async throws -> ByteStreamInfo {
+    final func sendBytes(_ data: Data, for topic: String) async throws -> ByteStreamInfo {
         try await sendBytes(data, options: StreamByteOptions(topic: topic))
     }
 
@@ -65,7 +70,7 @@ public extension LocalParticipant {
     /// - SeeAlso: ``sendBytes(_:for:)``
     ///
     @discardableResult
-    func sendBytes(_ data: Data, options: StreamByteOptions) async throws -> ByteStreamInfo {
+    final func sendBytes(_ data: Data, options: StreamByteOptions) async throws -> ByteStreamInfo {
         let room = try requireRoom()
         return try await room.dataStreams.sendBytes(data, options: options)
     }
@@ -77,10 +82,11 @@ public extension LocalParticipant {
     ///   - topic: Topic identifier used to route the stream to appropriate handlers.
     /// - Returns: Information about the byte stream used during the operation.
     /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
-    ///   connected.
+    ///   connected. `CancellationError` at once if the calling task is cancelled, but the call can
+    ///   still complete.
     ///
     @discardableResult
-    func sendFile(_ fileURL: URL, for topic: String) async throws -> ByteStreamInfo {
+    final func sendFile(_ fileURL: URL, for topic: String) async throws -> ByteStreamInfo {
         try await sendFile(fileURL, options: StreamByteOptions(topic: topic))
     }
 
@@ -89,7 +95,7 @@ public extension LocalParticipant {
     /// - SeeAlso: ``sendFile(_:for:)``
     ///
     @discardableResult
-    func sendFile(_ fileURL: URL, options: StreamByteOptions) async throws -> ByteStreamInfo {
+    final func sendFile(_ fileURL: URL, options: StreamByteOptions) async throws -> ByteStreamInfo {
         let room = try requireRoom()
         return try await room.dataStreams.sendFile(fileURL, options: options)
     }
@@ -102,10 +108,11 @@ public extension LocalParticipant {
     ///   - topic: Topic identifier used to route the stream to appropriate handlers.
     /// - Returns: A ``TextStreamWriter`` for sending text.
     /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
-    ///   connected.
+    ///   connected. `CancellationError` at once if the calling task is cancelled, but the call can
+    ///   still complete.
     ///
     @discardableResult
-    func streamText(for topic: String) async throws -> TextStreamWriter {
+    final func streamText(for topic: String) async throws -> TextStreamWriter {
         try await streamText(options: StreamTextOptions(topic: topic))
     }
 
@@ -114,7 +121,7 @@ public extension LocalParticipant {
     /// - SeeAlso: ``streamText(for:)``
     ///
     @discardableResult
-    func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
+    final func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
         let room = try requireRoom()
         return try await room.dataStreams.streamText(options: options)
     }
@@ -125,12 +132,13 @@ public extension LocalParticipant {
     ///   - topic: Topic identifier used to route the stream to appropriate handlers.
     /// - Returns: A ``ByteStreamWriter`` for sending data.
     /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
-    ///   connected.
+    ///   connected. `CancellationError` at once if the calling task is cancelled, but the call can
+    ///   still complete.
     ///
     /// For sending files, use ``sendFile(_:for:)`` instead.
     ///
     @discardableResult
-    func streamBytes(for topic: String) async throws -> ByteStreamWriter {
+    final func streamBytes(for topic: String) async throws -> ByteStreamWriter {
         try await streamBytes(options: StreamByteOptions(topic: topic))
     }
 
@@ -138,7 +146,7 @@ public extension LocalParticipant {
     ///
     /// - SeeAlso: ``streamBytes(for:)``
     ///
-    func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
+    final func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
         let room = try requireRoom()
         return try await room.dataStreams.streamBytes(options: options)
     }

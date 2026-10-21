@@ -203,14 +203,18 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
         try await mappingErrors {
-            let info = try await outgoing().sendText(text: text, options: options.ffi)
+            let outgoing = try outgoing()
+            let options = options.ffi
+            let info = try await abandoningOnCancel { try await outgoing.sendText(text: text, options: options) }
             return TextStreamInfo(info, encryptionType: currentEncryptionType)
         }
     }
 
     func sendBytes(_ data: Data, options: StreamByteOptions) async throws -> ByteStreamInfo {
         try await mappingErrors {
-            let info = try await outgoing().sendBytes(data: data, options: options.ffi)
+            let outgoing = try outgoing()
+            let options = options.ffi
+            let info = try await abandoningOnCancel { try await outgoing.sendBytes(data: data, options: options) }
             return ByteStreamInfo(info, encryptionType: currentEncryptionType)
         }
     }
@@ -233,21 +237,26 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             senderIdentity: nil,
         )
         return try await mappingErrors {
-            let info = try await outgoing().sendFile(path: fileURL.path, options: ffiOptions)
+            let outgoing = try outgoing()
+            let info = try await abandoningOnCancel { try await outgoing.sendFile(path: fileURL.path, options: ffiOptions) }
             return ByteStreamInfo(info, encryptionType: currentEncryptionType)
         }
     }
 
     func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
         try await mappingErrors {
-            let writer = try await outgoing().streamText(options: options.ffi)
+            let outgoing = try outgoing()
+            let options = options.ffi
+            let writer = try await abandoningOnCancel { try await outgoing.streamText(options: options) }
             return TextStreamWriter(writer, encryptionType: currentEncryptionType)
         }
     }
 
     func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
         try await mappingErrors {
-            let writer = try await outgoing().streamBytes(options: options.ffi)
+            let outgoing = try outgoing()
+            let options = options.ffi
+            let writer = try await abandoningOnCancel { try await outgoing.streamBytes(options: options) }
             return ByteStreamWriter(writer, encryptionType: currentEncryptionType)
         }
     }
