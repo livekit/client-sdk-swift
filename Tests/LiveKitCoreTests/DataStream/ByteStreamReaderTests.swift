@@ -137,6 +137,34 @@ struct ByteStreamReaderTests {
         _ = manager
     }
 
+    /// The copy runs in the caller's task, so a cancel ends `writeToFile` at once and the file stops
+    /// growing, rather than an unstructured task finishing the file in the background.
+    @Test func cancellingWriteToFileStops() async throws {
+        let (reader, manager) = try await openReader(chunks: [testChunks[0]], trailerReason: nil)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let fileURL = directory.appendingPathComponent(name)
+
+        let returned = AsyncCompleter<Error?>(label: "Cancelled write returned", defaultTimeout: 5)
+        let write = Task {
+            do {
+                _ = try await reader.writeToFile(in: directory)
+                returned.resume(returning: nil)
+            } catch {
+                returned.resume(returning: error)
+            }
+        }
+        try await poll(for: "the first chunk on disk") {
+            (try? Data(contentsOf: fileURL))?.count == testChunks[0].count
+        }
+        write.cancel()
+
+        #expect(try await returned.wait() is CancellationError)
+        #expect(try Data(contentsOf: fileURL) == testChunks[0])
+        _ = manager
+    }
+
     @Test func info() async throws {
         let (reader, manager) = try await openReader()
         #expect(reader.info.topic == topic)

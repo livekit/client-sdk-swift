@@ -77,7 +77,8 @@ extension ByteStreamReader {
     ///   ``StreamError/invalidFileName`` if the file name is not a single plain path component,
     ///   for example one that contains `/`, `\` or NUL, or is `..`. The sender chooses the name in
     ///   the stream information, so this check keeps the file inside `directory`. Another
-    ///   ``StreamError`` if reading the stream fails.
+    ///   ``StreamError`` if reading the stream fails. `CancellationError` at once if the calling task
+    ///   is cancelled; the file then holds what was written so far.
     ///
     public func writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
@@ -97,15 +98,11 @@ extension ByteStreamReader {
         }
         let fileURL = directory.appendingPathComponent(fileName)
 
-        try await Task {
-            let writer = try AsyncFileStream(writingTo: fileURL)
-            defer { writer.close() }
-
-            for try await chunk in self {
-                try await writer.write(chunk)
-            }
-        }.value
-
+        let writer = try AsyncFileStream(writingTo: fileURL)
+        defer { writer.close() }
+        for try await chunk in self {
+            try await writer.write(chunk)
+        }
         return fileURL
     }
 
