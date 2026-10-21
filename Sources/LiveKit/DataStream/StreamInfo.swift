@@ -119,6 +119,15 @@ extension TextStreamInfo.OperationType {
         @unknown default: self = .create
         }
     }
+
+    var ffiValue: LiveKitFFI.OperationType {
+        switch self {
+        case .create: .create
+        case .update: .update
+        case .delete: .delete
+        case .reaction: .reaction
+        }
+    }
 }
 
 /// Information about a byte data stream.

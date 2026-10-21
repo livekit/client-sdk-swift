@@ -226,3 +226,22 @@ struct OutgoingStreamManagerTests {
         #expect(trailers.first?.streamID == streamID)
     }
 }
+
+// MARK: - Options
+
+extension OutgoingStreamManagerTests {
+    @Test func operationTypeDefaultsToCreate() {
+        #expect(LiveKit.StreamTextOptions(topic: "t").ffi.operationType == .create)
+    }
+
+    @Test(arguments: [
+        (LiveKit.TextStreamInfo.OperationType.create, LiveKitFFI.OperationType.create),
+        (.update, .update),
+        (.delete, .delete),
+        (.reaction, .reaction),
+    ])
+    func operationTypeMapsToFFI(_ operationType: LiveKit.TextStreamInfo.OperationType, _ expected: LiveKitFFI.OperationType) {
+        #expect(operationType.ffiValue == expected)
+        #expect(LiveKit.StreamTextOptions(topic: "t", operationType: operationType).ffi.operationType == expected)
+    }
+}

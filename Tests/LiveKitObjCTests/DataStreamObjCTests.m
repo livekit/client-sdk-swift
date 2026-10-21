@@ -97,6 +97,7 @@
                                                               attributes:@{}
                                                     destinationIdentities:@[]
                                                                       id:nil
+                                                           operationType:TextStreamInfoOperationTypeCreate
                                                                  version:0
                                                        attachedStreamIDs:@[]
                                                          replyToStreamID:nil
@@ -210,6 +211,7 @@
                                                               attributes:@{}
                                                     destinationIdentities:@[]
                                                                       id:nil
+                                                           operationType:TextStreamInfoOperationTypeCreate
                                                                  version:0
                                                        attachedStreamIDs:@[]
                                                          replyToStreamID:nil

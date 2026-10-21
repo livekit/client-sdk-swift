@@ -41,6 +41,10 @@ public final class StreamTextOptions: NSObject, StreamOptions {
     public let destinationIdentities: [Participant.Identity]
     public let id: String?
 
+    /// What the stream does to the message it refers to, for example
+    /// ``TextStreamInfo/OperationType/update`` to edit an earlier one. `.create` by default.
+    public let operationType: TextStreamInfo.OperationType
+
     public let version: Int
     public let attachedStreamIDs: [String]
     public let replyToStreamID: String?
@@ -58,6 +62,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         attributes: [String: String] = [:],
         destinationIdentities: [Participant.Identity] = [],
         id: String? = nil,
+        operationType: TextStreamInfo.OperationType = .create,
         version: Int = 0,
         attachedStreamIDs: [String] = [],
         replyToStreamID: String? = nil,
@@ -67,6 +72,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         self.attributes = attributes
         self.destinationIdentities = destinationIdentities
         self.id = id
+        self.operationType = operationType
         self.version = version
         self.attachedStreamIDs = attachedStreamIDs
         self.replyToStreamID = replyToStreamID
@@ -79,7 +85,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
             attributes: attributes,
             destinationIdentities: destinationIdentities.map(\.stringValue),
             id: id,
-            operationType: nil,
+            operationType: operationType.ffiValue,
             version: Int32(truncatingIfNeeded: version),
             replyToStreamId: replyToStreamID,
             attachedStreamIds: attachedStreamIDs,
