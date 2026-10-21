@@ -40,6 +40,11 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
     /// the stream was read.
     private let receivedLength = StateSync(0)
 
+    /// Runs each read of the core's reader together with its count and end check, one at a time.
+    /// A read that a cancel abandoned keeps running here, so a later read waits until it has
+    /// counted its chunk.
+    private let reads = SerialRunnerActor<String?>()
+
     init(_ reader: any LiveKitFFI.TextStreamReaderProtocol, info: TextStreamInfo) {
         self.reader = reader
         self.info = info
@@ -80,13 +85,15 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
     private func nextChunk() async throws -> String? {
         do {
             // Counted inside the operation, so a chunk that an abandoned read takes still counts.
-            return try await abandoningOnCancel { [reader, receivedLength, declaredLength = info.totalLength] in
-                guard let chunk = try await reader.next() else {
-                    if let error = StreamError(receivedLength: receivedLength.copy(), declaredLength: declaredLength) { throw error }
-                    return nil
+            return try await abandoningOnCancel { [reader, reads, receivedLength, declaredLength = info.totalLength] in
+                try await reads.run {
+                    guard let chunk = try await reader.next() else {
+                        if let error = StreamError(receivedLength: receivedLength.copy(), declaredLength: declaredLength) { throw error }
+                        return nil
+                    }
+                    receivedLength.mutate { $0 += chunk.utf8.count }
+                    return chunk
                 }
-                receivedLength.mutate { $0 += chunk.utf8.count }
-                return chunk
             }
         } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
