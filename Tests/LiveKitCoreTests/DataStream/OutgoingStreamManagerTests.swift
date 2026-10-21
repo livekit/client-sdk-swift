@@ -178,6 +178,18 @@ struct OutgoingStreamManagerTests {
 
     // MARK: - Helpers
 
+    /// A room whose connection sends through `delegate`, so the public API runs end to end with no
+    /// server. The caller keeps the room alive: the local participant holds it weakly.
+    private func room(sendingThrough delegate: some OutgoingDataStreamManagerDelegate) throws -> Room {
+        let room = Room()
+        let connection = ConnectionDependencies(idle: room._state.stage.idle, room: room, roomOptions: RoomOptions())
+        connection.outgoingDataStreams.mutate {
+            $0 = DataStreams.Outgoing(manager: OutgoingDataStreamManager(delegate: delegate, registry: StubRegistry()), delegate: $0.delegate)
+        }
+        try room._state.mutate { try $0.stage.begin(connection) }
+        return room
+    }
+
     private func assertStream(
         _ packets: [Livekit_DataPacket],
         streamID: String,
@@ -293,5 +305,81 @@ extension OutgoingStreamManagerTests {
     ])
     func capabilityMapsToFFI(_ capability: LiveKit.ClientCapability, _ expected: LiveKitFFI.ClientCapability) {
         #expect(capability.ffiValue == expected)
+    }
+
+    /// Every text option reaches the header on the wire and the info the send returns.
+    @Test func textOptionsReachWireAndReturnedInfo() async throws {
+        let delegate = CapturingDelegate()
+        let room = try room(sendingThrough: delegate)
+
+        let info = try await room.localParticipant.sendText("hi", options: LiveKit.StreamTextOptions(
+            topic: "topic",
+            attributes: ["foo": "bar"],
+            destinationIdentities: [Participant.Identity(from: "alice")],
+            id: "explicit-id",
+            operationType: .update,
+            version: 7,
+            attachedStreamIDs: ["att-1"],
+            replyToStreamID: "earlier",
+        ))
+
+        let packet = try #require(delegate.packets.copy().first)
+        guard case let .streamHeader(header) = packet.value, case let .textHeader(textHeader) = header.contentHeader else {
+            Issue.record("The first packet is not a text stream header")
+            return
+        }
+        #expect(packet.destinationIdentities == ["alice"])
+        #expect(header.streamID == "explicit-id")
+        #expect(header.topic == "topic")
+        #expect(header.attributes == ["foo": "bar"])
+        #expect(textHeader.operationType == .update)
+        #expect(textHeader.version == 7)
+        #expect(textHeader.replyToStreamID == "earlier")
+        #expect(textHeader.attachedStreamIds == ["att-1"])
+
+        #expect(info.id == "explicit-id")
+        #expect(info.topic == "topic")
+        #expect(info.attributes == ["foo": "bar"])
+        #expect(info.totalLength == 2)
+        #expect(info.encryptionType == .none)
+        #expect(info.operationType == .update)
+        #expect(info.version == 7)
+        #expect(info.replyToStreamID == "earlier")
+        #expect(info.attachedStreamIDs == ["att-1"])
+    }
+
+    /// Every byte option reaches the header on the wire and the info the send returns.
+    @Test func byteOptionsReachWireAndReturnedInfo() async throws {
+        let delegate = CapturingDelegate()
+        let room = try room(sendingThrough: delegate)
+
+        let info = try await room.localParticipant.sendBytes(Data([1, 2, 3]), options: LiveKit.StreamByteOptions(
+            topic: "topic",
+            attributes: ["k": "v"],
+            id: "bytes-id",
+            mimeType: "image/png",
+            name: "pic.png",
+            totalSize: 3,
+        ))
+
+        let packet = try #require(delegate.packets.copy().first)
+        guard case let .streamHeader(header) = packet.value, case let .byteHeader(byteHeader) = header.contentHeader else {
+            Issue.record("The first packet is not a byte stream header")
+            return
+        }
+        #expect(header.streamID == "bytes-id")
+        #expect(header.topic == "topic")
+        #expect(header.mimeType == "image/png")
+        #expect(byteHeader.name == "pic.png")
+        #expect(header.attributes == ["k": "v"])
+        #expect(header.totalLength == 3)
+
+        #expect(info.id == "bytes-id")
+        #expect(info.topic == "topic")
+        #expect(info.mimeType == "image/png")
+        #expect(info.name == "pic.png")
+        #expect(info.attributes == ["k": "v"])
+        #expect(info.totalLength == 3)
+        #expect(info.encryptionType == .none)
     }
 }
