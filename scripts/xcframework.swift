@@ -286,7 +286,7 @@ private func addPackageDependencies(
     }
 
     let webrtcPkg = try addPkg(url: "https://github.com/livekit/webrtc-xcframework.git", pattern: "webrtc-xcframework")
-    let uniffiPkg = try addPkg(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", pattern: "uniffi-xcframework")
+    let uniffiPkg = try addPkg(url: "https://github.com/livekit/livekit-ffi-xcframework.git", pattern: "livekit/livekit-ffi-xcframework")
     project.remotePackages = [webrtcPkg, uniffiPkg]
 
     return [
@@ -452,7 +452,7 @@ struct BuildXCFramework: AsyncParsableCommand {
         step("Reading binary dependency info...")
         let manifest = try PackageManifest(repoRoot: repoRoot)
         let webrtcDep = try manifest.binaryDep(spmDir: spmDir, pattern: "webrtc-xcframework", xcfw: "LiveKitWebRTC")
-        let uniffiDep = try manifest.binaryDep(spmDir: spmDir, pattern: "uniffi-xcframework", xcfw: "RustLiveKitFFI")
+        let uniffiDep = try manifest.binaryDep(spmDir: spmDir, pattern: "livekit/livekit-ffi-xcframework", xcfw: "RustLiveKitFFI")
         print("  LiveKitWebRTC: \(webrtcDep.url)")
         print("  RustLiveKitFFI: \(uniffiDep.url)")
 
@@ -487,7 +487,7 @@ struct BuildXCFramework: AsyncParsableCommand {
         if let version {
             step("Generating podspec...")
             let webrtcVersion = try manifest.extractVersion(pattern: "webrtc-xcframework")
-            let uniffiVersion = try manifest.extractVersion(pattern: "uniffi-xcframework")
+            let uniffiVersion = try manifest.extractVersion(pattern: "livekit/livekit-ffi-xcframework")
             try generatePodspec(
                 outputDir: outputDir, repoRoot: repoRoot, version: version,
                 webrtcVersion: webrtcVersion, uniffiVersion: uniffiVersion,
