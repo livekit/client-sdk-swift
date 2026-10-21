@@ -61,18 +61,29 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
         fileprivate let reader: LiveKitFFI.TextStreamReader
+        fileprivate var declaredLength: Int?
+        fileprivate var receivedLength = 0
 
         public mutating func next() async throws -> String? {
+            let chunk: String?
             do {
-                return try await abandoningOnCancel { [reader] in try await reader.next() }
+                chunk = try await abandoningOnCancel { [reader] in try await reader.next() }
             } catch let error as LiveKitFFI.DataStreamError {
                 throw StreamError(error)
             }
+            guard let chunk else {
+                // Checked once, so a call after the end returns `nil`.
+                defer { declaredLength = nil }
+                if let error = StreamError(receivedLength: receivedLength, declaredLength: declaredLength) { throw error }
+                return nil
+            }
+            receivedLength += chunk.utf8.count
+            return chunk
         }
     }
 
     public func makeAsyncIterator() -> AsyncChunks {
-        AsyncChunks(reader: reader)
+        AsyncChunks(reader: reader, declaredLength: info.totalLength)
     }
 }
 

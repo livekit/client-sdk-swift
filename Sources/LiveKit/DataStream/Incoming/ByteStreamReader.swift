@@ -53,18 +53,29 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
         fileprivate let reader: LiveKitFFI.ByteStreamReader
+        fileprivate var declaredLength: Int?
+        fileprivate var receivedLength = 0
 
         public mutating func next() async throws -> Data? {
+            let chunk: Data?
             do {
-                return try await abandoningOnCancel { [reader] in try await reader.next() }
+                chunk = try await abandoningOnCancel { [reader] in try await reader.next() }
             } catch let error as LiveKitFFI.DataStreamError {
                 throw StreamError(error)
             }
+            guard let chunk else {
+                // Checked once, so a call after the end returns `nil`.
+                defer { declaredLength = nil }
+                if let error = StreamError(receivedLength: receivedLength, declaredLength: declaredLength) { throw error }
+                return nil
+            }
+            receivedLength += chunk.count
+            return chunk
         }
     }
 
     public func makeAsyncIterator() -> AsyncChunks {
-        AsyncChunks(reader: reader)
+        AsyncChunks(reader: reader, declaredLength: info.totalLength)
     }
 }
 

@@ -124,6 +124,20 @@ extension StreamError: CustomNSError {
     }
 }
 
+// MARK: - Declared length
+
+extension StreamError {
+    /// The error for a stream that ended after `receivedLength` bytes when its header declared
+    /// `declaredLength`, or `nil` when the two agree or nothing was declared.
+    ///
+    /// ponytail: the core checks a chunked stream's length but not an inline one's, so the readers
+    /// call this when a stream ends. Move the check to the core once it validates inline length.
+    init?(receivedLength: Int, declaredLength: Int?) {
+        guard let declaredLength, receivedLength != declaredLength else { return nil }
+        self = receivedLength < declaredLength ? .incomplete : .lengthExceeded
+    }
+}
+
 // MARK: - FFI bridging
 
 extension StreamError {

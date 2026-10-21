@@ -295,6 +295,7 @@ struct IncomingStreamManagerTests: Sendable {
         totalLength: UInt64? = nil,
         encryptionType: EncryptionType = .none,
         topic: String? = nil,
+        inlineContent: Data? = nil,
     ) {
         let header = Livekit_DataStream.Header.with {
             $0.streamID = streamID
@@ -303,6 +304,7 @@ struct IncomingStreamManagerTests: Sendable {
                 ? .byteHeader(Livekit_DataStream.ByteHeader())
                 : .textHeader(Livekit_DataStream.TextHeader())
             if let totalLength { $0.totalLength = totalLength }
+            if let inlineContent { $0.inlineContent = inlineContent }
         }
         feed(encryptionType: encryptionType) { $0.streamHeader = header }
     }
