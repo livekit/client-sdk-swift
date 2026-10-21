@@ -74,6 +74,27 @@ extension ByteStreamReaderTests {
         #expect(rest.count >= 2 * chunk.count)
     }
 
+    /// A chunk that a cancelled read took still counts toward the length the header declared, so
+    /// the stream completes when a later read reaches its end.
+    @Test func cancelledReadKeepsLengthCount() async throws {
+        let entered = AsyncCompleter<Void>(label: "Read entered the core", defaultTimeout: 5)
+        let (reader, manager) = try await openReader(chunks: [], trailerReason: nil, totalLength: 8, entered: entered)
+
+        let read = Task {
+            var chunks = reader.makeAsyncIterator()
+            return try await chunks.next()
+        }
+        try await entered.wait()
+        read.cancel()
+        let error = try await within("Cancelled next") { await read.result.failure }
+        #expect(error is CancellationError)
+
+        feed(manager, streamID: reader.info.id, chunks: [Data("abcd".utf8), Data("efgh".utf8)], trailer: true)
+
+        let rest = try await within("The rest of the stream") { try await reader.readAll() }
+        #expect(rest.count == 4)
+    }
+
     /// A read cancelled while it waits in the core leaves no stream open once the stream ends.
     @Test func cancelledReadLeavesNoOpenStream() async throws {
         let entered = AsyncCompleter<Void>(label: "Read entered the core", defaultTimeout: 5)

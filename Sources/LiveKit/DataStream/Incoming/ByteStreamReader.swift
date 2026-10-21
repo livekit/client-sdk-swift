@@ -27,6 +27,11 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// The core's reader, by its protocol so a test can stand in for it.
     private let reader: any LiveKitFFI.ByteStreamReaderProtocol
 
+    /// Bytes the core has handed over so far, through any iterator, `readAll()`, or a read that a
+    /// cancel abandoned. One count per stream, so the length check at its end holds however the
+    /// stream was read.
+    private let receivedLength = StateSync(0)
+
     init(_ reader: any LiveKitFFI.ByteStreamReaderProtocol, info: ByteStreamInfo) {
         self.reader = reader
         self.info = info
@@ -53,30 +58,31 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
 
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
-        fileprivate let reader: any LiveKitFFI.ByteStreamReaderProtocol
-        fileprivate var declaredLength: Int?
-        fileprivate var receivedLength = 0
+        fileprivate let stream: ByteStreamReader
 
         public mutating func next() async throws -> Data? {
-            let chunk: Data?
-            do {
-                chunk = try await abandoningOnCancel { [reader] in try await reader.next() }
-            } catch let error as LiveKitFFI.DataStreamError {
-                throw StreamError(error)
-            }
-            guard let chunk else {
-                // Checked once, so a call after the end returns `nil`.
-                defer { declaredLength = nil }
-                if let error = StreamError(receivedLength: receivedLength, declaredLength: declaredLength) { throw error }
-                return nil
-            }
-            receivedLength += chunk.count
-            return chunk
+            try await stream.nextChunk()
         }
     }
 
     public func makeAsyncIterator() -> AsyncChunks {
-        AsyncChunks(reader: reader, declaredLength: info.totalLength)
+        AsyncChunks(stream: self)
+    }
+
+    private func nextChunk() async throws -> Data? {
+        do {
+            // Counted inside the operation, so a chunk that an abandoned read takes still counts.
+            return try await abandoningOnCancel { [reader, receivedLength, declaredLength = info.totalLength] in
+                guard let chunk = try await reader.next() else {
+                    if let error = StreamError(receivedLength: receivedLength.copy(), declaredLength: declaredLength) { throw error }
+                    return nil
+                }
+                receivedLength.mutate { $0 += chunk.count }
+                return chunk
+            }
+        } catch let error as LiveKitFFI.DataStreamError {
+            throw StreamError(error)
+        }
     }
 }
 
