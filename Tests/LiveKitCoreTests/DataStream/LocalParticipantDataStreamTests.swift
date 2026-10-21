@@ -161,8 +161,88 @@ struct LocalParticipantDataStreamTests {
         }
     }
 
-    // MARK: - Attachments
+    // MARK: - Helpers
 
+    /// A room whose connection sends through `delegate`, so the public API runs end to end with no
+    /// server. The room's own registry reports its remote participants. The caller keeps the room
+    /// alive: the local participant holds it weakly.
+    private func room(sendingThrough delegate: some OutgoingDataStreamManagerDelegate) throws -> Room {
+        let room = Room()
+        let connection = ConnectionDependencies(idle: room._state.stage.idle, room: room, roomOptions: RoomOptions())
+        connection.outgoingDataStreams.mutate {
+            $0 = DataStreams.Outgoing(manager: OutgoingDataStreamManager(delegate: delegate, registry: DataStreams.Registry(room: room)), delegate: $0.delegate)
+        }
+        try room._state.mutate { try $0.stage.begin(connection) }
+        return room
+    }
+
+    /// Adds remote participants to `room` with the given protocol and capabilities, as a participant
+    /// update from the server would.
+    private func install(in room: Room, _ remotes: [String: (ClientProtocol, [Livekit_ClientInfo_Capability])]) {
+        let participants = remotes.map { identity, remote in
+            let info = Livekit_ParticipantInfo.with {
+                $0.identity = identity
+                $0.sid = "PA_\(identity)"
+                $0.clientProtocol = Int32(remote.0.rawValue)
+                $0.capabilities = remote.1
+            }
+            return RemoteParticipant(info: info, room: room, connectionState: .connected)
+        }
+        room._state.mutate {
+            for participant in participants {
+                if let identity = participant.identity { $0.remoteParticipants[identity] = participant }
+            }
+        }
+    }
+}
+
+// MARK: - Recipient eligibility
+
+extension LocalParticipantDataStreamTests {
+    struct EligibilityCase: Sendable, CustomTestStringConvertible {
+        let testDescription: String
+        /// Empty for a broadcast to the room: a v1 participant, a v2 one that decompresses, and a
+        /// v2 one that does not.
+        var destinations: [String] = []
+        var compress = true
+        let isInline: Bool
+        let isCompressed: Bool
+    }
+
+    static let eligibilityCases = [
+        EligibilityCase(testDescription: "broadcast to v1 and v2", isInline: false, isCompressed: false),
+        EligibilityCase(testDescription: "v2 recipient", destinations: ["v2"], isInline: true, isCompressed: true),
+        EligibilityCase(testDescription: "v2 recipient, compression off", destinations: ["v2"], compress: false,
+                        isInline: true, isCompressed: false),
+        EligibilityCase(testDescription: "v2 recipient without compression", destinations: ["v2", "v2-plain"],
+                        isInline: true, isCompressed: false),
+        EligibilityCase(testDescription: "v1 recipient", destinations: ["v2", "v1"], isInline: false, isCompressed: false),
+        EligibilityCase(testDescription: "unknown recipient", destinations: ["v2", "unknown"], isInline: false, isCompressed: false),
+    ]
+
+    /// The room reports each remote participant's protocol and capabilities, so the core picks a
+    /// framing every recipient can read. An identity the room does not know reads as legacy.
+    @Test(arguments: eligibilityCases)
+    func framingFollowsRecipients(_ c: EligibilityCase) async throws {
+        let delegate = OutgoingStreamManagerTests.CapturingDelegate()
+        let room = try room(sendingThrough: delegate)
+        install(in: room, ["v1": (.v1, []), "v2": (.v2, [.capCompressionDeflateRaw]), "v2-plain": (.v2, [])])
+
+        let options = LiveKit.StreamTextOptions(topic: "topic", destinationIdentities: c.destinations.map { Participant.Identity(from: $0) }, compress: c.compress)
+        _ = try await room.localParticipant.sendText(String(repeating: "a", count: 2000), options: options)
+
+        guard case let .streamHeader(header) = delegate.packets.copy().first?.value else {
+            Issue.record("The first packet is not a stream header")
+            return
+        }
+        #expect(header.hasInlineContent == c.isInline)
+        #expect(header.compression.rawValue == (c.isCompressed ? Livekit_DataStream_CompressionType.deflateRaw : .none).rawValue)
+    }
+}
+
+// MARK: - Attachments
+
+extension LocalParticipantDataStreamTests {
     /// The text goes first and lists one stream ID per file. Each file then arrives as a byte stream
     /// with its ID, on the text's topic, with the file's content.
     @Test func attachmentsArriveWithTheirIDs() async throws {
@@ -192,8 +272,53 @@ struct LocalParticipantDataStreamTests {
         }
     }
 
-    // MARK: - Cancellation
+    /// Reads every stream that opens on an incoming manager to the end, and records the order in
+    /// which they opened.
+    private final class Collector: IncomingDataStreamManagerDelegate, @unchecked Sendable {
+        let order = StateSync<[String]>([])
+        let texts = StateSync<[(info: LiveKit.TextStreamInfo, content: String)]>([])
+        let files = StateSync<[(info: LiveKit.ByteStreamInfo, content: Data)]>([])
 
+        func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
+            let reader = LiveKit.TextStreamReader(reader, info: LiveKit.TextStreamInfo(reader.info(), encryptionType: .none))
+            order.mutate { $0.append(reader.info.id) }
+            Task { [texts] in
+                guard let content = try? await reader.readAll() else { return }
+                texts.mutate { $0.append((reader.info, content)) }
+            }
+        }
+
+        func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
+            let reader = LiveKit.ByteStreamReader(reader, info: LiveKit.ByteStreamInfo(reader.info(), encryptionType: .none))
+            order.mutate { $0.append(reader.info.id) }
+            Task { [files] in
+                guard let content = try? await reader.readAll() else { return }
+                files.mutate { $0.append((reader.info, content)) }
+            }
+        }
+
+        func onStreamClosed(streamId _: String, identity _: String) {}
+    }
+
+    /// Hands every packet straight to an incoming manager that reports to `collector`.
+    private final class Forwarder: OutgoingDataStreamManagerDelegate, @unchecked Sendable {
+        private let incoming: IncomingDataStreamManager
+
+        init(to collector: Collector) {
+            incoming = IncomingDataStreamManager(delegate: collector, maxPayloadByteLength: nil)
+        }
+
+        func onPacketsAvailable(packets: [Data]) {
+            for packet in packets {
+                incoming.handlePacketReceived(packet: packet, encryptionType: .none)
+            }
+        }
+    }
+}
+
+// MARK: - Cancellation
+
+extension LocalParticipantDataStreamTests {
     enum BlockedCall: CaseIterable {
         case sendText, sendBytes, sendFile, openStream, write, close
     }
@@ -253,62 +378,5 @@ struct LocalParticipantDataStreamTests {
         task.cancel()
 
         #expect(try await returned.wait() is CancellationError)
-    }
-
-    // MARK: - Helpers
-
-    /// Reads every stream that opens on an incoming manager to the end, and records the order in
-    /// which they opened.
-    private final class Collector: IncomingDataStreamManagerDelegate, @unchecked Sendable {
-        let order = StateSync<[String]>([])
-        let texts = StateSync<[(info: LiveKit.TextStreamInfo, content: String)]>([])
-        let files = StateSync<[(info: LiveKit.ByteStreamInfo, content: Data)]>([])
-
-        func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
-            let reader = LiveKit.TextStreamReader(reader, info: LiveKit.TextStreamInfo(reader.info(), encryptionType: .none))
-            order.mutate { $0.append(reader.info.id) }
-            Task { [texts] in
-                guard let content = try? await reader.readAll() else { return }
-                texts.mutate { $0.append((reader.info, content)) }
-            }
-        }
-
-        func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
-            let reader = LiveKit.ByteStreamReader(reader, info: LiveKit.ByteStreamInfo(reader.info(), encryptionType: .none))
-            order.mutate { $0.append(reader.info.id) }
-            Task { [files] in
-                guard let content = try? await reader.readAll() else { return }
-                files.mutate { $0.append((reader.info, content)) }
-            }
-        }
-
-        func onStreamClosed(streamId _: String, identity _: String) {}
-    }
-
-    /// Hands every packet straight to an incoming manager that reports to `collector`.
-    private final class Forwarder: OutgoingDataStreamManagerDelegate, @unchecked Sendable {
-        private let incoming: IncomingDataStreamManager
-
-        init(to collector: Collector) {
-            incoming = IncomingDataStreamManager(delegate: collector, maxPayloadByteLength: nil)
-        }
-
-        func onPacketsAvailable(packets: [Data]) {
-            for packet in packets {
-                incoming.handlePacketReceived(packet: packet, encryptionType: .none)
-            }
-        }
-    }
-
-    /// A room whose connection sends through `delegate`, so the public API runs end to end with no
-    /// server. The caller keeps the room alive: the local participant holds it weakly.
-    private func room(sendingThrough delegate: some OutgoingDataStreamManagerDelegate) throws -> Room {
-        let room = Room()
-        let connection = ConnectionDependencies(idle: room._state.stage.idle, room: room, roomOptions: RoomOptions())
-        connection.outgoingDataStreams.mutate {
-            $0 = DataStreams.Outgoing(manager: OutgoingDataStreamManager(delegate: delegate, registry: OutgoingStreamManagerTests.StubRegistry()), delegate: $0.delegate)
-        }
-        try room._state.mutate { try $0.stage.begin(connection) }
-        return room
     }
 }
