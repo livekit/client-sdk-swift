@@ -307,28 +307,32 @@ struct RpcClientTests {
         }
     }
 
-    /// The ack and the response arrive while the request stream is still being published. The
-    /// pending call is registered before the publish starts, so it still matches.
+    /// The ack and the response arrive while the request stream is still being published: the
+    /// mocked channel handles them before the header's send returns. The pending call is registered
+    /// before the publish starts, so it still matches.
     @Test func v2ResponseArrivesDuringPublish() async throws {
         try await TestEnvironment.withRoom { room in
             let destination = Participant.Identity(from: "v2-destination")
             try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v2)
-            let injected = StateSync(false)
+            let responded = StateSync(false)
 
-            room.publisherDataChannel = MockDataChannelPair { [weak room] packet in
+            room.publisherDataChannel = AwaitingDataChannelPair { [weak room] packet in
                 guard let room, case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request,
-                      let requestId = header.attributes[RpcStreamAttribute.requestId],
-                      injected.mutate({ isInjected in defer { isInjected = true }; return !isInjected })
-                else { return }
-                Task {
-                    await room.rpcClient.handleIncomingAck(requestId: requestId)
-                    let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "during")
-                    await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
-                }
+                      let requestId = header.attributes[RpcStreamAttribute.requestId] else { return }
+                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "during")
+                await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
+                responded.mutate { $0 = true }
+            }
+            // Runs once the publish has returned.
+            let respondedBeforePublishEnded = StateSync<Bool?>(nil)
+            await room.rpcClient.setAfterPublish { _ in
+                respondedBeforePublishEnded.mutate { $0 = responded.copy() }
             }
 
             let response = try await room.localParticipant.performRpc(destinationIdentity: destination, method: "midflight", payload: "p")
             #expect(response == "during")
+            #expect(respondedBeforePublishEnded.copy() == true)
             #expect(await room.rpcClient.pendingCount == 0)
         }
     }
@@ -1103,6 +1107,21 @@ struct StubTextStreamReader: TextStreamReading {
 
     func readAll() async throws -> String {
         try result.get()
+    }
+}
+
+/// A mocked data channel whose send waits for `onSend`, so whatever a packet triggers finishes
+/// before the publish that sent it does.
+private final class AwaitingDataChannelPair: MockDataChannelPair, @unchecked Sendable {
+    private let onSend: @Sendable (Livekit_DataPacket) async -> Void
+
+    init(onSend: @escaping @Sendable (Livekit_DataPacket) async -> Void) {
+        self.onSend = onSend
+        super.init { _ in }
+    }
+
+    override func send(dataPacket packet: Livekit_DataPacket) async throws {
+        await onSend(packet)
     }
 }
 
