@@ -278,6 +278,88 @@ struct RpcClientTests {
         }
     }
 
+    // MARK: - v2 caller timing
+
+    /// A v2 remote that acks and responds the moment the request is published resolves the call
+    /// and leaves nothing pending, so a second call works and gets a fresh request ID.
+    @Test func v2ResponseImmediatelyAfterPublish() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v2)
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+            let requestIds = TestStringCollector()
+
+            await room.rpcClient.setAfterPublish { requestId in
+                await requestIds.append(requestId)
+                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "response-\(requestId)")
+                await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
+            }
+
+            let first = try await room.localParticipant.performRpc(destinationIdentity: destination, method: "fast", payload: "p1")
+            let second = try await room.localParticipant.performRpc(destinationIdentity: destination, method: "fast", payload: "p2")
+
+            let ids = await requestIds.values
+            #expect(ids.count == 2)
+            #expect(Set(ids).count == 2)
+            #expect([first, second] == ids.map { "response-\($0)" })
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
+    /// The ack and the response arrive while the request stream is still being published. The
+    /// pending call is registered before the publish starts, so it still matches.
+    @Test func v2ResponseArrivesDuringPublish() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v2)
+            let injected = StateSync(false)
+
+            room.publisherDataChannel = MockDataChannelPair { [weak room] packet in
+                guard let room, case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request,
+                      let requestId = header.attributes[RpcStreamAttribute.requestId],
+                      injected.mutate({ isInjected in defer { isInjected = true }; return !isInjected })
+                else { return }
+                Task {
+                    await room.rpcClient.handleIncomingAck(requestId: requestId)
+                    let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "during")
+                    await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
+                }
+            }
+
+            let response = try await room.localParticipant.performRpc(destinationIdentity: destination, method: "midflight", payload: "p")
+            #expect(response == "during")
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
+    /// An ack and response that arrive after the ack watchdog failed the call with
+    /// `connectionTimeout` change nothing: the call keeps that error and nothing is left pending.
+    @Test func v2LateAckAfterConnectionTimeoutIsIgnored() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v2)
+            room.publisherDataChannel = MockDataChannelPair { _ in }
+            let requestIds = TestStringCollector()
+
+            await room.rpcClient.setAfterPublish { requestId in
+                await requestIds.append(requestId)
+                await room.rpcClient.fireAckTimeoutIfPending(requestId: requestId)
+            }
+
+            let error = try #require(await #expect(throws: RpcError.self) {
+                _ = try await room.localParticipant.performRpc(destinationIdentity: destination, method: "late", payload: "p")
+            })
+            #expect(error.code == RpcError.BuiltInError.connectionTimeout.code)
+
+            let requestId = try #require(await requestIds.values.first)
+            await room.rpcClient.handleIncomingAck(requestId: requestId)
+            let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "too-late")
+            await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
     // MARK: - v2 caller-side wire-format & state-machine internals
 
     /// Caller times out waiting for the response. With `responseTimeout < maxRoundTripLatency`,
