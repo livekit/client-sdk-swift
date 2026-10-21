@@ -74,7 +74,7 @@ extension ByteStreamReader {
     ///                   inferred from the stream information.
     /// - Returns: The URL of the written file on disk.
     /// - Throws: ``StreamError/notDirectory`` if `directory` is not a directory.
-    ///   ``StreamError/fileInfoUnavailable`` if the file name is not a single plain path component,
+    ///   ``StreamError/invalidFileName`` if the file name is not a single plain path component,
     ///   for example one that contains `/`, `\` or NUL, or is `..`. The sender chooses the name in
     ///   the stream information, so this check keeps the file inside `directory`. Another
     ///   ``StreamError`` if reading the stream fails.
@@ -93,7 +93,7 @@ extension ByteStreamReader {
             mimeType: info.mimeType,
         )
         guard Self.isPlainFileName(preferredName ?? info.id), Self.isPlainFileName(fileName) else {
-            throw StreamError.fileInfoUnavailable
+            throw StreamError.invalidFileName
         }
         let fileURL = directory.appendingPathComponent(fileName)
 

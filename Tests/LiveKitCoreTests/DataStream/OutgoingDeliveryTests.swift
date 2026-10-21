@@ -40,7 +40,9 @@ struct OutgoingDeliveryTests {
 
             await sender.disconnect()
 
-            await #expect(throws: StreamError.terminated) {
+            // The disconnect released the manager that served the stream, so the core reports
+            // its closed request channel rather than a failed send.
+            await #expect(throws: StreamError.internalError) {
                 try await writer.write(Data(repeating: 0x02, count: 1024))
             }
             isOpen = await writer.isOpen

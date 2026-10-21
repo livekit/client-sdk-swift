@@ -169,7 +169,7 @@ struct OutgoingStreamManagerTests {
         let writer = LiveKit.TextStreamWriter(ffiWriter, encryptionType: .none)
 
         delegate.failsDelivery.mutate { $0 = true }
-        await #expect(throws: StreamError.terminated) {
+        await #expect(throws: StreamError.sendFailed) {
             try await writer.write("hello")
         }
         let isOpen = await writer.isOpen

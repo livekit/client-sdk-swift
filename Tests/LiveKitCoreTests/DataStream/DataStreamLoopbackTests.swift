@@ -91,7 +91,7 @@ struct DataStreamLoopbackTests {
 
         _ = try await outgoing.sendText(text: Self.repetitive(5000), options: LiveKitFFI.StreamTextOptions(topic: "loopback", attributes: [:]))
 
-        await #expect(throws: StreamError.lengthExceeded) {
+        await #expect(throws: StreamError.payloadTooLarge) {
             try await loopback.receiver.read.wait()
         }
     }

@@ -237,7 +237,7 @@ struct ByteStreamReaderTests {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: parent) }
 
-        await #expect(throws: StreamError.fileInfoUnavailable) {
+        await #expect(throws: StreamError.invalidFileName) {
             _ = try await write(directory)
         }
         #expect(try FileManager.default.contentsOfDirectory(atPath: parent.path) == ["target"])

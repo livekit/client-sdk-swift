@@ -95,15 +95,18 @@ struct IncomingStreamManagerTests: Sendable {
     }
 
     @Test func nonTextData() async throws {
-        // A text stream carrying non-UTF-8 bytes surfaces `.decodeFailed` when read.
+        // A text stream carrying non-UTF-8 bytes surfaces `.invalidUTF8` with the decoder's detail.
         let rawPayload = Data(repeating: 0xAB, count: 128)
 
         let read = try readingTextStreams()
         await feedTextStream(rawPayload: rawPayload)
 
-        await #expect(throws: StreamError.decodeFailed) {
-            try await read.wait()
+        let error = try #require(await #expect(throws: StreamError.self) { try await read.wait() })
+        guard case let .invalidUTF8(reason) = error else {
+            Issue.record("Expected .invalidUTF8, got \(error)")
+            return
         }
+        #expect(!reason.isEmpty)
     }
 
     @Test func abnormalClosure() async throws {

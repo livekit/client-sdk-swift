@@ -39,8 +39,9 @@ public final class TextStreamWriter: NSObject, Sendable {
     /// Write text to the stream.
     ///
     /// - Parameter text: Text to be sent.
-    /// - Throws: ``StreamError/terminated`` if the stream is closed, or the text cannot be
-    ///   delivered, for example because the room disconnected. Then ``isOpen`` is `false`.
+    /// - Throws: ``StreamError/alreadyClosed`` if the stream is closed, or
+    ///   ``StreamError/sendFailed`` or another ``StreamError`` if the text cannot be delivered, for
+    ///   example because the room disconnected. Then ``isOpen`` is `false`.
     ///
     public func write(_ text: String) async throws {
         do {
@@ -54,8 +55,8 @@ public final class TextStreamWriter: NSObject, Sendable {
     ///
     /// - Parameter reason: A textual description of why the stream is being closed. Absense
     ///   of a reason indicates a normal closure.
-    /// - Throws: ``StreamError/terminated`` if the stream is already closed, or the end of the
-    ///   stream cannot be delivered.
+    /// - Throws: ``StreamError/alreadyClosed`` if the stream is already closed, or another
+    ///   ``StreamError`` if the end of the stream cannot be delivered.
     ///
     public func close(reason: String? = nil) async throws {
         do {

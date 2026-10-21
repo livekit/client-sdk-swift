@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Foundation
+
 internal import LiveKitFFI
 
 public enum StreamError: Error, Equatable {
@@ -22,23 +24,22 @@ public enum StreamError: Error, Equatable {
     /// - Note: Not thrown since data streams moved to the Rust core. Kept for source compatibility.
     case alreadyOpened
 
-    /// The stream ended abnormally: the sender closed it with `reason`, the connection closed while
-    /// it was open, or a file operation failed.
+    /// The stream ended abnormally: the sender closed it with `reason`, or the connection closed
+    /// while it was open.
     case abnormalEnd(reason: String)
 
-    /// Incoming data could not be decoded: text that is not valid UTF-8, or a compressed payload
-    /// that does not decompress.
+    /// A compressed payload did not decompress. Text that is not valid UTF-8 throws
+    /// ``invalidUTF8(reason:)``.
     case decodeFailed
 
-    /// The stream exceeded the length in its header, the cap set by
-    /// ``DataStreamOptions/maxPayloadByteLength``, or the size a header or packet can carry.
+    /// The stream carried more data than the length in its header. A header or a payload over a
+    /// size limit throws ``headerTooLarge`` or ``payloadTooLarge``.
     case lengthExceeded
 
     /// Read length less than total length specified in stream header.
     case incomplete
 
-    /// The stream failed for a reason that no other case covers: it is already closed, a chunk
-    /// was missing or malformed, a send could not be delivered, or the file name was invalid.
+    /// The stream failed for a reason that this version of the SDK does not know.
     case terminated
 
     /// Cannot perform operations on an unknown stream.
@@ -52,33 +53,102 @@ public enum StreamError: Error, Equatable {
     /// Given destination URL is not a directory.
     case notDirectory
 
-    /// Unable to read information about the file to send, or the name of a file to write is not a
-    /// single plain path component.
+    /// Unable to read information about the file to send.
     case fileInfoUnavailable
 
     /// Encryption type mismatch between stream header and chunk/trailer.
     case encryptionTypeMismatch(expected: EncryptionType, received: EncryptionType)
+
+    /// The header of an outgoing stream is too large to send. The header travels in one packet, so
+    /// its topic, attributes and other fields together must fit in that packet.
+    case headerTooLarge
+
+    /// An incoming stream's payload is larger than ``DataStreamOptions/maxPayloadByteLength``.
+    case payloadTooLarge
+
+    /// Incoming text is not valid UTF-8. `reason` is the decoder's description of the error.
+    case invalidUTF8(reason: String)
+
+    /// The header of an incoming stream could not be read.
+    case invalidHeader
+
+    /// A chunk of an incoming stream is missing, so the stream cannot continue.
+    case missedChunk
+
+    /// The stream is already closed.
+    case alreadyClosed
+
+    /// A packet of the stream could not be sent, for example because the room disconnected.
+    case sendFailed
+
+    /// A file name is not a single plain path component, for example one that contains `/`.
+    case invalidFileName
+
+    /// Reading or writing a file failed. `reason` describes the error.
+    case io(reason: String)
+
+    /// The SDK could not process the stream, for example because the connection the stream was
+    /// opened on has ended.
+    case internalError
+}
+
+// MARK: - Objective-C error codes
+
+extension StreamError: CustomNSError {
+    /// The `NSError` code. Pinned per case because the default code depends on the order and on
+    /// which cases carry a payload, so a new case would change the codes of the existing ones.
+    public var errorCode: Int {
+        switch self {
+        case .abnormalEnd: 0
+        case .encryptionTypeMismatch: 1
+        case .alreadyOpened: 2
+        case .decodeFailed: 3
+        case .lengthExceeded: 4
+        case .incomplete: 5
+        case .terminated: 6
+        case .unknownStream: 7
+        case .handlerAlreadyRegistered: 8
+        case .notDirectory: 9
+        case .fileInfoUnavailable: 10
+        case .headerTooLarge: 11
+        case .payloadTooLarge: 12
+        case .invalidUTF8: 13
+        case .invalidHeader: 14
+        case .missedChunk: 15
+        case .alreadyClosed: 16
+        case .sendFailed: 17
+        case .invalidFileName: 18
+        case .io: 19
+        case .internalError: 20
+        }
+    }
 }
 
 // MARK: - FFI bridging
 
 extension StreamError {
-    /// Best-effort mapping from the UniFFI error onto the public case set. The public enum predates
-    /// the FFI core and doesn't cover every Rust case, so several map onto the closest public case
-    /// (message-carrying cases preserve the underlying message via `abnormalEnd`).
+    // Maps each UniFFI error onto its own public case, keeping the message where the FFI carries
+    // one.
+    // swiftlint:disable:next cyclomatic_complexity
     init(_ ffi: LiveKitFFI.DataStreamError) {
-        switch ffi {
-        case let .AbnormalEnd(message): self = .abnormalEnd(reason: message)
-        case let .Io(message): self = .abnormalEnd(reason: message)
-        case .Utf8, .Decompression: self = .decodeFailed
-        case .LengthExceeded, .HeaderTooLarge, .PayloadTooLarge: self = .lengthExceeded
-        case .Incomplete: self = .incomplete
+        self = switch ffi {
+        case let .AbnormalEnd(reason): .abnormalEnd(reason: reason)
+        case let .Utf8(reason): .invalidUTF8(reason: reason)
+        case .Decompression: .decodeFailed
+        case .LengthExceeded: .lengthExceeded
+        case .HeaderTooLarge: .headerTooLarge
+        case .PayloadTooLarge: .payloadTooLarge
+        case .Incomplete: .incomplete
         case let .EncryptionTypeMismatch(expected, received):
-            self = .encryptionTypeMismatch(expected: EncryptionType(expected), received: EncryptionType(received))
-        case .AlreadyClosed, .InvalidHeader, .MissedChunk, .SendFailed, .Internal, .InvalidFileName:
-            self = .terminated
-        @unknown default:
-            self = .terminated
+            .encryptionTypeMismatch(expected: EncryptionType(expected), received: EncryptionType(received))
+        case .InvalidHeader: .invalidHeader
+        case .MissedChunk: .missedChunk
+        case .AlreadyClosed: .alreadyClosed
+        case .SendFailed: .sendFailed
+        case .InvalidFileName: .invalidFileName
+        case let .Io(reason): .io(reason: reason)
+        case .Internal: .internalError
+        @unknown default: .terminated
         }
     }
 }
