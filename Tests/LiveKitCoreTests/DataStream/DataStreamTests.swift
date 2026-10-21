@@ -149,6 +149,51 @@ struct DataStreamTests {
         }
     }
 
+    /// A large, compressible payload between two v2 rooms: the sender compresses it into chunks,
+    /// and the receiver reads back exactly what was sent.
+    @Test(arguments: ByteMethod.allCases + [nil])
+    func largeCompressiblePayloadArrives(via method: ByteMethod?) async throws {
+        let text = String(repeating: "compress me, please. ", count: 15000)
+        let payload = Data(text.utf8)
+        let received = AsyncCompleter<Data>(label: "Large payload received", defaultTimeout: 30)
+
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let (receiver, sender) = (rooms[0], rooms[1])
+            try await receiver.registerTextStreamHandler(for: "large") { reader, _ in
+                do {
+                    try await received.resume(returning: Data(reader.readAll().utf8))
+                } catch {
+                    received.resume(throwing: error)
+                }
+            }
+            try await receiver.registerByteStreamHandler(for: "large") { reader, _ in
+                do {
+                    try await received.resume(returning: reader.readAll())
+                } catch {
+                    received.resume(throwing: error)
+                }
+            }
+
+            switch method {
+            case nil:
+                try await sender.localParticipant.sendText(text, for: "large")
+            case .sendBytes:
+                try await sender.localParticipant.sendBytes(payload, for: "large")
+            case .sendFile:
+                let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).txt")
+                try payload.write(to: fileURL)
+                defer { try? FileManager.default.removeItem(at: fileURL) }
+                try await sender.localParticipant.sendFile(fileURL, for: "large")
+            case .stream:
+                let writer = try await sender.localParticipant.streamBytes(for: "large")
+                try await writer.write(payload)
+                try await writer.close()
+            }
+
+            #expect(try await received.wait() == payload)
+        }
+    }
+
     enum ReservedRegisterOp: CaseIterable, CustomTestStringConvertible {
         case text
         case byte
