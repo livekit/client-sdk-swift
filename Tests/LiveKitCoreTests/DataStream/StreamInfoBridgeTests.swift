@@ -39,7 +39,7 @@ struct StreamInfoBridgeTests {
             timestampMs: 100_000,
             totalLength: totalLength,
             attributes: ["key": "value"],
-            mimeType: "text/plain",
+            mimeType: "text/markdown",
             operationType: operationType,
             version: 10,
             replyToStreamId: replyToStreamId,
@@ -58,6 +58,7 @@ struct StreamInfoBridgeTests {
         #expect(info.timestamp == Date(timeIntervalSince1970: 100))
         #expect(info.totalLength == 128)
         #expect(info.attributes == ["key": "value"])
+        #expect(info.mimeType == "text/markdown")
         #expect(info.operationType == .create)
         #expect(info.version == 10)
         #expect(info.replyToStreamID == "replyID")

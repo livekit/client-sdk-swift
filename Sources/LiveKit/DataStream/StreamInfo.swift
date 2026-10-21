@@ -64,6 +64,9 @@ public final class TextStreamInfo: NSObject, StreamInfo {
     public let attachedStreamIDs: [String]
     public let generated: Bool
 
+    /// The MIME type the sender declared for the text. `text/plain` unless the sender set another.
+    public let mimeType: String
+
     init(
         id: String,
         topic: String,
@@ -71,6 +74,7 @@ public final class TextStreamInfo: NSObject, StreamInfo {
         totalLength: Int?,
         attributes: [String: String],
         encryptionType: EncryptionType,
+        mimeType: String,
         operationType: OperationType,
         version: Int,
         replyToStreamID: String?,
@@ -83,6 +87,7 @@ public final class TextStreamInfo: NSObject, StreamInfo {
         self.totalLength = totalLength
         self.attributes = attributes
         self.encryptionType = encryptionType
+        self.mimeType = mimeType
         self.operationType = operationType
         self.version = version
         self.replyToStreamID = replyToStreamID
@@ -98,6 +103,7 @@ public final class TextStreamInfo: NSObject, StreamInfo {
             totalLength: ffi.totalLength.flatMap { Int(exactly: $0) },
             attributes: ffi.attributes,
             encryptionType: encryptionType,
+            mimeType: ffi.mimeType,
             operationType: OperationType(ffi.operationType),
             version: Int(ffi.version),
             replyToStreamID: ffi.replyToStreamId,

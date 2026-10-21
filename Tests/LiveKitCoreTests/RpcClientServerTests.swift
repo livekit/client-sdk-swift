@@ -960,6 +960,7 @@ struct StubTextStreamReader: TextStreamReading {
             totalLength: nil,
             attributes: attributes,
             encryptionType: .none,
+            mimeType: "text/plain",
             operationType: .create,
             version: 0,
             replyToStreamID: nil,
