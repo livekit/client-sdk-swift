@@ -69,6 +69,20 @@ struct DataStreamLoopbackTests {
         #expect(header.compression.rawValue == (c.isCompressed ? Livekit_DataStream_CompressionType.deflateRaw : .none).rawValue)
     }
 
+    /// `generated` travels from the public options to the header, and the receiver reads it back
+    /// through the public info, along with the MIME type the core declares for text.
+    @Test(arguments: [Int32(0), 2])
+    func textInfoRoundTrips(clientProtocol: Int32) async throws {
+        let loopback = Loopback(maxPayloadByteLength: nil)
+        let outgoing = loopback.outgoing(clientProtocol: clientProtocol, supportsCompression: false)
+
+        _ = try await outgoing.sendText(text: "hi", options: LiveKit.StreamTextOptions(topic: "loopback", generated: true).ffi)
+
+        let info = try await loopback.receiver.info.wait()
+        #expect(info.generated)
+        #expect(info.mimeType == "text/plain")
+    }
+
     /// The incoming cap holds whatever framing the payload arrived in.
     @Test(arguments: [Int32(0), 2])
     func payloadOverCapFails(clientProtocol: Int32) async throws {
@@ -113,10 +127,12 @@ struct DataStreamLoopbackTests {
 
     /// Reads the first text stream to open to the end, through the public reader.
     private final class Receiver: IncomingDataStreamManagerDelegate, @unchecked Sendable {
+        let info = AsyncCompleter<LiveKit.TextStreamInfo>(label: "Loopback open", defaultTimeout: 10)
         let read = AsyncCompleter<String>(label: "Loopback read", defaultTimeout: 10)
 
         func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
             let reader = LiveKit.TextStreamReader(reader, info: LiveKit.TextStreamInfo(reader.info(), encryptionType: .none))
+            info.resume(returning: reader.info)
             Task {
                 do {
                     try await read.resume(returning: reader.readAll())

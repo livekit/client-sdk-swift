@@ -237,6 +237,7 @@ extension OutgoingStreamManagerTests {
     @Test func optionDefaultsMapToFFIOptions() {
         let text = LiveKit.StreamTextOptions(topic: "t").ffi
         #expect(text.operationType == .create)
+        #expect(text.generated == false)
         #expect(text.compress == true)
         #expect(LiveKit.StreamByteOptions(topic: "t").ffi.compress == true)
     }
@@ -251,6 +252,7 @@ extension OutgoingStreamManagerTests {
             version: 2,
             attachedStreamIDs: ["a"],
             replyToStreamID: "r",
+            generated: true,
             compress: false,
         ).ffi
 
@@ -262,6 +264,7 @@ extension OutgoingStreamManagerTests {
         #expect(ffi.version == 2)
         #expect(ffi.attachedStreamIds == ["a"])
         #expect(ffi.replyToStreamId == "r")
+        #expect(ffi.generated == true)
         #expect(ffi.compress == false)
     }
 
@@ -321,6 +324,7 @@ extension OutgoingStreamManagerTests {
             version: 7,
             attachedStreamIDs: ["att-1"],
             replyToStreamID: "earlier",
+            generated: true,
         ))
 
         let packet = try #require(delegate.packets.copy().first)
@@ -336,6 +340,7 @@ extension OutgoingStreamManagerTests {
         #expect(textHeader.version == 7)
         #expect(textHeader.replyToStreamID == "earlier")
         #expect(textHeader.attachedStreamIds == ["att-1"])
+        #expect(textHeader.generated)
 
         #expect(info.id == "explicit-id")
         #expect(info.topic == "topic")
@@ -346,6 +351,8 @@ extension OutgoingStreamManagerTests {
         #expect(info.version == 7)
         #expect(info.replyToStreamID == "earlier")
         #expect(info.attachedStreamIDs == ["att-1"])
+        #expect(info.generated)
+        #expect(info.mimeType == "text/plain")
     }
 
     /// Every byte option reaches the header on the wire and the info the send returns.

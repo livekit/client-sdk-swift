@@ -49,6 +49,10 @@ public final class StreamTextOptions: NSObject, StreamOptions {
     public let attachedStreamIDs: [String]
     public let replyToStreamID: String?
 
+    /// Whether a machine generated the text, for example an AI agent's transcription, rather than
+    /// a person typing it. Receivers read it as ``TextStreamInfo/generated``. `false` by default.
+    public let generated: Bool
+
     /// Whether a one-shot send (`sendText`, `sendBytes` or `sendFile`) compresses the payload.
     /// `true` by default. The payload goes out uncompressed when a recipient can't decompress it.
     /// A stream opened with `streamText` or `streamBytes` is never compressed, because its content
@@ -66,6 +70,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         version: Int = 0,
         attachedStreamIDs: [String] = [],
         replyToStreamID: String? = nil,
+        generated: Bool = false,
         compress: Bool = true,
     ) {
         self.topic = topic
@@ -76,6 +81,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         self.version = version
         self.attachedStreamIDs = attachedStreamIDs
         self.replyToStreamID = replyToStreamID
+        self.generated = generated
         self.compress = compress
     }
 
@@ -89,7 +95,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
             version: Int32(truncatingIfNeeded: version),
             replyToStreamId: replyToStreamID,
             attachedStreamIds: attachedStreamIDs,
-            generated: nil,
+            generated: generated,
             compress: compress,
             senderIdentity: nil,
         )

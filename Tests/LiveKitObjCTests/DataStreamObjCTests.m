@@ -101,6 +101,7 @@
                                                                  version:0
                                                        attachedStreamIDs:@[]
                                                          replyToStreamID:nil
+                                                               generated:NO
                                                                 compress:YES];
     XCTestExpectation *sendExp = [self expectationWithDescription:@"textSent"];
 
@@ -215,6 +216,7 @@
                                                                  version:0
                                                        attachedStreamIDs:@[]
                                                          replyToStreamID:nil
+                                                               generated:NO
                                                                 compress:YES];
 
     [room1.localParticipant streamTextWithOptions:options completionHandler:^(TextStreamWriter *writer, NSError *err) {
