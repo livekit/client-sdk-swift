@@ -46,4 +46,23 @@ struct OutgoingDeliveryTests {
             #expect(!isOpen)
         }
     }
+
+    /// The remote side loses every open stream in a full reconnect, so a writer opened before it
+    /// must fail rather than send its next chunk into a session where no receiver saw the header.
+    @Test func writeFailsAfterFullReconnect() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let sender = rooms[1]
+            let writer = try await sender.localParticipant.streamText(for: "delivery")
+            try await writer.write("before")
+
+            try await sender.debug_simulate(scenario: .fullReconnect)
+            #expect(sender.connectionState == .connected)
+
+            await #expect(throws: StreamError.self) {
+                try await writer.write("after")
+            }
+            let isOpen = await writer.isOpen
+            #expect(!isOpen)
+        }
+    }
 }

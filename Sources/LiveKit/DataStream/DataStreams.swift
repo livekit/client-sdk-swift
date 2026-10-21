@@ -48,7 +48,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     }
 
     private func outgoing() throws -> LiveKitFFI.OutgoingDataStreamManager {
-        guard let outgoing = room?._state.stage.connection?.outgoingDataStreams else {
+        guard let outgoing = room?._state.stage.connection?.outgoingDataStreams.copy() else {
             throw LiveKitError(.invalidState, message: "Room is not connected")
         }
         return outgoing

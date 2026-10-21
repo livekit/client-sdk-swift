@@ -623,6 +623,7 @@ extension Room {
         dataStreams.reset()
         var retiredConnection: ConnectionDependencies?
         if isFullReconnect {
+            _state.stage.connection?.renewOutgoingDataStreams(room: self)
             // Data tracks are connection-scoped: across a full reconnect only their transport
             // channels are swapped so published tracks can be republished.
             dataTracks?.handleTransportsTeardown(reconnecting: _state.isReconnectingWithMode != nil)

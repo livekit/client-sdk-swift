@@ -51,11 +51,11 @@ final class ConnectionDependencies: Sendable {
 
     /// The data stream subsystem's FFI managers. Connection-scoped: the incoming one because its
     /// payload cap is fixed at construction from the options this connection was opened with, the
-    /// outgoing one because releasing it closes the writers opened on this session. The handler
-    /// registry stays on the ``Room`` — handlers are registrable before connect and must survive a
-    /// reconnect.
+    /// outgoing one because releasing it fails the writers opened on it. A full reconnect swaps
+    /// the outgoing one through ``renewOutgoingDataStreams(room:)``. The handler registry stays on
+    /// the ``Room`` — handlers are registrable before connect and must survive a reconnect.
     let incomingDataStreams: LiveKitFFI.IncomingDataStreamManager
-    let outgoingDataStreams: LiveKitFFI.OutgoingDataStreamManager
+    let outgoingDataStreams: StateSync<LiveKitFFI.OutgoingDataStreamManager>
 
     /// The E2EE manager, derived from the room options. A synchronized cell rather than a `let`:
     /// the public ``Room/e2eeManager`` setter writes through it, so the value stays swappable
@@ -69,7 +69,7 @@ final class ConnectionDependencies: Sendable {
             coordinator: idle.dataStreams,
             maxPayloadByteLength: roomOptions.dataStreamOptions.maxPayloadByteLength,
         )
-        outgoingDataStreams = DataStreams.makeOutgoingManager(room: room)
+        outgoingDataStreams = StateSync(DataStreams.makeOutgoingManager(room: room))
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {
@@ -78,6 +78,14 @@ final class ConnectionDependencies: Sendable {
             nil
         }
         e2ee = StateSync(manager)
+    }
+
+    /// Full reconnect: the remote side lost every open stream with the retired session, so a writer
+    /// opened on it must fail instead of continuing into the next one, where no receiver saw its
+    /// header. Releasing the writer's manager does that. Sends from here on use the fresh one.
+    func renewOutgoingDataStreams(room: Room) {
+        let fresh = DataStreams.makeOutgoingManager(room: room)
+        outgoingDataStreams.mutate { $0 = fresh }
     }
 
     /// Ordered teardown, called with the retired value after ``DependencyStage/end()``.
