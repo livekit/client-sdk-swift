@@ -33,6 +33,34 @@ struct ParticipantTests {
         #expect(participant.clientProtocol == expected)
     }
 
+    /// Capabilities come from the participant info: none by default, both known ones, and nothing
+    /// for the protocol's placeholder or a value this SDK does not know.
+    @Test(arguments: [
+        ([Livekit_ClientInfo_Capability](), [ClientCapability]()),
+        ([.capCompressionDeflateRaw, .capPacketTrailer], [.compressionDeflateRaw, .packetTrailer]),
+        ([.capUnused, Livekit_ClientInfo_Capability(rawValue: 9999), .capCompressionDeflateRaw], [.compressionDeflateRaw]),
+    ])
+    func remoteCapabilities(advertised: [Livekit_ClientInfo_Capability], expected: [ClientCapability]) {
+        let participant = RemoteParticipant(info: info(capabilities: advertised), room: Room(), connectionState: .connected)
+        #expect(participant.capabilities == expected)
+    }
+
+    /// A later update replaces the capabilities, so one without any clears them.
+    @Test func remoteCapabilitiesClearedByLaterUpdate() {
+        let participant = RemoteParticipant(info: info(capabilities: [.capCompressionDeflateRaw]), room: Room(), connectionState: .connected)
+        #expect(participant.capabilities == [.compressionDeflateRaw])
+
+        participant.set(info: info(capabilities: []), connectionState: .connected)
+        #expect(participant.capabilities.isEmpty)
+    }
+
+    private func info(capabilities: [Livekit_ClientInfo_Capability]) -> Livekit_ParticipantInfo {
+        Livekit_ParticipantInfo.with {
+            $0.identity = "remote"
+            $0.capabilities = capabilities
+        }
+    }
+
     @Test func localParticipantIdentity() async throws {
         try await TestEnvironment.withRoom { room in
             #expect(room.localParticipant.identity != nil, "LocalParticipant's identity is nil")
