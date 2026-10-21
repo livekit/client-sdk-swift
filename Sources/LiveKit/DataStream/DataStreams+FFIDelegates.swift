@@ -132,7 +132,7 @@ extension DataStreams {
     }
 }
 
-private extension ClientCapability {
+extension ClientCapability {
     /// Bridges to the FFI enum. Kept here so `ClientCapability` itself stays free of any
     /// `LiveKitFFI` import, matching how the rest of the public API is layered.
     var ffiValue: LiveKitFFI.ClientCapability {

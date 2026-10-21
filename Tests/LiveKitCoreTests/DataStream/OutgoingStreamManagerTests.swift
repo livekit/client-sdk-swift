@@ -113,14 +113,6 @@ struct OutgoingStreamManagerTests {
         )
     }
 
-    @Test func compressMapsToFFIOptions() {
-        #expect(LiveKit.StreamTextOptions(topic: "t", compress: true).ffi.compress == true)
-        #expect(LiveKit.StreamTextOptions(topic: "t", compress: false).ffi.compress == false)
-        #expect(LiveKit.StreamTextOptions(topic: "t").ffi.compress == true)
-        #expect(LiveKit.StreamByteOptions(topic: "t", compress: true).ffi.compress == true)
-        #expect(LiveKit.StreamByteOptions(topic: "t").ffi.compress == true)
-    }
-
     @Test func writerIsOpenReflectsClose() async throws {
         let manager = OutgoingDataStreamManager(delegate: CapturingDelegate(), registry: StubRegistry())
         let ffiWriter = try await manager.streamBytes(
@@ -230,8 +222,57 @@ struct OutgoingStreamManagerTests {
 // MARK: - Options
 
 extension OutgoingStreamManagerTests {
-    @Test func operationTypeDefaultsToCreate() {
-        #expect(LiveKit.StreamTextOptions(topic: "t").ffi.operationType == .create)
+    @Test func optionDefaultsMapToFFIOptions() {
+        let text = LiveKit.StreamTextOptions(topic: "t").ffi
+        #expect(text.operationType == .create)
+        #expect(text.compress == true)
+        #expect(LiveKit.StreamByteOptions(topic: "t").ffi.compress == true)
+    }
+
+    @Test func textOptionsMapCompletelyToFFIOptions() {
+        let ffi = LiveKit.StreamTextOptions(
+            topic: "topic",
+            attributes: ["k": "v"],
+            destinationIdentities: [Participant.Identity(from: "alice"), Participant.Identity(from: "bob")],
+            id: "sid",
+            operationType: .reaction,
+            version: 2,
+            attachedStreamIDs: ["a"],
+            replyToStreamID: "r",
+            compress: false,
+        ).ffi
+
+        #expect(ffi.topic == "topic")
+        #expect(ffi.attributes == ["k": "v"])
+        #expect(ffi.destinationIdentities == ["alice", "bob"])
+        #expect(ffi.id == "sid")
+        #expect(ffi.operationType == .reaction)
+        #expect(ffi.version == 2)
+        #expect(ffi.attachedStreamIds == ["a"])
+        #expect(ffi.replyToStreamId == "r")
+        #expect(ffi.compress == false)
+    }
+
+    @Test func byteOptionsMapCompletelyToFFIOptions() {
+        let ffi = LiveKit.StreamByteOptions(
+            topic: "topic",
+            attributes: ["k": "v"],
+            destinationIdentities: [Participant.Identity(from: "alice")],
+            id: "sid",
+            mimeType: "application/pdf",
+            name: "doc.pdf",
+            totalSize: 99,
+            compress: false,
+        ).ffi
+
+        #expect(ffi.topic == "topic")
+        #expect(ffi.attributes == ["k": "v"])
+        #expect(ffi.destinationIdentities == ["alice"])
+        #expect(ffi.id == "sid")
+        #expect(ffi.mimeType == "application/pdf")
+        #expect(ffi.name == "doc.pdf")
+        #expect(ffi.totalLength == 99)
+        #expect(ffi.compress == false)
     }
 
     @Test(arguments: [
@@ -243,5 +284,14 @@ extension OutgoingStreamManagerTests {
     func operationTypeMapsToFFI(_ operationType: LiveKit.TextStreamInfo.OperationType, _ expected: LiveKitFFI.OperationType) {
         #expect(operationType.ffiValue == expected)
         #expect(LiveKit.StreamTextOptions(topic: "t", operationType: operationType).ffi.operationType == expected)
+    }
+
+    /// The registry reports these to the core, which picks inline and compressed framing from them.
+    @Test(arguments: [
+        (LiveKit.ClientCapability.packetTrailer, LiveKitFFI.ClientCapability.packetTrailer),
+        (.compressionDeflateRaw, .compressionDeflateRaw),
+    ])
+    func capabilityMapsToFFI(_ capability: LiveKit.ClientCapability, _ expected: LiveKitFFI.ClientCapability) {
+        #expect(capability.ffiValue == expected)
     }
 }
