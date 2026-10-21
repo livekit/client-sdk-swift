@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 
 /// Asynchronously write to an open byte stream.
 @objcMembers
@@ -24,7 +24,7 @@ public final class ByteStreamWriter: NSObject, Sendable {
     /// Information about the outgoing byte stream.
     public let info: ByteStreamInfo
 
-    private let writer: LiveKitUniFFI.ByteStreamWriter
+    private let writer: LiveKitFFI.ByteStreamWriter
 
     /// Whether or not the stream is still open. Reflects the FFI writer's state, so it becomes
     /// `false` once the stream is closed locally or a send fails (e.g. the room disconnected).
@@ -41,7 +41,7 @@ public final class ByteStreamWriter: NSObject, Sendable {
     public func write(_ data: Data) async throws {
         do {
             try await writer.write(data: data)
-        } catch let error as LiveKitUniFFI.DataStreamError {
+        } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
     }
@@ -60,12 +60,12 @@ public final class ByteStreamWriter: NSObject, Sendable {
             } else {
                 try await writer.close()
             }
-        } catch let error as LiveKitUniFFI.DataStreamError {
+        } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
     }
 
-    init(_ writer: LiveKitUniFFI.ByteStreamWriter, encryptionType: EncryptionType) {
+    init(_ writer: LiveKitFFI.ByteStreamWriter, encryptionType: EncryptionType) {
         self.writer = writer
         info = ByteStreamInfo(writer.info(), encryptionType: encryptionType)
     }

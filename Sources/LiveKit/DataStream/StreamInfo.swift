@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 
 /// Information about a data stream.
 public protocol StreamInfo: Sendable {
@@ -89,7 +89,7 @@ public final class TextStreamInfo: NSObject, StreamInfo {
         self.generated = generated
     }
 
-    convenience init(_ ffi: LiveKitUniFFI.TextStreamInfo, encryptionType: EncryptionType) {
+    convenience init(_ ffi: LiveKitFFI.TextStreamInfo, encryptionType: EncryptionType) {
         self.init(
             id: ffi.id,
             topic: ffi.topic,
@@ -107,7 +107,7 @@ public final class TextStreamInfo: NSObject, StreamInfo {
 }
 
 extension TextStreamInfo.OperationType {
-    init(_ ffi: LiveKitUniFFI.OperationType) {
+    init(_ ffi: LiveKitFFI.OperationType) {
         switch ffi {
         case .create: self = .create
         case .update: self = .update
@@ -156,7 +156,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo {
         self.name = name
     }
 
-    convenience init(_ ffi: LiveKitUniFFI.ByteStreamInfo, encryptionType: EncryptionType) {
+    convenience init(_ ffi: LiveKitFFI.ByteStreamInfo, encryptionType: EncryptionType) {
         self.init(
             id: ffi.id,
             topic: ffi.topic,

@@ -16,7 +16,7 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
+import LiveKitFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -120,7 +120,7 @@ struct ByteStreamReaderTests {
     private final class Capture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
         let pending = StateSync<CheckedContinuation<LiveKit.ByteStreamReader, Never>?>(nil)
 
-        func onByteStreamOpened(reader: LiveKitUniFFI.ByteStreamReader, identity _: String) {
+        func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
             let info = LiveKit.ByteStreamInfo(reader.info(), encryptionType: .none)
             let publicReader = LiveKit.ByteStreamReader(reader, info: info)
             let continuation = pending.mutate { current -> CheckedContinuation<LiveKit.ByteStreamReader, Never>? in
@@ -130,7 +130,7 @@ struct ByteStreamReaderTests {
             continuation?.resume(returning: publicReader)
         }
 
-        func onTextStreamOpened(reader _: LiveKitUniFFI.TextStreamReader, identity _: String) {}
+        func onTextStreamOpened(reader _: LiveKitFFI.TextStreamReader, identity _: String) {}
 
         func onStreamClosed(streamId _: String, identity _: String) {}
     }

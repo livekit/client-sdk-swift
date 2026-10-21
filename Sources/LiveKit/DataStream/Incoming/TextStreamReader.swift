@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 
 /// The slice of ``TextStreamReader`` the SDK's own consumers (the RPC managers) need. They take
 /// this rather than the concrete reader so a stand-in can be built in the test target — otherwise
@@ -32,9 +32,9 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
     /// Information about the incoming text stream.
     public let info: TextStreamInfo
 
-    private let reader: LiveKitUniFFI.TextStreamReader
+    private let reader: LiveKitFFI.TextStreamReader
 
-    init(_ reader: LiveKitUniFFI.TextStreamReader, info: TextStreamInfo) {
+    init(_ reader: LiveKitFFI.TextStreamReader, info: TextStreamInfo) {
         self.reader = reader
         self.info = info
     }
@@ -48,19 +48,19 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
     public func readAll() async throws -> String {
         do {
             return try await reader.readAll()
-        } catch let error as LiveKitUniFFI.DataStreamError {
+        } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
     }
 
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
-        fileprivate let reader: LiveKitUniFFI.TextStreamReader
+        fileprivate let reader: LiveKitFFI.TextStreamReader
 
         public mutating func next() async throws -> String? {
             do {
                 return try await reader.next()
-            } catch let error as LiveKitUniFFI.DataStreamError {
+            } catch let error as LiveKitFFI.DataStreamError {
                 throw StreamError(error)
             }
         }

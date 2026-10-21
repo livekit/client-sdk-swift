@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 
 // MARK: - DataStreams
 
@@ -43,11 +43,11 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     //
     // Before connect and after disconnect there is neither, which is what a stream needs anyway:
     // a transport to travel on.
-    private var incoming: LiveKitUniFFI.IncomingDataStreamManager? {
+    private var incoming: LiveKitFFI.IncomingDataStreamManager? {
         room?._state.stage.connection?.incomingDataStreams
     }
 
-    private func outgoing() throws -> LiveKitUniFFI.OutgoingDataStreamManager {
+    private func outgoing() throws -> LiveKitFFI.OutgoingDataStreamManager {
         guard let outgoing = room?._state.stage.connection?.outgoingDataStreams else {
             throw LiveKitError(.invalidState, message: "Room is not connected")
         }
@@ -129,10 +129,10 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     ///
     /// - Parameter maxPayloadByteLength: `nil` → the core's default cap. `DataStreamOptions`
     ///   normalizes non-positive values to `nil`, so the conversion below can't trap.
-    static func makeIncomingManager(coordinator: DataStreams, maxPayloadByteLength: Int?) -> LiveKitUniFFI.IncomingDataStreamManager {
+    static func makeIncomingManager(coordinator: DataStreams, maxPayloadByteLength: Int?) -> LiveKitFFI.IncomingDataStreamManager {
         let delegate = IncomingDelegate()
         delegate.coordinator = coordinator
-        return LiveKitUniFFI.IncomingDataStreamManager(
+        return LiveKitFFI.IncomingDataStreamManager(
             delegate: delegate,
             maxPayloadByteLength: maxPayloadByteLength.map { UInt64($0) },
         )
@@ -141,8 +141,8 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// Builds the connection-scoped outgoing manager. Called by ``ConnectionDependencies``; when it
     /// is released the FFI cancels the task draining its packets, so writers left open on the
     /// retired session fail their next write instead of emitting into the next one.
-    static func makeOutgoingManager(room: Room) -> LiveKitUniFFI.OutgoingDataStreamManager {
-        LiveKitUniFFI.OutgoingDataStreamManager(delegate: OutgoingDelegate(room: room), registry: Registry(room: room))
+    static func makeOutgoingManager(room: Room) -> LiveKitFFI.OutgoingDataStreamManager {
+        LiveKitFFI.OutgoingDataStreamManager(delegate: OutgoingDelegate(room: room), registry: Registry(room: room))
     }
 
     // Encryption type for *outgoing* stream info. Inbound infos carry the real per-packet value
@@ -207,7 +207,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         guard let fileInfo = FileInfo(for: fileURL) else {
             throw StreamError.fileInfoUnavailable
         }
-        let ffiOptions = LiveKitUniFFI.StreamByteOptions(
+        let ffiOptions = LiveKitFFI.StreamByteOptions(
             topic: options.topic,
             attributes: options.attributes,
             destinationIdentities: options.destinationIdentities.map(\.stringValue),
@@ -282,7 +282,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Stream open dispatch (called from the incoming delegate)
 
-    func handleByteStreamOpened(_ ffiReader: LiveKitUniFFI.ByteStreamReader, identity: String) {
+    func handleByteStreamOpened(_ ffiReader: LiveKitFFI.ByteStreamReader, identity: String) {
         let ffiInfo = ffiReader.info()
         let info = ByteStreamInfo(ffiInfo, encryptionType: EncryptionType(ffiInfo.encryptionType))
         guard let handler = byteStreamHandlers.copy()[info.topic] else {
@@ -294,7 +294,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         Task.detachedDiscarding { try await handler(reader, participantIdentity) }
     }
 
-    func handleTextStreamOpened(_ ffiReader: LiveKitUniFFI.TextStreamReader, identity: String) {
+    func handleTextStreamOpened(_ ffiReader: LiveKitFFI.TextStreamReader, identity: String) {
         let ffiInfo = ffiReader.info()
         let info = TextStreamInfo(ffiInfo, encryptionType: EncryptionType(ffiInfo.encryptionType))
         guard let entry = textStreamHandlers.copy()[info.topic] else {
@@ -364,7 +364,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     private func mappingErrors<T>(_ body: () async throws -> T) async throws -> T {
         do {
             return try await body()
-        } catch let error as LiveKitUniFFI.DataStreamError {
+        } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
     }

@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 
 /// Asynchronously write to an open text stream.
 @objcMembers
@@ -24,7 +24,7 @@ public final class TextStreamWriter: NSObject, Sendable {
     /// Information about the outgoing text stream.
     public let info: TextStreamInfo
 
-    private let writer: LiveKitUniFFI.TextStreamWriter
+    private let writer: LiveKitFFI.TextStreamWriter
 
     /// Whether or not the stream is still open. Reflects the FFI writer's state, so it becomes
     /// `false` once the stream is closed locally or a send fails (e.g. the room disconnected).
@@ -41,7 +41,7 @@ public final class TextStreamWriter: NSObject, Sendable {
     public func write(_ text: String) async throws {
         do {
             try await writer.write(text: text)
-        } catch let error as LiveKitUniFFI.DataStreamError {
+        } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
     }
@@ -60,12 +60,12 @@ public final class TextStreamWriter: NSObject, Sendable {
             } else {
                 try await writer.close()
             }
-        } catch let error as LiveKitUniFFI.DataStreamError {
+        } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
     }
 
-    init(_ writer: LiveKitUniFFI.TextStreamWriter, encryptionType: EncryptionType) {
+    init(_ writer: LiveKitFFI.TextStreamWriter, encryptionType: EncryptionType) {
         self.writer = writer
         info = TextStreamInfo(writer.info(), encryptionType: encryptionType)
     }

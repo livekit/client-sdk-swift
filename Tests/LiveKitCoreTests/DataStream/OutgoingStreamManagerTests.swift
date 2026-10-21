@@ -16,7 +16,7 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
+import LiveKitFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -44,7 +44,7 @@ struct OutgoingStreamManagerTests {
     /// Minimal registry — broadcast with no known remote capabilities.
     private final class StubRegistry: RemoteParticipantRegistryDelegate, @unchecked Sendable {
         func remoteClientProtocol(identity _: String) -> Int32 { 0 }
-        func remoteCapabilities(identity _: String) -> [LiveKitUniFFI.ClientCapability] { [] }
+        func remoteCapabilities(identity _: String) -> [LiveKitFFI.ClientCapability] { [] }
         func remoteIdentities() -> [String] { [] }
     }
 
@@ -62,7 +62,7 @@ struct OutgoingStreamManagerTests {
         let manager = OutgoingDataStreamManager(delegate: delegate, registry: StubRegistry())
 
         let writer = try await manager.streamBytes(
-            options: LiveKitUniFFI.StreamByteOptions(topic: topic, attributes: [:], id: streamID),
+            options: LiveKitFFI.StreamByteOptions(topic: topic, attributes: [:], id: streamID),
         )
         for chunk in testChunks {
             try await writer.write(data: chunk)
@@ -93,7 +93,7 @@ struct OutgoingStreamManagerTests {
         let manager = OutgoingDataStreamManager(delegate: delegate, registry: StubRegistry())
 
         let writer = try await manager.streamText(
-            options: LiveKitUniFFI.StreamTextOptions(topic: topic, attributes: [:], id: streamID),
+            options: LiveKitFFI.StreamTextOptions(topic: topic, attributes: [:], id: streamID),
         )
         for chunk in testChunks {
             try await writer.write(text: chunk)
@@ -121,7 +121,7 @@ struct OutgoingStreamManagerTests {
     @Test func writerIsOpenReflectsClose() async throws {
         let manager = OutgoingDataStreamManager(delegate: CapturingDelegate(), registry: StubRegistry())
         let ffiWriter = try await manager.streamBytes(
-            options: LiveKitUniFFI.StreamByteOptions(topic: "some-topic", attributes: [:]),
+            options: LiveKitFFI.StreamByteOptions(topic: "some-topic", attributes: [:]),
         )
         let writer = LiveKit.ByteStreamWriter(ffiWriter, encryptionType: .none)
 

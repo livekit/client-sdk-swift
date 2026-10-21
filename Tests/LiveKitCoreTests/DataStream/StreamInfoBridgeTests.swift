@@ -16,7 +16,7 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
+import LiveKitFFI
 import Testing
 
 /// Covers the FFI → public bridging that replaced the v1 protobuf → `StreamInfo` conversions
@@ -29,11 +29,11 @@ struct StreamInfoBridgeTests {
 
     private func ffiTextInfo(
         totalLength: UInt64? = 128,
-        operationType: LiveKitUniFFI.OperationType = .create,
+        operationType: LiveKitFFI.OperationType = .create,
         replyToStreamId: String? = "replyID",
-        encryptionType: LiveKitUniFFI.EncryptionType = .gcm,
-    ) -> LiveKitUniFFI.TextStreamInfo {
-        LiveKitUniFFI.TextStreamInfo(
+        encryptionType: LiveKitFFI.EncryptionType = .gcm,
+    ) -> LiveKitFFI.TextStreamInfo {
+        LiveKitFFI.TextStreamInfo(
             id: "id",
             topic: "topic",
             timestampMs: 100_000,
@@ -84,12 +84,12 @@ struct StreamInfoBridgeTests {
     }
 
     @Test(arguments: [
-        (LiveKitUniFFI.OperationType.create, LiveKit.TextStreamInfo.OperationType.create),
+        (LiveKitFFI.OperationType.create, LiveKit.TextStreamInfo.OperationType.create),
         (.update, .update),
         (.delete, .delete),
         (.reaction, .reaction),
     ])
-    func textInfoOperationTypeMapping(_ ffi: LiveKitUniFFI.OperationType, _ expected: LiveKit.TextStreamInfo.OperationType) {
+    func textInfoOperationTypeMapping(_ ffi: LiveKitFFI.OperationType, _ expected: LiveKit.TextStreamInfo.OperationType) {
         #expect(LiveKit.TextStreamInfo(ffiTextInfo(operationType: ffi), encryptionType: .none).operationType == expected)
     }
 
@@ -98,8 +98,8 @@ struct StreamInfoBridgeTests {
     private func ffiByteInfo(
         totalLength: UInt64? = 128,
         name: String = "filename.bin",
-    ) -> LiveKitUniFFI.ByteStreamInfo {
-        LiveKitUniFFI.ByteStreamInfo(
+    ) -> LiveKitFFI.ByteStreamInfo {
+        LiveKitFFI.ByteStreamInfo(
             id: "id",
             topic: "topic",
             timestampMs: 100_000,
@@ -140,7 +140,7 @@ struct StreamInfoBridgeTests {
     /// The public error set predates the FFI core, so several Rust cases collapse onto one public
     /// case. Pinned exhaustively: a new Rust variant that lands on the wrong case is otherwise silent.
     @Test(arguments: [
-        (LiveKitUniFFI.DataStreamError.AbnormalEnd(reason: "why"), StreamError.abnormalEnd(reason: "why")),
+        (LiveKitFFI.DataStreamError.AbnormalEnd(reason: "why"), StreamError.abnormalEnd(reason: "why")),
         (.Io(reason: "disk"), .abnormalEnd(reason: "disk")),
         (.Utf8(reason: "bad"), .decodeFailed),
         (.Decompression, .decodeFailed),
@@ -155,7 +155,7 @@ struct StreamInfoBridgeTests {
         (.Internal, .terminated),
         (.InvalidFileName, .terminated),
     ])
-    func streamErrorMapping(_ ffi: LiveKitUniFFI.DataStreamError, _ expected: StreamError) {
+    func streamErrorMapping(_ ffi: LiveKitFFI.DataStreamError, _ expected: StreamError) {
         #expect(StreamError(ffi) == expected)
     }
 

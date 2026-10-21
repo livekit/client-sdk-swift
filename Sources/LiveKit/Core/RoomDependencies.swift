@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 
 // MARK: - Idle dependencies
@@ -54,8 +54,8 @@ final class ConnectionDependencies: Sendable {
     /// outgoing one because releasing it closes the writers opened on this session. The handler
     /// registry stays on the ``Room`` — handlers are registrable before connect and must survive a
     /// reconnect.
-    let incomingDataStreams: LiveKitUniFFI.IncomingDataStreamManager
-    let outgoingDataStreams: LiveKitUniFFI.OutgoingDataStreamManager
+    let incomingDataStreams: LiveKitFFI.IncomingDataStreamManager
+    let outgoingDataStreams: LiveKitFFI.OutgoingDataStreamManager
 
     /// The E2EE manager, derived from the room options. A synchronized cell rather than a `let`:
     /// the public ``Room/e2eeManager`` setter writes through it, so the value stays swappable

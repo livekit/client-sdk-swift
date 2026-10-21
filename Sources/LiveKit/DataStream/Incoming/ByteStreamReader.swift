@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 
 /// An asynchronous sequence of chunks read from a byte data stream.
 @objcMembers
@@ -24,9 +24,9 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// Information about the incoming byte stream.
     public let info: ByteStreamInfo
 
-    private let reader: LiveKitUniFFI.ByteStreamReader
+    private let reader: LiveKitFFI.ByteStreamReader
 
-    init(_ reader: LiveKitUniFFI.ByteStreamReader, info: ByteStreamInfo) {
+    init(_ reader: LiveKitFFI.ByteStreamReader, info: ByteStreamInfo) {
         self.reader = reader
         self.info = info
     }
@@ -40,19 +40,19 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     public func readAll() async throws -> Data {
         do {
             return try await reader.readAll()
-        } catch let error as LiveKitUniFFI.DataStreamError {
+        } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
     }
 
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
-        fileprivate let reader: LiveKitUniFFI.ByteStreamReader
+        fileprivate let reader: LiveKitFFI.ByteStreamReader
 
         public mutating func next() async throws -> Data? {
             do {
                 return try await reader.next()
-            } catch let error as LiveKitUniFFI.DataStreamError {
+            } catch let error as LiveKitFFI.DataStreamError {
                 throw StreamError(error)
             }
         }

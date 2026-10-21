@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 
 /// Options used when opening an outgoing data stream.
 public protocol StreamOptions: Sendable {
@@ -71,8 +71,8 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         self.compress = compress
     }
 
-    var ffi: LiveKitUniFFI.StreamTextOptions {
-        LiveKitUniFFI.StreamTextOptions(
+    var ffi: LiveKitFFI.StreamTextOptions {
+        LiveKitFFI.StreamTextOptions(
             topic: topic,
             attributes: attributes,
             destinationIdentities: destinationIdentities.map(\.stringValue),
@@ -133,8 +133,8 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         self.compress = compress
     }
 
-    var ffi: LiveKitUniFFI.StreamByteOptions {
-        LiveKitUniFFI.StreamByteOptions(
+    var ffi: LiveKitFFI.StreamByteOptions {
+        LiveKitFFI.StreamByteOptions(
             topic: topic,
             attributes: attributes,
             destinationIdentities: destinationIdentities.map(\.stringValue),
