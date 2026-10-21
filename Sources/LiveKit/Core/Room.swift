@@ -617,15 +617,14 @@ extension Room {
         // stats collection from accessing destroyed WebRTC channels.
         cancelTimers()
         await cleanUpRTC(withError: disconnectError)
-        // Fail open data streams so their handlers return; a handler blocked on a reader that will
-        // never finish would stall its topic's ordered queue. After the transports are down, so no
-        // late packet can open a reader that outlives the abort.
-        dataStreams.reset()
+        // Both branches fail open data streams (`dataStreams.reset()`) so their handlers return; a
+        // handler blocked on a reader that will never finish would stall its topic's ordered queue.
+        // After the transports are down, so no late packet can open a reader that outlives the abort.
         var retiredConnection: ConnectionDependencies?
         if isFullReconnect {
-            _state.stage.connection?.renewOutgoingDataStreams(room: self)
             // Data tracks are connection-scoped: across a full reconnect only their transport
-            // channels are swapped so published tracks can be republished.
+            // channels are swapped so published tracks can be republished. First after
+            // `cleanUpRTC`: until this re-arms the publish gates, the stale ones let a publish through.
             dataTracks?.handleTransportsTeardown(reconnecting: _state.isReconnectingWithMode != nil)
             // Remote data tracks outlive the reconnect — the subsystem re-attaches them to the
             // recreated participants. Detach them here, before `cleanUpParticipants` reports an
@@ -633,7 +632,10 @@ extension Room {
             for participant in _state.remoteParticipants.values {
                 participant.detachDataTracks()
             }
+            dataStreams.reset()
+            _state.stage.connection?.renewOutgoingDataStreams(room: self)
         } else {
+            dataStreams.reset()
             retiredConnection = _state.mutate { $0.stage.end() }.connection
         }
         await cleanUpParticipants(isFullReconnect: isFullReconnect)
