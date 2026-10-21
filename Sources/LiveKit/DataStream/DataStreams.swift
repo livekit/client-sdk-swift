@@ -208,7 +208,8 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     /// Sends `text`, then each file in `attachments` as its own byte stream, the files at the same
     /// time, as JS does. The text lists the files' stream IDs in its attached stream IDs; each file
-    /// goes on the text's topic, to its recipients, with its compression and sender.
+    /// goes on the text's topic, to its recipients, with its compression and sender. The first file
+    /// that fails ends the call and cancels the others.
     func sendText(_ text: String, options: StreamTextOptions, attachments: [URL]) async throws -> TextStreamInfo {
         let ids = attachments.map { _ in UUID().uuidString }
         let info = try await sendText(text, options: options.attaching(ids))
@@ -223,7 +224,9 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
                 )
                 group.addTask { _ = try await self.sendFile(fileURL, options: fileOptions) }
             }
-            try await group.waitForAll()
+            // Not `waitForAll()`, which waits for every file even after one has failed: the first
+            // error leaves the group, which cancels the other sends.
+            for try await _ in group {}
         }
         return info
     }

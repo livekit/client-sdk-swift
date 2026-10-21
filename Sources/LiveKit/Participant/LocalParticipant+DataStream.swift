@@ -64,8 +64,9 @@ public extension LocalParticipant {
     ///   - attachments: The URLs of the files on disk to send with the text.
     /// - Returns: Information about the text stream.
     /// - Throws: ``StreamError`` if a stream fails, or ``LiveKitError`` if the room is not
-    ///   connected. If a file fails, the text has already gone out. `CancellationError` at once if
-    ///   the calling task is cancelled, but the sends can still complete.
+    ///   connected. The first file that fails ends the call at once and cancels the other files'
+    ///   sends; the text has already gone out. `CancellationError` at once if the calling task is
+    ///   cancelled, but the sends can still complete.
     ///
     @discardableResult
     final func sendText(_ text: String, options: StreamTextOptions, attachments: [URL]) async throws -> TextStreamInfo {
