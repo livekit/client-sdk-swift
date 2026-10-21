@@ -23,41 +23,99 @@ import LiveKitTestSupport
 #endif
 
 /// Sends through an outgoing manager whose delegate hands every packet to an incoming manager, so
-/// each framing the core picks for a recipient (inline, compressed, legacy multi-packet) is checked
-/// on the wire and read back through the public reader. No network or room is needed.
+/// each framing the core picks for its recipients (inline, compressed, legacy multi-packet) is
+/// checked on the wire and read back through the public reader. No network or room is needed.
 @Suite(.tags(.dataStream))
 struct DataStreamLoopbackTests {
-    struct Case: Sendable, CustomTestStringConvertible {
-        let testDescription: String
-        /// The single recipient's advertised client protocol and compression support.
+    /// What a remote participant advertises: its client protocol and whether it can decompress.
+    struct Remote: Sendable {
         let clientProtocol: Int32
         let supportsCompression: Bool
-        let text: String
+
+        static let legacy = Remote(clientProtocol: 0, supportsCompression: false)
+        static let v2 = Remote(clientProtocol: 2, supportsCompression: true)
+        static let v2WithoutCompression = Remote(clientProtocol: 2, supportsCompression: false)
+    }
+
+    enum Payload: Sendable {
+        case text(String)
+        case bytes(Data)
+
+        var data: Data {
+            switch self {
+            case let .text(text): Data(text.utf8)
+            case let .bytes(data): data
+            }
+        }
+    }
+
+    struct Case: Sendable, CustomTestStringConvertible {
+        let testDescription: String
+        /// The room's remote participants by identity.
+        var remotes: [String: Remote] = ["peer": .v2]
+        /// Empty for a broadcast to every remote participant.
+        var destinations: [String] = []
+        let payload: Payload
+        var compress = true
         let isInline: Bool
         let isCompressed: Bool
     }
 
     static let cases = [
         // Compression needs a v2 recipient too, so a legacy one gets plain chunks either way.
-        Case(testDescription: "legacy fallback", clientProtocol: 0, supportsCompression: true,
-             text: repetitive(2000), isInline: false, isCompressed: false),
-        Case(testDescription: "inline", clientProtocol: 2, supportsCompression: false,
-             text: "hello", isInline: true, isCompressed: false),
-        Case(testDescription: "inline compressed", clientProtocol: 2, supportsCompression: true,
-             text: repetitive(2000), isInline: true, isCompressed: true),
+        Case(testDescription: "legacy text", remotes: ["peer": .legacy],
+             payload: .text(repetitive(2000)), isInline: false, isCompressed: false),
+        Case(testDescription: "legacy bytes", remotes: ["peer": .legacy],
+             payload: .bytes(Data([0, 1, 2, 3])), isInline: false, isCompressed: false),
+        Case(testDescription: "inline text", remotes: ["peer": .v2WithoutCompression],
+             payload: .text("hello"), isInline: true, isCompressed: false),
+        // Deflate would make it larger, so the raw bytes go inline.
+        Case(testDescription: "inline incompressible text",
+             payload: .text("short"), isInline: true, isCompressed: false),
+        Case(testDescription: "inline text, compression off",
+             payload: .text(repetitive(2000)), compress: false, isInline: true, isCompressed: false),
+        Case(testDescription: "inline compressed text",
+             payload: .text(repetitive(2000)), isInline: true, isCompressed: true),
         // Compresses, but not enough to fit in a header packet.
-        Case(testDescription: "chunked compressed", clientProtocol: 2, supportsCompression: true,
-             text: noisy(200_000), isInline: false, isCompressed: true),
+        Case(testDescription: "chunked compressed text",
+             payload: .text(noisy(200_000)), isInline: false, isCompressed: true),
+        Case(testDescription: "inline short bytes",
+             payload: .bytes(Data([0, 1, 2, 3])), isInline: true, isCompressed: false),
+        Case(testDescription: "inline compressed bytes",
+             payload: .bytes(Data((0 ..< 500).map { UInt8($0 % 7) })), isInline: true, isCompressed: true),
+        Case(testDescription: "chunked compressed bytes",
+             payload: .bytes(Data(noisy(200_000).utf8)), isInline: false, isCompressed: true),
+        // Eligibility is unanimous: one legacy participant takes a broadcast back to plain chunks.
+        Case(testDescription: "mixed room, broadcast", remotes: ["alice": .v2, "bob": .legacy],
+             payload: .text(repetitive(2000)), isInline: false, isCompressed: false),
+        Case(testDescription: "mixed room, capable recipients", remotes: ["alice": .v2, "carol": .v2, "bob": .legacy],
+             destinations: ["alice", "carol"], payload: .text(repetitive(2000)), isInline: true, isCompressed: true),
+        Case(testDescription: "mixed room, a recipient without compression",
+             remotes: ["alice": .v2, "dave": .v2WithoutCompression, "bob": .legacy],
+             destinations: ["alice", "dave"], payload: .text(repetitive(2000)), isInline: true, isCompressed: false),
+        Case(testDescription: "mixed room, a legacy recipient", remotes: ["alice": .v2, "bob": .legacy],
+             destinations: ["alice", "bob"], payload: .text(repetitive(2000)), isInline: false, isCompressed: false),
+        // Nobody in the room could fail to read v2.
+        Case(testDescription: "empty room", remotes: [:],
+             payload: .text(repetitive(2000)), isInline: true, isCompressed: true),
     ]
 
     @Test(arguments: cases)
     func framingRoundTrips(_ c: Case) async throws {
         let loopback = Loopback(maxPayloadByteLength: nil)
-        let outgoing = loopback.outgoing(clientProtocol: c.clientProtocol, supportsCompression: c.supportsCompression)
+        let outgoing = loopback.outgoing(remotes: c.remotes)
+        let destinations = c.destinations.map { Participant.Identity(from: $0) }
 
-        _ = try await outgoing.sendText(text: c.text, options: LiveKitFFI.StreamTextOptions(topic: "loopback", attributes: [:]))
+        switch c.payload {
+        case let .text(text):
+            let options = LiveKit.StreamTextOptions(topic: "loopback", destinationIdentities: destinations, compress: c.compress)
+            _ = try await outgoing.sendText(text: text, options: options.ffi)
+        case let .bytes(data):
+            let options = LiveKit.StreamByteOptions(topic: "loopback", destinationIdentities: destinations, compress: c.compress)
+            _ = try await outgoing.sendBytes(data: data, options: options.ffi)
+        }
 
-        #expect(try await loopback.receiver.read.wait() == c.text)
+        #expect(try await loopback.receiver.read.wait() == c.payload.data)
         let packets = loopback.packets.copy()
         guard case let .streamHeader(header) = packets.first?.value else {
             Issue.record("The first packet is not a stream header")
@@ -67,14 +125,21 @@ struct DataStreamLoopbackTests {
         // An inline stream is its header alone; otherwise chunks and a trailer follow it.
         #expect(c.isInline ? packets.count == 1 : packets.count > 2)
         #expect(header.compression.rawValue == (c.isCompressed ? Livekit_DataStream_CompressionType.deflateRaw : .none).rawValue)
+        guard !c.isCompressed else { return }
+        // Uncompressed, the payload is on the wire as it was sent.
+        let chunks = packets.compactMap { packet -> Data? in
+            if case let .streamChunk(chunk) = packet.value { return chunk.content }
+            return nil
+        }
+        #expect((c.isInline ? header.inlineContent : chunks.reduce(Data(), +)) == c.payload.data)
     }
 
     /// `generated` travels from the public options to the header, and the receiver reads it back
     /// through the public info, along with the MIME type the core declares for text.
-    @Test(arguments: [Int32(0), 2])
-    func textInfoRoundTrips(clientProtocol: Int32) async throws {
+    @Test(arguments: [Remote.legacy, .v2])
+    func textInfoRoundTrips(remote: Remote) async throws {
         let loopback = Loopback(maxPayloadByteLength: nil)
-        let outgoing = loopback.outgoing(clientProtocol: clientProtocol, supportsCompression: false)
+        let outgoing = loopback.outgoing(remotes: ["peer": remote])
 
         _ = try await outgoing.sendText(text: "hi", options: LiveKit.StreamTextOptions(topic: "loopback", generated: true).ffi)
 
@@ -84,10 +149,10 @@ struct DataStreamLoopbackTests {
     }
 
     /// The incoming cap holds whatever framing the payload arrived in.
-    @Test(arguments: [Int32(0), 2])
-    func payloadOverCapFails(clientProtocol: Int32) async throws {
+    @Test(arguments: [Remote.legacy, .v2])
+    func payloadOverCapFails(remote: Remote) async throws {
         let loopback = Loopback(maxPayloadByteLength: 1000)
-        let outgoing = loopback.outgoing(clientProtocol: clientProtocol, supportsCompression: true)
+        let outgoing = loopback.outgoing(remotes: ["peer": remote])
 
         _ = try await outgoing.sendText(text: Self.repetitive(5000), options: LiveKitFFI.StreamTextOptions(topic: "loopback", attributes: [:]))
 
@@ -111,28 +176,47 @@ struct DataStreamLoopbackTests {
         })
     }
 
+    /// Reports each remote participant's protocol and capabilities by identity, as the room does.
     private final class Registry: RemoteParticipantRegistryDelegate, @unchecked Sendable {
-        let clientProtocol: Int32
-        let capabilities: [LiveKitFFI.ClientCapability]
+        let remotes: [String: Remote]
 
-        init(clientProtocol: Int32, capabilities: [LiveKitFFI.ClientCapability]) {
-            self.clientProtocol = clientProtocol
-            self.capabilities = capabilities
+        init(remotes: [String: Remote]) {
+            self.remotes = remotes
         }
 
-        func remoteClientProtocol(identity _: String) -> Int32 { clientProtocol }
-        func remoteCapabilities(identity _: String) -> [LiveKitFFI.ClientCapability] { capabilities }
-        func remoteIdentities() -> [String] { ["peer"] }
+        func remoteClientProtocol(identity: String) -> Int32 {
+            remotes[identity]?.clientProtocol ?? 0
+        }
+
+        func remoteCapabilities(identity: String) -> [LiveKitFFI.ClientCapability] {
+            remotes[identity]?.supportsCompression == true ? [.compressionDeflateRaw] : []
+        }
+
+        func remoteIdentities() -> [String] {
+            Array(remotes.keys)
+        }
     }
 
-    /// Reads the first text stream to open to the end, through the public reader.
+    /// Reads the first stream to open to the end, through the public reader, as bytes (UTF-8 for
+    /// text).
     private final class Receiver: IncomingDataStreamManagerDelegate, @unchecked Sendable {
         let info = AsyncCompleter<LiveKit.TextStreamInfo>(label: "Loopback open", defaultTimeout: 10)
-        let read = AsyncCompleter<String>(label: "Loopback read", defaultTimeout: 10)
+        let read = AsyncCompleter<Data>(label: "Loopback read", defaultTimeout: 10)
 
         func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
             let reader = LiveKit.TextStreamReader(reader, info: LiveKit.TextStreamInfo(reader.info(), encryptionType: .none))
             info.resume(returning: reader.info)
+            Task {
+                do {
+                    try await read.resume(returning: Data(reader.readAll().utf8))
+                } catch {
+                    read.resume(throwing: error)
+                }
+            }
+        }
+
+        func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
+            let reader = LiveKit.ByteStreamReader(reader, info: LiveKit.ByteStreamInfo(reader.info(), encryptionType: .none))
             Task {
                 do {
                     try await read.resume(returning: reader.readAll())
@@ -141,8 +225,6 @@ struct DataStreamLoopbackTests {
                 }
             }
         }
-
-        func onByteStreamOpened(reader _: LiveKitFFI.ByteStreamReader, identity _: String) {}
 
         func onStreamClosed(streamId _: String, identity _: String) {}
     }
@@ -158,9 +240,8 @@ struct DataStreamLoopbackTests {
             incoming = IncomingDataStreamManager(delegate: receiver, maxPayloadByteLength: maxPayloadByteLength)
         }
 
-        func outgoing(clientProtocol: Int32, supportsCompression: Bool) -> OutgoingDataStreamManager {
-            let registry = Registry(clientProtocol: clientProtocol, capabilities: supportsCompression ? [.compressionDeflateRaw] : [])
-            return OutgoingDataStreamManager(delegate: self, registry: registry)
+        func outgoing(remotes: [String: Remote]) -> OutgoingDataStreamManager {
+            OutgoingDataStreamManager(delegate: self, registry: Registry(remotes: remotes))
         }
 
         func onPacketsAvailable(packets emitted: [Data]) {
