@@ -55,7 +55,7 @@ final class ConnectionDependencies: Sendable {
     /// the outgoing one through ``renewOutgoingDataStreams(room:)``. The handler registry stays on
     /// the ``Room`` — handlers are registrable before connect and must survive a reconnect.
     let incomingDataStreams: LiveKitFFI.IncomingDataStreamManager
-    let outgoingDataStreams: StateSync<LiveKitFFI.OutgoingDataStreamManager>
+    let outgoingDataStreams: StateSync<DataStreams.Outgoing>
 
     /// The E2EE manager, derived from the room options. A synchronized cell rather than a `let`:
     /// the public ``Room/e2eeManager`` setter writes through it, so the value stays swappable
@@ -69,7 +69,7 @@ final class ConnectionDependencies: Sendable {
             coordinator: idle.dataStreams,
             maxPayloadByteLength: roomOptions.dataStreamOptions.maxPayloadByteLength,
         )
-        outgoingDataStreams = StateSync(DataStreams.makeOutgoingManager(room: room))
+        outgoingDataStreams = StateSync(DataStreams.makeOutgoing(room: room))
         let manager: E2EEManager? = if let e2eeOptions = roomOptions.e2eeOptions {
             E2EEManager(e2eeOptions: e2eeOptions)
         } else if let encryptionOptions = roomOptions.encryptionOptions {
@@ -82,10 +82,14 @@ final class ConnectionDependencies: Sendable {
 
     /// Full reconnect: the remote side lost every open stream with the retired session, so a writer
     /// opened on it must fail instead of continuing into the next one, where no receiver saw its
-    /// header. Releasing the writer's manager does that. Sends from here on use the fresh one.
+    /// header. Releasing the writer's manager stops its packet pump, and retiring the manager's
+    /// delegate fails what a send that still holds it emits. Sends from here on use the fresh one.
     func renewOutgoingDataStreams(room: Room) {
-        let fresh = DataStreams.makeOutgoingManager(room: room)
-        outgoingDataStreams.mutate { $0 = fresh }
+        let fresh = DataStreams.makeOutgoing(room: room)
+        outgoingDataStreams.mutate {
+            $0.delegate.retire()
+            $0 = fresh
+        }
     }
 
     /// Ordered teardown, called with the retired value after ``DependencyStage/end()``.

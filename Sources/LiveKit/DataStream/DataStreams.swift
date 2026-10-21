@@ -48,7 +48,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     }
 
     private func outgoing() throws -> LiveKitFFI.OutgoingDataStreamManager {
-        guard let outgoing = room?._state.stage.connection?.outgoingDataStreams.copy() else {
+        guard let outgoing = room?._state.stage.connection?.outgoingDataStreams.copy().manager else {
             throw LiveKitError(.invalidState, message: "Room is not connected")
         }
         return outgoing
@@ -136,11 +136,20 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         )
     }
 
+    /// A connection's outgoing manager and the delegate it delivers through. Kept together so a full
+    /// reconnect can retire the delegate of the manager it replaces.
+    struct Outgoing: Sendable {
+        let manager: LiveKitFFI.OutgoingDataStreamManager
+        let delegate: OutgoingDelegate
+    }
+
     /// Builds the connection-scoped outgoing manager. Called by ``ConnectionDependencies``; when it
     /// is released the FFI cancels the task draining its packets, so writers left open on the
     /// retired session fail their next write instead of emitting into the next one.
-    static func makeOutgoingManager(room: Room) -> LiveKitFFI.OutgoingDataStreamManager {
-        LiveKitFFI.OutgoingDataStreamManager(delegate: OutgoingDelegate(room: room), registry: Registry(room: room))
+    static func makeOutgoing(room: Room) -> Outgoing {
+        let delegate = OutgoingDelegate(room: room)
+        let manager = LiveKitFFI.OutgoingDataStreamManager(delegate: delegate, registry: Registry(room: room))
+        return Outgoing(manager: manager, delegate: delegate)
     }
 
     // Encryption type for *outgoing* stream info. Inbound infos carry the real per-packet value

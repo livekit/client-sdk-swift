@@ -60,21 +60,34 @@ extension DataStreams {
     /// - **Failures.** Throwing `PacketDeliveryError` fails that originating call with
     ///   `.sendFailed` and closes the stream, so `isOpen` reflects reality.
     ///
-    /// `@unchecked Sendable` for the weak back-reference alone: it is assigned in `init` and never
-    /// mutated afterwards.
-    final class OutgoingDelegate: LiveKitFFI.OutgoingDataStreamManagerDelegate, @unchecked Sendable {
-        private weak var room: Room?
+    /// The weak back-reference lives in a `StateSync`, so ``retire()`` can clear it while a delivery
+    /// runs.
+    final class OutgoingDelegate: LiveKitFFI.OutgoingDataStreamManagerDelegate, Sendable {
+        private struct State {
+            weak var room: Room?
+        }
+
+        private let state: StateSync<State>
 
         init(room: Room) {
-            self.room = room
+            state = StateSync(State(room: room))
+        }
+
+        /// Fails every later delivery, as if the room were gone. A full reconnect calls this when it
+        /// replaces the manager: a send that still holds the old manager, for example one in flight
+        /// during the reconnect, keeps its packet pump running, and must not reach the new session.
+        func retire() {
+            state.mutate { $0.room = nil }
         }
 
         func onPacketsAvailable(packets: [Data]) async throws {
-            guard let room else {
-                throw LiveKitFFI.PacketDeliveryError.Failed(reason: "Room is gone")
-            }
-
             for data in packets {
+                // Read for each packet, so a retire also stops the rest of a one-shot send.
+                // ponytail: a packet already inside `room.send` when the delegate retires still goes
+                // out on the new session. Closing that window needs a session check in the send path.
+                guard let room = state.room else {
+                    throw LiveKitFFI.PacketDeliveryError.Failed(reason: "Room is gone or its session was replaced")
+                }
                 guard let packet = try? Livekit_DataPacket(serializedBytes: data) else {
                     throw LiveKitFFI.PacketDeliveryError.Failed(reason: "Undecodable data stream packet")
                 }

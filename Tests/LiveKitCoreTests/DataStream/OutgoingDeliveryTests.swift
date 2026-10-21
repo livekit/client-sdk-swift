@@ -15,7 +15,8 @@
  */
 
 import Foundation
-import LiveKit
+@testable import LiveKit
+import LiveKitFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -29,7 +30,7 @@ struct OutgoingDeliveryTests {
     @Test func writeFailsAndClosesStreamWhenTransportIsGone() async throws {
         try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
             let sender = rooms[1]
-            let writer = try await sender.localParticipant.streamBytes(options: StreamByteOptions(topic: "delivery"))
+            let writer = try await sender.localParticipant.streamBytes(options: LiveKit.StreamByteOptions(topic: "delivery"))
 
             try await writer.write(Data(repeating: 0x01, count: 1024))
             // Read out of the macro: under Swift 6.1 `#expect` puts its expression somewhere an
@@ -63,6 +64,31 @@ struct OutgoingDeliveryTests {
             }
             let isOpen = await writer.isOpen
             #expect(!isOpen)
+        }
+    }
+
+    /// A send that still holds the manager a full reconnect replaced, such as one in flight during
+    /// the reconnect, keeps that manager's packet pump running. What it emits must not reach the
+    /// new session, so the replaced manager's delegate has to fail it.
+    @Test func replacedManagerCannotSendIntoNewSession() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let sender = rooms[1]
+            let replaced = try #require(sender._state.stage.connection?.outgoingDataStreams.copy().manager)
+            let writer = try await replaced.streamText(options: LiveKitFFI.StreamTextOptions(topic: "delivery", attributes: [:]))
+            try await writer.write(text: "before")
+
+            try await sender.debug_simulate(scenario: .fullReconnect)
+            #expect(sender.connectionState == .connected)
+
+            // A writer opened before the swap.
+            await #expect(throws: LiveKitFFI.DataStreamError.self) {
+                try await writer.write(text: "after")
+            }
+            // A stream opened on the replaced manager after the swap, as one whose creation
+            // overlapped it would be.
+            await #expect(throws: LiveKitFFI.DataStreamError.self) {
+                _ = try await replaced.streamText(options: LiveKitFFI.StreamTextOptions(topic: "delivery", attributes: [:]))
+            }
         }
     }
 }
