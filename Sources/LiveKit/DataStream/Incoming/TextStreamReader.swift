@@ -43,11 +43,13 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
     /// once the stream closes normally.
     ///
     /// - Returns: The string consisting of all concatenated chunks.
-    /// - Throws: ``StreamError`` if an error occurs while reading the stream.
+    /// - Throws: ``StreamError`` if an error occurs while reading the stream, or
+    ///   `CancellationError` at once if the calling task is cancelled. Data that arrives after a
+    ///   cancel is dropped, so do not read the stream again.
     ///
     public func readAll() async throws -> String {
         do {
-            return try await reader.readAll()
+            return try await abandoningOnCancel { [reader] in try await reader.readAll() }
         } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
@@ -59,7 +61,7 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
 
         public mutating func next() async throws -> String? {
             do {
-                return try await reader.next()
+                return try await abandoningOnCancel { [reader] in try await reader.next() }
             } catch let error as LiveKitFFI.DataStreamError {
                 throw StreamError(error)
             }

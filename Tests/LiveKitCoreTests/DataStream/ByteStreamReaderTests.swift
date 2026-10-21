@@ -109,6 +109,34 @@ struct ByteStreamReaderTests {
         _ = manager
     }
 
+    /// UniFFI's async calls ignore Swift cancellation. A read waiting on a stream that has only its
+    /// header must still return when its task is cancelled, with the room still connected.
+    @Test(arguments: [false, true])
+    func cancellingWaitingReadReturns(iterate: Bool) async throws {
+        let (reader, manager) = await openReader(chunks: [], trailerReason: nil)
+        let returned = AsyncCompleter<Error?>(label: "Cancelled read returned", defaultTimeout: 5)
+
+        let read = Task {
+            do {
+                if iterate {
+                    for try await _ in reader {}
+                } else {
+                    _ = try await reader.readAll()
+                }
+                returned.resume(returning: nil)
+            } catch {
+                returned.resume(returning: error)
+            }
+        }
+        // Lets the read reach the FFI wait. If it has not yet, the cancel ends it the same way.
+        try await Task.sleep(nanoseconds: 100_000_000)
+        read.cancel()
+
+        let error = try await returned.wait()
+        #expect(error is CancellationError)
+        _ = manager
+    }
+
     @Test func info() async {
         let (reader, manager) = await openReader()
         #expect(reader.info.topic == topic)
@@ -171,6 +199,7 @@ struct ByteStreamReaderTests {
     /// open by sending no trailer.
     private func openReader(
         fileName: String? = nil,
+        chunks: [Data]? = nil,
         trailerReason: String? = "",
     ) async -> (LiveKit.ByteStreamReader, IncomingDataStreamManager) {
         let capture = Capture()
@@ -188,7 +217,7 @@ struct ByteStreamReaderTests {
             }
             feed(manager) { $0.streamHeader = header }
 
-            for (index, chunk) in testChunks.enumerated() {
+            for (index, chunk) in (chunks ?? testChunks).enumerated() {
                 let streamChunk = Livekit_DataStream.Chunk.with {
                     $0.streamID = streamID
                     $0.chunkIndex = UInt64(index)
