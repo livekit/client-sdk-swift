@@ -58,8 +58,9 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
     /// The client-to-client protocol version advertised by this participant.
     ///
     /// ``ClientProtocol/v0`` means the participant only supports RPC v1. ``ClientProtocol/v1``
-    /// means it supports RPC v2 (data-stream-based payloads). Absent or unrecognized values
-    /// are treated as ``ClientProtocol/v0``.
+    /// means it supports RPC v2 (data-stream-based payloads). An absent value reads as
+    /// ``ClientProtocol/v0``, and a version newer than this SDK knows reads as the newest one it
+    /// knows.
     public var clientProtocol: ClientProtocol { _state.clientProtocol }
 
     /// The optional feature capabilities advertised by this participant.
@@ -258,7 +259,9 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
             $0.attributes = info.attributes
             $0.agentAttributes = info.attributes.mapped(to: AgentAttributes.self)
             $0.state = info.state.toLKType()
-            $0.clientProtocol = ClientProtocol(rawValue: Int(info.clientProtocol)) ?? .v0
+            // Each version extends the one before, so a peer newer than this SDK reads as the
+            // newest version it knows, not as a legacy client.
+            $0.clientProtocol = ClientProtocol(rawValue: min(Int(info.clientProtocol), ClientProtocol.v2.rawValue)) ?? .v0
             $0.capabilities = info.capabilities.compactMap { ClientCapability(rawValue: $0.rawValue) }
 
             // Attempt to get millisecond precision.

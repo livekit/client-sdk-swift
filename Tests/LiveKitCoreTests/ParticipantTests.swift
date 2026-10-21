@@ -23,6 +23,16 @@ import LiveKitTestSupport
 
 @Suite(.serialized, .tags(.e2e), TestLimits.e2e)
 struct ParticipantTests {
+    @Test(arguments: [(Int32(-1), ClientProtocol.v0), (0, .v0), (1, .v1), (2, .v2), (3, .v2), (.max, .v2)])
+    func remoteClientProtocol(advertised: Int32, expected: ClientProtocol) {
+        let info = Livekit_ParticipantInfo.with {
+            $0.identity = "remote"
+            $0.clientProtocol = advertised
+        }
+        let participant = RemoteParticipant(info: info, room: Room(), connectionState: .connected)
+        #expect(participant.clientProtocol == expected)
+    }
+
     @Test func localParticipantIdentity() async throws {
         try await TestEnvironment.withRoom { room in
             #expect(room.localParticipant.identity != nil, "LocalParticipant's identity is nil")
