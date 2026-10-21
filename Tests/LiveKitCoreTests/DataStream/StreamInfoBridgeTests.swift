@@ -191,6 +191,20 @@ struct StreamInfoBridgeTests {
         #expect(nsError.domain == "LiveKit.StreamError")
     }
 
+    /// Objective-C reads the core's detail from the `NSError`: the description includes it, the
+    /// failure reason is the detail itself, and the code stays pinned.
+    @Test(arguments: [
+        (StreamError.invalidUTF8(reason: "invalid byte"), "invalid byte", 13),
+        (.io(reason: "disk went away"), "disk went away", 19),
+        (.abnormalEnd(reason: "sender gave up"), "sender gave up", 0),
+    ])
+    func streamErrorDetailReachesNSError(_ error: StreamError, _ detail: String, _ code: Int) {
+        let nsError = error as NSError
+        #expect(nsError.code == code)
+        #expect(nsError.localizedFailureReason == detail)
+        #expect(nsError.localizedDescription.contains(detail))
+    }
+
     /// `EncryptionTypeMismatch` now carries both types, so the bridge reports what actually
     /// disagreed rather than a sentinel. Reachable again now that the wire encryption type is passed
     /// to `handlePacketReceived`.

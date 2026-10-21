@@ -122,6 +122,23 @@ extension StreamError: CustomNSError {
         case .internalError: 20
         }
     }
+
+    /// The `NSError` user info: a description naming the case, and the detail the core reported,
+    /// where there is one, as the failure reason.
+    public var errorUserInfo: [String: Any] {
+        var userInfo: [String: Any] = [NSLocalizedDescriptionKey: "Data stream error: \(self)"]
+        if let detail {
+            userInfo[NSLocalizedFailureReasonErrorKey] = detail
+        }
+        return userInfo
+    }
+
+    private var detail: String? {
+        switch self {
+        case let .abnormalEnd(reason), let .invalidUTF8(reason), let .io(reason): reason
+        default: nil
+        }
+    }
 }
 
 // MARK: - Declared length
