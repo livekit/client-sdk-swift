@@ -50,6 +50,24 @@ struct OutgoingDeliveryTests {
         }
     }
 
+    /// A disconnect releases the connection's outgoing manager, so a send or a stream opened after
+    /// it has nothing to go on and fails at once.
+    @Test(arguments: [false, true])
+    func newSendFailsAfterDisconnect(opensStream: Bool) async throws {
+        try await TestEnvironment.withRoom { room in
+            await room.disconnect()
+
+            let error = try #require(await #expect(throws: LiveKitError.self) {
+                if opensStream {
+                    _ = try await room.localParticipant.streamText(for: "delivery")
+                } else {
+                    _ = try await room.localParticipant.sendText("after", for: "delivery")
+                }
+            })
+            #expect(error.type == .invalidState)
+        }
+    }
+
     /// The remote side loses every open stream in a full reconnect, so a writer opened before it
     /// must fail rather than send its next chunk into a session where no receiver saw the header.
     @Test func writeFailsAfterFullReconnect() async throws {
