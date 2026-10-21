@@ -93,4 +93,31 @@ struct OutgoingDeliveryTests {
             }
         }
     }
+
+    /// The room stamps every outgoing packet with the local identity, except a data stream packet
+    /// that already names the identity it is sent on behalf of. The local dev server then replaces
+    /// that identity with the sender's own, so this is checked where the packet leaves the room.
+    @Test func streamSentOnBehalfKeepsItsIdentity() async throws {
+        try await TestEnvironment.withRoom { room in
+            let sent = StateSync<[Livekit_DataPacket]>([])
+            room.publisherDataChannel = MockDataChannelPair { packet in sent.mutate { $0.append(packet) } }
+            let local = try #require(room.localParticipant.identity?.stringValue)
+
+            _ = try await room.localParticipant.sendText("hi", options: StreamTextOptions(topic: "topic", senderIdentity: Participant.Identity(from: "on-behalf")))
+            #expect(!sent.copy().isEmpty)
+            #expect(sent.copy().allSatisfy { $0.participantIdentity == "on-behalf" })
+
+            sent.mutate { $0 = [] }
+            _ = try await room.localParticipant.sendText("hi", for: "topic")
+            #expect(!sent.copy().isEmpty)
+            #expect(sent.copy().allSatisfy { $0.participantIdentity == local })
+
+            sent.mutate { $0 = [] }
+            try await room.send(dataPacket: Livekit_DataPacket.with {
+                $0.participantIdentity = "on-behalf"
+                $0.user = Livekit_UserPacket.with { $0.payload = Data([1]) }
+            })
+            #expect(sent.copy().map(\.participantIdentity) == [local])
+        }
+    }
 }

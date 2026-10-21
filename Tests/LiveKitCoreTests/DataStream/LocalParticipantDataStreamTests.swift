@@ -106,6 +106,44 @@ struct LocalParticipantDataStreamTests {
         #expect(info.encryptionType == .none)
     }
 
+    enum Send: CaseIterable {
+        case text, bytes, file, textStream, byteStream
+    }
+
+    /// `senderIdentity` reaches every packet of the stream, on each send path, including the file
+    /// path that builds its own FFI options.
+    @Test(arguments: Send.allCases)
+    func senderIdentityReachesEveryPacket(_ send: Send) async throws {
+        let delegate = OutgoingStreamManagerTests.CapturingDelegate()
+        let room = try room(sendingThrough: delegate)
+        let participant = room.localParticipant
+        let sender = Participant.Identity(from: "on-behalf")
+        let textOptions = LiveKit.StreamTextOptions(topic: "topic", senderIdentity: sender)
+        let byteOptions = LiveKit.StreamByteOptions(topic: "topic", senderIdentity: sender)
+
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).txt")
+        try Data("hi".utf8).write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        switch send {
+        case .text: _ = try await participant.sendText("hi", options: textOptions)
+        case .bytes: _ = try await participant.sendBytes(Data([1]), options: byteOptions)
+        case .file: _ = try await participant.sendFile(fileURL, options: byteOptions)
+        case .textStream:
+            let writer = try await participant.streamText(options: textOptions)
+            try await writer.write("hi")
+            try await writer.close()
+        case .byteStream:
+            let writer = try await participant.streamBytes(options: byteOptions)
+            try await writer.write(Data([1]))
+            try await writer.close()
+        }
+
+        let packets = delegate.packets.copy()
+        #expect(!packets.isEmpty)
+        #expect(packets.allSatisfy { $0.participantIdentity == "on-behalf" })
+    }
+
     // MARK: - Cancellation
 
     enum BlockedCall: CaseIterable {

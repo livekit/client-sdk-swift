@@ -234,7 +234,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             name: options.name ?? fileInfo.name,
             totalLength: UInt64(fileInfo.size),
             compress: options.compress,
-            senderIdentity: nil,
+            senderIdentity: options.senderIdentity?.stringValue,
         )
         return try await mappingErrors {
             let outgoing = try outgoing()

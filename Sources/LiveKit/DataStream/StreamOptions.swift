@@ -59,6 +59,14 @@ public final class StreamTextOptions: NSObject, StreamOptions {
     /// is not known up front.
     public let compress: Bool
 
+    /// Sends the stream on behalf of another identity, which receivers then see as its sender.
+    /// `nil` (the default) sends as the local participant.
+    ///
+    /// - Note: The server decides whether this participant may send on behalf of another identity.
+    ///   A server that does not allow it, such as `livekit-server --dev`, delivers the stream as
+    ///   the local participant's.
+    public let senderIdentity: Participant.Identity?
+
     // TODO: Expose additional protocol level fields
 
     public init(
@@ -72,6 +80,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         replyToStreamID: String? = nil,
         generated: Bool = false,
         compress: Bool = true,
+        senderIdentity: Participant.Identity? = nil,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -83,6 +92,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         self.replyToStreamID = replyToStreamID
         self.generated = generated
         self.compress = compress
+        self.senderIdentity = senderIdentity
     }
 
     var ffi: LiveKitFFI.StreamTextOptions {
@@ -97,7 +107,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
             attachedStreamIds: attachedStreamIDs,
             generated: generated,
             compress: compress,
-            senderIdentity: nil,
+            senderIdentity: senderIdentity?.stringValue,
         )
     }
 
@@ -152,6 +162,14 @@ public final class StreamByteOptions: NSObject, StreamOptions {
     /// is not known up front.
     public let compress: Bool
 
+    /// Sends the stream on behalf of another identity, which receivers then see as its sender.
+    /// `nil` (the default) sends as the local participant.
+    ///
+    /// - Note: The server decides whether this participant may send on behalf of another identity.
+    ///   A server that does not allow it, such as `livekit-server --dev`, delivers the stream as
+    ///   the local participant's.
+    public let senderIdentity: Participant.Identity?
+
     public init(
         topic: String,
         attributes: [String: String] = [:],
@@ -161,6 +179,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         name: String? = nil,
         totalSize: Int? = nil,
         compress: Bool = true,
+        senderIdentity: Participant.Identity? = nil,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -170,6 +189,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
         self.name = name
         self.totalSize = totalSize.flatMap { $0 >= 0 ? $0 : nil }
         self.compress = compress
+        self.senderIdentity = senderIdentity
     }
 
     var ffi: LiveKitFFI.StreamByteOptions {
@@ -182,7 +202,7 @@ public final class StreamByteOptions: NSObject, StreamOptions {
             name: name,
             totalLength: totalSize.map { UInt64($0) },
             compress: compress,
-            senderIdentity: nil,
+            senderIdentity: senderIdentity?.stringValue,
         )
     }
 
