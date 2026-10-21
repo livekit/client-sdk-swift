@@ -137,6 +137,39 @@ struct ByteStreamReaderTests {
         _ = manager
     }
 
+    /// `readAll` reads chunk by chunk, so a cancel stops the collection: at most the chunk in flight
+    /// is lost, and the rest of the stream can still be read. A whole-stream read in the core would
+    /// keep the reader to itself until the stream ends and leave nothing to read.
+    @Test func cancelledReadAllLeavesRestOfStream() async throws {
+        let (reader, manager) = try await openReader(chunks: [], trailerReason: nil)
+        let started = AsyncCompleter<Void>(label: "Read started", defaultTimeout: 5)
+        let read = Task {
+            started.resume(returning: ())
+            return try await reader.readAll()
+        }
+        try await started.wait()
+        read.cancel()
+        await #expect(throws: CancellationError.self) { try await read.value }
+
+        let chunk = Data(repeating: 0x7F, count: 64)
+        for index in 0 ..< 3 {
+            let streamChunk = Livekit_DataStream.Chunk.with {
+                $0.streamID = reader.info.id
+                $0.chunkIndex = UInt64(index)
+                $0.content = chunk
+            }
+            feed(manager) { $0.streamChunk = streamChunk }
+        }
+        let trailer = Livekit_DataStream.Trailer.with { $0.streamID = reader.info.id }
+        feed(manager) { $0.streamTrailer = trailer }
+
+        var rest = Data()
+        for try await received in reader {
+            rest += received
+        }
+        #expect(rest.count >= 2 * chunk.count)
+    }
+
     /// The copy runs in the caller's task, so a cancel ends `writeToFile` at once and the file stops
     /// growing, rather than an unstructured task finishing the file in the background.
     @Test func cancellingWriteToFileStops() async throws {

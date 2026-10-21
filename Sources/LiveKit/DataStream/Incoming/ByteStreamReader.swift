@@ -36,15 +36,18 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     ///
     /// - Returns: The data consisting of all concatenated chunks.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream, or
-    ///   `CancellationError` at once if the calling task is cancelled. Data that arrives after a
-    ///   cancel is dropped, so do not read the stream again.
+    ///   `CancellationError` at once if the calling task is cancelled. The chunk in flight at the
+    ///   cancel is dropped, so a later read of the stream misses it.
     ///
     public func readAll() async throws -> Data {
-        do {
-            return try await abandoningOnCancel { [reader] in try await reader.readAll() }
-        } catch let error as LiveKitFFI.DataStreamError {
-            throw StreamError(error)
+        // ponytail: chunk by chunk, so a cancel stops the collection after at most one chunk, but
+        // the core keeps buffering the rest of the stream until it ends. Releasing it early needs
+        // a per-reader close in the FFI.
+        var result = Data()
+        for try await chunk in self {
+            result.append(chunk)
         }
+        return result
     }
 
     /// An asynchronous iterator of incoming chunks.
