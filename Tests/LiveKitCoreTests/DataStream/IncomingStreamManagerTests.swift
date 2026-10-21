@@ -335,3 +335,29 @@ struct IncomingStreamManagerTests: Sendable {
         coordinator.handleIncoming(packet, serialized: nil, encryptionType: encryptionType)
     }
 }
+
+// MARK: - Payload cap
+
+extension IncomingStreamManagerTests {
+    /// A cap of zero reaches the core as zero, not as the built-in cap, so a one-byte stream fails.
+    @Test func zeroPayloadCapRejectsNonEmptyStream() async throws {
+        try reconnect(maxPayloadByteLength: 0)
+        let read = try readingTextStreams()
+        await feedTextStream(chunks: ["a"])
+
+        await #expect(throws: StreamError.payloadTooLarge) {
+            try await read.wait()
+        }
+    }
+
+    /// Replaces the connection, as a disconnect and a new connect do, with one whose incoming
+    /// manager has the given payload cap.
+    private func reconnect(maxPayloadByteLength: Int?) throws {
+        let options = RoomOptions(dataStreamOptions: DataStreamOptions(maxPayloadByteLength: maxPayloadByteLength))
+        let connection = ConnectionDependencies(idle: room._state.stage.idle, room: room, roomOptions: options)
+        try room._state.mutate {
+            _ = $0.stage.end()
+            try $0.stage.begin(connection)
+        }
+    }
+}

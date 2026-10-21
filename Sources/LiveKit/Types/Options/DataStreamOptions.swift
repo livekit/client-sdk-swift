@@ -24,7 +24,8 @@ public final class DataStreamOptions: NSObject, Sendable {
     /// A stream whose reassembled payload would exceed this cap fails the read rather than buffering
     /// unbounded data. `nil` (the default) uses the SDK's built-in cap of 5gb.
     ///
-    /// - Note: A value of zero or less is treated as `nil`, falling back to the built-in cap.
+    /// - Note: Zero accepts only empty payloads. A negative value is treated as `nil`, falling back
+    ///   to the built-in cap.
     public let maxPayloadByteLength: Int?
 
     /// ``maxPayloadByteLength`` as an `NSNumber`, for Objective-C callers.
@@ -37,10 +38,10 @@ public final class DataStreamOptions: NSObject, Sendable {
 
     /// Creates options with the given incoming payload cap.
     ///
-    /// - Parameter maxPayloadByteLength: Cap in bytes, or `nil` for the SDK's built-in cap. Values of
-    ///   zero or less are treated as `nil`.
+    /// - Parameter maxPayloadByteLength: Cap in bytes, or `nil` for the SDK's built-in cap. Negative
+    ///   values are treated as `nil`.
     public init(maxPayloadByteLength: Int?) {
-        self.maxPayloadByteLength = maxPayloadByteLength.flatMap { $0 > 0 ? $0 : nil }
+        self.maxPayloadByteLength = maxPayloadByteLength.flatMap { $0 >= 0 ? $0 : nil }
     }
 
     /// Creates options with the default incoming payload cap.

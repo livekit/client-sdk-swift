@@ -57,12 +57,18 @@ struct StreamOptionsTests {
         #expect(DataStreamOptions(maxPayloadByteLengthNumber: 1000).maxPayloadByteLength == 1000)
     }
 
-    /// A non-positive cap used to reach `UInt64(_:)` at the FFI boundary and trap the process on the
+    /// A negative cap used to reach `UInt64(_:)` at the FFI boundary and trap the process on the
     /// first inbound packet. Normalized to `nil` (the built-in cap) at construction instead.
-    @Test(arguments: [-1, 0, Int.min])
-    func dataStreamNonPositiveMaxPayloadByteLengthIsIgnored(_ value: Int) {
+    @Test(arguments: [-1, Int.min])
+    func dataStreamNegativeMaxPayloadByteLengthIsIgnored(_ value: Int) {
         #expect(DataStreamOptions(maxPayloadByteLength: value).maxPayloadByteLength == nil)
         #expect(DataStreamOptions(maxPayloadByteLengthNumber: NSNumber(value: value)).maxPayloadByteLength == nil)
+    }
+
+    /// Zero is a cap, as in Rust and Python, not a request for the built-in one.
+    @Test func dataStreamZeroMaxPayloadByteLengthIsKept() {
+        #expect(DataStreamOptions(maxPayloadByteLength: 0).maxPayloadByteLength == 0)
+        #expect(DataStreamOptions(maxPayloadByteLengthNumber: 0).maxPayloadByteLength == 0)
     }
 
     /// Same hazard on the other side: a negative expected size reached `UInt64(_:)` when the stream

@@ -126,7 +126,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// handled Swift-side here, so the manager itself carries no handler state.
     ///
     /// - Parameter maxPayloadByteLength: `nil` → the core's default cap. `DataStreamOptions`
-    ///   normalizes non-positive values to `nil`, so the conversion below can't trap.
+    ///   normalizes negative values to `nil`, so the conversion below can't trap.
     static func makeIncomingManager(coordinator: DataStreams, maxPayloadByteLength: Int?) -> LiveKitFFI.IncomingDataStreamManager {
         let delegate = IncomingDelegate()
         delegate.coordinator = coordinator
