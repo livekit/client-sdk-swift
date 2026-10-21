@@ -202,21 +202,13 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Sending
 
     func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
-        try await mappingErrors {
-            let outgoing = try outgoing()
-            let options = options.ffi
-            let info = try await abandoningOnCancel { try await outgoing.sendText(text: text, options: options) }
-            return TextStreamInfo(info, encryptionType: currentEncryptionType)
-        }
+        let options = options.ffi
+        return try await TextStreamInfo(calling { try await $0.sendText(text: text, options: options) }, encryptionType: currentEncryptionType)
     }
 
     func sendBytes(_ data: Data, options: StreamByteOptions) async throws -> ByteStreamInfo {
-        try await mappingErrors {
-            let outgoing = try outgoing()
-            let options = options.ffi
-            let info = try await abandoningOnCancel { try await outgoing.sendBytes(data: data, options: options) }
-            return ByteStreamInfo(info, encryptionType: currentEncryptionType)
-        }
+        let options = options.ffi
+        return try await ByteStreamInfo(calling { try await $0.sendBytes(data: data, options: options) }, encryptionType: currentEncryptionType)
     }
 
     func sendFile(_ fileURL: URL, options: StreamByteOptions) async throws -> ByteStreamInfo {
@@ -236,29 +228,17 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             compress: options.compress,
             senderIdentity: options.senderIdentity?.stringValue,
         )
-        return try await mappingErrors {
-            let outgoing = try outgoing()
-            let info = try await abandoningOnCancel { try await outgoing.sendFile(path: fileURL.path, options: ffiOptions) }
-            return ByteStreamInfo(info, encryptionType: currentEncryptionType)
-        }
+        return try await ByteStreamInfo(calling { try await $0.sendFile(path: fileURL.path, options: ffiOptions) }, encryptionType: currentEncryptionType)
     }
 
     func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
-        try await mappingErrors {
-            let outgoing = try outgoing()
-            let options = options.ffi
-            let writer = try await abandoningOnCancel { try await outgoing.streamText(options: options) }
-            return TextStreamWriter(writer, encryptionType: currentEncryptionType)
-        }
+        let options = options.ffi
+        return try await TextStreamWriter(calling { try await $0.streamText(options: options) }, encryptionType: currentEncryptionType)
     }
 
     func streamBytes(options: StreamByteOptions) async throws -> ByteStreamWriter {
-        try await mappingErrors {
-            let outgoing = try outgoing()
-            let options = options.ffi
-            let writer = try await abandoningOnCancel { try await outgoing.streamBytes(options: options) }
-            return ByteStreamWriter(writer, encryptionType: currentEncryptionType)
-        }
+        let options = options.ffi
+        return try await ByteStreamWriter(calling { try await $0.streamBytes(options: options) }, encryptionType: currentEncryptionType)
     }
 
     // MARK: - Incoming packets
@@ -382,9 +362,12 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         log("Unable to find handler for incoming stream: \(id), topic: \(topic), opened by: \(identity)")
     }
 
-    private func mappingErrors<T>(_ body: () async throws -> T) async throws -> T {
+    /// Runs `call` on the connection's outgoing manager. A cancel ends the wait at once, since the
+    /// UniFFI call ignores it, and an FFI error becomes a ``StreamError``.
+    private func calling<T: Sendable>(_ call: @escaping @Sendable (LiveKitFFI.OutgoingDataStreamManager) async throws -> T) async throws -> T {
+        let outgoing = try outgoing()
         do {
-            return try await body()
+            return try await abandoningOnCancel { try await call(outgoing) }
         } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
