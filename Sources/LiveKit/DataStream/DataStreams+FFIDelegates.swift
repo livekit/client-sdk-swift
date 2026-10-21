@@ -70,14 +70,13 @@ extension DataStreams {
         }
 
         func onPacketsAvailable(packets: [Data]) async throws {
-            // The room is gone, so there is no transport left to fail against; the manager is being
-            // torn down with it.
-            guard let room else { return }
+            guard let room else {
+                throw LiveKitFFI.PacketDeliveryError.Failed(reason: "Room is gone")
+            }
 
             for data in packets {
                 guard let packet = try? Livekit_DataPacket(serializedBytes: data) else {
-                    room.log("Failed to decode outgoing data stream packet", .warning)
-                    continue
+                    throw LiveKitFFI.PacketDeliveryError.Failed(reason: "Undecodable data stream packet")
                 }
                 do {
                     try await room.send(dataPacket: packet)
