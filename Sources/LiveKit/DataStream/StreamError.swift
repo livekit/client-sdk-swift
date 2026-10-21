@@ -18,24 +18,32 @@ internal import LiveKitFFI
 
 public enum StreamError: Error, Equatable {
     /// Unable to open a stream with the same ID more than once.
+    ///
+    /// - Note: Not thrown since data streams moved to the Rust core. Kept for source compatibility.
     case alreadyOpened
 
-    /// Stream closed abnormally by remote participant.
+    /// The stream ended abnormally: the sender closed it with `reason`, the connection closed while
+    /// it was open, or a file operation failed.
     case abnormalEnd(reason: String)
 
-    /// Incoming chunk data could not be decoded.
+    /// Incoming data could not be decoded: text that is not valid UTF-8, or a compressed payload
+    /// that does not decompress.
     case decodeFailed
 
-    /// Read length exceeded total length specified in stream header.
+    /// The stream exceeded the length in its header, the cap set by
+    /// ``DataStreamOptions/maxPayloadByteLength``, or the size a header or packet can carry.
     case lengthExceeded
 
     /// Read length less than total length specified in stream header.
     case incomplete
 
-    /// Stream terminated before completion.
+    /// The stream failed for a reason that no other case covers: it is already closed, a chunk
+    /// was missing or malformed, a send could not be delivered, or the file name was invalid.
     case terminated
 
     /// Cannot perform operations on an unknown stream.
+    ///
+    /// - Note: Not thrown since data streams moved to the Rust core. Kept for source compatibility.
     case unknownStream
 
     /// Unable to register a stream handler more than once.

@@ -45,8 +45,10 @@ public final class StreamTextOptions: NSObject, StreamOptions {
     public let attachedStreamIDs: [String]
     public let replyToStreamID: String?
 
-    /// Whether to compress the payload when every recipient supports it. `true` by default; the
-    /// stream is still sent uncompressed to recipients that can't decompress it.
+    /// Whether a one-shot send (`sendText`, `sendBytes` or `sendFile`) compresses the payload.
+    /// `true` by default. The payload goes out uncompressed when a recipient can't decompress it.
+    /// A stream opened with `streamText` or `streamBytes` is never compressed, because its content
+    /// is not known up front.
     public let compress: Bool
 
     // TODO: Expose additional protocol level fields
@@ -109,8 +111,10 @@ public final class StreamByteOptions: NSObject, StreamOptions {
     ///   trapping on the conversion to the wire's unsigned length.
     public let totalSize: Int?
 
-    /// Whether to compress the payload when every recipient supports it. `true` by default; the
-    /// stream is still sent uncompressed to recipients that can't decompress it.
+    /// Whether a one-shot send (`sendText`, `sendBytes` or `sendFile`) compresses the payload.
+    /// `true` by default. The payload goes out uncompressed when a recipient can't decompress it.
+    /// A stream opened with `streamText` or `streamBytes` is never compressed, because its content
+    /// is not known up front.
     public let compress: Bool
 
     public init(

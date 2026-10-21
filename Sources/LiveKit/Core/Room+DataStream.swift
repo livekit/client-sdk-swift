@@ -27,6 +27,10 @@ public extension Room {
     ///     ``ByteStreamReader`` for consuming the stream data and the identity of
     ///     the remote participant who initiated the stream.
     ///
+    /// - Note: Each stream gets its own background task, so handlers can run at the same time,
+    ///   also for two streams on the same topic. A handler is not on the main actor; hop there for
+    ///   UI work.
+    ///
     func registerByteStreamHandler(for topic: String, onNewStream: @escaping ByteStreamHandler) async throws {
         guard !topic.hasPrefix(Room.reservedTopicPrefix) else {
             throw LiveKitError(.invalidParameter,
@@ -44,6 +48,10 @@ public extension Room {
     ///     opens a new stream with the matching topic. The handler receives a
     ///     ``TextStreamReader`` for consuming the stream data and the identity of
     ///     the remote participant who initiated the stream.
+    ///
+    /// - Note: Each stream gets its own background task, so handlers can run at the same time,
+    ///   also for two streams on the same topic. A handler is not on the main actor; hop there for
+    ///   UI work.
     ///
     func registerTextStreamHandler(for topic: String, onNewStream: @escaping TextStreamHandler) async throws {
         guard !topic.hasPrefix(Room.reservedTopicPrefix) else {
@@ -86,7 +94,7 @@ extension Room {
     /// Reserved data-stream topic prefix for RPC v2 (`lk.rpc_request` / `lk.rpc_response`,
     /// and any future `lk.rpc_*` topics). The broader `lk.*` namespace is convention-only
     /// — other internal features (chat, transcription, etc.) bypass the public API by
-    /// going through `incomingStreamManager` directly and aren't enforced here.
+    /// going through ``DataStreams`` directly and aren't enforced here.
     static let reservedTopicPrefix = "lk.rpc"
 }
 

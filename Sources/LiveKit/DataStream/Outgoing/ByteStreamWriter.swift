@@ -19,6 +19,10 @@ import Foundation
 internal import LiveKitFFI
 
 /// Asynchronously write to an open byte stream.
+///
+/// - Important: Call and await ``close(reason:)`` when you are done. Releasing a writer without
+///   closing it does not send the end of the stream, so receivers keep waiting for it until you
+///   disconnect.
 @objcMembers
 public final class ByteStreamWriter: NSObject, Sendable {
     /// Information about the outgoing byte stream.
@@ -35,8 +39,8 @@ public final class ByteStreamWriter: NSObject, Sendable {
     /// Write data to the stream.
     ///
     /// - Parameter data: Data to be sent.
-    /// - Throws: Throws an error if the stream has been closed or data
-    ///   cannot be sent to remote participants.
+    /// - Throws: ``StreamError/terminated`` if the stream is closed, or the data cannot be
+    ///   delivered, for example because the room disconnected. Then ``isOpen`` is `false`.
     ///
     public func write(_ data: Data) async throws {
         do {
@@ -50,8 +54,8 @@ public final class ByteStreamWriter: NSObject, Sendable {
     ///
     /// - Parameter reason: A textual description of why the stream is being closed. Absense
     ///   of a reason indicates a normal closure.
-    /// - Throws: Throws an error if the stream has already been closed or closure
-    ///   cannot be communicated to remote participants.
+    /// - Throws: ``StreamError/terminated`` if the stream is already closed, or the end of the
+    ///   stream cannot be delivered.
     ///
     public func close(reason: String? = nil) async throws {
         do {

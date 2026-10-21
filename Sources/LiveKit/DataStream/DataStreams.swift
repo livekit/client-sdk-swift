@@ -20,15 +20,14 @@ internal import LiveKitFFI
 
 // MARK: - DataStreams
 
-/// Owns the outgoing UniFFI data stream manager and the topic→handler registry, and routes
-/// Room/participant calls to the right manager. Staged as ``IdleDependencies``, the room-scoped
-/// dependency tier, keeping the subsystem off the Room's surface.
+/// Owns the topic→handler registry and routes Room/participant calls to the connection's UniFFI
+/// data stream managers. Staged as ``IdleDependencies``, the room-scoped dependency tier, keeping
+/// the subsystem off the Room's surface.
 ///
 /// Unlike ``DataTracks``, this subsystem is **Room-scoped, not session-scoped**: stream handlers
 /// (registered by the app, and by internal RPC/transcription wiring) must survive reconnects and be
-/// registrable before connect, so the registry lives here for the Room's lifetime. The outgoing
-/// manager holds no channel handle — packets are pulled out of it via the delegate — and nothing
-/// per-connection, so it lives here too. Its incoming counterpart does not: see ``incoming``.
+/// registrable before connect, so the registry lives here for the Room's lifetime. The FFI managers
+/// do not: see ``incoming``.
 ///
 /// `@unchecked Sendable`: the only mutable state is the StateSync-guarded registry and the
 /// back-references ``attach(room:)`` fills in before the room can be shared; the managers and
@@ -38,8 +37,9 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     // Neither FFI manager is held here: both are owned by ``ConnectionDependencies`` and live
     // exactly as long as one connection. The incoming one because its payload cap is fixed at
     // construction (the FFI exposes no setter) from the options passed to `connect`; the outgoing
-    // one so that dropping it at disconnect closes the writers opened on that session — their next
-    // chunk would otherwise reach the *next* session, whose receivers never saw the header.
+    // one so that dropping it closes the writers opened on that session — their next chunk would
+    // otherwise reach the *next* session, whose receivers never saw the header. A full reconnect
+    // keeps the connection, so it swaps the outgoing manager explicitly.
     //
     // Before connect and after disconnect there is neither, which is what a stream needs anyway:
     // a transport to travel on.
@@ -272,9 +272,9 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     /// on a reader that will never finish would otherwise stall its topic's ordered queue. Handler
     /// registrations survive, so streams arriving after a reconnect are still handled.
     ///
-    /// The manager survives: a full reconnect keeps the connection it belongs to, and a disconnect
-    /// releases it along with that connection — so the next connect always gets one built from that
-    /// connection's `maxPayloadByteLength`.
+    /// The incoming manager survives: a full reconnect keeps the connection it belongs to, and a
+    /// disconnect releases it along with that connection — so the next connect always gets one
+    /// built from that connection's `maxPayloadByteLength`.
     func reset() {
         incoming?.abortAllStreams()
     }

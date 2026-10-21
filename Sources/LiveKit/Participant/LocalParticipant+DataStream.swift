@@ -25,7 +25,8 @@ public extension LocalParticipant {
     ///   - text: The string to send.
     ///   - topic: Topic identifier used to route the stream to appropriate handlers.
     /// - Returns: Information about the text stream used during the operation.
-    /// - Throws: Throws ``StreamError`` if the operation fails.
+    /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
+    ///   connected.
     ///
     @discardableResult
     func sendText(_ text: String, for topic: String) async throws -> TextStreamInfo {
@@ -75,7 +76,8 @@ public extension LocalParticipant {
     ///   - fileURL: The URL of the file on disk to send.
     ///   - topic: Topic identifier used to route the stream to appropriate handlers.
     /// - Returns: Information about the byte stream used during the operation.
-    /// - Throws: Throws ``StreamError`` if the operation fails.
+    /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
+    ///   connected.
     ///
     @discardableResult
     func sendFile(_ fileURL: URL, for topic: String) async throws -> ByteStreamInfo {
@@ -99,7 +101,8 @@ public extension LocalParticipant {
     /// - Parameters:
     ///   - topic: Topic identifier used to route the stream to appropriate handlers.
     /// - Returns: A ``TextStreamWriter`` for sending text.
-    /// - Throws: Throws ``StreamError`` if the operation fails.
+    /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
+    ///   connected.
     ///
     @discardableResult
     func streamText(for topic: String) async throws -> TextStreamWriter {
@@ -121,7 +124,8 @@ public extension LocalParticipant {
     /// - Parameters:
     ///   - topic: Topic identifier used to route the stream to appropriate handlers.
     /// - Returns: A ``ByteStreamWriter`` for sending data.
-    /// - Throws: Throws ``StreamError`` if the operation fails.
+    /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
+    ///   connected.
     ///
     /// For sending files, use ``sendFile(_:for:)`` instead.
     ///

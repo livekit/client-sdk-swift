@@ -90,9 +90,9 @@ extension DataStreams {
     // MARK: - Remote participant registry
 
     /// Read access to the room's remote participants, used by the outgoing manager to resolve
-    /// broadcast recipients and decide compression eligibility. Client protocol/capabilities aren't
-    /// currently exposed on `RemoteParticipant`, so they default to none — compression stays off
-    /// until they're wired, which is a safe default (a non-compressed send always works).
+    /// broadcast recipients and decide inline and compression eligibility from each participant's
+    /// advertised client protocol and capabilities. An unknown participant reports neither, which
+    /// keeps the send uncompressed and multi-packet.
     final class Registry: LiveKitFFI.RemoteParticipantRegistryDelegate, @unchecked Sendable {
         private weak var room: Room?
 
