@@ -70,6 +70,21 @@ struct ByteStreamReaderTests {
         _ = manager
     }
 
+    @Test func readAllOfEmptyStream() async throws {
+        let (reader, manager) = try await openReader(chunks: [])
+        #expect(try await reader.readAll().isEmpty)
+        _ = manager
+    }
+
+    /// Once the stream has ended, the iterator keeps returning `nil`.
+    @Test func nextAfterEndIsNil() async throws {
+        let (reader, manager) = try await openReader()
+        var chunks = reader.makeAsyncIterator()
+        while try await chunks.next() != nil {}
+        #expect(try await chunks.next() == nil)
+        _ = manager
+    }
+
     @Test func readToFile() async throws {
         let (reader, manager) = try await openReader()
         let fileURL = try await reader.writeToFile()

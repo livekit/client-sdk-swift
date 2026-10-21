@@ -68,6 +68,21 @@ struct TextStreamReaderTests {
         _ = manager
     }
 
+    @Test func readAllOfEmptyStream() async throws {
+        let (reader, manager) = try await openReader(chunks: [])
+        #expect(try await reader.readAll().isEmpty)
+        _ = manager
+    }
+
+    /// Once the stream has ended, the iterator keeps returning `nil`.
+    @Test func nextAfterEndIsNil() async throws {
+        let (reader, manager) = try await openReader()
+        var chunks = reader.makeAsyncIterator()
+        while try await chunks.next() != nil {}
+        #expect(try await chunks.next() == nil)
+        _ = manager
+    }
+
     @Test func info() async throws {
         let (reader, manager) = try await openReader()
         #expect(reader.info.topic == topic)
@@ -95,7 +110,7 @@ struct TextStreamReaderTests {
 
     /// Opens a text stream through the FFI incoming manager and returns the public reader plus the
     /// manager, which the caller must keep alive while reading.
-    private func openReader(trailerReason: String = "") async throws -> (LiveKit.TextStreamReader, IncomingDataStreamManager) {
+    private func openReader(chunks: [String]? = nil, trailerReason: String = "") async throws -> (LiveKit.TextStreamReader, IncomingDataStreamManager) {
         let capture = Capture()
         let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
         let streamID = UUID().uuidString
@@ -107,7 +122,7 @@ struct TextStreamReaderTests {
         }
         feed(manager) { $0.streamHeader = header }
 
-        for (index, chunk) in testChunks.enumerated() {
+        for (index, chunk) in (chunks ?? testChunks).enumerated() {
             let streamChunk = Livekit_DataStream.Chunk.with {
                 $0.streamID = streamID
                 $0.chunkIndex = UInt64(index)
