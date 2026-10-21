@@ -194,6 +194,37 @@ struct DataStreamTests {
         }
     }
 
+    /// The receiver's configured cap holds a payload sent from another room: a payload under the
+    /// cap reads, and one over it fails with `.payloadTooLarge`.
+    @Test func receiverPayloadCapHoldsAcrossRooms() async throws {
+        let results = StateSync<[Result<String, Error>]>([])
+
+        try await TestEnvironment.withRooms([
+            RoomTestingOptions(dataStreamOptions: DataStreamOptions(maxPayloadByteLength: 1000), canSubscribe: true),
+            RoomTestingOptions(canPublishData: true),
+        ]) { rooms in
+            let (receiver, sender) = (rooms[0], rooms[1])
+            try await receiver.registerTextStreamHandler(for: "capped") { reader, _ in
+                do {
+                    let text = try await reader.readAll()
+                    results.mutate { $0.append(.success(text)) }
+                } catch {
+                    results.mutate { $0.append(.failure(error)) }
+                }
+            }
+
+            let small = String(repeating: "a", count: 500)
+            try await sender.localParticipant.sendText(small, for: "capped")
+            try await poll(timeout: 30, for: "the small payload") { results.copy().count == 1 }
+            try await sender.localParticipant.sendText(String(repeating: "b", count: 5000), for: "capped")
+            try await poll(timeout: 30, for: "the large payload") { results.copy().count == 2 }
+
+            let outcomes = results.copy()
+            #expect(try outcomes[0].get() == small)
+            #expect(throws: StreamError.payloadTooLarge) { try outcomes[1].get() }
+        }
+    }
+
     enum ReservedRegisterOp: CaseIterable, CustomTestStringConvertible {
         case text
         case byte

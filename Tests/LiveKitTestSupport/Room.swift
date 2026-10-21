@@ -36,6 +36,7 @@ public struct RoomTestingOptions {
 
     /// Override the client protocol version advertised to peers. When `nil`, uses the SDK default.
     public let clientProtocol: ClientProtocol?
+    public let dataStreamOptions: DataStreamOptions
 
     // Perms
     public let canPublish: Bool
@@ -53,6 +54,7 @@ public struct RoomTestingOptions {
                 encryptionOptions: EncryptionOptions? = nil,
                 singlePeerConnection: Bool = false,
                 clientProtocol: ClientProtocol? = nil,
+                dataStreamOptions: DataStreamOptions = DataStreamOptions(),
                 canPublish: Bool = false,
                 canPublishData: Bool = false,
                 canPublishSources: Set<Track.Source> = [],
@@ -68,6 +70,7 @@ public struct RoomTestingOptions {
         self.encryptionOptions = encryptionOptions
         self.singlePeerConnection = singlePeerConnection
         self.clientProtocol = clientProtocol
+        self.dataStreamOptions = dataStreamOptions
         self.canPublish = canPublish
         self.canPublishData = canPublishData
         self.canPublishSources = canPublishSources
