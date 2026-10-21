@@ -29,11 +29,16 @@ import LiveKitTestSupport
 /// is produced by the new Rust core. No network or connected room is needed.
 @Suite(.tags(.dataStream))
 struct OutgoingStreamManagerTests {
-    /// Captures the encoded `DataPacket`s the manager emits.
+    /// Captures the encoded `DataPacket`s the manager emits, or fails their delivery once
+    /// `failsDelivery` is set.
     private final class CapturingDelegate: OutgoingDataStreamManagerDelegate, @unchecked Sendable {
         let packets = StateSync<[Livekit_DataPacket]>([])
+        let failsDelivery = StateSync(false)
 
-        func onPacketsAvailable(packets emitted: [Data]) {
+        func onPacketsAvailable(packets emitted: [Data]) throws {
+            if failsDelivery.copy() {
+                throw PacketDeliveryError.Failed(reason: "transport gone")
+            }
             for data in emitted {
                 guard let packet = try? Livekit_DataPacket(serializedBytes: data) else { continue }
                 packets.mutate { $0.append(packet) }
@@ -68,7 +73,6 @@ struct OutgoingStreamManagerTests {
             try await writer.write(data: chunk)
         }
         try await writer.close()
-        try await settle()
 
         assertStream(
             delegate.packets.copy(),
@@ -99,7 +103,6 @@ struct OutgoingStreamManagerTests {
             try await writer.write(text: chunk)
         }
         try await writer.close()
-        try await settle()
 
         assertStream(
             delegate.packets.copy(),
@@ -163,16 +166,25 @@ struct OutgoingStreamManagerTests {
         #expect(packets.allSatisfy { $0.destinationIdentities == ["alice"] })
     }
 
-    // Note: the v1 `errorPropagation` behavior (a data-channel send failure surfacing back to the
-    // caller of `write`) is intentionally not ported. The UniFFI outgoing manager decouples the
-    // send from transport delivery and does not propagate transport-level send failures.
+    /// A delivery failure surfaces to the `write` that caused it and closes the stream, so the
+    /// writer stops reporting itself open. Restores v1's `errorPropagation` spec.
+    @Test func deliveryFailureFailsWriteAndClosesStream() async throws {
+        let delegate = CapturingDelegate()
+        let manager = OutgoingDataStreamManager(delegate: delegate, registry: StubRegistry())
+        let ffiWriter = try await manager.streamText(
+            options: LiveKitFFI.StreamTextOptions(topic: "some-topic", attributes: [:]),
+        )
+        let writer = LiveKit.TextStreamWriter(ffiWriter, encryptionType: .none)
+
+        delegate.failsDelivery.mutate { $0 = true }
+        await #expect(throws: StreamError.terminated) {
+            try await writer.write("hello")
+        }
+        let isOpen = await writer.isOpen
+        #expect(!isOpen)
+    }
 
     // MARK: - Helpers
-
-    private func settle() async throws {
-        // Allow any final trailer delivery to reach the capturing delegate.
-        try await Task.sleep(nanoseconds: 100_000_000)
-    }
 
     private func assertStream(
         _ packets: [Livekit_DataPacket],
