@@ -133,6 +133,36 @@ struct OutgoingStreamManagerTests {
         #expect(isOpen == false)
     }
 
+    /// The server routes each packet on its own `destinationIdentities` and broadcasts an empty
+    /// list, so the chunks and trailer of a targeted stream must carry the recipients too.
+    @Test(arguments: [false, true])
+    func everyPacketCarriesDestinationIdentities(oneShot: Bool) async throws {
+        let delegate = CapturingDelegate()
+        let manager = OutgoingDataStreamManager(delegate: delegate, registry: StubRegistry())
+        let options = LiveKit.StreamTextOptions(topic: "some-topic", destinationIdentities: [Participant.Identity(from: "alice")])
+
+        if oneShot {
+            // The stub registry reports no v2 recipient, so this takes the multi-packet path.
+            _ = try await manager.sendText(text: "hello", options: options.ffi)
+        } else {
+            let writer = try await manager.streamText(options: options.ffi)
+            try await writer.write(text: "hello")
+            try await writer.close()
+        }
+
+        let packets = delegate.packets.copy()
+        let kinds = packets.map { packet -> String in
+            switch packet.value {
+            case .streamHeader: "header"
+            case .streamChunk: "chunk"
+            case .streamTrailer: "trailer"
+            default: "other"
+            }
+        }
+        #expect(kinds == ["header", "chunk", "trailer"])
+        #expect(packets.allSatisfy { $0.destinationIdentities == ["alice"] })
+    }
+
     // Note: the v1 `errorPropagation` behavior (a data-channel send failure surfacing back to the
     // caller of `write`) is intentionally not ported. The UniFFI outgoing manager decouples the
     // send from transport delivery and does not propagate transport-level send failures.

@@ -78,6 +78,17 @@ struct ByteStreamReaderTests {
         _ = manager
     }
 
+    /// Releasing the manager, as a disconnect does, fails a reader still waiting for its trailer, so
+    /// `readAll()` can't return the chunks received so far as if they were the whole payload.
+    @Test func releasingManagerFailsOpenReader() async throws {
+        let reader = await openReader(trailerReason: nil).0
+        let error = try #require(await #expect(throws: StreamError.self) { try await reader.readAll() })
+        guard case .abnormalEnd = error else {
+            Issue.record("Expected .abnormalEnd, got \(error)")
+            return
+        }
+    }
+
     @Test func info() async {
         let (reader, manager) = await openReader()
         #expect(reader.info.topic == topic)
@@ -136,8 +147,9 @@ struct ByteStreamReaderTests {
     }
 
     /// Opens a byte stream through the FFI incoming manager and returns the public reader plus the
-    /// manager, which the caller must keep alive while reading.
-    private func openReader(trailerReason: String = "") async -> (LiveKit.ByteStreamReader, IncomingDataStreamManager) {
+    /// manager, which the caller must keep alive while reading. A `nil` reason leaves the stream
+    /// open by sending no trailer.
+    private func openReader(trailerReason: String? = "") async -> (LiveKit.ByteStreamReader, IncomingDataStreamManager) {
         let capture = Capture()
         let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
         let streamID = UUID().uuidString
@@ -162,11 +174,13 @@ struct ByteStreamReaderTests {
                 feed(manager) { $0.streamChunk = streamChunk }
             }
 
-            let trailer = Livekit_DataStream.Trailer.with {
-                $0.streamID = streamID
-                $0.reason = trailerReason
+            if let trailerReason {
+                let trailer = Livekit_DataStream.Trailer.with {
+                    $0.streamID = streamID
+                    $0.reason = trailerReason
+                }
+                feed(manager) { $0.streamTrailer = trailer }
             }
-            feed(manager) { $0.streamTrailer = trailer }
         }
         return (reader, manager)
     }
