@@ -212,6 +212,56 @@ struct IncomingStreamManagerTests: Sendable {
         coordinator.unregisterTextStreamHandler(for: topicName)
     }
 
+    /// A header's length is a remote `UInt64`, and the core opens the stream before it checks the
+    /// length against the cap, so the handler sees it. A length `Int` can't hold reads as unknown.
+    @Test(arguments: [false, true])
+    func oversizedTotalLengthReadsAsUnknown(byte: Bool) async throws {
+        let totalLength: Int? = try await withCheckedThrowingContinuation { continuation in
+            do {
+                if byte {
+                    try coordinator.registerByteStreamHandler(for: topicName) { reader, _ in
+                        continuation.resume(returning: reader.info.totalLength)
+                    }
+                } else {
+                    try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
+                        continuation.resume(returning: reader.info.totalLength)
+                    }
+                }
+            } catch {
+                continuation.resume(throwing: error)
+                return
+            }
+            feedHeader(streamID: UUID().uuidString, byte: byte, totalLength: .max)
+        }
+
+        #expect(totalLength == nil)
+    }
+
+    /// The info is built before the handler lookup, so a stream on a topic nobody handles must not
+    /// trap either. Stream-open callbacks run in order, so reaching the handled stream proves the
+    /// unhandled ones returned.
+    @Test func oversizedTotalLengthOnUnhandledTopic() async throws {
+        let payload: String = try await withCheckedThrowingContinuation { continuation in
+            do {
+                try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
+                    do {
+                        try await continuation.resume(returning: reader.readAll())
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            } catch {
+                continuation.resume(throwing: error)
+                return
+            }
+            feedHeader(streamID: UUID().uuidString, byte: false, totalLength: .max, topic: "unhandled")
+            feedHeader(streamID: UUID().uuidString, byte: true, totalLength: .max, topic: "unhandled")
+            Task { await feedTextStream(chunks: ["ok"]) }
+        }
+
+        #expect(payload == "ok")
+    }
+
     // MARK: - Helpers
 
     /// Registers a byte handler, feeds a stream via `feed(streamID:)`, and returns the error the
@@ -274,10 +324,16 @@ struct IncomingStreamManagerTests: Sendable {
         feedTrailer(streamID: streamID, reason: "")
     }
 
-    func feedHeader(streamID: String, byte: Bool, totalLength: UInt64? = nil, encryptionType: EncryptionType = .none) {
+    func feedHeader(
+        streamID: String,
+        byte: Bool,
+        totalLength: UInt64? = nil,
+        encryptionType: EncryptionType = .none,
+        topic: String? = nil,
+    ) {
         let header = Livekit_DataStream.Header.with {
             $0.streamID = streamID
-            $0.topic = topicName
+            $0.topic = topic ?? topicName
             $0.contentHeader = byte
                 ? .byteHeader(Livekit_DataStream.ByteHeader())
                 : .textHeader(Livekit_DataStream.TextHeader())

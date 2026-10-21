@@ -29,7 +29,8 @@ public protocol StreamInfo: Sendable {
     /// When the stream was created.
     var timestamp: Date { get }
 
-    /// Total expected size in bytes (UTF-8 for text), if known.
+    /// Total expected size in bytes (UTF-8 for text), if known. `nil` also when the sender declared
+    /// a size that `Int` cannot hold.
     var totalLength: Int? { get }
 
     /// Additional attributes as needed for your application.
@@ -94,7 +95,7 @@ public final class TextStreamInfo: NSObject, StreamInfo {
             id: ffi.id,
             topic: ffi.topic,
             timestamp: Date(timeIntervalSince1970: TimeInterval(ffi.timestampMs) / 1000),
-            totalLength: ffi.totalLength.map { Int($0) },
+            totalLength: ffi.totalLength.flatMap { Int(exactly: $0) },
             attributes: ffi.attributes,
             encryptionType: encryptionType,
             operationType: OperationType(ffi.operationType),
@@ -161,7 +162,7 @@ public final class ByteStreamInfo: NSObject, StreamInfo {
             id: ffi.id,
             topic: ffi.topic,
             timestamp: Date(timeIntervalSince1970: TimeInterval(ffi.timestampMs) / 1000),
-            totalLength: ffi.totalLength.map { Int($0) },
+            totalLength: ffi.totalLength.flatMap { Int(exactly: $0) },
             attributes: ffi.attributes,
             encryptionType: encryptionType,
             mimeType: ffi.mimeType,
