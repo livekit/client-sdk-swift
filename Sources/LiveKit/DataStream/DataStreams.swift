@@ -199,6 +199,13 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
+    func sendBytes(_ data: Data, options: StreamByteOptions) async throws -> ByteStreamInfo {
+        try await mappingErrors {
+            let info = try await outgoing().sendBytes(data: data, options: options.ffi)
+            return ByteStreamInfo(info, encryptionType: currentEncryptionType)
+        }
+    }
+
     func sendFile(_ fileURL: URL, options: StreamByteOptions) async throws -> ByteStreamInfo {
         // The FFI reads the file's bytes but doesn't infer its metadata, so resolve name/MIME/size
         // from disk here (matching the previous implementation) unless the caller set them.

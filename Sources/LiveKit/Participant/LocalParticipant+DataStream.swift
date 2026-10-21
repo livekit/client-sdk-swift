@@ -42,6 +42,33 @@ public extension LocalParticipant {
         return try await room.dataStreams.sendText(text, options: options)
     }
 
+    /// Send complete data to participants in the room.
+    ///
+    /// - Parameters:
+    ///   - data: The data to send.
+    ///   - topic: Topic identifier used to route the stream to appropriate handlers.
+    /// - Returns: Information about the byte stream used during the operation.
+    /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
+    ///   connected.
+    ///
+    /// For data that is not in memory yet, use ``streamBytes(for:)``. For a file on disk, use
+    /// ``sendFile(_:for:)``.
+    ///
+    @discardableResult
+    func sendBytes(_ data: Data, for topic: String) async throws -> ByteStreamInfo {
+        try await sendBytes(data, options: StreamByteOptions(topic: topic))
+    }
+
+    /// Send complete data to participants in the room with custom options.
+    ///
+    /// - SeeAlso: ``sendBytes(_:for:)``
+    ///
+    @discardableResult
+    func sendBytes(_ data: Data, options: StreamByteOptions) async throws -> ByteStreamInfo {
+        let room = try requireRoom()
+        return try await room.dataStreams.sendBytes(data, options: options)
+    }
+
     /// Send a file on disk to participants in the room.
     ///
     /// - Parameters:

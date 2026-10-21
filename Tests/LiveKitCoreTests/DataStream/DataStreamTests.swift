@@ -82,8 +82,12 @@ struct DataStreamTests {
         }
     }
 
-    @Test(arguments: Method.allCases)
-    func byteDataStream(via method: Method) async throws {
+    enum ByteMethod: CaseIterable {
+        case sendFile, sendBytes, stream
+    }
+
+    @Test(arguments: ByteMethod.allCases)
+    func byteDataStream(via method: ByteMethod) async throws {
         let topic = "some-topic"
         let testChunk = Data(repeating: 0xFF, count: 256)
 
@@ -108,8 +112,7 @@ struct DataStreamTests {
 
                 do {
                     switch method {
-                    case .send:
-                        // Only sending files is supported, write chunk to file first
+                    case .sendFile:
                         let fileURL = FileManager.default.temporaryDirectory
                             .appendingPathComponent("file-name.pdf")
                         try testChunk.write(to: fileURL)
@@ -118,6 +121,12 @@ struct DataStreamTests {
 
                         #expect(info.name == fileURL.lastPathComponent)
                         #expect(info.mimeType == "application/pdf")
+                        #expect(info.totalLength == testChunk.count)
+
+                    case .sendBytes:
+                        let info = try await room1.localParticipant.sendBytes(testChunk, for: topic)
+
+                        #expect(info.mimeType == "application/octet-stream")
                         #expect(info.totalLength == testChunk.count)
 
                     case .stream:
