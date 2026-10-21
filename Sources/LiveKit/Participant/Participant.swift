@@ -68,7 +68,14 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
     /// Mirrored by the server from the participant's `ClientInfo`. The protocol's
     /// `CAP_UNUSED` placeholder and any value this SDK does not recognize are omitted,
     /// so an empty array means the participant advertised no usable capabilities.
+    /// Objective-C callers can use ``capabilityNumbers``.
     public var capabilities: [ClientCapability] { _state.capabilities }
+
+    /// Objective-C accessor for ``capabilities``: each capability as its ``ClientCapability`` raw
+    /// value.
+    @objc(capabilities) public var capabilityNumbers: [NSNumber] {
+        capabilities.map { NSNumber(value: $0.rawValue) }
+    }
 
     public var trackPublications: [Track.Sid: TrackPublication] { _state.trackPublications }
 
