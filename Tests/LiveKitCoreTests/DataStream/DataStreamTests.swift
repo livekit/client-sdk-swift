@@ -23,175 +23,169 @@ import LiveKitTestSupport
 
 @Suite(.serialized, .tags(.dataStream, .e2e), TestLimits.e2e)
 struct DataStreamTests {
-    enum Method: CaseIterable, CustomTestStringConvertible {
-        case send, stream
+    /// One way to send a stream from the public API.
+    enum Send: CaseIterable, Sendable {
+        case text, textStream, bytes, file, byteStream
 
-        var testDescription: String {
+        var isText: Bool {
+            self == .text || self == .textStream
+        }
+
+        /// One-shot sends may be compressed; a stream opened up front never is.
+        var isOneShot: Bool {
+            self != .textStream && self != .byteStream
+        }
+
+        /// Only a payload already in memory may go inline in its header; a file goes in chunks.
+        var mayGoInline: Bool {
+            self == .text || self == .bytes
+        }
+
+        func perform(_ payload: Data, topic: String, from participant: LocalParticipant) async throws {
+            let text = String(bytes: payload, encoding: .utf8) ?? ""
             switch self {
-            case .send: "send"
-            case .stream: "stream"
-            }
-        }
-    }
-
-    @Test(arguments: Method.allCases)
-    func textDataStream(via method: Method) async throws {
-        let topic = "some-topic"
-        let testChunk = "Hello world!"
-
-        let delivered = AsyncCompleter<Void>(label: "Text stream delivered", defaultTimeout: 30)
-
-        try await confirmation("Receives stream chunk") { confirm in
-            try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
-                let room0 = rooms[0]
-                let room1 = rooms[1]
-
-                try await room0.registerTextStreamHandler(for: topic) { reader, participant in
-                    #expect(participant == room1.localParticipant.identity)
-                    do {
-                        let chunk = try await reader.readAll()
-                        #expect(chunk == testChunk)
-                        confirm()
-                    } catch {
-                        Issue.record("Read failed: \(error.localizedDescription)")
-                    }
-                    delivered.resume(returning: ())
-                }
-
-                do {
-                    switch method {
-                    case .send:
-                        try await room1.localParticipant.sendText(testChunk, for: topic)
-                    case .stream:
-                        let writer = try await room1.localParticipant.streamText(for: topic)
-                        try await writer.write(testChunk)
-                        try await writer.close()
-                    }
-                } catch {
-                    Issue.record("Write failed: \(error.localizedDescription)")
-                }
-
-                // Waits for the handler, not for a second of wall clock: the handler runs on its
-                // own task and a loaded runner routinely needs longer than a fixed sleep allows,
-                // which is what made these confirm zero times on CI. The stream rides the
-                // *reliable* channel, so a timeout here is a real failure, not a tolerable drop —
-                // hence a budget that covers scheduling on the slowest leg rather than one that
-                // doubles as a latency assertion.
-                try await delivered.wait()
-            }
-        }
-    }
-
-    enum ByteMethod: CaseIterable {
-        case sendFile, sendBytes, stream
-    }
-
-    @Test(arguments: ByteMethod.allCases)
-    func byteDataStream(via method: ByteMethod) async throws {
-        let topic = "some-topic"
-        let testChunk = Data(repeating: 0xFF, count: 256)
-
-        let delivered = AsyncCompleter<Void>(label: "Byte stream delivered", defaultTimeout: 30)
-
-        try await confirmation("Receives stream chunk") { confirm in
-            try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
-                let room0 = rooms[0]
-                let room1 = rooms[1]
-
-                try await room0.registerByteStreamHandler(for: topic) { reader, participant in
-                    #expect(participant == room1.localParticipant.identity)
-                    do {
-                        let chunk = try await reader.readAll()
-                        #expect(chunk == testChunk)
-                        confirm()
-                    } catch {
-                        Issue.record("Read failed: \(error.localizedDescription)")
-                    }
-                    delivered.resume(returning: ())
-                }
-
-                do {
-                    switch method {
-                    case .sendFile:
-                        let fileURL = FileManager.default.temporaryDirectory
-                            .appendingPathComponent("file-name.pdf")
-                        try testChunk.write(to: fileURL)
-
-                        let info = try await room1.localParticipant.sendFile(fileURL, for: topic)
-
-                        #expect(info.name == fileURL.lastPathComponent)
-                        #expect(info.mimeType == "application/pdf")
-                        #expect(info.totalLength == testChunk.count)
-
-                    case .sendBytes:
-                        let info = try await room1.localParticipant.sendBytes(testChunk, for: topic)
-
-                        #expect(info.mimeType == "application/octet-stream")
-                        #expect(info.totalLength == testChunk.count)
-
-                    case .stream:
-                        let writer = try await room1.localParticipant.streamBytes(for: topic)
-                        try await writer.write(testChunk)
-                        try await writer.close()
-                    }
-                } catch {
-                    Issue.record("Write failed: \(error.localizedDescription)")
-                }
-
-                // Waits for the handler, not for a second of wall clock: the handler runs on its
-                // own task and a loaded runner routinely needs longer than a fixed sleep allows,
-                // which is what made these confirm zero times on CI. The stream rides the
-                // *reliable* channel, so a timeout here is a real failure, not a tolerable drop —
-                // hence a budget that covers scheduling on the slowest leg rather than one that
-                // doubles as a latency assertion.
-                try await delivered.wait()
-            }
-        }
-    }
-
-    /// A large, compressible payload between two v2 rooms: the sender compresses it into chunks,
-    /// and the receiver reads back exactly what was sent.
-    @Test(arguments: ByteMethod.allCases + [nil])
-    func largeCompressiblePayloadArrives(via method: ByteMethod?) async throws {
-        let text = String(repeating: "compress me, please. ", count: 15000)
-        let payload = Data(text.utf8)
-        let received = AsyncCompleter<Data>(label: "Large payload received", defaultTimeout: 30)
-
-        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
-            let (receiver, sender) = (rooms[0], rooms[1])
-            try await receiver.registerTextStreamHandler(for: "large") { reader, _ in
-                do {
-                    try await received.resume(returning: Data(reader.readAll().utf8))
-                } catch {
-                    received.resume(throwing: error)
-                }
-            }
-            try await receiver.registerByteStreamHandler(for: "large") { reader, _ in
-                do {
-                    try await received.resume(returning: reader.readAll())
-                } catch {
-                    received.resume(throwing: error)
-                }
-            }
-
-            switch method {
-            case nil:
-                try await sender.localParticipant.sendText(text, for: "large")
-            case .sendBytes:
-                try await sender.localParticipant.sendBytes(payload, for: "large")
-            case .sendFile:
-                let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).txt")
+            case .text:
+                let info = try await participant.sendText(text, for: topic)
+                #expect(info.totalLength == payload.count)
+            case .textStream:
+                let writer = try await participant.streamText(for: topic)
+                try await writer.write(text)
+                try await writer.close()
+            case .bytes:
+                let info = try await participant.sendBytes(payload, for: topic)
+                #expect(info.mimeType == "application/octet-stream")
+                #expect(info.totalLength == payload.count)
+            case .file:
+                let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).pdf")
                 try payload.write(to: fileURL)
                 defer { try? FileManager.default.removeItem(at: fileURL) }
-                try await sender.localParticipant.sendFile(fileURL, for: "large")
-            case .stream:
-                let writer = try await sender.localParticipant.streamBytes(for: "large")
+                let info = try await participant.sendFile(fileURL, for: topic)
+                #expect(info.name == fileURL.lastPathComponent)
+                #expect(info.mimeType == "application/pdf")
+                #expect(info.totalLength == payload.count)
+            case .byteStream:
+                let writer = try await participant.streamBytes(for: topic)
                 try await writer.write(payload)
                 try await writer.close()
             }
-
-            #expect(try await received.wait() == payload)
         }
+    }
+
+    /// Who sends to whom, by the protocol each room advertises.
+    struct Peers: Sendable, CustomTestStringConvertible {
+        let testDescription: String
+        /// Each receiver's protocol; `nil` is the SDK's own, v2.
+        let receivers: [ClientProtocol?]
+        /// The sender's protocol. A v1 sender also frames its streams as one would.
+        var sender: ClientProtocol?
+        /// Whether some peer predates v2, so the stream has to go out in the legacy framing.
+        let isLegacy: Bool
+    }
+
+    static let peers = [
+        Peers(testDescription: "v2 to v2", receivers: [nil], isLegacy: false),
+        Peers(testDescription: "v2 to v1", receivers: [.v1], isLegacy: true),
+        Peers(testDescription: "v1 to v2", receivers: [nil], sender: .v1, isLegacy: true),
+        Peers(testDescription: "v2 broadcast to v1 and v2", receivers: [.v1, nil], isLegacy: true),
+    ]
+
+    /// A stream between real rooms whose peers advertise different protocols: the sender picks a
+    /// framing every receiver can read, and each receiver reads exactly what was sent.
+    @Test(arguments: peers, Send.allCases)
+    func streamRoundTrips(between peers: Peers, via send: Send) async throws {
+        let payload = send.isText ? Data("Hello world!".utf8) : Data(repeating: 0xFF, count: 256)
+        let options = peers.receivers.map { RoomTestingOptions(clientProtocol: $0, canSubscribe: true) }
+            + [RoomTestingOptions(clientProtocol: peers.sender, canPublishData: true)]
+
+        try await TestEnvironment.withRooms(options) { rooms in
+            let sender = rooms[rooms.count - 1]
+            let received = try await Self.receiving(on: Array(rooms.dropLast()), from: sender)
+            let packets = try sender.recordDataStreamPackets(framesAsLegacySender: peers.sender == .v1)
+
+            try await send.perform(payload, topic: "some-topic", from: sender.localParticipant)
+
+            for receiver in received {
+                #expect(try await receiver.wait() == payload)
+            }
+            guard case let .streamHeader(header)? = packets.copy().first?.value else {
+                Issue.record("The first packet is not a stream header")
+                return
+            }
+            #expect(header.hasInlineContent == (send.mayGoInline && !peers.isLegacy))
+            if peers.isLegacy {
+                #expect(header.compression.rawValue == Livekit_DataStream_CompressionType.none.rawValue)
+            }
+        }
+    }
+
+    /// A large payload whose compressed form still takes several chunks: a one-shot send goes out
+    /// compressed in chunks, a stream in plain chunks, and the receiver reads back what was sent.
+    @Test(arguments: Send.allCases)
+    func largePayloadRoundTrips(via send: Send) async throws {
+        let payload = Self.noisy(200_000)
+
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let sender = rooms[1]
+            let received = try await Self.receiving(on: [rooms[0]], from: sender)
+            let packets = try sender.recordDataStreamPackets()
+
+            try await send.perform(payload, topic: "some-topic", from: sender.localParticipant)
+
+            #expect(try await received[0].wait() == payload)
+            let sent = packets.copy()
+            guard case let .streamHeader(header)? = sent.first?.value else {
+                Issue.record("The first packet is not a stream header")
+                return
+            }
+            let chunks = sent.compactMap { packet -> Data? in
+                if case let .streamChunk(chunk)? = packet.value { return chunk.content }
+                return nil
+            }
+            #expect(!header.hasInlineContent)
+            #expect(chunks.count > 1)
+            let compression: Livekit_DataStream_CompressionType = send.isOneShot ? .deflateRaw : .none
+            #expect(header.compression.rawValue == compression.rawValue)
+            let wireLength = chunks.reduce(0) { $0 + $1.count }
+            #expect(send.isOneShot ? wireLength < payload.count : wireLength == payload.count)
+        }
+    }
+
+    /// Registers text and byte handlers on each of `rooms` that read a stream from `sender` to the
+    /// end, as bytes (UTF-8 for text), and returns one result per room.
+    private static func receiving(on rooms: [Room], from sender: Room) async throws -> [AsyncCompleter<Data>] {
+        var received: [AsyncCompleter<Data>] = []
+        for room in rooms {
+            let result = AsyncCompleter<Data>(label: "Stream received", defaultTimeout: 30)
+            received.append(result)
+            let senderIdentity = sender.localParticipant.identity
+            try await room.registerTextStreamHandler(for: "some-topic") { reader, participant in
+                #expect(participant == senderIdentity)
+                do {
+                    try await result.resume(returning: Data(reader.readAll().utf8))
+                } catch {
+                    result.resume(throwing: error)
+                }
+            }
+            try await room.registerByteStreamHandler(for: "some-topic") { reader, participant in
+                #expect(participant == senderIdentity)
+                do {
+                    try await result.resume(returning: reader.readAll())
+                } catch {
+                    result.resume(throwing: error)
+                }
+            }
+        }
+        return received
+    }
+
+    /// ASCII text over 16 letters from a fixed generator: compressible, but to about half its size,
+    /// not to a few hundred bytes the way repeated text is.
+    private static func noisy(_ count: Int) -> Data {
+        var state: UInt32 = 1
+        return Data((0 ..< count).map { _ in
+            state = state &* 1_103_515_245 &+ 12345
+            return UInt8(97 + (state >> 16) % 16)
+        })
     }
 
     /// The receiver's configured cap holds a payload sent from another room: a payload under the
