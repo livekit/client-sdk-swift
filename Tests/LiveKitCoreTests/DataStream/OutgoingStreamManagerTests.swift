@@ -160,6 +160,21 @@ struct OutgoingStreamManagerTests {
         #expect(packets.allSatisfy { $0.kind == .reliable })
     }
 
+    /// A close reason travels in the trailer, which the receiver reads as an abnormal end.
+    @Test func closeReasonReachesTrailer() async throws {
+        let delegate = CapturingDelegate()
+        let manager = OutgoingDataStreamManager(delegate: delegate, registry: StubRegistry())
+        let writer = try await LiveKit.TextStreamWriter(manager.streamText(options: LiveKit.StreamTextOptions(topic: "t").ffi), encryptionType: .none)
+
+        try await writer.close(reason: "because")
+
+        let reasons = delegate.packets.copy().compactMap { packet -> String? in
+            if case let .streamTrailer(trailer) = packet.value { return trailer.reason }
+            return nil
+        }
+        #expect(reasons == ["because"])
+    }
+
     /// A delivery failure surfaces to the `write` that caused it and closes the stream, so the
     /// writer stops reporting itself open. Restores v1's `errorPropagation` spec.
     @Test func deliveryFailureFailsWriteAndClosesStream() async throws {
