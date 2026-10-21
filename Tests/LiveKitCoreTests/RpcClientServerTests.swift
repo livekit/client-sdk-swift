@@ -360,6 +360,55 @@ struct RpcClientTests {
         }
     }
 
+    /// Five concurrent calls to a v2 remote each get the response to their own request: the remote
+    /// answers each request stream with its own payload.
+    @Test func v2ConcurrentCallsGetTheirOwnResponses() async throws {
+        try await TestEnvironment.withRoom { room in
+            let destination = Participant.Identity(from: "v2-destination")
+            try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v2)
+            let requestIdsByStream = StateSync<[String: String]>([:])
+            let payloadsByRequest = StateSync<[String: String]>([:])
+
+            room.publisherDataChannel = MockDataChannelPair { packet in
+                switch packet.value {
+                case let .streamHeader(header) where header.topic == RpcStreamTopic.request:
+                    guard let requestId = header.attributes[RpcStreamAttribute.requestId] else { return }
+                    requestIdsByStream.mutate { $0[header.streamID] = requestId }
+                case let .streamChunk(chunk):
+                    guard let requestId = requestIdsByStream.copy()[chunk.streamID] else { return }
+                    payloadsByRequest.mutate { $0[requestId, default: ""] += String(bytes: chunk.content, encoding: .utf8) ?? "" }
+                default:
+                    break
+                }
+            }
+
+            // Runs once the request stream has been published, so its whole payload is recorded.
+            await room.rpcClient.setAfterPublish { requestId in
+                let payload = payloadsByRequest.copy()[requestId] ?? ""
+                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "response-\(payload)")
+                await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
+            }
+
+            let responses = try await withThrowingTaskGroup(of: (Int, String).self) { group in
+                for index in 1 ... 5 {
+                    group.addTask {
+                        try await (index, room.localParticipant.performRpc(destinationIdentity: destination, method: "echo", payload: "request-\(index)"))
+                    }
+                }
+                var responses: [Int: String] = [:]
+                for try await (index, response) in group {
+                    responses[index] = response
+                }
+                return responses
+            }
+
+            #expect(responses == Dictionary(uniqueKeysWithValues: (1 ... 5).map { ($0, "response-request-\($0)") }))
+            #expect(Set(payloadsByRequest.copy().keys).count == 5)
+            #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
     // MARK: - v2 caller-side wire-format & state-machine internals
 
     /// Caller times out waiting for the response. With `responseTimeout < maxRoundTripLatency`,
