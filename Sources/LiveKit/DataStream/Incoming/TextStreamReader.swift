@@ -32,9 +32,10 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
     /// Information about the incoming text stream.
     public let info: TextStreamInfo
 
-    private let reader: LiveKitFFI.TextStreamReader
+    /// The core's reader, by its protocol so a test can stand in for it.
+    private let reader: any LiveKitFFI.TextStreamReaderProtocol
 
-    init(_ reader: LiveKitFFI.TextStreamReader, info: TextStreamInfo) {
+    init(_ reader: any LiveKitFFI.TextStreamReaderProtocol, info: TextStreamInfo) {
         self.reader = reader
         self.info = info
     }
@@ -60,7 +61,7 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
 
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
-        fileprivate let reader: LiveKitFFI.TextStreamReader
+        fileprivate let reader: any LiveKitFFI.TextStreamReaderProtocol
         fileprivate var declaredLength: Int?
         fileprivate var receivedLength = 0
 

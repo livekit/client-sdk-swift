@@ -24,9 +24,10 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// Information about the incoming byte stream.
     public let info: ByteStreamInfo
 
-    private let reader: LiveKitFFI.ByteStreamReader
+    /// The core's reader, by its protocol so a test can stand in for it.
+    private let reader: any LiveKitFFI.ByteStreamReaderProtocol
 
-    init(_ reader: LiveKitFFI.ByteStreamReader, info: ByteStreamInfo) {
+    init(_ reader: any LiveKitFFI.ByteStreamReaderProtocol, info: ByteStreamInfo) {
         self.reader = reader
         self.info = info
     }
@@ -52,7 +53,7 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
 
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
-        fileprivate let reader: LiveKitFFI.ByteStreamReader
+        fileprivate let reader: any LiveKitFFI.ByteStreamReaderProtocol
         fileprivate var declaredLength: Int?
         fileprivate var receivedLength = 0
 

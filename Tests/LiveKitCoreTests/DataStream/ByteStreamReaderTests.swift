@@ -27,11 +27,11 @@ import LiveKitTestSupport
 /// stream packets, the opened reader is captured, and its contents are read back through each API.
 @Suite(.tags(.dataStream))
 struct ByteStreamReaderTests {
-    private let topic = "someTopic"
-    private let name = "filename.bin"
-    private let mimeType = "application/octet-stream"
+    let topic = "someTopic"
+    let name = "filename.bin"
+    let mimeType = "application/octet-stream"
 
-    private let testChunks = [
+    let testChunks = [
         Data(repeating: 0xAB, count: 128),
         Data(repeating: 0xCD, count: 128),
         Data(repeating: 0xEF, count: 256),
@@ -124,95 +124,6 @@ struct ByteStreamReaderTests {
         _ = manager
     }
 
-    /// UniFFI's async calls ignore Swift cancellation. A read waiting on a stream that has only its
-    /// header must still return when its task is cancelled, with the room still connected.
-    @Test(arguments: [false, true])
-    func cancellingWaitingReadReturns(iterate: Bool) async throws {
-        let (reader, manager) = try await openReader(chunks: [], trailerReason: nil)
-        let returned = AsyncCompleter<Error?>(label: "Cancelled read returned", defaultTimeout: 5)
-
-        let read = Task {
-            do {
-                if iterate {
-                    for try await _ in reader {}
-                } else {
-                    _ = try await reader.readAll()
-                }
-                returned.resume(returning: nil)
-            } catch {
-                returned.resume(returning: error)
-            }
-        }
-        // Lets the read reach the FFI wait. If it has not yet, the cancel ends it the same way.
-        try await Task.sleep(nanoseconds: 100_000_000)
-        read.cancel()
-
-        let error = try await returned.wait()
-        #expect(error is CancellationError)
-        _ = manager
-    }
-
-    /// `readAll` reads chunk by chunk, so a cancel stops the collection: at most the chunk in flight
-    /// is lost, and the rest of the stream can still be read. A whole-stream read in the core would
-    /// keep the reader to itself until the stream ends and leave nothing to read.
-    @Test func cancelledReadAllLeavesRestOfStream() async throws {
-        let (reader, manager) = try await openReader(chunks: [], trailerReason: nil)
-        let started = AsyncCompleter<Void>(label: "Read started", defaultTimeout: 5)
-        let read = Task {
-            started.resume(returning: ())
-            return try await reader.readAll()
-        }
-        try await started.wait()
-        read.cancel()
-        await #expect(throws: CancellationError.self) { try await read.value }
-
-        let chunk = Data(repeating: 0x7F, count: 64)
-        for index in 0 ..< 3 {
-            let streamChunk = Livekit_DataStream.Chunk.with {
-                $0.streamID = reader.info.id
-                $0.chunkIndex = UInt64(index)
-                $0.content = chunk
-            }
-            feed(manager) { $0.streamChunk = streamChunk }
-        }
-        let trailer = Livekit_DataStream.Trailer.with { $0.streamID = reader.info.id }
-        feed(manager) { $0.streamTrailer = trailer }
-
-        var rest = Data()
-        for try await received in reader {
-            rest += received
-        }
-        #expect(rest.count >= 2 * chunk.count)
-    }
-
-    /// The copy runs in the caller's task, so a cancel ends `writeToFile` at once and the file stops
-    /// growing, rather than an unstructured task finishing the file in the background.
-    @Test func cancellingWriteToFileStops() async throws {
-        let (reader, manager) = try await openReader(chunks: [testChunks[0]], trailerReason: nil)
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let fileURL = directory.appendingPathComponent(name)
-
-        let returned = AsyncCompleter<Error?>(label: "Cancelled write returned", defaultTimeout: 5)
-        let write = Task {
-            do {
-                _ = try await reader.writeToFile(in: directory)
-                returned.resume(returning: nil)
-            } catch {
-                returned.resume(returning: error)
-            }
-        }
-        try await poll(for: "the first chunk on disk") {
-            (try? Data(contentsOf: fileURL))?.count == testChunks[0].count
-        }
-        write.cancel()
-
-        #expect(try await returned.wait() is CancellationError)
-        #expect(try Data(contentsOf: fileURL) == testChunks[0])
-        _ = manager
-    }
-
     @Test func info() async throws {
         let (reader, manager) = try await openReader()
         #expect(reader.info.topic == topic)
@@ -252,13 +163,18 @@ struct ByteStreamReaderTests {
 
     /// Delegate that wraps the FFI reader into the public ``ByteStreamReader`` and hands it back
     /// through a completer, which fails after a timeout instead of hanging.
-    private final class Capture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
+    final class Capture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
         let opened = AsyncCompleter<LiveKit.ByteStreamReader>(label: "Stream opened", defaultTimeout: 10)
+        let entered: AsyncCompleter<Void>?
+
+        init(entered: AsyncCompleter<Void>?) {
+            self.entered = entered
+        }
 
         func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
             let info = LiveKit.ByteStreamInfo(reader.info(), encryptionType: .none)
-            let publicReader = LiveKit.ByteStreamReader(reader, info: info)
-            opened.resume(returning: publicReader)
+            let core: any LiveKitFFI.ByteStreamReaderProtocol = entered.map { SignallingReader(reader, entered: $0) } ?? reader
+            opened.resume(returning: LiveKit.ByteStreamReader(core, info: info))
         }
 
         func onTextStreamOpened(reader _: LiveKitFFI.TextStreamReader, identity _: String) {}
@@ -268,13 +184,15 @@ struct ByteStreamReaderTests {
 
     /// Opens a byte stream through the FFI incoming manager and returns the public reader plus the
     /// manager, which the caller must keep alive while reading. A `nil` reason leaves the stream
-    /// open by sending no trailer.
-    private func openReader(
+    /// open by sending no trailer. With `entered`, the reader reports when a read enters the core.
+    func openReader(
         fileName: String? = nil,
         chunks: [Data]? = nil,
         trailerReason: String? = "",
+        totalLength: UInt64? = nil,
+        entered: AsyncCompleter<Void>? = nil,
     ) async throws -> (LiveKit.ByteStreamReader, IncomingDataStreamManager) {
-        let capture = Capture()
+        let capture = Capture(entered: entered)
         let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
         let streamID = UUID().uuidString
 
@@ -283,6 +201,7 @@ struct ByteStreamReaderTests {
             $0.topic = topic
             $0.mimeType = mimeType
             $0.contentHeader = .byteHeader(.with { $0.name = Self.withoutNUL(fileName ?? name) })
+            if let totalLength { $0.totalLength = totalLength }
         }
         feed(manager, wireName: fileName ?? name) { $0.streamHeader = header }
 
@@ -303,6 +222,21 @@ struct ByteStreamReaderTests {
             feed(manager) { $0.streamTrailer = trailer }
         }
         return try await (capture.opened.wait(), manager)
+    }
+
+    /// Feeds `chunks` to the open stream `streamID`, numbered from zero, then its trailer if asked.
+    func feed(_ manager: IncomingDataStreamManager, streamID: String, chunks: [Data], trailer: Bool) {
+        for (index, content) in chunks.enumerated() {
+            let chunk = Livekit_DataStream.Chunk.with {
+                $0.streamID = streamID
+                $0.chunkIndex = UInt64(index)
+                $0.content = content
+            }
+            feed(manager) { $0.streamChunk = chunk }
+        }
+        guard trailer else { return }
+        let end = Livekit_DataStream.Trailer.with { $0.streamID = streamID }
+        feed(manager) { $0.streamTrailer = end }
     }
 
     /// Runs `write` against a fresh directory and expects it to throw before creating anything,
@@ -326,7 +260,7 @@ struct ByteStreamReaderTests {
         name.replacingOccurrences(of: "\u{0}", with: "\u{1}")
     }
 
-    private func feed(
+    func feed(
         _ manager: IncomingDataStreamManager,
         wireName: String? = nil,
         _ configure: (inout Livekit_DataPacket.Builder) -> Void,

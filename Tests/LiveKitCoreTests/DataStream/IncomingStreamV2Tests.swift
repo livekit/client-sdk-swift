@@ -261,23 +261,4 @@ extension IncomingStreamManagerTests {
 
         #expect(try await read.wait() == "hello")
     }
-
-    /// A read cancelled while it waits leaves no stream open once the stream ends.
-    @Test func cancelledReadLeavesNoOpenStream() async throws {
-        let opened = AsyncCompleter<TextStreamReader>(label: "Stream opened", defaultTimeout: 10)
-        try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in opened.resume(returning: reader) }
-        let streamID = UUID().uuidString
-        feedHeader(streamID: streamID, byte: false, totalLength: 4)
-        let reader = try await opened.wait()
-
-        let read = Task { try await reader.readAll() }
-        read.cancel()
-        await #expect(throws: CancellationError.self) { try await read.value }
-
-        feedChunk(streamID: streamID, index: 0, content: Data("abcd".utf8))
-        feedTrailer(streamID: streamID, reason: "")
-        // The core answers the count in order with the packets fed before it.
-        let open = await coordinator.openStreamCount()
-        #expect(open == 0)
-    }
 }
