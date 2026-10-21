@@ -67,11 +67,18 @@ extension IncomingStreamManagerTests {
         try? await Task.sleep(nanoseconds: 200_000_000)
     }
 
-    private func waitForClosedStreams(timeout: TimeInterval = 10) async {
-        let deadline = Date().addingTimeInterval(timeout)
-        while await coordinator.openStreamCount() > 0, Date() < deadline {
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
+    /// Stream callbacks reach the coordinator in wire order. Once a stream sent after the others has
+    /// reached its handler, the coordinator has processed every open and close before it.
+    private func waitForCallbacks() async throws {
+        let reached = AsyncCompleter<Void>(label: "Callbacks processed", defaultTimeout: 10)
+        let barrierTopic = "barrier-\(UUID().uuidString)"
+        try coordinator.registerTextStreamHandler(for: barrierTopic) { _, _ in reached.resume(returning: ()) }
+        defer { coordinator.unregisterTextStreamHandler(for: barrierTopic) }
+
+        let streamID = UUID().uuidString
+        feedHeader(streamID: streamID, byte: false, topic: barrierTopic)
+        feedTrailer(streamID: streamID, reason: "")
+        try await reached.wait()
     }
 
     private func waitUntil(_ condition: @Sendable () -> Bool, timeout: TimeInterval = 10) async {
@@ -106,18 +113,26 @@ extension IncomingStreamManagerTests {
     @Test func orderedTopicChainsAcrossFinishingHandlers() async throws {
         let received = StateSync<[String]>([])
         let gate = TestGate()
+        let aStalled = AsyncCompleter<Void>(label: "a stalled", defaultTimeout: 10)
 
         try coordinator.registerTextStreamHandler(for: topicName, ordered: true) { reader, _ in
             let payload = try await reader.readAll()
             // First handler stalls after its stream closed, becoming a still-finishing predecessor
             // for the streams sent after it.
-            if payload == "a" { await gate.wait() }
+            if payload == "a" {
+                aStalled.resume(returning: ())
+                await gate.wait()
+            }
             received.mutate { $0.append(payload) }
         }
 
         for payload in ["a", "b", "c"] {
             await feedTextStream(chunks: [payload])
         }
+        // The chain under test forms only once "a" holds the gate and "b" and "c" have opened
+        // behind it. Opening the gate earlier lets the test pass without one.
+        try await aStalled.wait()
+        try await waitForCallbacks()
         await gate.open()
 
         await waitUntil { received.copy().count >= 3 }
@@ -166,32 +181,35 @@ extension IncomingStreamManagerTests {
         let received = StateSync<[String]>([])
         let gateA = TestGate()
         let gateB = TestGate()
+        let bEntered = AsyncCompleter<Void>(label: "b entered", defaultTimeout: 10)
 
         try coordinator.registerTextStreamHandler(for: topicName, ordered: true) { reader, _ in
             let payload = try await reader.readAll()
             if payload == "a" { await gateA.wait() }
-            if payload == "b" { await gateB.wait() }
+            if payload == "b" {
+                bEntered.resume(returning: ())
+                await gateB.wait()
+            }
             received.mutate { $0.append(payload) }
         }
 
         // Both streams carry the same id; the second opens only after the first has closed.
         await feedTextStream(chunks: ["a"], streamID: "reused")
         await feedTextStream(chunks: ["b"], streamID: "reused")
-        // The hazard is the first handler's completion racing the second stream's *close*, so wait
-        // for both closes to land before releasing "a".
-        await waitForClosedStreams()
+        // The hazard is the first handler's completion racing the second stream's *close*, so let
+        // the coordinator process both closes before releasing "a".
+        try await waitForCallbacks()
 
         await gateA.open()
-        await waitUntil { received.copy() == ["a"] }
-        // The erasure this guards against happens in the coordinator *after* the handler returns,
-        // so let that land before opening the stream that has to observe the result.
-        await settle()
+        // The erasure this guards against happens in the coordinator *after* "a"'s handler returns.
+        // "b" waits for "a"'s whole handler task, bookkeeping included, so its entry proves it.
+        try await bEntered.wait()
 
         // "c" opened after the reused-id stream and so must stay gated behind it. This is the
         // assertion that fails when the first handler's cleanup drops its successor's entry: "c"
         // runs straight away and lands before "b".
         await feedTextStream(chunks: ["c"], streamID: "later")
-        await waitForClosedStreams()
+        try await waitForCallbacks()
         await settle()
         #expect(received.copy() == ["a"])
 
