@@ -16,13 +16,13 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 
 /// A data track published by a remote participant. Delivered via
 /// ``RoomDelegate/room(_:didPublishDataTrack:)`` and available on ``RemoteParticipant/dataTracks``.
 /// Call ``subscribe()`` to start receiving frames.
 public final class RemoteDataTrack: NSObject, Sendable {
-    private let track: LiveKitUniFFI.RemoteDataTrack
+    private let track: LiveKitFFI.RemoteDataTrack
 
     /// Identity of the participant publishing this track.
     @objc public let publisherIdentity: Participant.Identity
@@ -33,7 +33,7 @@ public final class RemoteDataTrack: NSObject, Sendable {
     // boundary — some of them under a state lock.
     let name: String
 
-    init(_ track: LiveKitUniFFI.RemoteDataTrack) {
+    init(_ track: LiveKitFFI.RemoteDataTrack) {
         self.track = track
         publisherIdentity = Participant.Identity(from: track.publisherIdentity())
         name = track.info().name
@@ -65,10 +65,10 @@ public final class RemoteDataTrack: NSObject, Sendable {
     /// - Throws: ``DataTrackSubscribeError`` if the subscription cannot be established.
     @objc public func subscribe(bufferSize: UInt32 = 16) async throws -> DataTrackStream {
         do {
-            let options = LiveKitUniFFI.DataTrackSubscribeOptions(bufferSize: bufferSize)
+            let options = LiveKitFFI.DataTrackSubscribeOptions(bufferSize: bufferSize)
             let stream = try await track.subscribeWithOptions(options: options)
             return DataTrackStream(stream)
-        } catch let error as LiveKitUniFFI.DataTrackSubscribeError {
+        } catch let error as LiveKitFFI.DataTrackSubscribeError {
             throw DataTrackSubscribeError(error)
         }
     }
@@ -84,7 +84,7 @@ public final class RemoteDataTrack: NSObject, Sendable {
     ///   it when payloads are large or high-frequency, at the cost of memory growing roughly with
     ///   `maxPartialFrames` × average frame size. A value of 0 is clamped to 1.
     @objc public func setPipelineOptions(maxPartialFrames: UInt32) {
-        let options = LiveKitUniFFI.RemoteDataTrackPipelineOptions(maxPartialFrames: maxPartialFrames)
+        let options = LiveKitFFI.RemoteDataTrackPipelineOptions(maxPartialFrames: maxPartialFrames)
         track.setPipelineOptions(options: options)
     }
 }

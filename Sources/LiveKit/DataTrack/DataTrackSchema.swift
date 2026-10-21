@@ -16,7 +16,7 @@
 
 import Foundation
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 
 /// Identifies the schema describing a data track's frames.
 @objc(DataTrackSchemaId)
@@ -42,14 +42,14 @@ public final class DataTrackSchemaId: NSObject, Sendable {
         self.init(name: name, encoding: DataTrackSchemaEncoding(identifier: encodingIdentifier))
     }
 
-    init(_ ffi: LiveKitUniFFI.DataTrackSchemaId) {
+    init(_ ffi: LiveKitFFI.DataTrackSchemaId) {
         name = ffi.name
         encoding = DataTrackSchemaEncoding(ffi.encoding)
         super.init()
     }
 
-    var ffi: LiveKitUniFFI.DataTrackSchemaId {
-        LiveKitUniFFI.DataTrackSchemaId(name: name, encoding: encoding.ffi)
+    var ffi: LiveKitFFI.DataTrackSchemaId {
+        LiveKitFFI.DataTrackSchemaId(name: name, encoding: encoding.ffi)
     }
 
     /// As a data blob key, for storing and reading back the schema's definition.
@@ -131,7 +131,7 @@ public enum DataTrackSchemaEncoding: Sendable, Equatable, Hashable {
         }
     }
 
-    init(_ ffi: LiveKitUniFFI.DataTrackSchemaEncoding) {
+    init(_ ffi: LiveKitFFI.DataTrackSchemaEncoding) {
         switch ffi {
         case .protobuf: self = .protobuf
         case .flatbuffer: self = .flatbuffer
@@ -146,7 +146,7 @@ public enum DataTrackSchemaEncoding: Sendable, Equatable, Hashable {
         }
     }
 
-    var ffi: LiveKitUniFFI.DataTrackSchemaEncoding {
+    var ffi: LiveKitFFI.DataTrackSchemaEncoding {
         switch self {
         case .protobuf: .protobuf
         case .flatbuffer: .flatbuffer
@@ -229,7 +229,7 @@ public enum DataTrackFrameEncoding: Sendable, Equatable, Hashable {
         }
     }
 
-    init(_ ffi: LiveKitUniFFI.DataTrackFrameEncoding) {
+    init(_ ffi: LiveKitFFI.DataTrackFrameEncoding) {
         switch ffi {
         case .ros1: self = .ros1
         case .cdr: self = .cdr
@@ -244,7 +244,7 @@ public enum DataTrackFrameEncoding: Sendable, Equatable, Hashable {
         }
     }
 
-    var ffi: LiveKitUniFFI.DataTrackFrameEncoding {
+    var ffi: LiveKitFFI.DataTrackFrameEncoding {
         switch self {
         case .ros1: .ros1
         case .cdr: .cdr

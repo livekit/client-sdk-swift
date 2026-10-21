@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Foundation
 
