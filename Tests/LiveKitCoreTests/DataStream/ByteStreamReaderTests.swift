@@ -91,7 +91,7 @@ struct ByteStreamReaderTests {
 
     /// The sender chooses the stored name, so a name that leaves the directory is refused before
     /// any file opens. An empty name from the sender means "no name", so it is not listed here.
-    @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", ".", "..\\escape.bin", "escape\u{0}.bin"])
+    @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", ".", "..\\escape.bin", "escape\u{0}.bin", "../\u{0301}escape.bin", "a\\\u{0301}b"])
     func writeToFileRejectsSenderName(_ fileName: String) async throws {
         let (reader, manager) = try await openReader(fileName: fileName)
         try await expectNothingWritten { directory in
@@ -100,7 +100,7 @@ struct ByteStreamReaderTests {
         _ = manager
     }
 
-    @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", ".", "", "..\\escape.bin", "escape\u{0}.bin"])
+    @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", ".", "", "..\\escape.bin", "escape\u{0}.bin", "../\u{0301}escape.bin", "a\\\u{0301}b"])
     func writeToFileRejectsNameOverride(_ fileName: String) async throws {
         let (reader, manager) = try await openReader()
         try await expectNothingWritten { directory in

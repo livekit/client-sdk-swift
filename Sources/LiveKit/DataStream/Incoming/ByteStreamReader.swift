@@ -137,7 +137,7 @@ extension ByteStreamReader {
     /// Whether `name` names a file directly inside the directory it is appended to, on any
     /// platform: no path separator (`/` or `\`) and no NUL, which file APIs treat as the end.
     static func isPlainFileName(_ name: String) -> Bool {
-        !name.isEmpty && name != "." && name != ".." && !name.contains { "/\\\u{0}".contains($0) }
+        !name.isEmpty && name != "." && name != ".." && !name.utf8.contains { "/\\\u{0}".utf8.contains($0) }
     }
 
     private static let defaultFileExtension = "bin"
