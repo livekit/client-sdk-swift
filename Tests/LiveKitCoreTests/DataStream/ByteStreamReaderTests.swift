@@ -91,7 +91,7 @@ struct ByteStreamReaderTests {
 
     /// The sender chooses the stored name, so a name that leaves the directory is refused before
     /// any file opens. An empty name from the sender means "no name", so it is not listed here.
-    @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", "."])
+    @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", ".", "..\\escape.bin", "escape\u{0}.bin"])
     func writeToFileRejectsSenderName(_ fileName: String) async throws {
         let (reader, manager) = try await openReader(fileName: fileName)
         try await expectNothingWritten { directory in
@@ -100,7 +100,7 @@ struct ByteStreamReaderTests {
         _ = manager
     }
 
-    @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", ".", ""])
+    @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", ".", "", "..\\escape.bin", "escape\u{0}.bin"])
     func writeToFileRejectsNameOverride(_ fileName: String) async throws {
         let (reader, manager) = try await openReader()
         try await expectNothingWritten { directory in
@@ -206,9 +206,9 @@ struct ByteStreamReaderTests {
             $0.streamID = streamID
             $0.topic = topic
             $0.mimeType = mimeType
-            $0.contentHeader = .byteHeader(.with { $0.name = fileName ?? name })
+            $0.contentHeader = .byteHeader(.with { $0.name = Self.withoutNUL(fileName ?? name) })
         }
-        feed(manager) { $0.streamHeader = header }
+        feed(manager, wireName: fileName ?? name) { $0.streamHeader = header }
 
         for (index, chunk) in (chunks ?? testChunks).enumerated() {
             let streamChunk = Livekit_DataStream.Chunk.with {
@@ -244,12 +244,25 @@ struct ByteStreamReaderTests {
         #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
     }
 
-    private func feed(_ manager: IncomingDataStreamManager, _ configure: (inout Livekit_DataPacket.Builder) -> Void) {
+    /// nanopb stores strings NUL-terminated, so a name with a NUL is encoded with a one-byte
+    /// placeholder in its place, and ``feed(_:wireName:_:)`` puts the NUL on the wire afterwards.
+    private static func withoutNUL(_ name: String) -> String {
+        name.replacingOccurrences(of: "\u{0}", with: "\u{1}")
+    }
+
+    private func feed(
+        _ manager: IncomingDataStreamManager,
+        wireName: String? = nil,
+        _ configure: (inout Livekit_DataPacket.Builder) -> Void,
+    ) {
         let packet = Livekit_DataPacket.with {
             $0.participantIdentity = "someName"
             configure(&$0)
         }
-        guard let data = try? packet.serializedData() else { return }
+        guard var data = try? packet.serializedData() else { return }
+        if let wireName, let range = data.range(of: Data(Self.withoutNUL(wireName).utf8)) {
+            data.replaceSubrange(range, with: Data(wireName.utf8))
+        }
         manager.handlePacketReceived(packet: data, encryptionType: .none)
     }
 }

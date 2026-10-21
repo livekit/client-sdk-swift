@@ -75,9 +75,9 @@ extension ByteStreamReader {
     /// - Returns: The URL of the written file on disk.
     /// - Throws: ``StreamError/notDirectory`` if `directory` is not a directory.
     ///   ``StreamError/fileInfoUnavailable`` if the file name is not a single plain path component,
-    ///   for example one that contains `/` or is `..`. The sender chooses the name in the stream
-    ///   information, so this check keeps the file inside `directory`. Another ``StreamError`` if
-    ///   reading the stream fails.
+    ///   for example one that contains `/`, `\` or NUL, or is `..`. The sender chooses the name in
+    ///   the stream information, so this check keeps the file inside `directory`. Another
+    ///   ``StreamError`` if reading the stream fails.
     ///
     public func writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
@@ -134,9 +134,10 @@ extension ByteStreamReader {
         return preferredName
     }
 
-    /// Whether `name` names a file directly inside the directory it is appended to.
+    /// Whether `name` names a file directly inside the directory it is appended to, on any
+    /// platform: no path separator (`/` or `\`) and no NUL, which file APIs treat as the end.
     static func isPlainFileName(_ name: String) -> Bool {
-        !name.isEmpty && name != "." && name != ".." && !name.contains("/")
+        !name.isEmpty && name != "." && name != ".." && !name.contains { "/\\\u{0}".contains($0) }
     }
 
     private static let defaultFileExtension = "bin"
