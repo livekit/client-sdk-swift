@@ -346,6 +346,36 @@ struct RpcClientTests {
         }
     }
 
+    /// A call whose task is already cancelled when it starts throws `CancellationError`, sends no
+    /// request, and leaves nothing pending, by the packet (`.v0`) or the stream (`.v1`) transport.
+    @Test(arguments: [ClientProtocol.v0, .v1])
+    func performRpcCancelledBeforeStartSendsNothing(remoteProtocol: ClientProtocol) async throws {
+        try await TestEnvironment.withRoom { room in
+            try await RpcTestSupport.installRemote(in: room, identity: Self.destination, clientProtocol: remoteProtocol)
+            let sent = StateSync(0)
+            room.publisherDataChannel = MockDataChannelPair { _ in sent.mutate { $0 += 1 } }
+
+            let result = AsyncCompleter<Result<String, Error>>(label: "RPC returned", defaultTimeout: 5)
+            Task {
+                withUnsafeCurrentTask { $0?.cancel() }
+                do {
+                    let response = try await room.localParticipant.performRpc(
+                        destinationIdentity: Self.destination,
+                        method: "method",
+                        payload: "x",
+                    )
+                    result.resume(returning: .success(response))
+                } catch {
+                    result.resume(returning: .failure(error))
+                }
+            }
+
+            await #expect(throws: CancellationError.self) { try await result.wait().get() }
+            #expect(sent.copy() == 0)
+            await expectNothingPending(in: room)
+        }
+    }
+
     /// The same waiting call, left uncancelled, still returns the response that ends its wait.
     @Test func performRpcReturnsResponseAfterWaiting() async throws {
         try await TestEnvironment.withRoom { room in

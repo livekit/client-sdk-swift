@@ -61,6 +61,8 @@ actor RpcClientManager: Loggable {
                     responseTimeout: TimeInterval = RpcClientManager.defaultResponseTimeout,
                     maxRoundTripLatency: TimeInterval = RpcClientManager.defaultMaxRoundTripLatency) async throws -> String
     {
+        // A call cancelled before it starts sends nothing, like the data stream methods.
+        try Task.checkCancellation()
         let room = try requireRoom()
 
         let remoteClientProtocol = room.remoteParticipants[destinationIdentity]?.clientProtocol ?? .v0
@@ -100,12 +102,11 @@ actor RpcClientManager: Loggable {
         } catch {
             // Publish failed — clean up the registered state before re-throwing.
             removeAllPending(requestId)
+            try Task.checkCancellation()
             throw error
         }
 
-        if let hook = afterPublish {
-            await hook(requestId)
-        }
+        await afterPublish?(requestId)
 
         // Ack watchdog: fail fast if no ack arrives within maxRoundTripLatency.
         // Stored as `AnyTaskCancellable` so the deferred cleanup cancels the sleep
