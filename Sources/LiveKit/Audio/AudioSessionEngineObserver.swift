@@ -43,6 +43,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     ///   LiveCommunicationKit's `conversationManager(_:didActivate:)`), must activate it
     ///
     /// > Note: This value is only used when `isAutomaticConfigurationEnabled` is `true`.
+    /// > Set it before connecting to a room. Changing it while the audio engine is running
+    /// > only takes effect the next time the engine starts.
     ///
     /// > Tip: Set to `false` together with `isAutomaticDeactivationEnabled` when CallKit (or LiveCommunicationKit) manages the audio session.
     ///
