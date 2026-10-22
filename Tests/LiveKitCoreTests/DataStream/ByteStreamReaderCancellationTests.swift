@@ -22,29 +22,30 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-/// Cancelling a read or a file write: the call returns at once with `CancellationError`, and a
-/// cancelled read closes the core reader, which ends the stream. The reader under test reports when
-/// a read enters the core, so a cancel can hit a read that is really waiting there.
+/// Cancelling a read, a file write or a progress observation. A cancelled read returns at once with
+/// `CancellationError` and closes the core reader, which ends the stream. The stand-in core readers
+/// report when a read or a progress wait is pending in them, so a cancel can hit one that is really
+/// waiting there.
 extension ByteStreamReaderTests {
     /// A cancelled read ends the stream, as a v1 reader's cancel did: the read throws
     /// `CancellationError` at once, the stream is no longer open although the sender sent nothing
     /// more, and a later read throws `.alreadyClosed`. The cancel hits a read that waits in the core,
     /// or a task that was cancelled before its read started.
-    @Test(arguments: [false, true], [false, true])
-    func cancelledReadEndsTheStream(readAll: Bool, whileWaiting: Bool) async throws {
-        let entered = AsyncCompleter<Void>(label: "Read entered the core", defaultTimeout: 5)
-        let (reader, manager) = try await openReader(chunks: [], trailerReason: nil, entered: entered)
+    @Test(arguments: Kind.allCases, CancelledRead.all)
+    func cancelledReadEndsTheStream(_ kind: Kind, _ cancelled: CancelledRead) async throws {
+        let (capture, manager) = try await openStalledReader(kind)
+        let reader = try #require(capture.take())
 
         let read = Task {
-            if !whileWaiting { withUnsafeCurrentTask { $0?.cancel() } }
-            if readAll {
-                _ = try await reader.readAll()
+            if !cancelled.whileWaiting { withUnsafeCurrentTask { $0?.cancel() } }
+            if cancelled.readAll {
+                try await reader.readAll()
             } else {
-                for try await _ in reader {}
+                try await reader.iterate()
             }
         }
-        if whileWaiting {
-            try await entered.wait()
+        if cancelled.whileWaiting {
+            try await capture.signals.readEntered.wait()
             read.cancel()
         }
         let error = try await within("Cancelled read") { await read.result.failure }
@@ -109,6 +110,19 @@ extension ByteStreamReaderTests {
     /// Which public reader a test drives.
     enum Kind: CaseIterable, Sendable {
         case byte, text
+    }
+
+    /// How a read meets its cancel: `readAll()` or the iterator, waiting in the core or in a task
+    /// cancelled before the read starts.
+    struct CancelledRead: Sendable, CustomTestStringConvertible {
+        let readAll: Bool
+        let whileWaiting: Bool
+
+        static let all = [false, true].flatMap { readAll in [false, true].map { CancelledRead(readAll: readAll, whileWaiting: $0) } }
+
+        var testDescription: String {
+            "\(readAll ? "readAll()" : "next()") cancelled \(whileWaiting ? "while waiting" : "before it starts")"
+        }
     }
 
     /// A public reader of either kind, reduced to what the cancellation tests drive. It holds the
@@ -239,40 +253,6 @@ extension ByteStreamReaderTests {
         }
         try await capture.opened.wait()
         return (capture, manager)
-    }
-
-    /// Wraps a core reader and reports when a read enters it, so a test can cancel a read that is
-    /// really waiting in the core.
-    final class SignallingReader: LiveKitFFI.ByteStreamReaderProtocol {
-        private let inner: any LiveKitFFI.ByteStreamReaderProtocol
-        private let entered: AsyncCompleter<Void>
-
-        init(_ inner: any LiveKitFFI.ByteStreamReaderProtocol, entered: AsyncCompleter<Void>) {
-            self.inner = inner
-            self.entered = entered
-        }
-
-        func info() -> LiveKitFFI.ByteStreamInfo {
-            inner.info()
-        }
-
-        func close() {
-            inner.close()
-        }
-
-        func nextProgress() async -> LiveKitFFI.StreamProgress? {
-            await inner.nextProgress()
-        }
-
-        func next() async throws -> Data? {
-            entered.resume(returning: ())
-            return try await inner.next()
-        }
-
-        func readAll() async throws -> Data {
-            entered.resume(returning: ())
-            return try await inner.readAll()
-        }
     }
 
     /// Runs `body` in its own task and waits at most 5 s for it, however `body` treats cancellation.
