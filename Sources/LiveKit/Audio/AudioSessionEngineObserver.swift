@@ -211,7 +211,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             do {
                 // Re-applying even an unchanged category makes iOS re-evaluate the route and
                 // drops an output the user picked, e.g. with AVRoutePickerView or Control Center.
-                if AudioSessionConfiguration(session: session) != config {
+                if Self.needsCategoryUpdate(config, category: session.category, mode: session.mode, options: session.categoryOptions) {
                     log("AudioSession configuring category to: \(config.category), mode: \(config.mode)")
                     try session.setCategory(config.category, mode: config.mode, options: config.categoryOptions)
                 }
@@ -265,6 +265,22 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         } else {
             state.isSpeakerOutputPreferred ? .playAndRecordSpeakerMedia : .playAndRecordReceiverMedia
         }
+    }
+
+    /// Whether `configuration` has to be applied to a session that currently has the given
+    /// category, mode and options.
+    ///
+    /// Voice Processing I/O may rewrite `.videoChat` to `.voiceChat` on its own (see
+    /// ``AudioSessionConfiguration``), so the two chat modes count as the same mode here.
+    /// A speaker preference change still shows up as a `.defaultToSpeaker` difference.
+    static func needsCategoryUpdate(_ configuration: AudioSessionConfiguration,
+                                    category: AVAudioSession.Category,
+                                    mode: AVAudioSession.Mode,
+                                    options: AVAudioSession.CategoryOptions) -> Bool
+    {
+        guard category == configuration.category, options == configuration.categoryOptions else { return true }
+        let chatModes: Set<AVAudioSession.Mode> = [.voiceChat, .videoChat]
+        return mode != configuration.mode && !(chatModes.contains(mode) && chatModes.contains(configuration.mode))
     }
 
     // MARK: - AudioEngineObserver
