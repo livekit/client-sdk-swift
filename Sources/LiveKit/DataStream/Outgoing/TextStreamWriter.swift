@@ -61,14 +61,29 @@ public final class TextStreamWriter: NSObject, Sendable {
     ///   if the calling task is cancelled, but the stream can still close.
     ///
     public func close(reason: String? = nil) async throws {
+        try await close(reason: reason, attributes: [:])
+    }
+
+    /// Close the stream, sending `attributes` with its end.
+    ///
+    /// Once the stream has ended, receivers find the attributes in ``StreamInfo/attributes`` of
+    /// the reader's info. They replace header attributes with the same key.
+    ///
+    /// ```swift
+    /// try await writer.close(attributes: ["status": "complete"])
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - reason: A textual description of why the stream is being closed. Absence of a reason
+    ///     indicates a normal closure.
+    ///   - attributes: Attributes to send with the end of the stream.
+    /// - Throws: ``StreamError/alreadyClosed`` if the stream is already closed, or another
+    ///   ``StreamError`` if the end of the stream cannot be delivered. `CancellationError` at once
+    ///   if the calling task is cancelled, but the stream can still close.
+    ///
+    public func close(reason: String? = nil, attributes: [String: String] = [:]) async throws {
         do {
-            try await abandoningOnCancel { [writer] in
-                if let reason {
-                    try await writer.closeWithReason(reason: reason)
-                } else {
-                    try await writer.close()
-                }
-            }
+            try await abandoningOnCancel { [writer] in try await writer.close(reason: reason, attributes: attributes) }
         } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
