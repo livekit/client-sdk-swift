@@ -90,6 +90,23 @@ struct TextStreamReaderTests {
         _ = manager
     }
 
+    /// The info reads the core's: the header's attributes until the trailer arrives, and then also
+    /// the trailer's, which replace header attributes with the same key.
+    @Test func infoShowsTrailerAttributesAfterTheEnd() async throws {
+        let (reader, manager) = try await openReader(trailerReason: nil, headerAttributes: ["kept": "header", "replaced": "header"])
+        #expect(reader.info.attributes == ["kept": "header", "replaced": "header"])
+
+        feed(manager) {
+            $0.streamTrailer = Livekit_DataStream.Trailer.with {
+                $0.streamID = reader.info.id
+                $0.attributes = ["replaced": "trailer", "added": "trailer"]
+            }
+        }
+        _ = try await reader.readAll()
+        #expect(reader.info.attributes == ["kept": "header", "replaced": "trailer", "added": "trailer"])
+        _ = manager
+    }
+
     // MARK: - Helpers
 
     /// Delegate that wraps the FFI reader into the public ``TextStreamReader`` and hands it back
@@ -102,15 +119,18 @@ struct TextStreamReaderTests {
         func onStreamClosed(streamId _: String, identity _: String) {}
 
         func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
-            let info = LiveKit.TextStreamInfo(reader.info(), encryptionType: .none)
-            let publicReader = LiveKit.TextStreamReader(reader, info: info)
-            opened.resume(returning: publicReader)
+            opened.resume(returning: LiveKit.TextStreamReader(reader))
         }
     }
 
     /// Opens a text stream through the FFI incoming manager and returns the public reader plus the
-    /// manager, which the caller must keep alive while reading.
-    private func openReader(chunks: [String]? = nil, trailerReason: String = "") async throws -> (LiveKit.TextStreamReader, IncomingDataStreamManager) {
+    /// manager, which the caller must keep alive while reading. A `nil` reason leaves the stream
+    /// open by sending no trailer.
+    private func openReader(
+        chunks: [String]? = nil,
+        trailerReason: String? = "",
+        headerAttributes: [String: String] = [:],
+    ) async throws -> (LiveKit.TextStreamReader, IncomingDataStreamManager) {
         let capture = Capture()
         let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
         let streamID = UUID().uuidString
@@ -118,6 +138,7 @@ struct TextStreamReaderTests {
         let header = Livekit_DataStream.Header.with {
             $0.streamID = streamID
             $0.topic = topic
+            $0.attributes = headerAttributes
             $0.contentHeader = .textHeader(Livekit_DataStream.TextHeader())
         }
         feed(manager) { $0.streamHeader = header }
@@ -131,11 +152,13 @@ struct TextStreamReaderTests {
             feed(manager) { $0.streamChunk = streamChunk }
         }
 
-        let trailer = Livekit_DataStream.Trailer.with {
-            $0.streamID = streamID
-            $0.reason = trailerReason
+        if let trailerReason {
+            let trailer = Livekit_DataStream.Trailer.with {
+                $0.streamID = streamID
+                $0.reason = trailerReason
+            }
+            feed(manager) { $0.streamTrailer = trailer }
         }
-        feed(manager) { $0.streamTrailer = trailer }
         return try await (capture.opened.wait(), manager)
     }
 

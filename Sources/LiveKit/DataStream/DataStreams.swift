@@ -311,26 +311,24 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Stream open dispatch (called from the incoming delegate)
 
     func handleByteStreamOpened(_ ffiReader: LiveKitFFI.ByteStreamReader, identity: String) {
-        let ffiInfo = ffiReader.info()
-        let info = ByteStreamInfo(ffiInfo, encryptionType: EncryptionType(ffiInfo.encryptionType))
+        let reader = ByteStreamReader(ffiReader)
+        let info = reader.info
         guard let handler = byteStreamHandlers.copy()[info.topic] else {
             logMissingHandler(topic: info.topic, id: info.id, identity: identity)
             return
         }
-        let reader = ByteStreamReader(ffiReader, info: info)
         let participantIdentity = Participant.Identity(from: identity)
         Task.detachedDiscarding { try await handler(reader, participantIdentity) }
     }
 
     func handleTextStreamOpened(_ ffiReader: LiveKitFFI.TextStreamReader, identity: String) {
-        let ffiInfo = ffiReader.info()
-        let info = TextStreamInfo(ffiInfo, encryptionType: EncryptionType(ffiInfo.encryptionType))
+        let reader = TextStreamReader(ffiReader)
+        let info = reader.info
         guard let entry = textStreamHandlers.copy()[info.topic] else {
             logMissingHandler(topic: info.topic, id: info.id, identity: identity)
             return
         }
         let handler = entry.handler
-        let reader = TextStreamReader(ffiReader, info: info)
         let participantIdentity = Participant.Identity(from: identity)
         let topic = info.topic
         guard entry.isOrdered else {

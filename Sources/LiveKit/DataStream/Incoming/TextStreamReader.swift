@@ -33,14 +33,19 @@ protocol TextStreamReading: Sendable {
 @objcMembers
 public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStreamReading {
     /// Information about the incoming text stream.
-    public let info: TextStreamInfo
+    ///
+    /// Once the stream has ended, ``StreamInfo/attributes`` also holds the attributes the sender
+    /// set when it closed the stream. They replace header attributes with the same key.
+    public var info: TextStreamInfo {
+        let info = reader.info()
+        return TextStreamInfo(info, encryptionType: EncryptionType(info.encryptionType))
+    }
 
     /// The core's reader, by its protocol so a test can stand in for it.
     private let reader: any LiveKitFFI.TextStreamReaderProtocol
 
-    init(_ reader: any LiveKitFFI.TextStreamReaderProtocol, info: TextStreamInfo) {
+    init(_ reader: any LiveKitFFI.TextStreamReaderProtocol) {
         self.reader = reader
-        self.info = info
     }
 
     /// Reads incoming chunks from the text stream, concatenating them into a single string which is returned

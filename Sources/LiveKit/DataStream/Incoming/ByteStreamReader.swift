@@ -25,14 +25,19 @@ internal import LiveKitFFI
 @objcMembers
 public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// Information about the incoming byte stream.
-    public let info: ByteStreamInfo
+    ///
+    /// Once the stream has ended, ``StreamInfo/attributes`` also holds the attributes the sender
+    /// set when it closed the stream. They replace header attributes with the same key.
+    public var info: ByteStreamInfo {
+        let info = reader.info()
+        return ByteStreamInfo(info, encryptionType: EncryptionType(info.encryptionType))
+    }
 
     /// The core's reader, by its protocol so a test can stand in for it.
     private let reader: any LiveKitFFI.ByteStreamReaderProtocol
 
-    init(_ reader: any LiveKitFFI.ByteStreamReaderProtocol, info: ByteStreamInfo) {
+    init(_ reader: any LiveKitFFI.ByteStreamReaderProtocol) {
         self.reader = reader
-        self.info = info
     }
 
     /// Reads incoming chunks from the byte stream, concatenating them into a single data object which is returned

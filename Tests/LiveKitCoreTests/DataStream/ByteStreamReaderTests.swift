@@ -172,9 +172,8 @@ struct ByteStreamReaderTests {
         }
 
         func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
-            let info = LiveKit.ByteStreamInfo(reader.info(), encryptionType: .none)
             let core: any LiveKitFFI.ByteStreamReaderProtocol = entered.map { SignallingReader(reader, entered: $0) } ?? reader
-            opened.resume(returning: LiveKit.ByteStreamReader(core, info: info))
+            opened.resume(returning: LiveKit.ByteStreamReader(core))
         }
 
         func onTextStreamOpened(reader _: LiveKitFFI.TextStreamReader, identity _: String) {}
