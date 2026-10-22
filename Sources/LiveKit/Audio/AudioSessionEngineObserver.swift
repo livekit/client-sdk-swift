@@ -88,6 +88,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
     private let sessionRequirementId = UUID()
 
+    private var mediaServicesResetObserver: NSObjectProtocol?
+
     public var next: (any AudioEngineObserver)? {
         get { _state.next }
         set { _state.mutate { $0.next = newValue } }
@@ -103,6 +105,19 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             } catch {
                 log("Failed to configure audio session after configuration preference change: \(error)", .error)
             }
+        }
+
+        mediaServicesResetObserver = NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification,
+                                                                            object: AVAudioSession.sharedInstance(),
+                                                                            queue: nil)
+        { [weak self] _ in
+            self?.handleMediaServicesReset()
+        }
+    }
+
+    deinit {
+        if let mediaServicesResetObserver {
+            NotificationCenter.default.removeObserver(mediaServicesResetObserver)
         }
     }
 
@@ -168,6 +183,33 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 throw LiveKitError(.audioSession, message: "Failed to configure audio session")
             }
         }
+    }
+
+    // MARK: - Media Services Reset
+
+    /// iOS discards the audio session configuration when media services are reset,
+    /// so the category, mode, options and activation are applied again.
+    private func handleMediaServicesReset() {
+        log("Media services were reset")
+        _state.mutate {
+            guard let oldState = Self.stateBeforeMediaServicesReset($0) else { return }
+            do {
+                try configureIfNeeded(oldState: oldState, newState: $0)
+            } catch {
+                log("Failed to configure audio session after media services reset: \(error)", .error)
+            }
+        }
+    }
+
+    /// Returns the state to configure from after a media services reset, or `nil` if there is nothing to restore.
+    ///
+    /// The returned state has no requirements, so the configuration also activates the session.
+    static func stateBeforeMediaServicesReset(_ state: State) -> State? {
+        guard state.isAutomaticConfigurationEnabled,
+              state.isPlayoutEnabled || state.isRecordingEnabled else { return nil }
+        var oldState = state
+        oldState.sessionRequirements = [:]
+        return oldState
     }
 
     // MARK: - Audio Session Configuration

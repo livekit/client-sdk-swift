@@ -1,0 +1,1 @@
+patch type="fixed" "Reconfigure and reactivate the audio session after iOS resets media services, instead of leaving it in the system default state until the audio engine requirements change"

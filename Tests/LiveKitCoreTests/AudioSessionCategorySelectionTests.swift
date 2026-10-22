@@ -121,6 +121,26 @@ struct AudioSessionCategorySelectionTests {
         _ = observer.engineDidDisable(engine, isPlayoutEnabled: false, isRecordingEnabled: false)
         #expect(!observer._state.hasRecorded)
     }
+
+    // MARK: - Media services reset
+
+    @Test func mediaServicesResetRestoresFromAnIdleState() throws {
+        let current = state(.playbackAndRecording, hasRecorded: true)
+        let old = try #require(Observer.stateBeforeMediaServicesReset(current))
+        #expect(old.sessionRequirements.isEmpty)
+        #expect(!old.isPlayoutEnabled && !old.isRecordingEnabled)
+        #expect(old.hasRecorded)
+    }
+
+    @Test func mediaServicesResetIsIgnoredWithoutRequirements() {
+        #expect(Observer.stateBeforeMediaServicesReset(state(.none)) == nil)
+    }
+
+    @Test func mediaServicesResetIsIgnoredWhenAutomaticConfigurationIsDisabled() {
+        var current = state(.playbackAndRecording)
+        current.isAutomaticConfigurationEnabled = false
+        #expect(Observer.stateBeforeMediaServicesReset(current) == nil)
+    }
 }
 
 #endif
