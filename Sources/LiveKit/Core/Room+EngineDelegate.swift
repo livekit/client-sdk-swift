@@ -179,7 +179,12 @@ extension Room {
         }
 
         guard let participant else {
-            log("RemoteParticipant not found for sid: \(parseResult.participantSid), remoteParticipants: \(remoteParticipants)", .warning)
+            // In single PC mode a receive section the client preallocated is answered without an
+            // `a=msid`, so libwebrtc reports a synthesized stream id that names no participant.
+            // Those sections are identified from the description's `mid` → track SID mapping
+            // instead (see `attachReceivedMedia`), so this is expected rather than a fault.
+            let level: LogLevel = _state.transport?.publisher.singlePCMode == true ? .debug : .warning
+            log("RemoteParticipant not found for sid: \(parseResult.participantSid), remoteParticipants: \(remoteParticipants)", level)
             return
         }
 
