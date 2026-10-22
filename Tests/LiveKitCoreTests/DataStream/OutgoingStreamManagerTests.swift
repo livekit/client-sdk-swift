@@ -260,7 +260,7 @@ extension OutgoingStreamManagerTests {
             replyToStreamID: "r",
             generated: true,
             compress: false,
-            totalLength: 99,
+            totalSize: 99,
         ).ffi
 
         #expect(ffi.topic == "topic")

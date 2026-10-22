@@ -165,7 +165,7 @@ extension DataStreamTests {
                 }
             }
 
-            let writer = try await sender.localParticipant.streamText(options: StreamTextOptions(topic: "declared", totalLength: declared))
+            let writer = try await sender.localParticipant.streamText(options: StreamTextOptions(topic: "declared", totalSize: declared))
             #expect(writer.info.totalLength == declared)
             try await writer.write(text)
             try await writer.close()

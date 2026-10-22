@@ -74,7 +74,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
     /// no size. A one-shot `sendText` ignores it and declares the size of its text.
     ///
     /// - Note: A negative value is treated as `nil`.
-    public let totalLength: Int?
+    public let totalSize: Int?
 
     // TODO: Expose additional protocol level fields
 
@@ -90,7 +90,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         generated: Bool = false,
         compress: Bool = true,
         senderIdentity: Participant.Identity? = nil,
-        totalLength: Int? = nil,
+        totalSize: Int? = nil,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -103,10 +103,10 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         self.generated = generated
         self.compress = compress
         self.senderIdentity = senderIdentity
-        self.totalLength = totalLength.flatMap { $0 >= 0 ? $0 : nil }
+        self.totalSize = totalSize.flatMap { $0 >= 0 ? $0 : nil }
     }
 
-    /// The initializer without `totalLength`, which declares no size. Keeps code and binaries built
+    /// The initializer without `totalSize`, which declares no size. Keeps code and binaries built
     /// against the earlier signature working.
     public convenience init(
         topic: String,
@@ -133,14 +133,14 @@ public final class StreamTextOptions: NSObject, StreamOptions {
             generated: generated,
             compress: compress,
             senderIdentity: senderIdentity,
-            totalLength: nil,
+            totalSize: nil,
         )
     }
 
-    /// ObjC-compatible initializer that accepts `NSNumber?` for `totalLength`.
+    /// ObjC-compatible initializer that accepts `NSNumber?` for `totalSize`.
     ///
     /// Required because `Int?` does not auto-bridge to ObjC.
-    @available(*, deprecated, message: "Use init(topic:attributes:destinationIdentities:id:operationType:version:attachedStreamIDs:replyToStreamID:generated:compress:senderIdentity:totalLength:) instead.")
+    @available(*, deprecated, message: "Use init(topic:attributes:destinationIdentities:id:operationType:version:attachedStreamIDs:replyToStreamID:generated:compress:senderIdentity:totalSize:) instead.")
     public convenience init(
         topic: String,
         attributes: [String: String],
@@ -153,7 +153,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         generated: Bool,
         compress: Bool,
         senderIdentity: Participant.Identity?,
-        totalLengthNumber: NSNumber?,
+        totalSizeNumber: NSNumber?,
     ) {
         self.init(
             topic: topic,
@@ -167,7 +167,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
             generated: generated,
             compress: compress,
             senderIdentity: senderIdentity,
-            totalLength: totalLengthNumber?.intValue,
+            totalSize: totalSizeNumber?.intValue,
         )
     }
 
@@ -184,7 +184,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
             generated: generated,
             compress: compress,
             senderIdentity: senderIdentity?.stringValue,
-            totalLength: totalLength.map { UInt64($0) },
+            totalLength: totalSize.map { UInt64($0) },
         )
     }
 
@@ -202,7 +202,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
             generated: generated,
             compress: compress,
             senderIdentity: senderIdentity,
-            totalLength: totalLength,
+            totalSize: totalSize,
         )
     }
 
