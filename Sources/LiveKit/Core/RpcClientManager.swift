@@ -34,7 +34,7 @@ actor RpcClientManager: Loggable {
 
     private(set) var pendingAcks: Set<String> = Set()
     private(set) var pendingResponses: [String: PendingRpcResponse] = [:]
-    private var ackWatchdogs: [String: AnyTaskCancellable] = [:]
+    private(set) var ackWatchdogs: [String: AnyTaskCancellable] = [:]
 
     /// Hook fired once after the RPC request has been published but before the caller
     /// starts waiting on the completer. Receives the freshly-generated `requestId` so

@@ -285,8 +285,17 @@ struct RpcClientTests {
         let requestId = try await published.wait()
         let completer = try #require(await room.rpcClient.pendingResponses[requestId]?.completer)
         await completer.waitForRegistration(timeout: 5)
+        // The hook captures the room, which holds the hook.
+        await room.rpcClient.setAfterPublish(nil)
         #expect(await room.rpcClient.pendingAcks.contains(requestId) == !acked)
         return WaitingCall(requestId: requestId, task: task, result: result)
+    }
+
+    /// Expects that the manager holds no pending ack, pending response, or ack watchdog.
+    private func expectNothingPending(in room: Room, sourceLocation: SourceLocation = #_sourceLocation) async {
+        #expect(await room.rpcClient.pendingAcks.isEmpty, sourceLocation: sourceLocation)
+        #expect(await room.rpcClient.pendingResponses.isEmpty, sourceLocation: sourceLocation)
+        #expect(await room.rpcClient.ackWatchdogs.isEmpty, sourceLocation: sourceLocation)
     }
 
     /// Cancelling the task that awaits `performRpc` while the call waits for the ack or the
@@ -298,8 +307,7 @@ struct RpcClientTests {
             call.task.cancel()
 
             await #expect(throws: CancellationError.self) { try await call.result.wait().get() }
-            #expect(await room.rpcClient.pendingAcks.isEmpty)
-            #expect(await room.rpcClient.pendingResponses.isEmpty)
+            await expectNothingPending(in: room)
         }
     }
 
@@ -318,8 +326,7 @@ struct RpcClientTests {
                 senderIdentity: Self.destination,
             )
 
-            #expect(await room.rpcClient.pendingAcks.isEmpty)
-            #expect(await room.rpcClient.pendingResponses.isEmpty)
+            await expectNothingPending(in: room)
         }
     }
 
@@ -330,8 +337,7 @@ struct RpcClientTests {
             await room.rpcClient.handleIncomingResponse(requestId: call.requestId, payload: "response", error: nil)
 
             #expect(try await call.result.wait().get() == "response")
-            #expect(await room.rpcClient.pendingAcks.isEmpty)
-            #expect(await room.rpcClient.pendingResponses.isEmpty)
+            await expectNothingPending(in: room)
         }
     }
 
