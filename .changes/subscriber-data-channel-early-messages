@@ -1,0 +1,1 @@
+patch type="fixed" "Fix the first data packets to a participant that just joined being lost without an error: packets that arrived as the subscriber data channel opened (including the ones the server holds for a joining participant) were dropped before the SDK attached to the channel"

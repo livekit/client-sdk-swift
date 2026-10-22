@@ -709,7 +709,9 @@ extension Transport: LKRTCPeerConnectionDelegate {
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didOpen dataChannel: LKRTCDataChannel) {
         log("Received data channel \(dataChannel.label) for \(target)")
-        _delegate.notify { $0.transport(self, didOpenDataChannel: dataChannel) }
+        for delegate in _delegate.allDelegates {
+            delegate.transport(self, didOpenDataChannel: dataChannel)
+        }
     }
 
     nonisolated func peerConnection(_: LKRTCPeerConnection, didChange _: LKRTCIceConnectionState) {}
