@@ -257,6 +257,7 @@ struct RpcClientTests {
     /// A call in flight, and a completer that receives what it returns.
     struct WaitingCall {
         let requestId: String
+        let completer: AsyncCompleter<String>
         let task: AnyTaskCancellable
         let result: AsyncCompleter<Result<String, Error>>
     }
@@ -294,7 +295,7 @@ struct RpcClientTests {
         // The hook captures the room, which holds the hook.
         await room.rpcClient.setAfterPublish(nil)
         #expect(await room.rpcClient.pendingAcks.contains(requestId) == !acked)
-        return WaitingCall(requestId: requestId, task: task, result: result)
+        return WaitingCall(requestId: requestId, completer: completer, task: task, result: result)
     }
 
     /// Expects that the manager holds no pending ack, pending response, or ack watchdog.
@@ -379,6 +380,64 @@ struct RpcClientTests {
             await #expect(throws: CancellationError.self) { try await result.wait().get() }
             #expect(sent.copy() == 0)
             await expectNothingPending(in: room)
+        }
+    }
+
+    /// A cancel while a v1 request waits for the data channel to open throws `CancellationError`,
+    /// not the channel's `LiveKitError(.cancelled)`, and leaves nothing pending.
+    @Test func performRpcCancelledDuringPublishThrowsCancellationError() async throws {
+        try await TestEnvironment.withRoom { room in
+            let channel = UnopenedDataChannelPair { _ in }
+            room.publisherDataChannel = channel
+
+            let result = AsyncCompleter<Result<String, Error>>(label: "RPC returned", defaultTimeout: 5)
+            let task = Task {
+                do {
+                    let response = try await room.localParticipant.performRpc(
+                        destinationIdentity: Self.destination,
+                        method: "method",
+                        payload: "x",
+                    )
+                    result.resume(returning: .success(response))
+                } catch {
+                    result.resume(returning: .failure(error))
+                }
+            }
+            await channel.opened.waitForRegistration(timeout: 5)
+            #expect(await room.rpcClient.pendingResponses.count == 1)
+            task.cancel()
+
+            await #expect(throws: CancellationError.self) { try await result.wait().get() }
+            await expectNothingPending(in: room)
+        }
+    }
+
+    /// A response stream whose read fails after its call was cancelled finds the call gone. The
+    /// handler returns without resuming the call's completer again, and nothing is left pending.
+    @Test func performRpcIgnoresReadFailureAfterCancel() async throws {
+        try await TestEnvironment.withRoom { room in
+            let call = try await startWaitingCall(in: room, acked: true)
+            let reader = GatedFailingReader(requestId: call.requestId)
+            let handled = AsyncCompleter<Void>(label: "Response stream handled", defaultTimeout: 5)
+            Task {
+                await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: Self.destination)
+                handled.resume(returning: ())
+            }
+            try await reader.entered.wait()
+
+            call.task.cancel()
+            await #expect(throws: CancellationError.self) { try await call.result.wait().get() }
+            await expectNothingPending(in: room)
+
+            reader.release.resume(returning: ())
+            try await handled.wait()
+
+            #expect(reader.reads.copy() == 1)
+            await expectNothingPending(in: room)
+            // A wait with no time left returns a cached result at once, so it shows whether
+            // anything resumed the cancelled call's completer.
+            let error = await #expect(throws: LiveKitError.self) { try await call.completer.wait(timeout: 0) }
+            #expect(error?.type == .timedOut)
         }
     }
 
@@ -1246,6 +1305,32 @@ private final class AwaitingDataChannelPair: MockDataChannelPair, @unchecked Sen
 
     override func send(dataPacket packet: Livekit_DataPacket) async throws {
         await onSend(packet)
+    }
+}
+
+/// A mocked data channel that never opens, so a send waits on `opened` until its task is cancelled.
+private final class UnopenedDataChannelPair: MockDataChannelPair, @unchecked Sendable {
+    let opened = AsyncCompleter<Void>(label: "Mock data channel open", defaultTimeout: 10)
+
+    override func whenOpen(kind _: Livekit_DataPacket_Kind) -> AsyncCompleter<Void> { opened }
+}
+
+/// A response stream whose read reports when it starts, waits for `release`, and then fails.
+private struct GatedFailingReader: TextStreamReading {
+    let info: TextStreamInfo
+    let reads = StateSync(0)
+    let entered = AsyncCompleter<Void>(label: "Response read started", defaultTimeout: 5)
+    let release = AsyncCompleter<Void>(label: "Response read released", defaultTimeout: 5)
+
+    init(requestId: String) {
+        info = RpcTestSupport.makeResponseReader(requestId: requestId).info
+    }
+
+    func readAll() async throws -> String {
+        reads.mutate { $0 += 1 }
+        entered.resume(returning: ())
+        try await release.wait()
+        throw StreamError.terminated
     }
 }
 
