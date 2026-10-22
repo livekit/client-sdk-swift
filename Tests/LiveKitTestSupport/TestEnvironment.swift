@@ -144,7 +144,8 @@ public enum TestEnvironment {
             let encryptionOptions = $0.element.isE2eeEnabled
                 ? $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
                 : nil
-            let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
+            let roomOptions = RoomOptions(dataStreamOptions: $0.element.dataStreamOptions, encryptionOptions: encryptionOptions,
+                                          reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
 
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
             let roomName = $0.element.roomName ?? sharedRoomName

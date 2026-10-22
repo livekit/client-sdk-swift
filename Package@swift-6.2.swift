@@ -85,6 +85,7 @@ let package = Package(
             dependencies: [
                 "LiveKit",
                 "LiveKitTestSupport",
+                .product(name: "LiveKitFFI", package: "livekit-ffi-xcframework"),
             ],
         ),
         .testTarget(
