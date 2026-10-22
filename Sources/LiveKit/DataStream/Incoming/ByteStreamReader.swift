@@ -52,6 +52,29 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
         try await StreamError.reading(closingOnCancel: reader.close) { try await reader.readAll() }
     }
 
+    /// The progress of the stream as its bytes arrive, until the stream ends.
+    ///
+    /// Progress counts the bytes received from the sender, after decompression, not the bytes read
+    /// so far. ``StreamProgress/bytesTotal`` is the size the sender declared, or `nil` if it
+    /// declared none. Updates that arrive between two iterations merge into the latest one, and the
+    /// last update is the stream's final progress. Iterate it from one task at a time.
+    ///
+    /// ```swift
+    /// Task {
+    ///     for await progress in reader.progress {
+    ///         print("Received \(progress.bytesProcessed) bytes")
+    ///     }
+    /// }
+    /// let data = try await reader.readAll()
+    /// ```
+    public var progress: AsyncStream<StreamProgress> {
+        // ponytail: a cancel abandons the core's wait, which keeps the reader's progress until its
+        // next update or the end of the stream, so an iteration started after it waits for that.
+        AsyncStream(unfolding: { [reader] in
+            try? await abandoningOnCancel { await reader.nextProgress().map(StreamProgress.init) }
+        })
+    }
+
     /// An asynchronous iterator of incoming chunks.
     public struct AsyncChunks: AsyncIteratorProtocol {
         fileprivate let stream: ByteStreamReader
@@ -159,6 +182,16 @@ public extension ByteStreamReader {
                 onCompletion?(nil)
             } catch {
                 onCompletion?(error)
+            }
+        }
+    }
+
+    @objc
+    @available(*, deprecated, message: "Use for/await on ByteStreamReader progress instead.")
+    func readProgress(onProgress: @Sendable @escaping (StreamProgress) -> Void) {
+        Task {
+            for await progress in self.progress {
+                onProgress(progress)
             }
         }
     }

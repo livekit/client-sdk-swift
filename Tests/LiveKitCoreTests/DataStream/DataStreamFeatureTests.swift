@@ -62,4 +62,88 @@ extension DataStreamTests {
             #expect(try await received.wait() == ["kept": "header", "replaced": "trailer", "added": "trailer"])
         }
     }
+
+    /// A send reports its progress in payload bytes before compression, rising to the whole
+    /// payload: a one-shot text or byte send once, when it completes, and a file as it goes out.
+    @Test(arguments: [Send.text, .bytes, .file])
+    func sendReportsProgress(via send: Send) async throws {
+        let payload = send == .file ? Self.noisy(200_000) : Data("Hello world!".utf8)
+        let updates = StateSync<[StreamProgress]>([])
+        let onProgress: @Sendable (StreamProgress) -> Void = { progress in updates.mutate { $0.append(progress) } }
+
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let sender = rooms[1].localParticipant
+            switch send {
+            case .text:
+                try await sender.sendText(String(bytes: payload, encoding: .utf8) ?? "", options: StreamTextOptions(topic: "progress"), onProgress: onProgress)
+            case .bytes:
+                try await sender.sendBytes(payload, options: StreamByteOptions(topic: "progress"), onProgress: onProgress)
+            default:
+                let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).bin")
+                try payload.write(to: fileURL)
+                defer { try? FileManager.default.removeItem(at: fileURL) }
+                try await sender.sendFile(fileURL, options: StreamByteOptions(topic: "progress"), onProgress: onProgress)
+            }
+        }
+
+        let reported = updates.copy()
+        if send.mayGoInline {
+            #expect(reported.count == 1)
+        } else {
+            #expect(reported.count > 1)
+        }
+        #expect(zip(reported, reported.dropFirst()).allSatisfy { $0.bytesProcessed <= $1.bytesProcessed })
+        #expect(reported.allSatisfy { $0.bytesTotal == payload.count })
+        #expect(reported.last?.bytesProcessed == payload.count)
+        #expect(reported.last?.fraction == 1)
+    }
+
+    /// A reader reports the bytes it received, rising to the whole payload. The total is the size
+    /// the sender declared, and unknown for a text stream opened without one.
+    @Test(arguments: [Send.file, .textStream])
+    func readerReportsProgress(via send: Send) async throws {
+        let payload = Self.noisy(60000)
+
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let (receiver, sender) = (rooms[0], rooms[1])
+            let received = AsyncCompleter<[StreamProgress]>(label: "Progress of the stream", defaultTimeout: 30)
+            try await receiver.registerByteStreamHandler(for: "progress") { reader, _ in
+                async let updates = reader.progress.reduce(into: [StreamProgress]()) { $0.append($1) }
+                do {
+                    _ = try await reader.readAll()
+                    await received.resume(returning: updates)
+                } catch {
+                    received.resume(throwing: error)
+                }
+            }
+            try await receiver.registerTextStreamHandler(for: "progress") { reader, _ in
+                async let updates = reader.progress.reduce(into: [StreamProgress]()) { $0.append($1) }
+                do {
+                    _ = try await reader.readAll()
+                    await received.resume(returning: updates)
+                } catch {
+                    received.resume(throwing: error)
+                }
+            }
+
+            if send == .file {
+                let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).bin")
+                try payload.write(to: fileURL)
+                defer { try? FileManager.default.removeItem(at: fileURL) }
+                try await sender.localParticipant.sendFile(fileURL, for: "progress")
+            } else {
+                let writer = try await sender.localParticipant.streamText(for: "progress")
+                for start in stride(from: 0, to: payload.count, by: 15000) {
+                    try await writer.write(String(bytes: payload[start ..< min(start + 15000, payload.count)], encoding: .utf8) ?? "")
+                }
+                try await writer.close()
+            }
+
+            let reported = try await received.wait()
+            #expect(!reported.isEmpty)
+            #expect(zip(reported, reported.dropFirst()).allSatisfy { $0.bytesProcessed <= $1.bytesProcessed })
+            #expect(reported.allSatisfy { $0.bytesTotal == (send == .file ? payload.count : nil) })
+            #expect(reported.last?.bytesProcessed == payload.count)
+        }
+    }
 }

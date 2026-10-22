@@ -43,8 +43,32 @@ public extension LocalParticipant {
     ///
     @discardableResult
     final func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
+        try await sendText(text, options: options, onProgress: nil)
+    }
+
+    /// Send a complete string to participants in the room with custom options, and report the
+    /// progress of the send.
+    ///
+    /// The text goes to the transport in one step, so `onProgress` is called once, when the send
+    /// completes.
+    ///
+    /// - Parameters:
+    ///   - text: The string to send.
+    ///   - options: Options for the text stream.
+    ///   - onProgress: Called with the progress of the send, in UTF-8 bytes before compression. It
+    ///     runs on a background thread inside the send, so it must return quickly. After a cancel
+    ///     it can still be called, because the send can still complete.
+    /// - Returns: Information about the text stream.
+    /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
+    ///   connected. `CancellationError` at once if the calling task is cancelled, but the call can
+    ///   still complete.
+    ///
+    /// - SeeAlso: ``sendText(_:for:)``
+    ///
+    @discardableResult
+    final func sendText(_ text: String, options: StreamTextOptions, onProgress: (@Sendable (StreamProgress) -> Void)? = nil) async throws -> TextStreamInfo {
         let room = try requireRoom()
-        return try await room.dataStreams.sendText(text, options: options)
+        return try await room.dataStreams.sendText(text, options: options, onProgress: onProgress)
     }
 
     /// Send a complete string with files attached to participants in the room.
@@ -98,8 +122,32 @@ public extension LocalParticipant {
     ///
     @discardableResult
     final func sendBytes(_ data: Data, options: StreamByteOptions) async throws -> ByteStreamInfo {
+        try await sendBytes(data, options: options, onProgress: nil)
+    }
+
+    /// Send complete data to participants in the room with custom options, and report the progress
+    /// of the send.
+    ///
+    /// The data goes to the transport in one step, so `onProgress` is called once, when the send
+    /// completes.
+    ///
+    /// - Parameters:
+    ///   - data: The data to send.
+    ///   - options: Options for the byte stream.
+    ///   - onProgress: Called with the progress of the send, in bytes before compression. It runs
+    ///     on a background thread inside the send, so it must return quickly. After a cancel it can
+    ///     still be called, because the send can still complete.
+    /// - Returns: Information about the byte stream.
+    /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
+    ///   connected. `CancellationError` at once if the calling task is cancelled, but the call can
+    ///   still complete.
+    ///
+    /// - SeeAlso: ``sendBytes(_:for:)``
+    ///
+    @discardableResult
+    final func sendBytes(_ data: Data, options: StreamByteOptions, onProgress: (@Sendable (StreamProgress) -> Void)? = nil) async throws -> ByteStreamInfo {
         let room = try requireRoom()
-        return try await room.dataStreams.sendBytes(data, options: options)
+        return try await room.dataStreams.sendBytes(data, options: options, onProgress: onProgress)
     }
 
     /// Send a file on disk to participants in the room.
@@ -123,8 +171,37 @@ public extension LocalParticipant {
     ///
     @discardableResult
     final func sendFile(_ fileURL: URL, options: StreamByteOptions) async throws -> ByteStreamInfo {
+        try await sendFile(fileURL, options: options, onProgress: nil)
+    }
+
+    /// Send a file on disk to participants in the room with custom options, and report the progress
+    /// of the send.
+    ///
+    /// `onProgress` is called as the file goes out, and last with the whole file.
+    ///
+    /// ```swift
+    /// try await room.localParticipant.sendFile(videoURL, options: StreamByteOptions(topic: "files")) { progress in
+    ///     print("Sent \(progress.bytesProcessed) of \(progress.bytesTotal ?? 0) bytes")
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - fileURL: The URL of the file on disk to send.
+    ///   - options: Options for the byte stream.
+    ///   - onProgress: Called with the progress of the send, in file bytes before compression. It
+    ///     runs on a background thread inside the send, so it must return quickly. After a cancel
+    ///     it can still be called, because the send can still complete.
+    /// - Returns: Information about the byte stream.
+    /// - Throws: ``StreamError`` if the stream fails, or ``LiveKitError`` if the room is not
+    ///   connected. `CancellationError` at once if the calling task is cancelled, but the call can
+    ///   still complete.
+    ///
+    /// - SeeAlso: ``sendFile(_:for:)``
+    ///
+    @discardableResult
+    final func sendFile(_ fileURL: URL, options: StreamByteOptions, onProgress: (@Sendable (StreamProgress) -> Void)? = nil) async throws -> ByteStreamInfo {
         let room = try requireRoom()
-        return try await room.dataStreams.sendFile(fileURL, options: options)
+        return try await room.dataStreams.sendFile(fileURL, options: options, onProgress: onProgress)
     }
 
     // MARK: - Stream

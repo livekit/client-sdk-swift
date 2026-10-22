@@ -185,3 +185,28 @@ public final class ByteStreamInfo: NSObject, StreamInfo {
         )
     }
 }
+
+// MARK: - Progress
+
+/// How much of a data stream was sent or received so far.
+@objcMembers
+public final class StreamProgress: NSObject, Sendable {
+    /// Payload bytes sent or received so far (UTF-8 for text): before compression when sending,
+    /// after decompression when receiving.
+    public let bytesProcessed: Int
+
+    /// The total size of the stream in bytes, or `nil` when it is not known, for example for a text
+    /// stream that its sender opened without a declared size.
+    public let bytesTotal: Int?
+
+    /// ``bytesProcessed`` as a fraction of ``bytesTotal``, from 0 to 1, or `nil` when the total is
+    /// not known.
+    public var fraction: Double? {
+        bytesTotal.map { $0 > 0 ? Double(bytesProcessed) / Double($0) : 1 }
+    }
+
+    init(_ ffi: LiveKitFFI.StreamProgress) {
+        bytesProcessed = Int(clamping: ffi.bytesProcessed)
+        bytesTotal = ffi.bytesTotal.flatMap { Int(exactly: $0) }
+    }
+}

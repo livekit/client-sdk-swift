@@ -459,4 +459,18 @@
     [self waitForExpectationsWithTimeout:10 handler:nil];
 }
 
+#pragma mark - Exposure
+
+// The progress and trailer attribute additions reach Objective-C under these selectors.
+- (void)testProgressAndCloseAttributesAreExposed {
+    XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendText:options:onProgress:completionHandler:)]);
+    XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendBytes:options:onProgress:completionHandler:)]);
+    XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendFile:options:onProgress:completionHandler:)]);
+    XCTAssertTrue([TextStreamReader instancesRespondToSelector:@selector(readProgressOnProgress:)]);
+    XCTAssertTrue([ByteStreamReader instancesRespondToSelector:@selector(readProgressOnProgress:)]);
+    XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(bytesProcessed)]);
+    XCTAssertTrue([TextStreamWriter instancesRespondToSelector:@selector(closeWithReason:attributes:completionHandler:)]);
+    XCTAssertTrue([ByteStreamWriter instancesRespondToSelector:@selector(closeWithReason:attributes:completionHandler:)]);
+}
+
 @end

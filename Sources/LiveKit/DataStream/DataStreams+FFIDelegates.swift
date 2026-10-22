@@ -100,6 +100,22 @@ extension DataStreams {
         }
     }
 
+    // MARK: - Progress delegate
+
+    /// Hands the progress of an outgoing send to the caller's closure. The core calls it inside the
+    /// send, on the thread that polls it.
+    final class ProgressDelegate: LiveKitFFI.StreamProgressDelegate {
+        private let report: @Sendable (StreamProgress) -> Void
+
+        init(_ report: @escaping @Sendable (StreamProgress) -> Void) {
+            self.report = report
+        }
+
+        func onProgress(progress: LiveKitFFI.StreamProgress) {
+            report(StreamProgress(progress))
+        }
+    }
+
     // MARK: - Remote participant registry
 
     /// Read access to the room's remote participants, used by the outgoing manager to resolve

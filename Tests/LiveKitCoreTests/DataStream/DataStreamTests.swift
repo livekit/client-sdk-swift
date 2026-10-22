@@ -195,7 +195,7 @@ struct DataStreamTests {
 
     /// ASCII text over 16 letters from a fixed generator: compressible, but to about half its size,
     /// not to a few hundred bytes the way repeated text is.
-    private static func noisy(_ count: Int) -> Data {
+    static func noisy(_ count: Int) -> Data {
         var state: UInt32 = 1
         return Data((0 ..< count).map { _ in
             state = state &* 1_103_515_245 &+ 12345

@@ -201,9 +201,9 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Sending
 
-    func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
+    func sendText(_ text: String, options: StreamTextOptions, onProgress: (@Sendable (StreamProgress) -> Void)? = nil) async throws -> TextStreamInfo {
         let options = options.ffi
-        return try await TextStreamInfo(calling { try await $0.sendText(text: text, options: options) }, encryptionType: currentEncryptionType)
+        return try await TextStreamInfo(calling { try await $0.sendText(text: text, options: options, progress: onProgress.map(ProgressDelegate.init)) }, encryptionType: currentEncryptionType)
     }
 
     /// Sends `text`, then each file in `attachments` as its own byte stream, the files at the same
@@ -231,12 +231,12 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         return info
     }
 
-    func sendBytes(_ data: Data, options: StreamByteOptions) async throws -> ByteStreamInfo {
+    func sendBytes(_ data: Data, options: StreamByteOptions, onProgress: (@Sendable (StreamProgress) -> Void)? = nil) async throws -> ByteStreamInfo {
         let options = options.ffi
-        return try await ByteStreamInfo(calling { try await $0.sendBytes(data: data, options: options) }, encryptionType: currentEncryptionType)
+        return try await ByteStreamInfo(calling { try await $0.sendBytes(data: data, options: options, progress: onProgress.map(ProgressDelegate.init)) }, encryptionType: currentEncryptionType)
     }
 
-    func sendFile(_ fileURL: URL, options: StreamByteOptions) async throws -> ByteStreamInfo {
+    func sendFile(_ fileURL: URL, options: StreamByteOptions, onProgress: (@Sendable (StreamProgress) -> Void)? = nil) async throws -> ByteStreamInfo {
         // The FFI reads the file's bytes but doesn't infer its metadata, so resolve name/MIME/size
         // from disk here (matching the previous implementation) unless the caller set them.
         guard let fileInfo = FileInfo(for: fileURL) else {
@@ -253,7 +253,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
             compress: options.compress,
             senderIdentity: options.senderIdentity?.stringValue,
         )
-        return try await ByteStreamInfo(calling { try await $0.sendFile(path: fileURL.path, options: ffiOptions) }, encryptionType: currentEncryptionType)
+        return try await ByteStreamInfo(calling { try await $0.sendFile(path: fileURL.path, options: ffiOptions, progress: onProgress.map(ProgressDelegate.init)) }, encryptionType: currentEncryptionType)
     }
 
     func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
