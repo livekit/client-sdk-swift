@@ -133,6 +133,12 @@ public extension AudioSessionConfiguration {
 }
 
 extension AudioSessionConfiguration {
+    convenience init(session: AVAudioSession) {
+        self.init(category: session.category,
+                  categoryOptions: session.categoryOptions,
+                  mode: session.mode)
+    }
+
     func toRTCType() -> LKRTCAudioSessionConfiguration {
         let configuration = LKRTCAudioSessionConfiguration.webRTC()
         configuration.category = category.rawValue

@@ -1,0 +1,1 @@
+patch type="fixed" "Keep the audio output the user picked (for example with AVRoutePickerView or Control Center) when the microphone is muted, unmuted or the audio engine restarts: the audio session category is now only re-applied when its category, mode or options change"

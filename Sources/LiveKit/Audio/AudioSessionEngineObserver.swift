@@ -209,8 +209,12 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             let config = Self.selectConfiguration(state: newState)
 
             do {
-                log("AudioSession configuring category to: \(config.category), mode: \(config.mode)")
-                try session.setCategory(config.category, mode: config.mode, options: config.categoryOptions)
+                // Re-applying even an unchanged category makes iOS re-evaluate the route and
+                // drops an output the user picked, e.g. with AVRoutePickerView or Control Center.
+                if AudioSessionConfiguration(session: session) != config {
+                    log("AudioSession configuring category to: \(config.category), mode: \(config.mode)")
+                    try session.setCategory(config.category, mode: config.mode, options: config.categoryOptions)
+                }
                 // Request WebRTC's preferred IO buffer duration (0.02s / 20ms, defined as
                 // RTCAudioSessionHighPerformanceIOBufferDuration in RTCAudioSessionConfiguration.m).
                 // WebRTC also sets this internally via RTCAudioSession+Configuration.mm when
@@ -221,7 +225,10 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 // handle larger-than-expected buffer sizes.
                 // See: https://developer.apple.com/documentation/avfaudio/avaudiosession/setpreferrediobufferduration(_:)
                 // See: https://developer.apple.com/library/archive/qa/qa1631/_index.html
-                try session.setPreferredIOBufferDuration(LKRTCAudioSessionConfiguration.webRTC().ioBufferDuration)
+                let ioBufferDuration = LKRTCAudioSessionConfiguration.webRTC().ioBufferDuration
+                if abs(session.preferredIOBufferDuration - ioBufferDuration) > 0.0001 {
+                    try session.setPreferredIOBufferDuration(ioBufferDuration)
+                }
             } catch {
                 log("AudioSession failed to configure with error: \(error)", .error)
                 throw error
