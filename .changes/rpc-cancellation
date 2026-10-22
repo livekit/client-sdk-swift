@@ -1,0 +1,1 @@
+patch type="fixed" "performRpc throws CancellationError at once when the calling task is cancelled"
