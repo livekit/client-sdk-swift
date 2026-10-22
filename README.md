@@ -234,20 +234,20 @@ See the default `AudioSessionEngineObserver` for an example of how an `AudioEngi
 
 When integrating with CallKit, proper timing and coordination between `AVAudioSession` and the SDK’s audio engine is crucial.
 
-1. Disable the SDK’s automatic `AVAudioSession` configuration, and prevent the audio engine from starting outside CallKit’s `provider(_:didActivate:)` and `provider(_:didDeactivate:)` window.
+1. Let CallKit own activation and deactivation of the `AVAudioSession`, and prevent the audio engine from starting outside CallKit’s `provider(_:didActivate:)` and `provider(_:didDeactivate:)` window. The SDK keeps configuring the category, mode and options.
 
 ```swift
 // As early as possible, before connecting to a Room.
-AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
+AudioManager.shared.audioSession.isAutomaticActivationEnabled = false
+AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
 try AudioManager.shared.setEngineAvailability(.none)
 ```
 
 2. Coordinate audio engine availability with CallKit in your `CXProviderDelegate` implementation:
 
 ```swift
-func provider(_: CXProvider, didActivate session: AVAudioSession) {
+func provider(_: CXProvider, didActivate _: AVAudioSession) {
   do {
-    try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.mixWithOthers])
     try AudioManager.shared.setEngineAvailability(.default)
   } catch {
     // Error
@@ -262,6 +262,10 @@ func provider(_: CXProvider, didDeactivate _: AVAudioSession) {
   }
 }
 ```
+
+The same setup applies to LiveCommunicationKit: call `setEngineAvailability` from `ConversationManagerDelegate.conversationManager(_:didActivate:)` and `conversationManager(_:didDeactivate:)`.
+
+> Note: `isAutomaticConfigurationEnabled = false` is no longer required for CallKit. Set it only if you want to configure the category and mode yourself.
 
 * See our [CallKit example](https://github.com/livekit-examples/swift-example-collection/tree/main/callkit) for full details.
 * For additional audio-related information, see the [Audio guide](./Docs/audio.md).
