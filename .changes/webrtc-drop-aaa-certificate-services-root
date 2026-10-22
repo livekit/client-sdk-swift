@@ -1,0 +1,1 @@
+patch type="fixed" "Update LiveKitWebRTC to 150.7871.04, which removes the AAA Certificate Services root from the TURN/TLS trust anchors so certificates from the compromised eMudhra intermediates are rejected"
