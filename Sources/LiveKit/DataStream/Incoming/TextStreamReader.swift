@@ -119,6 +119,7 @@ public extension TextStreamReader {
         }
     }
 
+    /// Calls `onProgress` with each update of ``progress``, for Objective-C callers.
     @objc
     @available(*, deprecated, message: "Use for/await on TextStreamReader progress instead.")
     func readProgress(onProgress: @Sendable @escaping (StreamProgress) -> Void) {

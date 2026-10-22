@@ -186,6 +186,7 @@ public extension ByteStreamReader {
         }
     }
 
+    /// Calls `onProgress` with each update of ``progress``, for Objective-C callers.
     @objc
     @available(*, deprecated, message: "Use for/await on ByteStreamReader progress instead.")
     func readProgress(onProgress: @Sendable @escaping (StreamProgress) -> Void) {
