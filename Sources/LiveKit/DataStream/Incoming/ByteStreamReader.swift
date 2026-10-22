@@ -65,8 +65,10 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// declared none. Updates that arrive between two iterations merge into the latest one, and the
     /// last update is the stream's final progress. Iterate it from one task at a time.
     ///
-    /// Cancelling the iteration does not end the stream. An update that the iteration was waiting
-    /// for is released when the stream ends or the reader is released.
+    /// The sequence keeps the reader, and so the stream, alive until it finishes or its iteration
+    /// is cancelled, also after you release the reader. Cancelling the iteration does not end the
+    /// stream. An update that the iteration was waiting for is released when the stream ends or the
+    /// reader is released.
     ///
     /// ```swift
     /// Task {
@@ -80,8 +82,10 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
         // ponytail: a cancel abandons the core's wait, which keeps the reader's progress until its
         // next update, the end of the stream or the reader's release, so an iteration started
         // after it waits for that.
-        AsyncStream(unfolding: { [reader] in
-            try? await abandoningOnCancel { await reader.nextProgress().map(StreamProgress.init) }
+        // The producer holds the reader until the sequence finishes or is cancelled. Each wait holds
+        // only the core reader, so a cancelled one cannot keep the reader from closing it.
+        AsyncStream(unfolding: { [self] in
+            try? await abandoningOnCancel { [reader] in await reader.nextProgress().map(StreamProgress.init) }
         })
     }
 

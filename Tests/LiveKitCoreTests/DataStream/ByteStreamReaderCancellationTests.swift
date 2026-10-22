@@ -105,6 +105,41 @@ extension ByteStreamReaderTests {
         #expect(openAfterRelease == 0)
     }
 
+    /// Progress that is still being observed keeps its reader: after the app releases the reader,
+    /// the stream stays open, and the observation follows it to its normal end.
+    @Test(arguments: Kind.allCases)
+    func observedProgressKeepsTheStreamOpen(_ kind: Kind) async throws {
+        let streamID = UUID().uuidString
+        let (capture, manager) = try await openStalledReader(kind, streamID: streamID)
+        var reader: AnyReader? = capture.take()
+        let progress = try #require(reader).progress()
+
+        let firstUpdate = AsyncCompleter<Void>(label: "First progress update", defaultTimeout: 5)
+        let received = StateSync<[Int]>([])
+        let observing = Task {
+            for await update in progress {
+                received.mutate { $0.append(update.bytesProcessed) }
+                firstUpdate.resume(returning: ())
+            }
+        }
+        try await firstUpdate.wait()
+        reader = nil
+        let openAfterRelease = await manager.openStreamCount()
+        #expect(openAfterRelease == 1)
+
+        feed(manager) {
+            $0.streamChunk = Livekit_DataStream.Chunk.with {
+                $0.streamID = streamID
+                $0.content = Data("abcde".utf8)
+            }
+        }
+        feed(manager) { $0.streamTrailer = Livekit_DataStream.Trailer.with { $0.streamID = streamID } }
+        try await within("Progress to the end of the stream") { await observing.value }
+        #expect(received.copy().last == 5)
+        let openAfterEnd = await manager.openStreamCount()
+        #expect(openAfterEnd == 0)
+    }
+
     // MARK: - Helpers
 
     /// Which public reader a test drives.
@@ -241,12 +276,12 @@ extension ByteStreamReaderTests {
 
     /// Opens a stream of `kind` that has only its header, so reads and progress wait in the core.
     /// Returns the capture that holds the reader, and the manager, which the caller must keep alive.
-    func openStalledReader(_ kind: Kind) async throws -> (ReaderCapture, IncomingDataStreamManager) {
+    func openStalledReader(_ kind: Kind, streamID: String = UUID().uuidString) async throws -> (ReaderCapture, IncomingDataStreamManager) {
         let capture = ReaderCapture()
         let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
         feed(manager) {
             $0.streamHeader = Livekit_DataStream.Header.with {
-                $0.streamID = UUID().uuidString
+                $0.streamID = streamID
                 $0.topic = topic
                 $0.contentHeader = kind == .byte ? .byteHeader(Livekit_DataStream.ByteHeader()) : .textHeader(Livekit_DataStream.TextHeader())
             }
