@@ -41,12 +41,14 @@ public extension LocalParticipant {
     ///     `RpcError.BuiltInError.connectionTimeout`. Increase this on high-latency links where
     ///     the default is too tight. Default: 7s.
     /// - Returns: The response payload
-    /// - Throws: RpcError on failure. Details in RpcError.message
-    func performRpc(destinationIdentity: Identity,
-                    method: String,
-                    payload: String,
-                    responseTimeout: TimeInterval = 15,
-                    maxRoundTripLatency: TimeInterval = 7) async throws -> String
+    /// - Throws: RpcError on failure. Details in RpcError.message. `CancellationError` at once if
+    ///   the calling task is cancelled while the call waits for the ack or the response; a late
+    ///   response is then dropped.
+    final func performRpc(destinationIdentity: Identity,
+                          method: String,
+                          payload: String,
+                          responseTimeout: TimeInterval = 15,
+                          maxRoundTripLatency: TimeInterval = 7) async throws -> String
     {
         try await requireRoom().rpcClient.performRpc(destinationIdentity: destinationIdentity,
                                                      method: method,

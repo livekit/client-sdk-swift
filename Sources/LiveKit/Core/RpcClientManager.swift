@@ -32,8 +32,8 @@ actor RpcClientManager: Loggable {
 
     private weak var room: Room?
 
-    private var pendingAcks: Set<String> = Set()
-    private var pendingResponses: [String: PendingRpcResponse] = [:]
+    private(set) var pendingAcks: Set<String> = Set()
+    private(set) var pendingResponses: [String: PendingRpcResponse] = [:]
     private var ackWatchdogs: [String: AnyTaskCancellable] = [:]
 
     /// Hook fired once after the RPC request has been published but before the caller
@@ -120,6 +120,8 @@ actor RpcClientManager: Loggable {
         do {
             return try await completer.wait()
         } catch {
+            // A cancelled caller gets `CancellationError`, not the completer's `LiveKitError(.cancelled)`.
+            try Task.checkCancellation()
             // AsyncCompleter signals its own `defaultTimeout` expiry with `LiveKitError(.timedOut)`.
             // That path means "we got the ack (or the ack-watchdog hasn't fired yet) but the
             // user-supplied `responseTimeout` elapsed without a response" → `responseTimeout`
@@ -165,7 +167,7 @@ actor RpcClientManager: Loggable {
                                 error: RpcError?)
     {
         guard let pending = pendingResponses.removeValue(forKey: requestId) else {
-            log("[Rpc] Response received for unexpected RPC request, id = \(requestId)", .error)
+            log("[Rpc] Response received for unexpected RPC request, id = \(requestId)")
             return
         }
         if let error {
@@ -210,7 +212,7 @@ actor RpcClientManager: Loggable {
         }
 
         guard let pending = pendingResponses.removeValue(forKey: requestId) else {
-            log("[Rpc] Response stream received for unexpected RPC request, id = \(requestId)", .error)
+            log("[Rpc] Response stream received for unexpected RPC request, id = \(requestId)")
             return
         }
         pending.completer.resume(returning: payload)

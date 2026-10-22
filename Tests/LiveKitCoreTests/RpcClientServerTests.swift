@@ -197,42 +197,6 @@ struct RpcClientTests {
         }
     }
 
-    /// Cancelling the Task that's awaiting `performRpc` must:
-    ///   1. propagate cancellation as an error to the awaiting Task, and
-    ///   2. clean up the manager's pending state so it doesn't leak.
-    @Test func performRpcCleansUpOnCancellation() async throws {
-        try await TestEnvironment.withRoom { room in
-            room.publisherDataChannel = MockDataChannelPair { _ in }
-
-            // Signal when performRpc has pre-registered pending state, instead of
-            // polling/sleeping.
-            let registered = AsyncCompleter<Void>(label: "performRpc-registered", defaultTimeout: 5)
-            await room.rpcClient.setAfterPublish { _ in
-                registered.resume(returning: ())
-            }
-
-            let task = Task {
-                try await room.localParticipant.performRpc(
-                    destinationIdentity: Participant.Identity(from: "test-destination"),
-                    method: "method",
-                    payload: "x",
-                    responseTimeout: 30,
-                )
-            }
-
-            try await registered.wait()
-            #expect(await room.rpcClient.pendingCount == 1)
-
-            task.cancel()
-
-            await #expect(throws: (any Error).self) {
-                _ = try await task.value
-            }
-
-            #expect(await room.rpcClient.pendingCount == 0)
-        }
-    }
-
     /// Five concurrent `performRpc` calls to the same destination must each get a
     /// distinct `requestId`, and after all resolve, the manager's pending maps must
     /// be empty (no leaks).
@@ -275,6 +239,99 @@ struct RpcClientTests {
             #expect(observedIds.count == 5)
             #expect(Set(observedIds).count == 5) // distinct
             #expect(await room.rpcClient.pendingCount == 0)
+        }
+    }
+
+    // MARK: - Cancellation
+
+    enum RpcWait: CaseIterable {
+        case ack, response
+    }
+
+    /// A call in flight, and a completer that receives what it returns.
+    struct WaitingCall {
+        let requestId: String
+        let task: AnyTaskCancellable
+        let result: AsyncCompleter<Result<String, Error>>
+    }
+
+    private static let destination = Participant.Identity(from: "test-destination")
+
+    /// Starts a v1 call that no remote answers and returns once the call waits on its completer.
+    /// With `acked`, the ack arrives first, so the call waits for the response only.
+    private func startWaitingCall(in room: Room, acked: Bool) async throws -> WaitingCall {
+        room.publisherDataChannel = MockDataChannelPair { _ in }
+        let published = AsyncCompleter<String>(label: "RPC published", defaultTimeout: 5)
+        await room.rpcClient.setAfterPublish { requestId in
+            if acked { await room.rpcClient.handleIncomingAck(requestId: requestId) }
+            published.resume(returning: requestId)
+        }
+
+        let result = AsyncCompleter<Result<String, Error>>(label: "RPC returned", defaultTimeout: 5)
+        let task = Task {
+            do {
+                let response = try await room.localParticipant.performRpc(
+                    destinationIdentity: Self.destination,
+                    method: "method",
+                    payload: "x",
+                    responseTimeout: 30,
+                )
+                result.resume(returning: .success(response))
+            } catch {
+                result.resume(returning: .failure(error))
+            }
+        }.cancellable()
+
+        let requestId = try await published.wait()
+        let completer = try #require(await room.rpcClient.pendingResponses[requestId]?.completer)
+        await completer.waitForRegistration(timeout: 5)
+        #expect(await room.rpcClient.pendingAcks.contains(requestId) == !acked)
+        return WaitingCall(requestId: requestId, task: task, result: result)
+    }
+
+    /// Cancelling the task that awaits `performRpc` while the call waits for the ack or the
+    /// response throws `CancellationError` at once and leaves no pending state.
+    @Test(arguments: RpcWait.allCases)
+    func performRpcThrowsCancellationErrorWhenCancelled(waitingFor wait: RpcWait) async throws {
+        try await TestEnvironment.withRoom { room in
+            let call = try await startWaitingCall(in: room, acked: wait == .response)
+            call.task.cancel()
+
+            await #expect(throws: CancellationError.self) { try await call.result.wait().get() }
+            #expect(await room.rpcClient.pendingAcks.isEmpty)
+            #expect(await room.rpcClient.pendingResponses.isEmpty)
+        }
+    }
+
+    /// An ack, a response packet, or a response stream that arrives after its call was cancelled
+    /// finds nothing to resolve and leaves no pending state.
+    @Test func performRpcDropsLateResponseAfterCancel() async throws {
+        try await TestEnvironment.withRoom { room in
+            let call = try await startWaitingCall(in: room, acked: false)
+            call.task.cancel()
+            await #expect(throws: CancellationError.self) { try await call.result.wait().get() }
+
+            await room.rpcClient.handleIncomingAck(requestId: call.requestId)
+            await room.rpcClient.handleIncomingResponse(requestId: call.requestId, payload: "late", error: nil)
+            await room.rpcClient.handleIncomingResponseStream(
+                reader: RpcTestSupport.makeResponseReader(requestId: call.requestId, payload: "late"),
+                senderIdentity: Self.destination,
+            )
+
+            #expect(await room.rpcClient.pendingAcks.isEmpty)
+            #expect(await room.rpcClient.pendingResponses.isEmpty)
+        }
+    }
+
+    /// The same waiting call, left uncancelled, still returns the response that ends its wait.
+    @Test func performRpcReturnsResponseAfterWaiting() async throws {
+        try await TestEnvironment.withRoom { room in
+            let call = try await startWaitingCall(in: room, acked: true)
+            await room.rpcClient.handleIncomingResponse(requestId: call.requestId, payload: "response", error: nil)
+
+            #expect(try await call.result.wait().get() == "response")
+            #expect(await room.rpcClient.pendingAcks.isEmpty)
+            #expect(await room.rpcClient.pendingResponses.isEmpty)
         }
     }
 
