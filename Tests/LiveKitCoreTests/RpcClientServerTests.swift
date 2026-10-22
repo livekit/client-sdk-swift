@@ -42,7 +42,8 @@ struct RpcClientTests {
                 observed.mutate { $0 = request }
             }
 
-            await room.rpcClient.setAfterPublish { requestId in
+            await room.rpcClient.setAfterPublish { [weak room] requestId in
+                guard let room else { return }
                 await room.rpcClient.handleIncomingAck(requestId: requestId)
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
@@ -77,7 +78,8 @@ struct RpcClientTests {
         try await TestEnvironment.withRoom { room in
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await room.rpcClient.setAfterPublish { requestId in
+            await room.rpcClient.setAfterPublish { [weak room] requestId in
+                guard let room else { return }
                 await room.rpcClient.handleIncomingAck(requestId: requestId)
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
@@ -112,7 +114,8 @@ struct RpcClientTests {
         try await TestEnvironment.withRoom { room in
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await room.rpcClient.setAfterPublish { requestId in
+            await room.rpcClient.setAfterPublish { [weak room] requestId in
+                guard let room else { return }
                 // Step 1: deliver the response, resolving the completer with "real-response".
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
@@ -148,7 +151,8 @@ struct RpcClientTests {
             let destination = Participant.Identity(from: "test-destination")
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await room.rpcClient.setAfterPublish { _ in
+            await room.rpcClient.setAfterPublish { [weak room] _ in
+                guard let room else { return }
                 await room.rpcClient.handleParticipantDisconnected(destination)
             }
 
@@ -178,7 +182,8 @@ struct RpcClientTests {
             try await RpcTestSupport.installRemote(in: room, identity: destination, clientProtocol: .v1)
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await room.rpcClient.setAfterPublish { _ in
+            await room.rpcClient.setAfterPublish { [weak room] _ in
+                guard let room else { return }
                 await room.rpcClient.handleParticipantDisconnected(destination)
             }
 
@@ -207,7 +212,8 @@ struct RpcClientTests {
 
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await room.rpcClient.setAfterPublish { requestId in
+            await room.rpcClient.setAfterPublish { [weak room] requestId in
+                guard let room else { return }
                 await collector.append(requestId)
                 await room.rpcClient.handleIncomingAck(requestId: requestId)
                 await room.rpcClient.handleIncomingResponse(
@@ -398,7 +404,8 @@ struct RpcClientTests {
             room.publisherDataChannel = MockDataChannelPair { _ in }
             let requestIds = TestStringCollector()
 
-            await room.rpcClient.setAfterPublish { requestId in
+            await room.rpcClient.setAfterPublish { [weak room] requestId in
+                guard let room else { return }
                 await requestIds.append(requestId)
                 await room.rpcClient.handleIncomingAck(requestId: requestId)
                 let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "response-\(requestId)")
@@ -455,7 +462,8 @@ struct RpcClientTests {
             room.publisherDataChannel = MockDataChannelPair { _ in }
             let requestIds = TestStringCollector()
 
-            await room.rpcClient.setAfterPublish { requestId in
+            await room.rpcClient.setAfterPublish { [weak room] requestId in
+                guard let room else { return }
                 await requestIds.append(requestId)
                 await room.rpcClient.fireAckTimeoutIfPending(requestId: requestId)
             }
@@ -496,7 +504,8 @@ struct RpcClientTests {
             }
 
             // Runs once the request stream has been published, so its whole payload is recorded.
-            await room.rpcClient.setAfterPublish { requestId in
+            await room.rpcClient.setAfterPublish { [weak room] requestId in
+                guard let room else { return }
                 let payload = payloadsByRequest.copy()[requestId] ?? ""
                 await room.rpcClient.handleIncomingAck(requestId: requestId)
                 let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "response-\(payload)")
@@ -592,7 +601,8 @@ struct RpcClientTests {
 
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await room.rpcClient.setAfterPublish { requestId in
+            await room.rpcClient.setAfterPublish { [weak room] requestId in
+                guard let room else { return }
                 await room.rpcClient.handleIncomingAck(requestId: requestId)
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
@@ -655,7 +665,8 @@ struct RpcClientTests {
 
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await room.rpcClient.setAfterPublish { requestId in
+            await room.rpcClient.setAfterPublish { [weak room] requestId in
+                guard let room else { return }
                 await room.rpcClient.handleIncomingAck(requestId: requestId)
                 let reader = RpcTestSupport.makeResponseReader(requestId: requestId, error: StreamError.terminated)
                 await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
@@ -689,7 +700,8 @@ struct RpcClientTests {
 
             room.publisherDataChannel = MockDataChannelPair { _ in }
 
-            await room.rpcClient.setAfterPublish { requestId in
+            await room.rpcClient.setAfterPublish { [weak room] requestId in
+                guard let room else { return }
                 await room.rpcClient.handleIncomingAck(requestId: requestId)
                 // Inject a response stream from the imposter — must be ignored.
                 let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "spoofed")
