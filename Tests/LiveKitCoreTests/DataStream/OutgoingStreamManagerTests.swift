@@ -244,6 +244,7 @@ extension OutgoingStreamManagerTests {
         #expect(text.operationType == .create)
         #expect(text.generated == false)
         #expect(text.compress == true)
+        #expect(text.totalLength == nil)
         #expect(LiveKit.StreamByteOptions(topic: "t").ffi.compress == true)
     }
 
@@ -259,6 +260,7 @@ extension OutgoingStreamManagerTests {
             replyToStreamID: "r",
             generated: true,
             compress: false,
+            totalLength: 99,
         ).ffi
 
         #expect(ffi.topic == "topic")
@@ -271,6 +273,7 @@ extension OutgoingStreamManagerTests {
         #expect(ffi.replyToStreamId == "r")
         #expect(ffi.generated == true)
         #expect(ffi.compress == false)
+        #expect(ffi.totalLength == 99)
     }
 
     @Test func byteOptionsMapCompletelyToFFIOptions() {

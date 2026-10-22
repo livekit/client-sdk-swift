@@ -196,7 +196,7 @@ public final class StreamProgress: NSObject, Sendable {
     public let bytesProcessed: Int
 
     /// The total size of the stream in bytes, or `nil` when it is not known, for example for a text
-    /// stream that its sender opened without a declared size.
+    /// stream opened without ``StreamTextOptions/totalLength``.
     public let bytesTotal: Int?
 
     /// ``bytesProcessed`` as a fraction of ``bytesTotal``, from 0 to 1, or `nil` when the total is

@@ -67,6 +67,15 @@ public final class StreamTextOptions: NSObject, StreamOptions {
     ///   the local participant's.
     public let senderIdentity: Participant.Identity?
 
+    /// The size of the text in UTF-8 bytes, if known, for a stream opened with `streamText`.
+    /// Receivers see it as ``StreamInfo/totalLength`` and as the total of the stream's progress,
+    /// and a stream that ends with more or less text fails for them with
+    /// ``StreamError/lengthExceeded`` or ``StreamError/incomplete``. `nil` (the default) declares
+    /// no size. A one-shot `sendText` ignores it and declares the size of its text.
+    ///
+    /// - Note: A negative value is treated as `nil`.
+    public let totalLength: Int?
+
     // TODO: Expose additional protocol level fields
 
     public init(
@@ -81,6 +90,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         generated: Bool = false,
         compress: Bool = true,
         senderIdentity: Participant.Identity? = nil,
+        totalLength: Int? = nil,
     ) {
         self.topic = topic
         self.attributes = attributes
@@ -93,6 +103,72 @@ public final class StreamTextOptions: NSObject, StreamOptions {
         self.generated = generated
         self.compress = compress
         self.senderIdentity = senderIdentity
+        self.totalLength = totalLength.flatMap { $0 >= 0 ? $0 : nil }
+    }
+
+    /// The initializer without `totalLength`, which declares no size. Keeps code and binaries built
+    /// against the earlier signature working.
+    public convenience init(
+        topic: String,
+        attributes: [String: String] = [:],
+        destinationIdentities: [Participant.Identity] = [],
+        id: String? = nil,
+        operationType: TextStreamInfo.OperationType = .create,
+        version: Int = 0,
+        attachedStreamIDs: [String] = [],
+        replyToStreamID: String? = nil,
+        generated: Bool = false,
+        compress: Bool = true,
+        senderIdentity: Participant.Identity? = nil,
+    ) {
+        self.init(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities,
+            id: id,
+            operationType: operationType,
+            version: version,
+            attachedStreamIDs: attachedStreamIDs,
+            replyToStreamID: replyToStreamID,
+            generated: generated,
+            compress: compress,
+            senderIdentity: senderIdentity,
+            totalLength: nil,
+        )
+    }
+
+    /// ObjC-compatible initializer that accepts `NSNumber?` for `totalLength`.
+    ///
+    /// Required because `Int?` does not auto-bridge to ObjC.
+    @available(*, deprecated, message: "Use init(topic:attributes:destinationIdentities:id:operationType:version:attachedStreamIDs:replyToStreamID:generated:compress:senderIdentity:totalLength:) instead.")
+    public convenience init(
+        topic: String,
+        attributes: [String: String],
+        destinationIdentities: [Participant.Identity],
+        id: String?,
+        operationType: TextStreamInfo.OperationType,
+        version: Int,
+        attachedStreamIDs: [String],
+        replyToStreamID: String?,
+        generated: Bool,
+        compress: Bool,
+        senderIdentity: Participant.Identity?,
+        totalLengthNumber: NSNumber?,
+    ) {
+        self.init(
+            topic: topic,
+            attributes: attributes,
+            destinationIdentities: destinationIdentities,
+            id: id,
+            operationType: operationType,
+            version: version,
+            attachedStreamIDs: attachedStreamIDs,
+            replyToStreamID: replyToStreamID,
+            generated: generated,
+            compress: compress,
+            senderIdentity: senderIdentity,
+            totalLength: totalLengthNumber?.intValue,
+        )
     }
 
     var ffi: LiveKitFFI.StreamTextOptions {
@@ -108,6 +184,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
             generated: generated,
             compress: compress,
             senderIdentity: senderIdentity?.stringValue,
+            totalLength: totalLength.map { UInt64($0) },
         )
     }
 
@@ -125,6 +202,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
             generated: generated,
             compress: compress,
             senderIdentity: senderIdentity,
+            totalLength: totalLength,
         )
     }
 

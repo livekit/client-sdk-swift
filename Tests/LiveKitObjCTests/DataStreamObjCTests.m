@@ -461,8 +461,10 @@
 
 #pragma mark - Exposure
 
-// The progress and trailer attribute additions reach Objective-C under these selectors.
-- (void)testProgressAndCloseAttributesAreExposed {
+// The progress, trailer attribute and declared text size additions reach Objective-C under these
+// selectors.
+- (void)testStreamAdditionsAreExposed {
+    XCTAssertTrue([StreamTextOptions instancesRespondToSelector:@selector(initWithTopic:attributes:destinationIdentities:id:operationType:version:attachedStreamIDs:replyToStreamID:generated:compress:senderIdentity:totalLengthNumber:)]);
     XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendText:options:onProgress:completionHandler:)]);
     XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendBytes:options:onProgress:completionHandler:)]);
     XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendFile:options:onProgress:completionHandler:)]);

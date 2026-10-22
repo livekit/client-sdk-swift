@@ -78,4 +78,11 @@ struct StreamOptionsTests {
         #expect(StreamByteOptions(topic: "t", totalSize: value).totalSize == nil)
         #expect(StreamByteOptions(topic: "t", totalSize: 0).totalSize == 0)
     }
+
+    /// The declared size of a text stream follows the same rule.
+    @Test(arguments: [-1, Int.min])
+    func textNegativeTotalLengthIsIgnored(_ value: Int) {
+        #expect(StreamTextOptions(topic: "t", totalLength: value).totalLength == nil)
+        #expect(StreamTextOptions(topic: "t", totalLength: 0).totalLength == 0)
+    }
 }

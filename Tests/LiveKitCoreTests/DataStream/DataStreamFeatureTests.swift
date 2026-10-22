@@ -146,4 +146,37 @@ extension DataStreamTests {
             #expect(reported.last?.bytesProcessed == payload.count)
         }
     }
+
+    /// A text stream opened with a declared size carries it to the receiver, which reads a stream
+    /// that matches it and fails one that ends short with `.incomplete`.
+    @Test(arguments: [true, false])
+    func declaredTextSizeIsChecked(matches: Bool) async throws {
+        let text = "Hello world!"
+        let declared = text.utf8.count + (matches ? 0 : 5)
+
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let (receiver, sender) = (rooms[0], rooms[1])
+            let received = AsyncCompleter<(totalLength: Int?, text: Result<String, Error>)>(label: "Stream read", defaultTimeout: 30)
+            try await receiver.registerTextStreamHandler(for: "declared") { reader, _ in
+                do {
+                    try await received.resume(returning: (reader.info.totalLength, .success(reader.readAll())))
+                } catch {
+                    received.resume(returning: (reader.info.totalLength, .failure(error)))
+                }
+            }
+
+            let writer = try await sender.localParticipant.streamText(options: StreamTextOptions(topic: "declared", totalLength: declared))
+            #expect(writer.info.totalLength == declared)
+            try await writer.write(text)
+            try await writer.close()
+
+            let outcome = try await received.wait()
+            #expect(outcome.totalLength == declared)
+            if matches {
+                #expect(try outcome.text.get() == text)
+            } else {
+                #expect(throws: StreamError.incomplete) { try outcome.text.get() }
+            }
+        }
+    }
 }
