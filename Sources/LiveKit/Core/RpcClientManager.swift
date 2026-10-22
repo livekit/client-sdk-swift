@@ -188,12 +188,16 @@ actor RpcClientManager: Loggable {
             return
         }
 
-        // Validate the sender BEFORE reading the stream — matches JS and avoids
-        // burning cycles (or worse, hitting `readAll` side effects) on a spoofed
+        // Validate the request and the sender BEFORE reading the stream — matches JS and avoids
+        // burning cycles (or worse, hitting `readAll` side effects) on a late or spoofed
         // payload. After this check passes, both the success and read-failure
         // paths trust the sender and resume the pending call directly.
-        if let pending = pendingResponses[requestId], pending.participantIdentity != senderIdentity {
-            log("[Rpc] Response stream for \(requestId) from wrong sender (expected \(pending.participantIdentity), got \(senderIdentity)); ignoring", .error)
+        guard let expected = pendingResponses[requestId] else {
+            log("[Rpc] Response stream received for unexpected RPC request, id = \(requestId)")
+            return
+        }
+        guard expected.participantIdentity == senderIdentity else {
+            log("[Rpc] Response stream for \(requestId) from wrong sender (expected \(expected.participantIdentity), got \(senderIdentity)); ignoring", .error)
             return
         }
 
@@ -201,13 +205,16 @@ actor RpcClientManager: Loggable {
         do {
             payload = try await reader.readAll()
         } catch {
+            // The call can end while the stream is read, for example when its task is cancelled.
+            guard let pending = pendingResponses.removeValue(forKey: requestId) else {
+                log("[Rpc] Failed to read v2 RPC response payload for \(requestId), which is no longer pending: \(error)")
+                return
+            }
             log("[Rpc] Failed to read v2 RPC response payload for \(requestId): \(error)", .error)
             // Fail the pending call fast instead of letting it hang to responseTimeout.
-            if let pending = pendingResponses.removeValue(forKey: requestId) {
-                pending.completer.resume(throwing: RpcError(code: RpcError.BuiltInError.applicationError.code,
-                                                            message: "Error reading RPC response payload",
-                                                            data: ""))
-            }
+            pending.completer.resume(throwing: RpcError(code: RpcError.BuiltInError.applicationError.code,
+                                                        message: "Error reading RPC response payload",
+                                                        data: ""))
             return
         }
 

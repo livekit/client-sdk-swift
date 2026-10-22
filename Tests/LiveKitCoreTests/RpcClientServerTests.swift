@@ -330,6 +330,22 @@ struct RpcClientTests {
         }
     }
 
+    /// A response stream for a call that is no longer pending is dropped unread, so a stream that
+    /// fails to read cannot report its failure as an error.
+    @Test func performRpcDropsLateResponseStreamUnread() async throws {
+        try await TestEnvironment.withRoom { room in
+            let call = try await startWaitingCall(in: room, acked: true)
+            call.task.cancel()
+            await #expect(throws: CancellationError.self) { try await call.result.wait().get() }
+
+            let reader = RpcTestSupport.makeResponseReader(requestId: call.requestId, error: StreamError.terminated)
+            await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: Self.destination)
+
+            #expect(reader.reads.copy() == 0)
+            await expectNothingPending(in: room)
+        }
+    }
+
     /// The same waiting call, left uncancelled, still returns the response that ends its wait.
     @Test func performRpcReturnsResponseAfterWaiting() async throws {
         try await TestEnvironment.withRoom { room in
@@ -1149,6 +1165,8 @@ private enum RpcTestSupport {
 struct StubTextStreamReader: TextStreamReading {
     let info: TextStreamInfo
     private let result: Result<String, Error>
+    /// How many times `readAll()` ran.
+    let reads = StateSync(0)
 
     init(topic: String, attributes: [String: String], result: Result<String, Error>) {
         info = TextStreamInfo(
@@ -1169,7 +1187,8 @@ struct StubTextStreamReader: TextStreamReading {
     }
 
     func readAll() async throws -> String {
-        try result.get()
+        reads.mutate { $0 += 1 }
+        return try result.get()
     }
 }
 
