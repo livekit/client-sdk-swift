@@ -471,6 +471,8 @@
     XCTAssertTrue([TextStreamReader instancesRespondToSelector:@selector(readProgressOnProgress:)]);
     XCTAssertTrue([ByteStreamReader instancesRespondToSelector:@selector(readProgressOnProgress:)]);
     XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(bytesProcessed)]);
+    XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(bytesTotalNumber)]);
+    XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(fractionNumber)]);
     XCTAssertTrue([TextStreamWriter instancesRespondToSelector:@selector(closeWithReason:attributes:completionHandler:)]);
     XCTAssertTrue([ByteStreamWriter instancesRespondToSelector:@selector(closeWithReason:attributes:completionHandler:)]);
 }

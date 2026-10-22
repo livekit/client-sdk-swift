@@ -205,6 +205,22 @@ public final class StreamProgress: NSObject, Sendable {
         bytesTotal.map { $0 > 0 ? Double(bytesProcessed) / Double($0) : 1 }
     }
 
+    /// ``bytesTotal`` as an `NSNumber`, for Objective-C callers.
+    ///
+    /// `Int?` is not representable in Objective-C, so the optional is bridged rather than exposed
+    /// directly; `nil` here means the same as `nil` there.
+    public var bytesTotalNumber: NSNumber? {
+        bytesTotal.map { NSNumber(value: $0) }
+    }
+
+    /// ``fraction`` as an `NSNumber`, for Objective-C callers.
+    ///
+    /// `Double?` is not representable in Objective-C, so the optional is bridged rather than
+    /// exposed directly; `nil` here means the same as `nil` there.
+    public var fractionNumber: NSNumber? {
+        fraction.map { NSNumber(value: $0) }
+    }
+
     init(_ ffi: LiveKitFFI.StreamProgress) {
         bytesProcessed = Int(clamping: ffi.bytesProcessed)
         bytesTotal = ffi.bytesTotal.flatMap { Int(exactly: $0) }

@@ -218,4 +218,22 @@ struct StreamInfoBridgeTests {
                 == .encryptionTypeMismatch(expected: .none, received: .custom),
         )
     }
+
+    // MARK: - StreamProgress
+
+    /// The total and the fraction follow the core's counts, and their Objective-C accessors mirror
+    /// them: both are `nil` when the total is unknown, and an empty stream is complete.
+    @Test(arguments: [
+        (UInt64(5), UInt64?(10), Int?(10), Double?(0.5)),
+        (5, nil, nil, nil),
+        (0, 0, 0, 1),
+    ])
+    func progressMapsCountsAndObjCAccessors(_ progress: (processed: UInt64, total: UInt64?, bytesTotal: Int?, fraction: Double?)) {
+        let mapped = LiveKit.StreamProgress(LiveKitFFI.StreamProgress(bytesProcessed: progress.processed, bytesTotal: progress.total))
+        #expect(mapped.bytesProcessed == Int(progress.processed))
+        #expect(mapped.bytesTotal == progress.bytesTotal)
+        #expect(mapped.fraction == progress.fraction)
+        #expect(mapped.bytesTotalNumber == progress.bytesTotal.map { NSNumber(value: $0) })
+        #expect(mapped.fractionNumber == progress.fraction.map { NSNumber(value: $0) })
+    }
 }
