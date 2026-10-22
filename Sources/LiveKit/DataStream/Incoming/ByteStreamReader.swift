@@ -27,16 +27,6 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// The core's reader, by its protocol so a test can stand in for it.
     private let reader: any LiveKitFFI.ByteStreamReaderProtocol
 
-    /// Bytes the core has handed over so far, through any iterator, `readAll()`, or a read that a
-    /// cancel abandoned. One count per stream, so the length check at its end holds however the
-    /// stream was read.
-    private let receivedLength = StateSync(0)
-
-    /// Runs each read of the core's reader together with its count and end check, one at a time.
-    /// A read that a cancel abandoned keeps running here, so a later read waits until it has
-    /// counted its chunk.
-    private let reads = SerialRunnerActor<Data?>()
-
     init(_ reader: any LiveKitFFI.ByteStreamReaderProtocol, info: ByteStreamInfo) {
         self.reader = reader
         self.info = info
@@ -76,17 +66,7 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
 
     private func nextChunk() async throws -> Data? {
         do {
-            // Counted inside the operation, so a chunk that an abandoned read takes still counts.
-            return try await abandoningOnCancel { [reader, reads, receivedLength, declaredLength = info.totalLength] in
-                try await reads.run {
-                    guard let chunk = try await reader.next() else {
-                        if let error = StreamError(receivedLength: receivedLength.copy(), declaredLength: declaredLength) { throw error }
-                        return nil
-                    }
-                    receivedLength.mutate { $0 += chunk.count }
-                    return chunk
-                }
-            }
+            return try await abandoningOnCancel { [reader] in try await reader.next() }
         } catch let error as LiveKitFFI.DataStreamError {
             throw StreamError(error)
         }
