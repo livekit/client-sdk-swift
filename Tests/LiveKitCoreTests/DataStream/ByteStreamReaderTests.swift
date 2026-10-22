@@ -224,21 +224,6 @@ struct ByteStreamReaderTests {
         return try await (capture.opened.wait(), manager)
     }
 
-    /// Feeds `chunks` to the open stream `streamID`, numbered from zero, then its trailer if asked.
-    func feed(_ manager: IncomingDataStreamManager, streamID: String, chunks: [Data], trailer: Bool) {
-        for (index, content) in chunks.enumerated() {
-            let chunk = Livekit_DataStream.Chunk.with {
-                $0.streamID = streamID
-                $0.chunkIndex = UInt64(index)
-                $0.content = content
-            }
-            feed(manager) { $0.streamChunk = chunk }
-        }
-        guard trailer else { return }
-        let end = Livekit_DataStream.Trailer.with { $0.streamID = streamID }
-        feed(manager) { $0.streamTrailer = end }
-    }
-
     /// Runs `write` against a fresh directory and expects it to throw before creating anything,
     /// inside the directory or next to it.
     private func expectNothingWritten(_ write: (URL) async throws -> URL) async throws {

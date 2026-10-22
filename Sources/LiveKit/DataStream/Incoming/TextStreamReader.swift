@@ -27,6 +27,9 @@ protocol TextStreamReading: Sendable {
 }
 
 /// An asynchronous sequence of chunks read from a text data stream.
+///
+/// Cancelling a task that reads the stream ends the stream: the read throws `CancellationError`,
+/// and a later read throws ``StreamError/alreadyClosed``.
 @objcMembers
 public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStreamReading {
     /// Information about the incoming text stream.
@@ -45,18 +48,11 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
     ///
     /// - Returns: The string consisting of all concatenated chunks.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream, or
-    ///   `CancellationError` at once if the calling task is cancelled. The chunk in flight at the
-    ///   cancel is dropped, so a later read of the stream misses it.
+    ///   `CancellationError` at once if the calling task is cancelled. The cancel ends the stream,
+    ///   so a later read throws ``StreamError/alreadyClosed``.
     ///
     public func readAll() async throws -> String {
-        // ponytail: chunk by chunk, so a cancel stops the collection after at most one chunk, but
-        // the core keeps buffering the rest of the stream until it ends. Releasing it early needs
-        // a per-reader close in the FFI.
-        var result = ""
-        for try await chunk in self {
-            result.append(chunk)
-        }
-        return result
+        try await StreamError.reading(closingOnCancel: reader.close) { try await reader.readAll() }
     }
 
     /// An asynchronous iterator of incoming chunks.
@@ -73,11 +69,7 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
     }
 
     private func nextChunk() async throws -> String? {
-        do {
-            return try await abandoningOnCancel { [reader] in try await reader.next() }
-        } catch let error as LiveKitFFI.DataStreamError {
-            throw StreamError(error)
-        }
+        try await StreamError.reading(closingOnCancel: reader.close) { try await reader.next() }
     }
 }
 

@@ -169,3 +169,19 @@ extension StreamError {
         }
     }
 }
+
+extension StreamError {
+    /// Runs `read` on a core reader and maps its error. A cancel calls `close`, which ends the read
+    /// at once and the stream with it, and the read throws `CancellationError`. A v1 reader's
+    /// stream also ended when a task reading it was cancelled.
+    static func reading<T>(closingOnCancel close: @escaping @Sendable () -> Void,
+                           _ read: () async throws -> T) async throws -> T
+    {
+        do {
+            return try await withTaskCancellationHandler(operation: read, onCancel: close)
+        } catch let error as LiveKitFFI.DataStreamError {
+            try Task.checkCancellation()
+            throw StreamError(error)
+        }
+    }
+}
