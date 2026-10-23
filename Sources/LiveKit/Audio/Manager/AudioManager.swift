@@ -83,6 +83,9 @@ public final class SessionRequirementHandle: @unchecked Sendable {
     /// Releases the associated audio session requirement.
     ///
     /// Releasing the same handle multiple times is a no-op.
+    ///
+    /// - Throws: ``LiveKitError`` if the audio session fails to reconfigure or deactivate
+    ///   afterwards. The requirement is released even then, so there is nothing to retry.
     public func release() throws {
         try releaseIfNeeded()
     }
