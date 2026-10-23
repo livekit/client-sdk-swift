@@ -193,6 +193,7 @@ public protocol RoomDelegate: AnyObject, Sendable {
     /// Both this and ``RoomDelegate/room(_:participant:didReceiveData:forTopic:encryptionType:)``
     /// are called for every packet; implement whichever one you need.
     @objc optional
+    // swiftlint:disable:next function_parameter_count
     func room(_ room: Room, participant: RemoteParticipant?, participantIdentity: Participant.Identity, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
 
     /// Failed to decrypt a data packet when encryption is enabled.

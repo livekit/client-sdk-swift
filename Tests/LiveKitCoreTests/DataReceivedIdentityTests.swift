@@ -18,12 +18,17 @@ import Foundation
 @testable import LiveKit
 import Testing
 
+private struct ReceivedData {
+    var identity: String?
+    var hadParticipant = false
+    var received = false
+}
+
 private final class DataRecorder: NSObject, RoomDelegate, @unchecked Sendable {
     private let lock = NSLock()
-    private var _identity: String?
-    private var _hadParticipant = false
-    private var _received = false
+    private var _state = ReceivedData()
 
+    // swiftlint:disable:next function_parameter_count
     func room(_: Room,
               participant: RemoteParticipant?,
               participantIdentity: Participant.Identity,
@@ -33,21 +38,21 @@ private final class DataRecorder: NSObject, RoomDelegate, @unchecked Sendable {
     {
         lock.lock()
         defer { lock.unlock() }
-        _identity = participantIdentity.stringValue
-        _hadParticipant = participant != nil
-        _received = true
+        _state = ReceivedData(identity: participantIdentity.stringValue,
+                              hadParticipant: participant != nil,
+                              received: true)
     }
 
-    var snapshot: (identity: String?, hadParticipant: Bool, received: Bool) {
+    var snapshot: ReceivedData {
         lock.lock()
         defer { lock.unlock() }
-        return (_identity, _hadParticipant, _received)
+        return _state
     }
 }
 
 /// `participant` is nil whenever the sender is not in the room, so without the identity the
 /// receiver cannot tell who sent the data at all.
-@Suite struct DataReceivedIdentityTests {
+struct DataReceivedIdentityTests {
     private func waitForDelivery(_ recorder: DataRecorder) async throws {
         for _ in 0 ..< 100 {
             if recorder.snapshot.received { return }
