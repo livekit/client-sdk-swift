@@ -184,6 +184,17 @@ public protocol RoomDelegate: AnyObject, Sendable {
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
 
+    /// Received data from a user or server, reporting the sender's identity.
+    ///
+    /// `participant` is nil whenever the sender is not in the room — data broadcast from the
+    /// server, or sent by a participant that has already left — and in that case this is the
+    /// only way to tell who sent it. `participantIdentity` is reported either way.
+    ///
+    /// Both this and ``RoomDelegate/room(_:participant:didReceiveData:forTopic:encryptionType:)``
+    /// are called for every packet; implement whichever one you need.
+    @objc optional
+    func room(_ room: Room, participant: RemoteParticipant?, participantIdentity: Participant.Identity, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
+
     /// Failed to decrypt a data packet when encryption is enabled.
     @objc optional
     func room(_ room: Room, didFailToDecryptDataWithEror error: LiveKitError)

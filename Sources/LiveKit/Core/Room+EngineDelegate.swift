@@ -211,6 +211,7 @@ extension Room {
         if case .connected = engine._state.connectionState {
             delegates.notify(label: { "room.didReceive data: \(packet.payload)" }) {
                 $0.room?(self, participant: participant, didReceiveData: packet.payload, forTopic: packet.topic, encryptionType: encryptionType)
+                $0.room?(self, participant: participant, participantIdentity: identity, didReceiveData: packet.payload, forTopic: packet.topic, encryptionType: encryptionType)
             }
 
             if let participant {
