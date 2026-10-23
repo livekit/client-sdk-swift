@@ -56,7 +56,7 @@ public enum TestEnvironment {
     /// Only the server from ``liveKitServerUrl()`` is probed. A caller connecting anywhere else
     /// is using an endpoint this harness does not manage — possibly one it expects to fail
     /// against — so it goes straight to its connect.
-    static func waitForServer(_ url: String) async throws {
+    public static func waitForServer(_ url: String) async throws {
         guard url == liveKitServerUrl() else { return }
         try await serverReady.value
     }
@@ -80,13 +80,13 @@ public enum TestEnvironment {
         throw ServerUnreachable(url: url, timeout: serverReadyTimeout)
     }
 
-    // swiftlint:disable:next function_parameter_count
+    /// Grants default to the minimum needed to connect and observe; pass them explicitly to publish.
     public static func liveKitServerToken(for room: String,
                                           identity: String,
-                                          canPublish: Bool,
-                                          canPublishData: Bool,
-                                          canPublishSources: Set<Track.Source>,
-                                          canSubscribe: Bool) throws -> String
+                                          canPublish: Bool = false,
+                                          canPublishData: Bool = false,
+                                          canPublishSources: Set<Track.Source> = [],
+                                          canSubscribe: Bool = true) throws -> String
     {
         let apiKey = readEnvironmentString(for: "LIVEKIT_TESTING_API_KEY", defaultValue: "devkey")
         let apiSecret = readEnvironmentString(for: "LIVEKIT_TESTING_API_SECRET", defaultValue: "secret")
