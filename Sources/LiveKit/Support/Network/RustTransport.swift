@@ -89,12 +89,12 @@ private final class WsConnectionAdapter: WsConnection {
 final class HttpClientAdapter: HttpClient {
     /// Translate one `livekit-net` HTTP call into a `URLRequest`. Cache policy and timeout
     /// belong to ``HTTP/request(_:cachePolicy:timeoutInterval:)``, not here.
-    static func makeRequest(method: HttpMethod, url: URL, headers: [Header], body: Data?) -> URLRequest {
+    static func makeRequest(method: HttpMethod, url: URL, headers: [Header], body: Data?) throws -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = switch method {
         case .get: "GET"
         case .post: "POST"
-        @unknown default: "GET"
+        @unknown default: throw TransportError.Other("unsupported HTTP method: \(method)")
         }
         request.httpBody = body
         for header in headers {
@@ -109,7 +109,7 @@ final class HttpClientAdapter: HttpClient {
         }
         do {
             // A 4xx/5xx is a response, not a transport failure — only the transport throws.
-            let request = Self.makeRequest(method: method, url: url, headers: headers, body: body)
+            let request = try Self.makeRequest(method: method, url: url, headers: headers, body: body)
             let (data, response) = try await HTTP.request(request)
             return HttpResponse(status: UInt16(clamping: response.statusCode),
                                 headers: response.headers,

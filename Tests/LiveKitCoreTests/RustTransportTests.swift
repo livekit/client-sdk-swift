@@ -242,19 +242,19 @@ struct RustHTTPRequestTests {
     private let url = URL(string: "https://example.test/path")!
 
     @Test("Every verb maps to its method", arguments: zip([HttpMethod.get, .post], ["GET", "POST"]))
-    func verbMapsToMethod(method: HttpMethod, expected: String) {
-        let request = HttpClientAdapter.makeRequest(method: method, url: url, headers: [], body: nil)
+    func verbMapsToMethod(method: HttpMethod, expected: String) throws {
+        let request = try HttpClientAdapter.makeRequest(method: method, url: url, headers: [], body: nil)
 
         #expect(request.httpMethod == expected)
     }
 
     @Test("Headers and body are forwarded")
-    func headersAndBodyAreForwarded() {
-        let request = HttpClientAdapter.makeRequest(method: .post,
-                                                    url: url,
-                                                    headers: [Header(name: "Authorization", value: "Bearer t"),
-                                                              Header(name: "X-Trace", value: "1")],
-                                                    body: Data([0x01, 0x02]))
+    func headersAndBodyAreForwarded() throws {
+        let request = try HttpClientAdapter.makeRequest(method: .post,
+                                                        url: url,
+                                                        headers: [Header(name: "Authorization", value: "Bearer t"),
+                                                                  Header(name: "X-Trace", value: "1")],
+                                                        body: Data([0x01, 0x02]))
 
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer t")
         #expect(request.value(forHTTPHeaderField: "X-Trace") == "1")
