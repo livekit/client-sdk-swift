@@ -37,7 +37,7 @@ final class WsClientAdapter: WsClient {
         }
         do {
             let socket = try await WebSocket(url: url,
-                                             headers: headers.asDictionary,
+                                             headers: headers.map { (name: $0.name, value: $0.value) },
                                              timeoutInterval: TimeInterval(timeoutMs) / 1000)
             return WsConnectResult(connection: WsConnectionAdapter(socket))
         } catch {
@@ -121,12 +121,6 @@ final class HttpClientAdapter: HttpClient {
 }
 
 // MARK: - Conversions
-
-private extension [Header] {
-    var asDictionary: [String: String] {
-        reduce(into: [:]) { $0[$1.name] = $1.value }
-    }
-}
 
 private extension HTTPURLResponse {
     /// - Note: `livekit-net` documents receipt order, which `HTTPURLResponse` does not keep.

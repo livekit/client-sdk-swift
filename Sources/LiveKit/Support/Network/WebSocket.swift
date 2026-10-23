@@ -43,13 +43,19 @@ actor WebSocket: Loggable, AsyncSequence {
         return config
     }
 
-    init(url: URL, headers: [String: String], timeoutInterval: TimeInterval) async throws {
+    /// Every header entry is added, not set, so a repeated name keeps all of its values.
+    static func makeRequest(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval) -> URLRequest {
         var request = URLRequest(url: url,
                                  cachePolicy: .useProtocolCachePolicy,
                                  timeoutInterval: timeoutInterval)
         for (name, value) in headers {
             request.addValue(value, forHTTPHeaderField: name)
         }
+        return request
+    }
+
+    init(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval) async throws {
+        let request = Self.makeRequest(url: url, headers: headers, timeoutInterval: timeoutInterval)
 
         #if targetEnvironment(simulator)
         if #available(iOS 26.0, *) {

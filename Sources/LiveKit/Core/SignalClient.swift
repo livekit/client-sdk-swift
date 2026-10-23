@@ -191,7 +191,7 @@ actor SignalClient: Loggable {
 
         do {
             let socket = try await WebSocket(url: url,
-                                             headers: ["Authorization": "Bearer \(token)"],
+                                             headers: [(name: "Authorization", value: "Bearer \(token)")],
                                              timeoutInterval: connectOptions?.socketConnectTimeoutInterval ?? .defaultSocketConnect)
             try Task.checkCancellation()
             connectSpan?.record("ws_open")

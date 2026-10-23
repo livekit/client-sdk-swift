@@ -141,7 +141,7 @@ struct RustTransportTests {
         // would evict one socket for us and hide the thing under test.
         let swiftToken = try TestEnvironment.liveKitServerToken(for: room, identity: "swift-reader")
         let swiftSocket = try await WebSocket(url: #require(URL(string: rtcUrl)),
-                                              headers: ["Authorization": "Bearer \(swiftToken)"],
+                                              headers: [(name: "Authorization", value: "Bearer \(swiftToken)")],
                                               timeoutInterval: 10)
         defer { swiftSocket.close() }
         let frames = swiftSocket.makeAsyncIterator()
@@ -259,5 +259,20 @@ struct RustHTTPRequestTests {
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer t")
         #expect(request.value(forHTTPHeaderField: "X-Trace") == "1")
         #expect(request.httpBody == Data([0x01, 0x02]))
+    }
+}
+
+/// `livekit-net` hands the Swift side an ordered header list for the WebSocket upgrade.
+@Suite(.tags(.networking))
+struct RustWebSocketRequestTests {
+    @Test("Repeated header names keep every value")
+    func repeatedHeadersKeepEveryValue() throws {
+        let request = try WebSocket.makeRequest(url: #require(URL(string: "wss://example.test/rtc")),
+                                                headers: [(name: "Sec-WebSocket-Protocol", value: "a"),
+                                                          (name: "Sec-WebSocket-Protocol", value: "b"),
+                                                          (name: "sec-websocket-protocol", value: "c")],
+                                                timeoutInterval: 10)
+
+        #expect(request.value(forHTTPHeaderField: "Sec-WebSocket-Protocol") == "a,b,c")
     }
 }
