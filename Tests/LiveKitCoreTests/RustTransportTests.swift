@@ -33,13 +33,14 @@ struct RustTransportTests {
     private let httpUrl: String
     private let wsUrl: String
 
-    init() {
-        // `Room.init` forces this too; it runs once per process.
+    init() async throws {
+        // `ConnectionDependencies.init` forces this too; it runs once per process.
         _ = rustTransport
         wsUrl = TestEnvironment.liveKitServerUrl()
         httpUrl = wsUrl
             .replacingOccurrences(of: "wss://", with: "https://")
             .replacingOccurrences(of: "ws://", with: "http://")
+        try await TestEnvironment.waitForServer(wsUrl)
     }
 
     @Test("Both clients are registered")

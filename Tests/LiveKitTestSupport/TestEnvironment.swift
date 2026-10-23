@@ -56,7 +56,7 @@ public enum TestEnvironment {
     /// Only the server from ``liveKitServerUrl()`` is probed. A caller connecting anywhere else
     /// is using an endpoint this harness does not manage — possibly one it expects to fail
     /// against — so it goes straight to its connect.
-    static func waitForServer(_ url: String) async throws {
+    public static func waitForServer(_ url: String) async throws {
         guard url == liveKitServerUrl() else { return }
         try await serverReady.value
     }
