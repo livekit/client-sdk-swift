@@ -19,17 +19,42 @@ import Foundation
 import Testing
 
 /// Unit-level coverage for the parts of `DataChannelPair` that don't need a
-/// real `LKRTCDataChannel`: the pre-flight `openCompleter` semantics and the
+/// real `LKRTCDataChannel`: the per-kind open latches and the
 /// `.drain` path that fails parked sends after `reset(throwing:)`. Anything
 /// that needs real `sendData` dispatch or `bufferedAmount` drains is exercised
 /// by `RealiableDataChannelTests` / `EncryptedDataChannelTests` end-to-end.
 @Suite(.tags(.dataChannel))
 struct DataChannelPairTests {
-    @Test func openCompleterTimesOutWhenChannelsNeverArrive() async {
+    @Test(arguments: [Livekit_DataPacket_Kind.reliable, .lossy])
+    func openLatchTimesOutWhenChannelNeverArrives(kind: Livekit_DataPacket_Kind) async {
         let pair = DataChannelPair()
         await #expect {
-            try await pair.openCompleter.wait(timeout: 0.1)
+            try await pair.whenOpen(kind: kind).wait(timeout: 0.1)
         } throws: { ($0 as? LiveKitError)?.type == .timedOut }
+    }
+
+    /// A send parked on either latch has to fail when the pair is torn down, or it outlives the
+    /// connection it was waiting on by the latch's full timeout.
+    @Test func resetFailsWaitersOnBothLatches() async throws {
+        let pair = DataChannelPair()
+
+        let reliable = Task { try await pair.whenOpen(kind: .reliable).wait() }
+        let lossy = Task { try await pair.whenOpen(kind: .lossy).wait() }
+        await pair.whenOpen(kind: .reliable).waitForRegistration()
+        await pair.whenOpen(kind: .lossy).waitForRegistration()
+
+        pair.reset(throwing: LiveKitError(.cancelled, message: "test teardown"))
+
+        await #expect { try await reliable.value } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+        await #expect { try await lossy.value } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+    }
+
+    /// The whole point of the split: the two are independent SCTP streams, so a lossy send must not
+    /// be gated on the reliable channel.
+    @Test func openLatchesAreDistinctPerKind() {
+        let pair = DataChannelPair()
+        #expect(pair.whenOpen(kind: .reliable) !== pair.whenOpen(kind: .lossy))
+        #expect(pair.whenOpen(kind: .reliable) === pair.whenOpen(kind: .reliable), "The latch for a kind must be stable")
     }
 
     @Test func resetFailsParkedSendsWithProvidedError() async throws {
@@ -86,10 +111,10 @@ struct DataChannelPairTests {
         } throws: { ($0 as? LiveKitError)?.type == .cancelled }
     }
 
-    @Test func openCompleterWaitHonorsTaskCancellation() async {
+    @Test func openLatchWaitHonorsTaskCancellation() async {
         let pair = DataChannelPair()
-        let waitTask = Task { try await pair.openCompleter.wait() }
-        await pair.openCompleter.waitForRegistration()
+        let waitTask = Task { try await pair.whenOpen(kind: .reliable).wait() }
+        await pair.whenOpen(kind: .reliable).waitForRegistration()
 
         waitTask.cancel()
         await #expect {

@@ -71,7 +71,7 @@
         XCTAssertNil(err);
         [connectPub fulfill];
     }];
-    [self waitForExpectations:@[connectSub, connectPub] timeout:30];
+    [self waitForExpectations:@[connectSub, connectPub] timeout:[LKObjCRoomHelper connectTimeout]];
 
     // Publish a data track with frame metadata; the subscriber's delegate should observe it.
     self.trackPublishedExp = [self expectationWithDescription:@"trackPublished"];

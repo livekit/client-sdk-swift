@@ -20,7 +20,7 @@ import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
-import LiveKitUniFFI
+import LiveKitFFI
 
 @Suite(.tags(.networking))
 struct TokenSourceTests {

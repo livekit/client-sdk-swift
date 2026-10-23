@@ -55,7 +55,7 @@
         XCTAssertNil(err);
         [connectExp fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     XCTAssertEqual(room.connectionState, ConnectionStateConnected);
 
@@ -89,7 +89,7 @@
         XCTAssertNil(err);
         [connectExp fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     // Verify properties
     XCTAssertNotNil(room.sid);
@@ -130,7 +130,7 @@
         XCTAssertNil(err);
         [connectExp fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     XCTAssertNotNil(room.localParticipant.identity);
     XCTAssertTrue(room.localParticipant.identity.stringValue.length > 0);

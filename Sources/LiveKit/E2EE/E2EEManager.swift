@@ -81,6 +81,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         var frameCryptors = [CryptorKey: LKRTCFrameCryptor]()
         var trackPublications = [LKRTCFrameCryptor: TrackPublication]()
         var dataCryptor: LKRTCDataPacketCryptor?
+        var keyIndexGeneration: UInt64 = 0
     }
 
     typealias CryptorKey = [Participant.Identity: Track.Sid]
@@ -105,6 +106,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         requestContinuation = continuation
         super.init()
         observe(requests: requests)
+        observeKeyIndex()
     }
 
     public init(options: EncryptionOptions) {
@@ -114,11 +116,51 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         requestContinuation = continuation
         super.init()
         observe(requests: requests)
+        observeKeyIndex()
+    }
+
+    deinit {
+        keyProvider.removeKeyIndexObserver(self)
     }
 
     private func observe(requests: AsyncStream<Request>) {
         requestLoop = requests.subscribe(self) { manager, request in
             await manager.apply(request)
+        }
+    }
+
+    private func observeKeyIndex() {
+        keyProvider.addKeyIndexObserver(self) { [weak self] index, generation in
+            self?.setSenderKeyIndex(index, generation: generation)
+        }
+    }
+
+    /// Re-stamps every local sender with a provider key-index change, unless one at least as new
+    /// has been applied already: the provider notifies outside its lock, so two concurrent
+    /// rotations can arrive here in the wrong order.
+    func setSenderKeyIndex(_ index: Int32, generation: UInt64) {
+        _state.mutate { Self.apply(index, generation: generation, to: &$0) }
+    }
+
+    private static func apply(_ index: Int32, generation: UInt64, to state: inout State) {
+        guard generation > state.keyIndexGeneration else { return }
+        state.keyIndexGeneration = generation
+        for (frameCryptor, publication) in state.trackPublications where publication is LocalTrackPublication {
+            frameCryptor.keyIndex = index
+        }
+    }
+
+    func install(frameCryptor: LKRTCFrameCryptor, for publication: TrackPublication, participantIdentity: Participant.Identity) {
+        frameCryptor.delegate = delegateAdapter
+        _state.mutate {
+            $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
+            $0.trackPublications[frameCryptor] = publication
+            frameCryptor.enabled = $0.enabled
+            if publication is LocalTrackPublication {
+                let current = keyProvider.currentKeyIndexWithGeneration()
+                frameCryptor.keyIndex = current.index
+                Self.apply(current.index, generation: current.generation, to: &$0)
+            }
         }
     }
 
@@ -202,12 +244,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
                 return
             }
 
-            frameCryptor.delegate = delegateAdapter
-            _state.mutate {
-                $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
-                $0.trackPublications[frameCryptor] = publication
-                frameCryptor.enabled = $0.enabled
-            }
+            install(frameCryptor: frameCryptor, for: publication, participantIdentity: participantIdentity)
         }
     }
 
@@ -235,12 +272,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
                 return
             }
 
-            frameCryptor.delegate = delegateAdapter
-            _state.mutate {
-                $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
-                $0.trackPublications[frameCryptor] = publication
-                frameCryptor.enabled = $0.enabled
-            }
+            install(frameCryptor: frameCryptor, for: publication, participantIdentity: participantIdentity)
         }
     }
 

@@ -175,6 +175,26 @@ struct CompleterTests {
         try await secondTask.value
     }
 
+    /// A task that is already cancelled when it reaches `wait()` must not sit out its timeout.
+    ///
+    /// `withTaskCancellationHandler` runs `onCancel` immediately for an already-cancelled task, so
+    /// it looks for an entry that the operation has not registered yet — and never runs again. The
+    /// registration has to notice the cancellation itself.
+    @Test func waitOnAnAlreadyCancelledTaskThrowsImmediately() async {
+        let completer = AsyncCompleter<Void>(label: "pre-cancelled", defaultTimeout: 30)
+        let task = Task {
+            while !Task.isCancelled {
+                await Task.yield()
+            }
+            try await completer.wait()
+        }
+        task.cancel()
+
+        let started = Date()
+        await #expect { try await task.value } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+        #expect(Date().timeIntervalSince(started) < 5, "A cancelled wait must not wait out its timeout")
+    }
+
     /// A waiter cancelled while its own timeout is firing must settle, not deadlock: the first child
     /// to time out cancels the rest at the very moment their timers go off. Races for a fixed wall-clock
     /// budget rather than a count, so a slow host cannot turn slowness into a timeout: only a deadlock

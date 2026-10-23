@@ -22,7 +22,7 @@ import LiveKitTestSupport
 #endif
 
 /// Multi-track concurrent-push stress scenarios.
-@Suite(.serialized, .tags(.dataTrack, .e2e))
+@Suite(.serialized, .tags(.dataTrack, .e2e), TestLimits.e2e)
 struct DataTrackStressTests {
     /// A multi-track concurrent-push stress scenario.
     struct PushScenario: CustomTestStringConvertible {
@@ -53,6 +53,18 @@ struct DataTrackStressTests {
         data.append(Data(bytes: &seq32, count: 4))
         if size > 8 { data.append(Data(count: size - 8)) }
         return data
+    }
+
+    /// What a drop-oldest channel still owes for whatever it does deliver: every frame reaches the
+    /// stream of the track that sent it, exactly once, with its sequence intact.
+    private static func expectIntact(_ all: [ReceivedFrame], trackCount: Int, framesPerTrack: Int) {
+        for streamIndex in 0 ..< trackCount {
+            let frames = all.filter { $0.stream == streamIndex }
+            let seqs = frames.map(\.seq)
+            #expect(frames.allSatisfy { $0.track == UInt32(streamIndex) }, "Stream \(streamIndex) received a frame from another track")
+            #expect(Set(seqs).count == seqs.count, "Stream \(streamIndex) received a duplicate frame")
+            #expect(seqs.allSatisfy { $0 < UInt32(framesPerTrack) }, "Stream \(streamIndex) received a corrupted sequence")
+        }
     }
 
     /// Reads the tagged (track, sequence) header from a payload received on `stream`.
@@ -109,23 +121,40 @@ struct DataTrackStressTests {
                 await group.waitForAll()
             }
 
-            // Let in-flight frames settle, then stop consuming.
+            // Let in-flight frames settle.
             try await Task.sleep(nanoseconds: 3_000_000_000)
-            for consumer in consumers {
-                consumer.cancel()
+
+            // Deliberately no assertion on how *much* of the burst arrived. Every track shares one
+            // `_data_track` channel whose send queue holds exactly one frame and evicts the rest
+            // (`DataTrackSendQueue` capacity 1 in rust-sdks), so a burst this size is expected to
+            // lose most of itself — that is the channel's contract, not a defect, and asserting
+            // otherwise is what made this red under load. What must hold is that whatever survives
+            // is intact and correctly routed, and that the channel still works afterwards
+            // (checked below).
+            Self.expectIntact(received.copy(), trackCount: scenario.trackCount, framesPerTrack: framesPerTrack)
+
+            // Liveness: after a burst the channel was entitled to discard wholesale, but it must
+            // deliver again once the burst is over. This is the property a send-path regression
+            // would break, where the arrival count above only measured how loaded the runner was.
+            //
+            // The marker is re-pushed on every poll rather than sent once, because a single frame
+            // on this channel is not a guarantee anyone offers: the SFU keeps at most 8 KiB queued
+            // per subscriber and drops beyond it, nothing retransmits, and a subscriber still
+            // digesting the burst can lose a packet on its own side. CI's server log for one such
+            // run shows the lone marker's packets reaching the SFU and being forwarded, and the
+            // slow visionOS subscriber never surfacing the frame. Only a channel that stays dead
+            // fails this. Read through the running consumer — cancelling it first would end the
+            // stream out from under the read.
+            let marker = Self.makePayload(track: 0, seq: framesPerTrack, size: scenario.payloadSize)
+            let markerTrack = try #require(locals.first)
+            try await poll(timeout: 15, interval: 0.5, for: "the post-burst frame") {
+                if received.copy().contains(where: { $0.stream == 0 && $0.seq == UInt32(framesPerTrack) }) { return true }
+                try? markerTrack.tryPush(frame: DataTrackFrame(payload: marker))
+                return false
             }
 
-            let all = received.copy()
-            #expect(!all.isEmpty, "Expected some frames to arrive")
-            for streamIndex in 0 ..< scenario.trackCount {
-                let frames = all.filter { $0.stream == streamIndex }
-                let routedCorrectly = frames.allSatisfy { $0.track == UInt32(streamIndex) }
-                let seqs = frames.map(\.seq)
-                let noDuplicates = Set(seqs).count == seqs.count
-                let inRange = seqs.allSatisfy { $0 < UInt32(framesPerTrack) }
-                #expect(routedCorrectly, "Stream \(streamIndex) received a frame from another track")
-                #expect(noDuplicates, "Stream \(streamIndex) received a duplicate frame")
-                #expect(inRange, "Stream \(streamIndex) received a corrupted sequence")
+            for consumer in consumers {
+                consumer.cancel()
             }
         }
     }

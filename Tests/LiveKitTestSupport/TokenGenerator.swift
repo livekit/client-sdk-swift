@@ -16,7 +16,7 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
+import LiveKitFFI
 
 public class TokenGenerator {
     // 30 mins
@@ -31,8 +31,8 @@ public class TokenGenerator {
     public var name: String?
     public var metadata: String?
 
-    public var videoGrants: LiveKitUniFFI.VideoGrants?
-    public var roomConfiguration: LiveKitUniFFI.RoomConfiguration?
+    public var videoGrants: LiveKitFFI.VideoGrants?
+    public var roomConfiguration: LiveKitFFI.RoomConfiguration?
 
     public init(apiKey: String,
                 apiSecret: String,

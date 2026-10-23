@@ -15,11 +15,11 @@
  */
 
 import Foundation
-import LiveKitUniFFI
+import LiveKitFFI
 
 /// Generates LiveKit access tokens for benchmark participants.
 ///
-/// Uses LiveKitUniFFI's `tokenGenerate` function, which provides the same
+/// Uses LiveKitFFI's `tokenGenerate` function, which provides the same
 /// HMAC-SHA256 JWT signing as the server SDKs.
 struct TokenGenerator {
     let apiKey: String
@@ -56,6 +56,7 @@ struct TokenGenerator {
             ingressAdmin: false,
             hidden: false,
             recorder: false,
+            agent: false,
         )
 
         let options = TokenOptions(

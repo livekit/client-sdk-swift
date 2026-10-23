@@ -20,7 +20,7 @@ import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
-import LiveKitUniFFI
+import LiveKitFFI
 
 /// Drives the registered transport from the Rust side, through the FFI, using
 /// `livekit-net`'s own `self_test_*` exports — the same entry points the Rust

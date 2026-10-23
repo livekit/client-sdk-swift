@@ -125,7 +125,7 @@ private final class SampleBufferDisplayPixelBufferProvider: @unchecked Sendable,
             return makePixelBuffer(from: rtcPixelBuffer)
         }
 
-        if let rtcI420Buffer = buffer as? LKRTCI420Buffer {
+        if let rtcI420Buffer = buffer as? any LKRTCI420BufferProtocol {
             return rtcI420Buffer.toPixelBuffer()
         }
 

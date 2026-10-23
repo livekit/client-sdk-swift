@@ -129,34 +129,6 @@ public final class DataTrackDelegateRecorder: NSObject, RoomDelegate, Participan
     public func participant(_: RemoteParticipant, didUnpublishDataTrack sid: DataTrack.Sid) { record(.participantRemoteUnpublish, sid) }
 }
 
-/// Bounded reads. `DataTrackStream` only ends when the track is unpublished, so a bare `next()`
-/// waits forever if a frame is lost — on an unreliable channel that turns a failed assertion into
-/// a hung job.
-public extension DataTrackStream {
-    /// The next frame, or `nil` if none arrives in time. The read is not cancelled on timeout — the
-    /// UniFFI future under `next()` cannot be — so it is left to finish when the stream ends.
-    func next(within timeout: TimeInterval = 15) async -> DataTrackFrame? {
-        let frame = AsyncCompleter<DataTrackFrame?>(label: "data track frame", defaultTimeout: timeout)
-        Task { await frame.resume(returning: self.next()) }
-        return try? await frame.wait()
-    }
-
-    /// Up to `count` frames matching `predicate`, or fewer if the deadline passes first.
-    func collect(_ count: Int,
-                 within timeout: TimeInterval = 15,
-                 where predicate: @escaping @Sendable (DataTrackFrame) -> Bool = { _ in true }) async -> [DataTrackFrame]
-    {
-        var frames: [DataTrackFrame] = []
-        let deadline = Date().addingTimeInterval(timeout)
-        while frames.count < count {
-            let remaining = deadline.timeIntervalSinceNow
-            guard remaining > 0, let frame = await next(within: remaining) else { break }
-            if predicate(frame) { frames.append(frame) }
-        }
-        return frames
-    }
-}
-
 /// A publisher and a subscriber with one data track published and already observed — the preamble
 /// of most data track tests. Holding `track` keeps the publication alive for the body's duration.
 public struct DataTrackFixture {
@@ -184,7 +156,17 @@ public extension TestEnvironment {
             let watcher = DataTrackWatcher(expectedName: name)
             rooms[1].delegates.add(delegate: watcher)
 
-            let track = try await rooms[0].localParticipant.publishDataTrack(name: name, options: options)
+            // One retry, because the publish round-trips the SFU under a 10 s budget hard-coded on
+            // the Rust side (`PUBLISH_TIMEOUT`), and the SFU can sit on the request longer than
+            // that without anything being wrong on this end: its per-participant signal loop
+            // handles inbound requests behind outbound sends, and a send that stalls (logged as
+            // `could not send signal message: request timed out`) delays every request queued
+            // behind it. CI's server log for one such run shows the publish received, handled
+            // four seconds later, and answered twelve seconds after it was sent. A publish that
+            // times out is a terminal error for that request, so a second one is a fresh attempt.
+            let track = try await Task.retrying(totalAttempts: 2, retryDelay: 0.5) { _, _ in
+                try await rooms[0].localParticipant.publishDataTrack(name: name, options: options)
+            }.value
             let remoteTrack = try await watcher.waitForTrack()
 
             try await body(DataTrackFixture(publisher: rooms[0],

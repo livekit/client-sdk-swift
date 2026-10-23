@@ -25,10 +25,19 @@ import UIKit
 internal import LiveKitWebRTC
 
 class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
+    private static let activeReceivers = StateSync(Set<UUID>())
+    static var activeCount: Int { activeReceivers.read { $0.count } }
+
     private let appAudio: Bool
-    private var receiver: BroadcastReceiver?
+    private let socketPath: SocketPath?
+    private let receiverTask = StateSync<(id: UUID, task: AnyTaskCancellable)?>(nil)
+    private let captureSerialRunner = SerialRunnerActor<Bool>()
 
     override func startCapture() async throws -> Bool {
+        try await captureSerialRunner.run { try await self.startReceiver() }
+    }
+
+    private func startReceiver() async throws -> Bool {
         let didStart = try await super.startCapture()
 
         guard didStart else { return false }
@@ -49,17 +58,37 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
     }
 
     private func createReceiver() -> Bool {
-        guard let socketPath = BroadcastBundleInfo.socketPath else {
+        guard let socketPath else {
             log("Bundle settings improperly configured for screen capture", .error)
             return false
         }
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                let receiver = try await BroadcastReceiver(socketPath: socketPath)
-                log("Broadcast receiver connected", .debug)
-                self.receiver = receiver
+        let isAnotherActive = receiverTask.mutate { receiverTask in
+            let id = UUID()
+            let isAnotherActive = Self.activeReceivers.mutate {
+                $0.insert(id)
+                return $0.count > 1
+            }
+            let task = Task { [weak self] in
+                // Stop and task completion may both remove this receiver, including after a restart.
+                defer { Self.activeReceivers.mutate { $0.remove(id) } }
+                guard !Task.isCancelled else { return }
+                await self?.receive(from: socketPath)
+            }.cancellable()
+            receiverTask = (id, task)
+            return isAnotherActive
+        }
+        if isAnotherActive {
+            log("Another broadcast screen share is already active, only one of them receives the broadcast", .warning)
+        }
+        return true
+    }
 
+    private func receive(from socketPath: SocketPath) async {
+        do {
+            let receiver = try await BroadcastReceiver(socketPath: socketPath)
+            log("Broadcast receiver connected", .debug)
+
+            try await withTaskCancellationHandler {
                 if appAudio {
                     try await receiver.enableAudio()
                 }
@@ -70,26 +99,43 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
                     case let .audio(buffer): AudioManager.shared.mixer.capture(appAudio: buffer)
                     }
                 }
-                log("Broadcast receiver closed", .debug)
-            } catch {
-                log("Broadcast receiver error: \(error)", .error)
+            } onCancel: {
+                receiver.close()
             }
-            _ = try? await stopCapture()
+            log("Broadcast receiver closed", .debug)
+        } catch {
+            log("Broadcast receiver error: \(error)", Task.isCancelled ? .debug : .error)
         }
-        return true
+        guard !Task.isCancelled else { return }
+        _ = try? await stopCapture()
     }
 
     override func stopCapture() async throws -> Bool {
+        try await captureSerialRunner.run { try await self.stopReceiver() }
+    }
+
+    private func stopReceiver() async throws -> Bool {
         let didStop = try await super.stopCapture()
 
         // Already stopped
         guard didStop else { return false }
-        receiver?.close()
+        if let receiver = receiverTask.mutate({ receiver in
+            let current = receiver
+            receiver = nil
+            return current
+        }) {
+            Self.activeReceivers.mutate { $0.remove(receiver.id) }
+            receiver.task.cancel()
+        }
         return true
     }
 
-    init(delegate: LKRTCVideoCapturerDelegate, options: ScreenShareCaptureOptions) {
+    init(delegate: LKRTCVideoCapturerDelegate,
+         options: ScreenShareCaptureOptions,
+         socketPath: SocketPath? = BroadcastBundleInfo.socketPath)
+    {
         appAudio = options.appAudio
+        self.socketPath = socketPath
         super.init(delegate: delegate, options: BufferCaptureOptions(from: options))
     }
 }

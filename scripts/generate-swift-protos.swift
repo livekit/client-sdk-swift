@@ -107,6 +107,7 @@ struct GenerateSwiftProtos: ParsableCommand {
             try out.write(body)
         }
 
+        try Self.verifyOwnerCheck()
         try Self.verifyBuilderInvariant(in: outFolder)
 
         let exemplars = ExemplarEmitter(namer: namer).emit(files: files, keep: keep)
@@ -165,29 +166,22 @@ struct GenerateSwiftProtos: ParsableCommand {
     /// Messages are immutable; every setter must live on a `Builder`, which
     /// owns storage nothing else can reach. A setter that escaped onto a
     /// message would let one value mutate storage its copies and views share.
+    /// Every message-side read through `_pointer` must also hold `_owner`
+    /// (see `AccessorSplitter.holdingOwner`).
     static func verifyBuilderInvariant(in folder: Folder) throws {
         var violations: [String] = []
         for file in folder.files where file.name.hasSuffix("+Nanopb.swift") {
-            var insideBuilder = false
-            var builderDepth = 0
-            var depth = 0
-            for (index, line) in try file.readAsString()
-                .components(separatedBy: "\n").enumerated()
-            {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.hasPrefix("extension "), trimmed.hasSuffix(".Builder {") {
-                    insideBuilder = true
-                    builderDepth = depth
-                }
-                depth += line.filter { $0 == "{" }.count - line.filter { $0 == "}" }.count
-                if insideBuilder, depth <= builderDepth { insideBuilder = false }
-
+            let text = try file.readAsString()
+            violations += unheldReads(in: text).map { "\(file.name):\($0): message read without holding _owner" }
+            let lines = text.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+            let insideBuilder = insideScopes(lines) { $0.hasPrefix("extension ") && $0.hasSuffix(".Builder {") }
+            for (index, trimmed) in lines.enumerated() {
                 if trimmed.contains("_ensureUnique") {
                     violations.append("\(file.name):\(index + 1): leftover copy-on-write guard")
                 }
                 guard trimmed.hasPrefix("set {") || trimmed.hasPrefix("nonmutating set {")
                 else { continue }
-                if !insideBuilder {
+                if !insideBuilder[index] {
                     violations.append("\(file.name):\(index + 1): setter outside a Builder")
                 } else if !trimmed.hasPrefix("nonmutating set") {
                     violations.append("\(file.name):\(index + 1): builder setter must be nonmutating")
@@ -199,6 +193,69 @@ struct GenerateSwiftProtos: ParsableCommand {
             Generated accessors violate the immutable-message invariant:
             \(violations.joined(separator: "\n"))
             """)
+        }
+    }
+
+    /// Line numbers of `_pointer` reads outside both a `Builder` extension and
+    /// a `withExtendedLifetime(_owner)` closure. Braces are matched in token
+    /// order, so a scope ends at its own closing brace, wherever the line
+    /// breaks fall.
+    static func unheldReads(in text: String) -> [Int] {
+        var unheld: [Int] = []
+        var exempt: [Bool] = [] // one per open brace: does it open a Builder or an owner scope
+        var nextExempt = false
+        for (index, line) in text.components(separatedBy: "\n").enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("extension "), trimmed.hasSuffix(".Builder {") { nextExempt = true }
+            for token in line.matches(of: #/withExtendedLifetime\(_owner\)|_pointer|[{}]/#) {
+                switch token.output {
+                case "{":
+                    exempt.append(nextExempt)
+                    nextExempt = false
+                case "}":
+                    _ = exempt.popLast()
+                case "_pointer":
+                    if !exempt.contains(true) { unheld.append(index + 1) }
+                default: // withExtendedLifetime(_owner): its closure is the next brace
+                    nextExempt = true
+                }
+            }
+        }
+        return unheld
+    }
+
+    /// Fails the generator if `unheldReads` stops seeing an unsafe layout.
+    static func verifyOwnerCheck() throws {
+        let unsafe = [
+            // opener joined to the getter's line, read after the closure
+            "var a: String { withExtendedLifetime(_owner) {\n    }\n    return lkString(_pointer.pointee.a) ?? \"\"\n}",
+            // read after a closing brace on the same line
+            "var b: Bool { withExtendedLifetime(_owner) { }; return _pointer.pointee.b != nil }",
+            "extension A.Builder {\n} var c: Int { _pointer.pointee.c }",
+        ]
+        let safe = """
+        var d: Bool { withExtendedLifetime(_owner) { _pointer.pointee.d != nil } }
+        extension A.Builder {
+            var e: Int { _pointer.pointee.e }
+        }
+        """
+        let missed = unsafe.filter { unheldReads(in: $0).isEmpty }
+        guard missed.isEmpty, unheldReads(in: safe).isEmpty else {
+            throw ValidationError("the owner check misjudges a known layout: \(missed)")
+        }
+    }
+
+    /// For each line, whether it sits in a brace scope that a line matching
+    /// `opens` started, the opening line included.
+    static func insideScopes(_ lines: [String], opens: (String) -> Bool) -> [Bool] {
+        var depth = 0
+        var start: Int?
+        return lines.map { line in
+            if start == nil, opens(line) { start = depth }
+            depth += AccessorSplitter.braceDelta(line)
+            let inside = start != nil
+            if let open = start, depth <= open { start = nil }
+            return inside
         }
     }
 
@@ -368,6 +425,18 @@ enum AccessorSplitter {
         return [member[0]] + body + ["}"]
     }
 
+    /// Holds _owner across message-member reads; see PROTOCOL.md, invariant 7.
+    static func holdingOwner(_ member: [String]) -> [String] {
+        let head = member[0]
+        if member.count == 1, let open = head.firstIndex(of: "{") {
+            let body = head[head.index(after: open)...].dropLast().trimmingCharacters(in: .whitespaces)
+            return ["\(head[..<open]){ withExtendedLifetime(_owner) { \(body) } }"]
+        }
+        return [head, "    withExtendedLifetime(_owner) {"]
+            + member.dropFirst().dropLast().map { "    " + $0 }
+            + ["    }", "}"]
+    }
+
     static func asBuilderMember(_ member: [String]) -> [String] {
         member.compactMap { line in
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -401,10 +470,10 @@ enum AccessorSplitter {
             if head.contains("mutating func") {
                 result.builder += asBuilderMember(member)
             } else if member.contains(where: isSetterLine) {
-                result.message += getterOnly(member)
+                result.message += holdingOwner(getterOnly(member))
                 result.builder += asBuilderMember(member)
             } else {
-                result.message += member
+                result.message += holdingOwner(member)
             }
         }
         return result

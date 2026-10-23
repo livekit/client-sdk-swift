@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 import Foundation
 
 /// Registers the SDK's own network stack as `livekit-net`'s transport, so anything the

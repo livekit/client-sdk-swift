@@ -64,7 +64,7 @@
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     // Set up participant join expectation
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
@@ -75,7 +75,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     // Register text stream handler on room0
     __block TextStreamReader *receivedReader = nil;
@@ -97,9 +97,13 @@
                                                               attributes:@{}
                                                     destinationIdentities:@[]
                                                                       id:nil
+                                                           operationType:TextStreamInfoOperationTypeCreate
                                                                  version:0
                                                        attachedStreamIDs:@[]
-                                                         replyToStreamID:nil];
+                                                         replyToStreamID:nil
+                                                               generated:NO
+                                                                compress:YES
+                                                          senderIdentity:nil];
     XCTestExpectation *sendExp = [self expectationWithDescription:@"textSent"];
 
     [room1.localParticipant sendText:@"Hello from ObjC" options:options completionHandler:^(TextStreamInfo *info, NSError *err) {
@@ -174,7 +178,7 @@
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
 
@@ -183,7 +187,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     // Register text handler on room0
     __block NSMutableString *receivedText = [NSMutableString string];
@@ -209,9 +213,13 @@
                                                               attributes:@{}
                                                     destinationIdentities:@[]
                                                                       id:nil
+                                                           operationType:TextStreamInfoOperationTypeCreate
                                                                  version:0
                                                        attachedStreamIDs:@[]
-                                                         replyToStreamID:nil];
+                                                         replyToStreamID:nil
+                                                               generated:NO
+                                                                compress:YES
+                                                          senderIdentity:nil];
 
     [room1.localParticipant streamTextWithOptions:options completionHandler:^(TextStreamWriter *writer, NSError *err) {
         XCTAssertNil(err);
@@ -270,7 +278,7 @@
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
 
@@ -279,7 +287,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     // Create temp file with test data
     NSData *testData = [@"Test file content for ObjC" dataUsingEncoding:NSUTF8StringEncoding];
@@ -314,7 +322,8 @@
                                                                       id:nil
                                                                 mimeType:@"text/plain"
                                                                     name:@"objc_test_file.txt"
-                                                               totalSizeNumber:nil];
+                                                               totalSizeNumber:nil
+                                                                compress:YES];
     XCTestExpectation *sendExp = [self expectationWithDescription:@"fileSent"];
 
     [room1.localParticipant sendFile:fileURL options:options completionHandler:^(ByteStreamInfo *info, NSError *err) {
@@ -378,7 +387,7 @@
         XCTAssertNil(err);
         [connect0 fulfill];
     }];
-    [self waitForExpectationsWithTimeout:30 handler:nil];
+    [self waitForExpectationsWithTimeout:[LKObjCRoomHelper connectTimeout] handler:nil];
 
     self.participantJoinedExp = [self expectationWithDescription:@"participantJoined"];
 
@@ -387,7 +396,7 @@
         XCTAssertNil(err);
         [connect1 fulfill];
     }];
-    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:30];
+    [self waitForExpectations:@[connect1, self.participantJoinedExp] timeout:[LKObjCRoomHelper connectTimeout]];
 
     // Register byte stream handler on room0
     __block NSMutableData *receivedData = [NSMutableData data];
@@ -416,7 +425,8 @@
                                                                       id:nil
                                                                 mimeType:@"application/octet-stream"
                                                                     name:nil
-                                                               totalSizeNumber:nil];
+                                                               totalSizeNumber:nil
+                                                                compress:YES];
 #pragma clang diagnostic pop
 
     NSData *chunk1 = [@"Hello " dataUsingEncoding:NSUTF8StringEncoding];

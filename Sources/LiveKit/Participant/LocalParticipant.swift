@@ -16,6 +16,9 @@
 
 // swiftlint:disable file_length
 
+#if !COCOAPODS && !LK_XCFRAMEWORK
+import LiveKitNanopb
+#endif
 import Combine
 import Foundation
 
@@ -236,7 +239,53 @@ public class LocalParticipant: Participant, @unchecked Sendable {
               let sender = track._state.rtpSender
         else { return }
 
-        sender.raw._set(subscribedQualities: qualities)
+        // Apply the merged list, not the incoming one: a re-apply can only replay what is cached,
+        // so feeding the sender anything else would make the two paths disagree.
+        let cached = track._state.read { $0.subscribedQualities }
+        let merged = cached.merged(with: qualities)
+        // The server restates unchanged qualities after every answer, and every mutate notifies
+        // the track's delegates synchronously, inside the lock.
+        if !merged.sameState(as: cached) {
+            track._state.mutate { $0.subscribedQualities = merged }
+        }
+        sender.raw._set(subscribedQualities: merged)
+    }
+
+    /// Re-applies the last known dynacast state to every local video sender.
+    ///
+    /// Applying a publisher answer re-enables every encoding, and the server only ever reports
+    /// qualities that *changed*, so without this the layers dynacast paused stay unpaused.
+    func refreshSubscribedQualities() async {
+        for publication in localVideoTracks {
+            guard let track = publication.track as? LocalVideoTrack else { continue }
+
+            // Reading before the hop is safe because SignalClient delivers every callback through
+            // one AsyncSerialDelegate, so a quality update cannot land between here and the apply.
+            let (qualities, qualitiesForCodec) = track._state.read { ($0.subscribedQualities, $0.subscribedQualitiesForCodec) }
+            // Early-out before the hop: @RTC blocks, and this runs on every renegotiation.
+            guard !qualities.isEmpty || !qualitiesForCodec.isEmpty else { continue }
+
+            await RTC.run {
+                for (videoCodec, codecQualities) in qualitiesForCodec {
+                    let subscribedCodec = Livekit_SubscribedCodec.with {
+                        $0.codec = videoCodec.name
+                        $0.qualities = codecQualities
+                    }
+                    do {
+                        let didUpdate = try track._set(subscribedCodec: subscribedCodec)
+                        if !didUpdate {
+                            track.log("No sender for cached codec: \(videoCodec.name)")
+                        }
+                    } catch {
+                        track.log("Failed to refresh qualities for codec: \(videoCodec.name), error: \(error)")
+                    }
+                }
+
+                if !qualities.isEmpty, let sender = track._state.rtpSender {
+                    sender.raw._set(subscribedQualities: qualities)
+                }
+            }
+        }
     }
 
     override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
@@ -319,10 +368,15 @@ public class LocalParticipant: Participant, @unchecked Sendable {
                 log("Will not publish screen share track", .debug)
                 return
             }
+            guard let room = _room, room.connectionState != .disconnected else {
+                log("Room is disconnected, will not publish screen share track", .warning)
+                return
+            }
             do {
-                try await setScreenShare(enabled: true)
+                try await set(source: .screenShareVideo, enabled: true, captureOptions: nil, publishOptions: nil, forBroadcastStart: true)
             } catch {
                 log("Failed to enable screen share: \(error)", .error)
+                BroadcastManager.shared.requestStop()
             }
         }
     }
@@ -430,11 +484,24 @@ public extension LocalParticipant {
 
     @objc
     @discardableResult
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func set(source: Track.Source,
              enabled: Bool,
              captureOptions: CaptureOptions? = nil,
              publishOptions: TrackPublishOptions? = nil) async throws -> LocalTrackPublication?
+    {
+        try await set(source: source, enabled: enabled, captureOptions: captureOptions, publishOptions: publishOptions, forBroadcastStart: false)
+    }
+
+    /// - Parameter forBroadcastStart: The broadcast extension just started a broadcast, so a screen share
+    ///   publishes that broadcast rather than presenting the ScreenCaptureKit picker.
+    @nonobjc
+    @discardableResult
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    internal func set(source: Track.Source,
+                      enabled: Bool,
+                      captureOptions: CaptureOptions?,
+                      publishOptions: TrackPublishOptions?,
+                      forBroadcastStart: Bool) async throws -> LocalTrackPublication?
     {
         #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
         // An unanswered content picker holds the serial runner, so stopping has to reach past it.
@@ -448,6 +515,14 @@ public extension LocalParticipant {
 
         return try await _publishSerialRunner.run {
             let room = try self.requireRoom()
+
+            #if os(iOS)
+            // The broadcast can stop while this publish waits behind another one.
+            if forBroadcastStart, !BroadcastManager.shared.isBroadcasting {
+                self.log("Broadcast stopped before its screen share was published", .debug)
+                return nil
+            }
+            #endif
 
             // Try to get existing publication
             if let publication = self.getTrackPublication(source: source) as? LocalTrackPublication {
@@ -483,7 +558,7 @@ public extension LocalParticipant {
                     #if !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
                     if #available(iOS 27.0, *) {
                         let options = (captureOptions as? ScreenShareCaptureOptions) ?? defaultOptions
-                        if options.useScreenCaptureKit {
+                        if options.prefersScreenCaptureKit(roomDefaults: defaultOptions, publishesRunningBroadcast: forBroadcastStart) {
                             if await IOSScreenCapturer.isAvailable {
                                 let track = await LocalVideoTrack.createIOSScreenShareTrack(options: options,
                                                                                             reportStatistics: room._state.roomOptions.reportRemoteTrackStatistics)
@@ -553,9 +628,8 @@ extension LocalParticipant {
         // Should be already resolved...
         let dimensions = try await track.capturer.dimensionsCompleter.wait()
 
-        let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
-                                                    publishOptions: publishOptions,
-                                                    overrideVideoCodec: videoCodec)
+        let isScreenShare = track.source == .screenShareVideo
+        let encodings = Utils.computeVideoEncodings(dimensions: dimensions, publishOptions: publishOptions, isScreenShare: isScreenShare, overrideVideoCodec: videoCodec)
 
         log("[Publish/Backup] Using encodings: \(encodings.map { $0.toDebugString() }.joined(separator: ", "))")
 
@@ -574,7 +648,8 @@ extension LocalParticipant {
         log("[Publish/Backup] set degradationPreference to \(degradationPreference)")
 
         let sender = try await RTC.run {
-            let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit)
+            let startBitrateKbps = Transport.startBitrateKbps(for: encodings, isScreenShare: isScreenShare, connectionSetupTime: publisher.connectionSetupTime)
+            let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit, startBitrateKbps: startBitrateKbps)
             try transceiver.set(preferredVideoCodec: videoCodec)
             transceiver.sender.set(degradationPreference: degradationPreference)
             return RTCSender(transceiver.sender)
@@ -601,16 +676,26 @@ extension LocalParticipant {
 
             log("[Publish] server responded trackInfo: \(trackInfo)")
 
-            await RTC.run { sender.raw._set(subscribedQualities: subscribedCodec.qualities) }
+            // Cache here too: this is where a backup codec's qualities first land, and the
+            // negotiation below is exactly the one the cache exists to survive.
+            let merged = track._state.read { ($0.subscribedQualitiesForCodec[videoCodec] ?? []).merged(with: subscribedCodec.qualities) }
+            await RTC.run { sender.raw._set(subscribedQualities: merged) }
 
             // Attach multi-codec sender...
-            track._state.mutate { $0.rtpSenderForCodec[videoCodec] = sender }
+            setAdditionalVideoSender(sender, qualities: merged, for: videoCodec, on: track)
 
             try await room.publisherShouldNegotiate()
         } catch {
-            track._state.mutate { $0.rtpSenderForCodec[videoCodec] = nil }
+            setAdditionalVideoSender(nil, qualities: nil, for: videoCodec, on: track)
             await rollback(sender: sender, publisher: publisher, room: room)
             throw error
+        }
+    }
+
+    private func setAdditionalVideoSender(_ sender: RTCSender?, qualities: [Livekit_SubscribedQuality]?, for videoCodec: VideoCodec, on track: LocalVideoTrack) {
+        track._state.mutate {
+            $0.rtpSenderForCodec[videoCodec] = sender
+            $0.subscribedQualitiesForCodec[videoCodec] = qualities
         }
     }
 }
@@ -624,6 +709,30 @@ extension [Livekit_SubscribedQuality] {
             subscribedQuality.enabled && subscribedQuality.quality > maxQuality ? subscribedQuality.quality : maxQuality
         }
     }
+
+    /// Whether both lists describe the same subscription state.
+    ///
+    /// Cheaper than `==`, which compares whole messages by re-serializing both sides.
+    func sameState(as other: [Livekit_SubscribedQuality]) -> Bool {
+        elementsEqual(other) { $0.quality == $1.quality && $0.enabled == $1.enabled }
+    }
+
+    /// This list updated with `update`, replacing matching qualities in place and appending new ones.
+    ///
+    /// A `SubscribedQualityUpdate` only carries the qualities that changed, so replacing the list
+    /// wholesale would forget the pause state of every layer the server did not mention. Entries are
+    /// owned rather than kept as views, since the result outlives the message it arrived in.
+    func merged(with update: [Livekit_SubscribedQuality]) -> [Livekit_SubscribedQuality] {
+        var result = self
+        for updated in update.map({ $0.owned() }) {
+            if let index = result.firstIndex(where: { $0.quality == updated.quality }) {
+                result[index] = updated
+            } else {
+                result.append(updated)
+            }
+        }
+        return result
+    }
 }
 
 // MARK: - Private
@@ -634,10 +743,10 @@ extension LocalParticipant {
     func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
         log("[publish] \(track) options: \(String(describing: options ?? nil))...", .info)
 
-        try checkPermissions(toPublish: track)
-
         let room = try requireRoom()
         let publisher = try room.requirePublisher()
+
+        try checkPermissions(toPublish: track)
 
         guard _state.trackPublications.values.first(where: { $0.track === track }) == nil else {
             throw LiveKitError(.invalidState, message: "This track has already been published.")
@@ -768,7 +877,13 @@ extension LocalParticipant {
 
             let negotiateFunc: @Sendable () async throws -> Void = {
                 let sender = try await RTC.run {
-                    let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit)
+                    let startBitrateKbps = (track is LocalVideoTrack)
+                        ? Transport.startBitrateKbps(for: transInit.sendEncodings, isScreenShare: track.source == .screenShareVideo,
+                                                     connectionSetupTime: publisher.connectionSetupTime)
+                        : nil
+                    let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw,
+                                                                   transceiverInit: transInit,
+                                                                   startBitrateKbps: startBitrateKbps)
 
                     if track is LocalVideoTrack {
                         let publishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions

@@ -41,7 +41,7 @@ private final class TopicRecorder: RoomDelegate, Sendable {
 /// - The reliable replay set dies with its sequence counter. Retained writes stamped under the
 ///   old counter replayed into the new session would trip the receiver's per-publisher dedup
 ///   gate against the fresh packets stamped from 1 — the marker below would never arrive.
-@Suite(.serialized, .tags(.dataChannel, .e2e))
+@Suite(.serialized, .tags(.dataChannel, .e2e), TestLimits.e2e)
 struct FullReconnectDataTests {
     @Test func reliableSendsSurviveFullReconnectUnderLoad() async throws {
         let recorder = TopicRecorder()

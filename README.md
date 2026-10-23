@@ -76,7 +76,7 @@ Add the dependency and also to your target
 let package = Package(
   ...
   dependencies: [
-    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.17.0")),
+    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.18.0")),
   ],
   targets: [
     .target(
@@ -99,7 +99,7 @@ A pre-built binary distribution is available for faster integration and CI build
 
 `https://github.com/livekit/client-sdk-swift-xcframework`
 
-This package bundles `LiveKit.xcframework` (dynamic framework) along with its dependencies (`LiveKitWebRTC`, `RustLiveKitUniFFI`). It contains the same code as the source package above, just pre-compiled.
+This package bundles `LiveKit.xcframework` (dynamic framework) along with its dependencies (`LiveKitWebRTC`, `RustLiveKitFFI`). It contains the same code as the source package above, just pre-compiled.
 
 ### CocoaPods
 

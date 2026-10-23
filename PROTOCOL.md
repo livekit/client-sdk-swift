@@ -335,3 +335,9 @@ Reachable improvements once the floor moves:
    walks mutated and random encodings through it from a fixed seed; run it
    under ASan (`--sanitize=address`) after touching decode or any accessor's
    pointer arithmetic, since an out-of-bounds read there need not crash.
+7. A read or write through `_pointer` holds `_owner` until it finishes
+   (`withExtendedLifetime(_owner)`). Nothing else links them, so a caller that
+   inlines an accessor on a temporary can free the box before the read. This
+   covers the runtime and every generated message-side getter; `make proto`
+   fails on an unheld read. `Builder` members are exempt: the builder is
+   `~Copyable` and `build()` consumes its only binding.

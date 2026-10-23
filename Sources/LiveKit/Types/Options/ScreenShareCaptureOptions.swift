@@ -33,7 +33,8 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
     ///
     /// If a broadcast extension has been properly configured, this defaults to `true`.
     ///
-    /// - Note: Ignored on iOS 27 and later unless ``useScreenCaptureKit`` is set to `false`.
+    /// - Note: Ignored on iOS 27 and later unless ``useScreenCaptureKit`` is set to `false`, except
+    ///   for the screen share published automatically when the extension starts a broadcast.
     public let useBroadcastExtension: Bool
 
     /// Capture in-process with ScreenCaptureKit instead of ReplayKit (iOS 27+ only).
@@ -41,6 +42,8 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
     /// ScreenCaptureKit captures system-wide content from within your app, so neither a Broadcast
     /// Upload Extension nor an app group is needed, and it supersedes both ReplayKit modes: when
     /// this is `true` (the default), ``useBroadcastExtension`` has no effect on iOS 27 and later.
+    /// The exception is the screen share published automatically when the app's extension starts a
+    /// broadcast, for example from Control Center, which uses that broadcast instead of the picker.
     ///
     /// Set to `false` to keep using ReplayKit on iOS 27 — for example while an existing broadcast
     /// extension setup is still in place. Has no effect below iOS 27, on Mac Catalyst, or on other
@@ -107,5 +110,15 @@ public final class ScreenShareCaptureOptions: NSObject, VideoCaptureOptions, Sen
         hasher.combine(includeCurrentApplication)
         hasher.combine(excludeWindowIDs)
         return hasher.finalize()
+    }
+}
+
+extension ScreenShareCaptureOptions {
+    /// Whether screen sharing captures with ScreenCaptureKit on iOS 27 and later.
+    ///
+    /// Publishing a broadcast the app's own extension just started, for example from Control
+    /// Center, goes through Broadcast Capture instead of presenting the content picker again.
+    func prefersScreenCaptureKit(roomDefaults: ScreenShareCaptureOptions, publishesRunningBroadcast: Bool) -> Bool {
+        useScreenCaptureKit && !(roomDefaults.useBroadcastExtension && publishesRunningBroadcast)
     }
 }
