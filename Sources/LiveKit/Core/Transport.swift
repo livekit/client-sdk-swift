@@ -65,6 +65,13 @@ final class Transport: NSObject, Loggable {
     private var _onOffer: OnOfferBlock?
     private var _isRestartingIce: Bool = false
     private var _latestOfferId: UInt32 = 0
+
+    /// offerId of the last answer successfully applied, or 0 if none.
+    private var _answeredOfferId: UInt32 = 0
+
+    /// offerId (0 if unnumbered) of the answer being applied right now, or nil if none.
+    private var _answerInFlight: UInt32?
+
     private var _isClosed: Bool = false
     /// `x-google-start-bitrate` (kbps) hinted for each video sender id, recorded by
     /// ``addTransceiver(with:transceiverInit:startBitrateKbps:)``. The largest hint among the
@@ -248,6 +255,24 @@ final class Transport: NSObject, Loggable {
             throw LiveKitError(.invalidState, message: "OfferId mismatch, expected \(_latestOfferId) but got \(offerId)")
         }
 
+        // Also before applying the deferred offer, and for the same reason: a repeat of an
+        // answer already applied (or being applied) has no local offer left to answer, and
+        // must not consume the pending offer on its way to being rejected.
+        if isDuplicateAnswer(offerId: offerId,
+                             answerInFlight: _answerInFlight,
+                             answeredOfferId: _answeredOfferId,
+                             signalingState: signalingState,
+                             hasPendingInitialOffer: _pendingInitialOffer != nil)
+        {
+            // a repeat of an answer already applied or being applied (e.g. duplicated by a proxy)
+            log("Ignoring duplicate answer, offerId: \(offerId)", .warning)
+            return
+        }
+        // Claimed before the first `await`, so a copy arriving mid-apply is caught too, and
+        // released however the apply ends so a genuine retry is still possible.
+        _answerInFlight = offerId
+        defer { _answerInFlight = nil }
+
         // Before the state check: an offer bundled with JOIN leaves the connection
         // `.stable` until its answer arrives.
         try await applyPendingInitialOffer()
@@ -257,6 +282,9 @@ final class Transport: NSObject, Loggable {
         }
 
         try await set(remoteDescription: sd)
+
+        // only a successfully applied answer makes later copies duplicates
+        if offerId > 0 { _answeredOfferId = offerId }
     }
 
     func set(remoteDescription sd: LKRTCSessionDescription) async throws {
@@ -841,4 +869,22 @@ extension Transport {
         result?.delegate = delegate
         return result
     }
+}
+
+/// Whether an incoming answer repeats one already applied or being applied.
+///
+/// Any answer for the offer whose answer is in flight is a duplicate, numbered or not. With an
+/// `offerId` (current servers) an answer is also a duplicate if that offer's answer was already
+/// applied. Without one, fall back to the signaling state: in `.stable` no local offer is
+/// pending, unless the initial offer is still deferred — it is applied locally only once its
+/// answer arrives, so the connection reads `.stable` while it is outstanding.
+func isDuplicateAnswer(offerId: UInt32,
+                       answerInFlight: UInt32?,
+                       answeredOfferId: UInt32,
+                       signalingState: LKRTCSignalingState,
+                       hasPendingInitialOffer: Bool) -> Bool
+{
+    if answerInFlight == offerId { return true }
+    if offerId > 0 { return offerId == answeredOfferId }
+    return signalingState == .stable && !hasPendingInitialOffer
 }
