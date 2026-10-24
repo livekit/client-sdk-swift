@@ -25,8 +25,7 @@ private struct ReceivedData {
 }
 
 private final class DataRecorder: NSObject, RoomDelegate, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _state = ReceivedData()
+    private let _state = StateSync(ReceivedData())
 
     // swiftlint:disable:next function_parameter_count
     func room(_: Room,
@@ -36,18 +35,14 @@ private final class DataRecorder: NSObject, RoomDelegate, @unchecked Sendable {
               forTopic _: String,
               encryptionType _: EncryptionType)
     {
-        lock.lock()
-        defer { lock.unlock() }
-        _state = ReceivedData(identity: participantIdentity.stringValue,
+        _state.mutate {
+            $0 = ReceivedData(identity: participantIdentity.stringValue,
                               hadParticipant: participant != nil,
                               received: true)
+        }
     }
 
-    var snapshot: ReceivedData {
-        lock.lock()
-        defer { lock.unlock() }
-        return _state
-    }
+    var snapshot: ReceivedData { _state.copy() }
 }
 
 /// `participant` is nil whenever the sender is not in the room, so without the identity the
@@ -61,24 +56,47 @@ struct DataReceivedIdentityTests {
         Issue.record("the delegate was never notified")
     }
 
-    @Test func reportsSenderIdentityWhenTheParticipantIsNotInTheRoom() async throws {
+    private func deliver(userPacket: Livekit_UserPacket,
+                         outerIdentity: String) async throws -> ReceivedData
+    {
         let room = Room()
         room._state.mutate { $0.connectionState = .connected }
 
         let recorder = DataRecorder()
         room.delegates.add(delegate: recorder)
 
+        await room.engine(room,
+                          didReceiveUserPacket: userPacket,
+                          participantIdentity: outerIdentity,
+                          encryptionType: .none)
+        try await waitForDelivery(recorder)
+        return recorder.snapshot
+    }
+
+    /// Newer servers set the identity only on the enclosing `DataPacket`, leaving `UserPacket`'s
+    /// deprecated copy empty, so the outer value has to win.
+    @Test func reportsSenderIdentityWhenTheParticipantIsNotInTheRoom() async throws {
         let packet = Livekit_UserPacket.with {
-            $0.participantIdentity = "server-api-sender"
             $0.payload = Data("hello".utf8)
             $0.topic = "greetings"
         }
 
-        await room.engine(room, didReceiveUserPacket: packet, encryptionType: .none)
-        try await waitForDelivery(recorder)
+        let result = try await deliver(userPacket: packet, outerIdentity: "server-api-sender")
 
-        let result = recorder.snapshot
         #expect(result.hadParticipant == false, "the sender is not a participant in this room")
         #expect(result.identity == "server-api-sender")
+    }
+
+    /// Older servers set only the deprecated `UserPacket` copy, which must still be honoured.
+    @Test func fallsBackToTheDeprecatedPacketIdentity() async throws {
+        let packet = Livekit_UserPacket.with {
+            $0.participantIdentity = "legacy-sender"
+            $0.payload = Data("hello".utf8)
+            $0.topic = "greetings"
+        }
+
+        let result = try await deliver(userPacket: packet, outerIdentity: "")
+
+        #expect(result.identity == "legacy-sender")
     }
 }

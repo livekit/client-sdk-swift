@@ -192,6 +192,15 @@ public protocol RoomDelegate: AnyObject, Sendable {
     ///
     /// Both this and ``RoomDelegate/room(_:participant:didReceiveData:forTopic:encryptionType:)``
     /// are called for every packet; implement whichever one you need.
+    ///
+    /// ## Example usage
+    /// ```swift
+    /// func room(_ room: Room, participant: RemoteParticipant?, participantIdentity: Participant.Identity,
+    ///           didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType) {
+    ///   // `participant` is nil for Server API data, but the sender is still known
+    ///   print("\(participantIdentity.stringValue) sent \(data.count) bytes on \(topic)")
+    /// }
+    /// ```
     @objc optional
     // swiftlint:disable:next function_parameter_count
     func room(_ room: Room, participant: RemoteParticipant?, participantIdentity: Participant.Identity, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)

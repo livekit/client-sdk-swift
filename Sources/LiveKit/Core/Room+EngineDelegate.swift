@@ -203,9 +203,12 @@ extension Room {
         await publication.set(track: nil)
     }
 
-    func engine(_ engine: Room, didReceiveUserPacket packet: Livekit_UserPacket, encryptionType: EncryptionType) {
+    func engine(_ engine: Room, didReceiveUserPacket packet: Livekit_UserPacket, participantIdentity: String, encryptionType: EncryptionType) {
+        // The enclosing DataPacket carries the authoritative identity. UserPacket's own copy is
+        // deprecated and newer servers leave it empty, so fall back to it only for older ones.
+        let identityString = participantIdentity.isEmpty ? packet.participantIdentity : participantIdentity
         // participant could be null if data broadcasted from server
-        let identity = Participant.Identity(from: packet.participantIdentity)
+        let identity = Participant.Identity(from: identityString)
         let participant = _state.remoteParticipants[identity]
 
         if case .connected = engine._state.connectionState {
