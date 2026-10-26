@@ -240,10 +240,12 @@ jobs:
         run: brew install swiftlint
       - name: SwiftLint
         run: swiftlint lint --strict --reporter github-actions-logging
+      - name: Install SwiftFormat
+        if: always()
+        run: brew install swiftformat
       - name: SwiftFormat Lint
         if: always()
         run: swiftformat --lint . --reporter github-actions-log
-        # Comes pre-installed on macOS runners
   build-docs:
     name: Build Docs
     needs: build-and-test
