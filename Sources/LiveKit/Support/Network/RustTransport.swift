@@ -158,6 +158,10 @@ extension Error {
 
         let underlying = (self as? LiveKitError)?.internalError ?? self
 
+        // livekit-net reads a close as the end of the stream, as it always has.
+        if underlying is WebSocketClosedByPeer {
+            return .Closed
+        }
         if let urlError = underlying as? URLError {
             switch urlError.code {
             case .timedOut:

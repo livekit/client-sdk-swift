@@ -107,10 +107,11 @@ extension WebSocketLifecycleTests {
         let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10, onEvent: { event in
             if case .receiveRegistered = event { registered.resume(returning: ()) }
         })
-        async let message = socket.makeAsyncIterator().next()
+        let reader = Task { try await socket.makeAsyncIterator().next() }
         try await registered.wait()
         try await socket.send(data: Data([0x01]))
-        #expect(try await message == nil)
+        let error = await #expect(throws: LiveKitError.self) { try await reader.value }
+        #expect((error?.internalError as? WebSocketClosedByPeer)?.code == 1000)
         try await server.served.wait()
     }
 

@@ -29,13 +29,14 @@ enum ClosePath: Sendable, CaseIterable {
 
 /// How iteration over the socket ends.
 enum Ending: Sendable, CustomTestStringConvertible {
-    /// Every message before a close frame is delivered, then iteration ends with nil.
-    case closed
+    /// A close frame delivered to a pending receive fails the stream with its code. One that lands while no receive
+    /// is pending is consumed by Network.framework's close handshake, and the next receive fails with ENOTCONN instead.
+    case closedByPeer(code: UInt16)
     case networkError(posix: Int32?)
 
     var testDescription: String {
         switch self {
-        case .closed: "closed"
+        case let .closedByPeer(code): "closed by the peer (\(code))"
         case let .networkError(posix): "network error\(posix.map { " POSIX \($0)" } ?? "")"
         }
     }
@@ -315,11 +316,11 @@ struct WebSocketLifecycleTests {
 
     // MARK: - Peer closure
 
-    /// A close frame is the only end of stream; a FIN or a reset fails the sequence so the signal client reconnects
+    /// Only our own close ends the stream; a close frame, a FIN or a reset fails it, so the signal client reconnects
     /// at once instead of waiting for its ping timeout.
     @Test(arguments: zip(
         [FakeWebSocketServer.Behavior.closeFrame, .fin, .reset],
-        [Ending.closed, .networkError(posix: nil), .networkError(posix: ECONNRESET)],
+        [Ending.closedByPeer(code: 1000), .networkError(posix: nil), .networkError(posix: ECONNRESET)],
     ))
     func peerClosure(behavior: FakeWebSocketServer.Behavior, ending: Ending) async throws {
         let server = try FakeWebSocketServer(behavior)
@@ -329,13 +330,14 @@ struct WebSocketLifecycleTests {
         try await socket.send(data: Data([0x01]))
 
         switch ending {
-        case .closed:
+        case let .closedByPeer(code):
             try await server.served.wait()
-            try await withKnownIssue("ENOTCONN after a server Close frame instead of a clean end") {
-                let count = try await Self.messageCount(of: socket)
-                #expect(count == 0)
-            } matching: { issue in
-                Self.isNotConnected(issue.error)
+            let error = await #expect(throws: LiveKitError.self) { try await Self.messageCount(of: socket) }
+            #expect(error?.type == .network)
+            if let closed = error?.internalError as? WebSocketClosedByPeer {
+                #expect(closed.code == code)
+            } else {
+                #expect((error?.internalError as NSError?)?.code == Int(ENOTCONN))
             }
         case let .networkError(posix):
             let error = await #expect(throws: LiveKitError.self) { try await Self.messageCount(of: socket) }
