@@ -32,7 +32,7 @@ struct WebSocketUpgradeFailure: Error, Sendable {
 actor WebSocket: Loggable, AsyncSequence {
     typealias Element = URLSessionWebSocketTask.Message
 
-    private let connection: NWConnection
+    let connection: NWConnection
     /// Network.framework delivers on a queue it is given; a shared one, not one of our own: every callback here only
     /// resumes an `AsyncCompleter` or a continuation.
     private static var queue: DispatchQueue { .global(qos: .userInitiated) }
