@@ -131,13 +131,13 @@ extension Track.Source: CustomStringConvertible {
 extension LKRTCPeerConnectionState {
     var description: String {
         switch self {
-        case .new: return ".new"
-        case .connecting: return ".connecting"
-        case .connected: return ".connected"
-        case .disconnected: return ".disconnected"
-        case .failed: return ".failed"
-        case .closed: return ".closed"
-        @unknown default: return "unknown"
+        case .new: ".new"
+        case .connecting: ".connecting"
+        case .connected: ".connected"
+        case .disconnected: ".disconnected"
+        case .failed: ".failed"
+        case .closed: ".closed"
+        @unknown default: "unknown"
         }
     }
 }

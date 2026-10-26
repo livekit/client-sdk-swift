@@ -301,8 +301,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     @discardableResult
     func onPublish() async throws -> Bool {
         // For LocalTrack only...
-        guard self is LocalTrack else { return false }
-        guard _state.publishState != .published else { return false }
+        guard self is LocalTrack, _state.publishState != .published else { return false }
         _state.mutate { $0.publishState = .published }
         return true
     }
@@ -311,8 +310,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     @discardableResult
     func onUnpublish() async throws -> Bool {
         // For LocalTrack only...
-        guard self is LocalTrack else { return false }
-        guard _state.publishState != .unpublished else { return false }
+        guard self is LocalTrack, _state.publishState != .unpublished else { return false }
         _state.mutate { $0.publishState = .unpublished }
         return true
     }

@@ -288,7 +288,11 @@ public class CameraCapturer: VideoCapturer, @unchecked Sendable {
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             capturer.startCapture(with: device, format: selectedFormat.format, fps: selectedFps) { error in
-                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
             }
         }
 
@@ -425,9 +429,9 @@ extension AVCaptureDevice.Format {
     // Only include multi-cam supported devices if in multi-cam mode. Otherwise, always include the devices.
     var filterForMultiCamSupport: Bool {
         #if os(iOS) || os(tvOS)
-        return AVCaptureMultiCamSession.isMultiCamSupported ? isMultiCamSupported : true
+        AVCaptureMultiCamSession.isMultiCamSupported ? isMultiCamSupported : true
         #else
-        return true
+        true
         #endif
     }
 }

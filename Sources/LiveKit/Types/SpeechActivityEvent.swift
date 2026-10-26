@@ -24,9 +24,9 @@ public enum SpeechActivityEvent {
 extension LKRTCSpeechActivityEvent {
     func toLKType() -> SpeechActivityEvent {
         switch self {
-        case .started: return .started
-        case .ended: return .ended
-        @unknown default: return .ended
+        case .started: .started
+        case .ended: .ended
+        @unknown default: .ended
         }
     }
 }

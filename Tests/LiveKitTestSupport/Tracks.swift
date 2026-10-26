@@ -49,12 +49,12 @@ public func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @
 
     let tracks = try await {
         #if os(visionOS)
-        return try await asset.loadTracks(withMediaType: .video)
+        try await asset.loadTracks(withMediaType: .video)
         #else
         if #available(iOS 15.0, macOS 12.0, *) {
-            return try await asset.loadTracks(withMediaType: .video)
+            try await asset.loadTracks(withMediaType: .video)
         } else {
-            return asset.tracks(withMediaType: .video)
+            asset.tracks(withMediaType: .video)
         }
         #endif
     }()
