@@ -205,7 +205,7 @@ actor WebSocket: Loggable, AsyncSequence {
                             continuation.resume(returning: .some(.data(content ?? Data())))
                         case .text?:
                             continuation.resume(returning: .some(.string(String(decoding: content ?? Data(), as: UTF8.self))))
-                        case .close?, nil:
+                        case .close?:
                             continuation.resume(returning: nil)
                         default:
                             continuation.resume(returning: .some(nil))
