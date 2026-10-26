@@ -7,3 +7,4 @@
 --disable wrapFunctionBodies
 --disable wrapIfStatementBodies
 --disable docComments
+--disable sortImports
