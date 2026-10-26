@@ -121,12 +121,35 @@ final class FakeWebSocketServer: Sendable {
             case .idle, .blackhole, .reject:
                 break
             case .closeFrame, .fin, .reset:
-                // Only once a frame arrives from the client: its upgrade is then complete on its side too.
-                connection.receive(minimumIncompleteLength: 1, maximumLength: 64) { [self] _, _, _, _ in
-                    goAway(connection)
-                }
+                // Only once a whole frame arrives from the client: its upgrade is then complete on its side too.
+                readFrame(connection, buffered: Data()) { [self] in goAway(connection) }
             }
         })
+    }
+
+    /// Reads one complete client frame, however the bytes arrive, then calls `completion`. A client frame is masked: two
+    /// header bytes, a 16-bit length when the 7-bit one is 126, a 4-byte mask key, then the payload.
+    private func readFrame(_ connection: NWConnection, buffered: Data, completion: @escaping @Sendable () -> Void) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { [self] content, _, _, error in
+            guard error == nil, let content else { return connection.cancel() }
+            let frame = buffered + content
+            guard frame.count >= 2 else { return readFrame(connection, buffered: frame, completion: completion) }
+            let length7 = Int(frame[frame.startIndex + 1] & 0x7F)
+            let masked = frame[frame.startIndex + 1] & 0x80 != 0
+            var headerLength = 2 + (masked ? 4 : 0)
+            var payloadLength = length7
+            if length7 == 126 {
+                headerLength += 2
+                guard frame.count >= 4 else { return readFrame(connection, buffered: frame, completion: completion) }
+                payloadLength = Int(frame[frame.startIndex + 2]) << 8 | Int(frame[frame.startIndex + 3])
+            } else if length7 == 127 {
+                return connection.cancel()
+            }
+            guard frame.count >= headerLength + payloadLength else {
+                return readFrame(connection, buffered: frame, completion: completion)
+            }
+            completion()
+        }
     }
 
     private func goAway(_ connection: NWConnection) {
@@ -134,9 +157,9 @@ final class FakeWebSocketServer: Sendable {
         case .idle, .blackhole, .reject:
             break
         case .closeFrame:
-            connection.send(content: Data([0x88, 0x02, 0x03, 0xE8]), completion: .contentProcessed { [served] _ in
-                // The client's close reply, then the socket goes: the client sees a state change after its stream ended.
-                connection.receive(minimumIncompleteLength: 1, maximumLength: 64) { _, _, _, _ in
+            connection.send(content: Data([0x88, 0x02, 0x03, 0xE8]), completion: .contentProcessed { [self] _ in
+                // The client's whole close reply, then the socket goes: the client sees a state change after its stream ended.
+                readFrame(connection, buffered: Data()) { [served] in
                     connection.cancel()
                     served.resume(returning: ())
                 }
