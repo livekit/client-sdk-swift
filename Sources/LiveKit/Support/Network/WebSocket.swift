@@ -37,17 +37,6 @@ actor WebSocket: Loggable, AsyncSequence {
     /// resumes an `AsyncCompleter` or a continuation.
     private static var queue: DispatchQueue { .global(qos: .userInitiated) }
 
-    /// Every header entry is added, not set, so a repeated name keeps all of its values.
-    static func makeRequest(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval) -> URLRequest {
-        var request = URLRequest(url: url,
-                                 cachePolicy: .useProtocolCachePolicy,
-                                 timeoutInterval: timeoutInterval)
-        for (name, value) in headers {
-            request.addValue(value, forHTTPHeaderField: name)
-        }
-        return request
-    }
-
     static func makeParameters(secure: Bool, timeoutInterval: TimeInterval) -> NWParameters {
         let tcp = NWProtocolTCP.Options()
         tcp.connectionTimeout = Swift.max(1, Int(timeoutInterval.rounded(.up)))
