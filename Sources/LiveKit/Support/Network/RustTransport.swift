@@ -66,6 +66,7 @@ private final class WsConnectionAdapter: WsConnection {
             // Signalling is binary-only, so `for case let` skips any other frame kind and
             // keeps reading. Iterating afresh per call is the same stream: the iterator
             // buffers nothing, it reads straight off the task.
+            // swiftformat:disable:next redundantReturn
             for try await case let .data(frame) in socket {
                 return frame
             }
