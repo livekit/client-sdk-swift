@@ -45,10 +45,12 @@ class HTTP: NSObject {
         return (data, httpResponse)
     }
 
-    static func requestValidation(from url: URL, token: String) async throws {
+    /// - Parameter token: Sent as a bearer token; nil when `url` carries it as `access_token` instead.
+    static func requestValidation(from url: URL, token: String?) async throws {
         var request = URLRequest(url: url)
-        // Attach token to header
-        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let token {
+            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         let (data, httpResponse) = try await Self.request(request,
                                                           cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
@@ -70,7 +72,7 @@ class HTTP: NSObject {
             }
 
             // Treat server/rate-limit issues as network errors.
-            throw LiveKitError(.network, message: "Validation endpoint error: \(details)")
+            throw LiveKitError(.network, message: "Validation endpoint error: \(details)", statusCode: statusCode)
         }
     }
 

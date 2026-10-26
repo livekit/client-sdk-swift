@@ -266,7 +266,9 @@ struct WebSocketLifecycleTests {
         #expect(Date().timeIntervalSince(started) < 5)
     }
 
-    @Test func rejectedUpgradeCarriesTheStatus() async throws {
+    /// Network.framework keeps no status for a rejected upgrade; the socket reports the abort and sends the upgrade
+    /// once. The status is the validation endpoint's to give (`RustTransportTests`).
+    @Test func rejectedUpgradeIsAnAbort() async throws {
         let server = try FakeWebSocketServer(.reject(status: 401))
         defer { server.cancel() }
         let events = SocketEvents()
@@ -274,7 +276,7 @@ struct WebSocketLifecycleTests {
         #expect(events.teardowns.copy() == 1)
         #expect(events.closeStarts.copy() == 0)
         #expect(error?.type == .network)
-        #expect((error?.internalError as? WebSocketUpgradeFailure)?.statusCode == 401)
+        #expect((error?.internalError as NSError?)?.code == Int(ECONNABORTED))
     }
 
     // MARK: - Release
