@@ -23,6 +23,21 @@ struct WebSocketUpgradeFailure: Error, Sendable {
     let statusCode: Int
 }
 
+/// The peer's close frame, carried as the `internalError` of the thrown ``LiveKitError``: the stream fails with it, so
+/// the signal client reconnects at once, as the JS, Android, Flutter and Rust SDKs do on a server close.
+struct WebSocketClosedByPeer: Error, Sendable {
+    /// The close code the peer sent; 1005 when it sent none.
+    let code: UInt16
+
+    init(_ code: NWProtocolWebSocket.CloseCode) {
+        self.code = switch code {
+        case let .protocolCode(code): code.rawValue
+        case let .applicationCode(code), let .privateCode(code): code
+        @unknown default: 1005
+        }
+    }
+}
+
 /// The signalling WebSocket, over Network.framework.
 ///
 /// Not `URLSessionWebSocketTask`: Foundation keeps every `URLSession` that ran a WebSocket task, and the task,
@@ -198,7 +213,10 @@ actor WebSocket: Loggable, AsyncSequence {
                                 continuation.resume(throwing: LiveKitError(.network, message: "Text frame is not valid UTF-8"))
                             }
                         case .close?:
-                            continuation.resume(returning: nil)
+                            // The peer's close: an error, not the end of the stream, which only our own close is.
+                            let closed = WebSocketClosedByPeer(metadata?.closeCode ?? .protocolCode(.noStatusReceived))
+                            continuation.resume(throwing: LiveKitError(.network, message: "Closed by the peer (\(closed.code))",
+                                                                       internalError: closed))
                         default:
                             continuation.resume(returning: .some(nil))
                         }

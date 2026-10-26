@@ -17,6 +17,7 @@
 import Foundation
 @testable import LiveKit
 import LiveKitFFI
+import Network
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -215,6 +216,7 @@ struct TransportErrorMappingTests {
         (URLError(.networkConnectionLost), .Closed),
         (POSIXError(.ECONNRESET), .Closed),
         (POSIXError(.ENOTCONN), .Closed),
+        (LiveKitError(.network, internalError: WebSocketClosedByPeer(.protocolCode(.normalClosure))), .Closed),
         (LiveKitError(.cancelled), .Closed),
         // Already ours: crossing the FFI twice must not re-wrap.
         (TransportError.Other("passthrough"), .Other("passthrough")),
