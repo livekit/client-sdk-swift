@@ -40,11 +40,14 @@ final class FakeWebSocketServer: Sendable {
     }
 
     let behavior: Behavior
+    /// Resumed once the listener has accepted a TCP connection, before any upgrade is read.
+    let accepted = AsyncCompleter<Void>(label: "FakeWebSocketServer.accepted", defaultTimeout: 5)
     /// Resumed once the server has finished with a connection: sent its last bytes or dropped the socket.
     let served = AsyncCompleter<Void>(label: "FakeWebSocketServer.served", defaultTimeout: 5)
 
     private let listener: NWListener
-    private let queue = DispatchQueue(label: "FakeWebSocketServer")
+    /// Network.framework delivers on a queue it is given; a shared one, as the transport under test uses.
+    private static var queue: DispatchQueue { .global(qos: .userInitiated) }
     private let ready = AsyncCompleter<UInt16>(label: "FakeWebSocketServer.ready", defaultTimeout: 5)
     private let stopped = AsyncCompleter<Void>(label: "FakeWebSocketServer.stopped", defaultTimeout: 5)
     private let connections = StateSync<[NWConnection]>([])
@@ -62,11 +65,12 @@ final class FakeWebSocketServer: Sendable {
         }
         listener.newConnectionHandler = { [self] connection in
             connections.mutate { $0.append(connection) }
-            connection.start(queue: queue)
+            connection.start(queue: Self.queue)
+            accepted.resume(returning: ())
             if case .blackhole = behavior { return }
             readUpgrade(connection, buffered: Data())
         }
-        listener.start(queue: queue)
+        listener.start(queue: Self.queue)
     }
 
     func url() async throws -> URL {
@@ -74,10 +78,15 @@ final class FakeWebSocketServer: Sendable {
         return try #require(URL(string: "ws://127.0.0.1:\(port)/rtc"))
     }
 
-    /// Returns once the port refuses connections again.
-    func stop() async throws {
+    /// Drops every connection and the listener; safe to call more than once.
+    func cancel() {
         connections.mutate { $0.forEach { $0.cancel() }; $0.removeAll() }
         listener.cancel()
+    }
+
+    /// Returns once the port refuses connections again.
+    func stop() async throws {
+        cancel()
         try await stopped.wait()
     }
 
@@ -111,34 +120,48 @@ final class FakeWebSocketServer: Sendable {
             switch behavior {
             case .idle, .blackhole, .reject:
                 break
-            case .closeFrame:
-                connection.send(content: Data([0x88, 0x02, 0x03, 0xE8]), completion: .contentProcessed { [served] _ in
-                    // The client's close reply, then the socket goes: the client sees a state change after its stream ended.
-                    connection.receive(minimumIncompleteLength: 1, maximumLength: 64) { _, _, _, _ in
-                        connection.cancel()
-                        served.resume(returning: ())
-                    }
-                })
-            case .fin:
-                connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { [served] _ in
-                    served.resume(returning: ())
-                })
-            case .reset:
-                connection.forceCancel()
-                served.resume(returning: ())
+            case .closeFrame, .fin, .reset:
+                // Only once a frame arrives from the client: its upgrade is then complete on its side too.
+                connection.receive(minimumIncompleteLength: 1, maximumLength: 64) { [self] _, _, _, _ in
+                    goAway(connection)
+                }
             }
         })
+    }
+
+    private func goAway(_ connection: NWConnection) {
+        switch behavior {
+        case .idle, .blackhole, .reject:
+            break
+        case .closeFrame:
+            connection.send(content: Data([0x88, 0x02, 0x03, 0xE8]), completion: .contentProcessed { [served] _ in
+                // The client's close reply, then the socket goes: the client sees a state change after its stream ended.
+                connection.receive(minimumIncompleteLength: 1, maximumLength: 64) { _, _, _, _ in
+                    connection.cancel()
+                    served.resume(returning: ())
+                }
+            })
+        case .fin:
+            connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { [served] _ in
+                served.resume(returning: ())
+            })
+        case .reset:
+            connection.forceCancel()
+            served.resume(returning: ())
+        }
     }
 }
 
 /// How iteration over the socket ends.
 enum Ending: Sendable, CustomTestStringConvertible {
-    case endOfStream
+    /// A close frame delivered to a pending receive ends the stream. One that lands while no receive is pending is
+    /// consumed by Network.framework's close handshake, and the next receive fails with ENOTCONN instead.
+    case closed
     case networkError(posix: Int32?)
 
     var testDescription: String {
         switch self {
-        case .endOfStream: "end of stream"
+        case .closed: "closed"
         case let .networkError(posix): "network error\(posix.map { " POSIX \($0)" } ?? "")"
         }
     }
@@ -174,16 +197,17 @@ struct WebSocketLifecycleTests {
 
     @Test func ownCloseEndsTheSequence() async throws {
         let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
         let socket = try await Self.open(server)
         let reader = Task { try await Self.messageCount(of: socket) }
         await Task.yield()
         socket.close()
         #expect(try await reader.value == 0)
-        try await server.stop()
     }
 
     @Test func refusedConnectionFails() async throws {
         let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
         let url = try await server.url()
         try await server.stop()
 
@@ -196,6 +220,7 @@ struct WebSocketLifecycleTests {
 
     @Test func deadlineFailsAnUnansweredUpgrade() async throws {
         let server = try FakeWebSocketServer(.blackhole)
+        defer { server.cancel() }
         let started = Date()
         let error = await #expect(throws: LiveKitError.self) {
             try await Self.open(server, timeoutInterval: 1)
@@ -203,28 +228,27 @@ struct WebSocketLifecycleTests {
         #expect(Date().timeIntervalSince(started) < 5)
         #expect(error?.type == .timedOut || error?.type == .network)
         #expect(error?.isRetryableForRegionFailover == true)
-        try await server.stop()
     }
 
     @Test func cancellationDuringConnect() async throws {
         let server = try FakeWebSocketServer(.blackhole)
+        defer { server.cancel() }
         let url = try await server.url()
         let connect = Task { try await LiveKit.WebSocket(url: url, headers: Self.headers, timeoutInterval: 10) }
-        await Task.yield()
+        try await server.accepted.wait()
         let started = Date()
         connect.cancel()
         let error = await #expect(throws: LiveKitError.self) { try await connect.value }
         #expect(error?.type == .cancelled)
         #expect(Date().timeIntervalSince(started) < 5)
-        try await server.stop()
     }
 
     @Test func rejectedUpgradeCarriesTheStatus() async throws {
         let server = try FakeWebSocketServer(.reject(status: 401))
+        defer { server.cancel() }
         let error = await #expect(throws: LiveKitError.self) { try await Self.open(server) }
         #expect(error?.type == .network)
         #expect((error?.internalError as? WebSocketUpgradeFailure)?.statusCode == 401)
-        try await server.stop()
     }
 
     // MARK: - Release
@@ -237,6 +261,7 @@ struct WebSocketLifecycleTests {
           .bug("https://developer.apple.com/forums/thread/725039"))
     func closedSocketsAreReleased() async throws {
         let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
         var sockets: [LiveKit.WebSocket] = []
         var transports: [WeakTransport] = []
         for _ in 0 ..< 20 {
@@ -257,7 +282,6 @@ struct WebSocketLifecycleTests {
             #expect(transport.socket == nil, "Socket \(index) is still retained")
             #expect(transport.connection == nil, "Connection \(index) is still retained")
         }
-        try await server.stop()
     }
 
     // MARK: - Peer closure
@@ -266,15 +290,22 @@ struct WebSocketLifecycleTests {
     /// at once instead of waiting for its ping timeout.
     @Test(arguments: zip(
         [FakeWebSocketServer.Behavior.closeFrame, .fin, .reset],
-        [Ending.endOfStream, .networkError(posix: nil), .networkError(posix: ECONNRESET)],
+        [Ending.closed, .networkError(posix: nil), .networkError(posix: ECONNRESET)],
     ))
     func peerClosure(behavior: FakeWebSocketServer.Behavior, ending: Ending) async throws {
         let server = try FakeWebSocketServer(behavior)
+        defer { server.cancel() }
         let socket = try await Self.open(server)
+        try await socket.send(data: Data([0x01]))
 
         switch ending {
-        case .endOfStream:
-            #expect(try await Self.messageCount(of: socket) == 0)
+        case .closed:
+            do {
+                #expect(try await Self.messageCount(of: socket) == 0)
+            } catch let error as LiveKitError {
+                #expect(error.type == .network)
+                #expect((error.internalError as? NSError)?.code == Int(ENOTCONN))
+            }
         case let .networkError(posix):
             let error = await #expect(throws: LiveKitError.self) { try await Self.messageCount(of: socket) }
             #expect(error?.type == .network)
@@ -287,7 +318,6 @@ struct WebSocketLifecycleTests {
         // opening is long settled, and must neither crash nor resurface.
         try await server.served.wait()
         withExtendedLifetime(socket) {}
-        try await server.stop()
     }
 }
 
