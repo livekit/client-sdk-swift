@@ -20,8 +20,8 @@ internal import CLiveKitProto
 import CLiveKitProto
 import LiveKitNanopb
 #endif
-@preconcurrency internal import LiveKitWebRTC
-@preconcurrency import AVFoundation
+internal import LiveKitWebRTC
+import AVFoundation
 import Foundation
 
 public let kLiveKitKrispAudioProcessorName = "livekit_krisp_noise_cancellation"
@@ -121,6 +121,8 @@ class AudioCustomProcessingDelegateAdapter: MulticastDelegate<AudioRenderer>, @u
 
         // Convert to pcmBuffer and notify only if an audioRenderer is added.
         if isDelegatesNotEmpty, let pcmBuffer = lkAudioBuffer.toAVAudioPCMBuffer() {
+            // AVAudioPCMBuffer is not Sendable; the renderer queue takes sole ownership.
+            nonisolated(unsafe) let pcmBuffer = pcmBuffer
             notify { $0.render(pcmBuffer: pcmBuffer) }
         }
     }
