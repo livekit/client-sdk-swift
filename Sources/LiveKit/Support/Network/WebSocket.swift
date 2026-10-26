@@ -33,7 +33,9 @@ actor WebSocket: Loggable, AsyncSequence {
     typealias Element = URLSessionWebSocketTask.Message
 
     private let connection: NWConnection
-    private static let queue = DispatchQueue(label: "LiveKitSDK.webSocket")
+    /// Network.framework delivers on a queue it is given; a shared one, not one of our own: every callback here only
+    /// resumes a continuation, and those sit in `StateSync`.
+    private static var queue: DispatchQueue { .global(qos: .userInitiated) }
 
     /// Every header entry is added, not set, so a repeated name keeps all of its values.
     static func makeRequest(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval) -> URLRequest {
@@ -132,8 +134,10 @@ actor WebSocket: Loggable, AsyncSequence {
         guard let host = url.host else { return nil }
         let secure = url.scheme == "wss"
         let port = url.port ?? (secure ? 443 : 80)
-        var target = url.path.isEmpty ? "/" : url.path
-        if let query = url.query { target += "?\(query)" }
+        // The request target as the upgrade sent it: escaped, as `URL.path` would not give it.
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+        var target = components.percentEncodedPath.isEmpty ? "/" : components.percentEncodedPath
+        if let query = components.percentEncodedQuery { target += "?\(query)" }
         let key = Data((0 ..< 16).map { _ in UInt8.random(in: 0 ... 255) }).base64EncodedString()
         var request = "GET \(target) HTTP/1.1\r\nHost: \(host):\(port)\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
             + "Sec-WebSocket-Key: \(key)\r\nSec-WebSocket-Version: 13\r\n"
