@@ -1,1 +1,0 @@
-patch type="changed" "The Rust core dependency changed from LiveKitUniFFI to LiveKitFFI 0.13.1 for SwiftPM and CocoaPods. The SwiftPM dependency moved to livekit-ffi-xcframework, with the product LiveKitFFI and the binary target RustLiveKitFFI. SwiftPM re-resolves the package once. CocoaPods resolves the LiveKitFFI pod instead of LiveKitUniFFI"

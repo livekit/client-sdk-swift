@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.19.0] - 2026-10-26
+
+### Changed
+
+- Register the SDK's own WebSocket/URLSession stack as livekit-net's transport, so Rust-side signalling and HTTP reuse the tuned session (call-signaling QoS, multipath handover, TLS workarounds) instead of a second parallel client; a rejected WebSocket upgrade now keeps its HTTP status
+- The video start bitrate cap for camera tracks now scales with how long the connection took to set up: 1 Mbps up to 1.5 s, falling linearly to 300 kbps at 3.5 s and beyond. Screen share stays uncapped. Same behaviour as client-sdk-js, rust-sdks and client-sdk-android
+- The Rust core dependency changed from LiveKitUniFFI to LiveKitFFI 0.13.1 for SwiftPM and CocoaPods. The SwiftPM dependency moved to livekit-ffi-xcframework, with the product LiveKitFFI and the binary target RustLiveKitFFI. SwiftPM re-resolves the package once. CocoaPods resolves the LiveKitFFI pod instead of LiveKitUniFFI
+- Data streams: reimplemented on the Rust livekit-data-stream core over UniFFI, adding DEFLATE compression and single-packet inlining for one-shot sends when every recipient supports them, a configurable incoming payload cap via RoomOptions.dataStreamOptions, StreamTextOptions.operationType and generated, senderIdentity on both stream options, file attachments for a one-shot sendText, TextStreamInfo.mimeType, Participant.capabilities, and a StreamError case for each failure the core reports
+
+### Fixed
+
+- Update LiveKitWebRTC to 150.7871.04, which removes the AAA Certificate Services root from the TURN/TLS trust anchors so certificates from the compromised eMudhra intermediates are rejected
+- Fix a crash (SIGSEGV in `pb_enc_varint`) on the first reliable data send in optimized CocoaPods builds: the encoder could read a message that was already freed
+- performRpc throws CancellationError at once when the calling task is cancelled
+- Fix a crash (SIGSEGV in `strlen` from `RegionManager`) when connecting to LiveKit Cloud in optimized builds: generated protobuf getters could read a message that was already freed
+- Fix media frame cryptors ignoring the key provider's current key index; senders now follow `setKey(index:)` / `setCurrentKeyIndex` live. In non-shared key mode `setKey(key:participantId:index:)` no longer moves the current key index (it may be a remote participant's key); use `setCurrentKeyIndex` to switch the local one
+
 ## [2.18.0] - 2026-10-13
 
 ### Added
