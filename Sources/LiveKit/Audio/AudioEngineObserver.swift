@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import AVFAudio
-
 internal import LiveKitWebRTC
+import AVFAudio
 
 public let AudioEngineInputMixerNodeKey = kLKRTCAudioEngineInputMixerNodeKey
 

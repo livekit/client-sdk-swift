@@ -16,9 +16,8 @@
 
 // swiftlint:disable file_length
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 @objcMembers
 public class Track: NSObject, @unchecked Sendable, Loggable {

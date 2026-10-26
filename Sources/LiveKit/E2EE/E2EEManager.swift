@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 import Combine
 import Foundation
-
-internal import LiveKitWebRTC
 
 @objcMembers
 public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Loggable {

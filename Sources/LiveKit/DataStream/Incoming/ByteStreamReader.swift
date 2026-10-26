@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// An asynchronous sequence of chunks read from a byte data stream.
 @objcMembers

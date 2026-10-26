@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 /// Configuration passed to ``VideoEncoder/startEncode(with:numberOfCores:)``.
 public struct VideoEncoderSettings: Sendable {

@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 @preconcurrency import AVFoundation
 import Foundation
-
-internal import LiveKitWebRTC
 
 #if canImport(ReplayKit)
 import ReplayKit

@@ -16,10 +16,9 @@
 
 // swiftlint:disable file_length
 
+internal import LiveKitWebRTC
 @preconcurrency import AVFoundation
 import MetalKit
-
-internal import LiveKitWebRTC
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType

@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 extension LKRTCPeerConnectionState {
     var isConnected: Bool {

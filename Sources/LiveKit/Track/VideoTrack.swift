@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 @objc
 public protocol VideoTrackProtocol: AnyObject, Sendable {

@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 // The objects the Rust core calls into. Split from `DataStreams` itself so the coordinator file
 // stays about coordination; each type here is a thin adapter that forwards across the boundary.

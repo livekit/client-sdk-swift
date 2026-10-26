@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 extension LKRTCI420BufferProtocol {
     // swiftlint:disable:next function_body_length

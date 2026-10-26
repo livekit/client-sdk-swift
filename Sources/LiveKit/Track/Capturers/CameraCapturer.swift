@@ -16,14 +16,13 @@
 
 // swiftlint:disable file_length
 
+internal import LiveKitWebRTC
 @preconcurrency import AVFoundation
 import Foundation
 
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
-
-internal import LiveKitWebRTC
 
 public class CameraCapturer: VideoCapturer, @unchecked Sendable {
     /// Current device used for capturing

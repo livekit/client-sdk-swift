@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 import AVFoundation
 import Foundation
 
 #if canImport(ScreenCaptureKit)
 import ScreenCaptureKit
 #endif
-
-internal import LiveKitWebRTC
 
 #if os(macOS)
 

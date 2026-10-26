@@ -20,10 +20,9 @@ package import CLiveKitProto
 import CLiveKitProto
 import LiveKitNanopb
 #endif
+internal import LiveKitWebRTC
 import AVFoundation
 import Foundation
-
-internal import LiveKitWebRTC
 
 // Messages are all one generic type, so there is a single conformance and a
 // single witness. Per-message detail is reached through `NanopbStorage`'s

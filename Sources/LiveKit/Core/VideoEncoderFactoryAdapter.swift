@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 /// Bridges a public ``VideoEncoderFactory`` to WebRTC's `RTCVideoEncoderFactory`.
 final class VideoEncoderFactoryAdapter: NSObject, LKRTCVideoEncoderFactory, @unchecked Sendable {

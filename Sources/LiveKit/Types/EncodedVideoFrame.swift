@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 /// An encoded frame produced by a custom ``VideoEncoder`` and delivered
 /// to the SDK via ``VideoEncoderCallback``.

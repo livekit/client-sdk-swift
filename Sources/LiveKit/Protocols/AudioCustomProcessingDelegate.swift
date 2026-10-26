@@ -20,10 +20,9 @@ internal import CLiveKitProto
 import CLiveKitProto
 import LiveKitNanopb
 #endif
+internal import LiveKitWebRTC
 @preconcurrency import AVFoundation
 import Foundation
-
-internal import LiveKitWebRTC
 
 public let kLiveKitKrispAudioProcessorName = "livekit_krisp_noise_cancellation"
 
