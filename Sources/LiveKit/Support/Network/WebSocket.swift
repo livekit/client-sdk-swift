@@ -59,7 +59,6 @@ actor WebSocket: Loggable, AsyncSequence {
 
         let webSocket = NWProtocolWebSocket.Options()
         webSocket.autoReplyPing = true
-        webSocket.maximumMessageSize = 0 // no limit, as URLSessionWebSocketTask's 1 MB default would have been raised
         webSocket.setAdditionalHeaders(headers)
         let parameters = Self.makeParameters(secure: url.scheme == "wss", timeoutInterval: timeoutInterval)
         parameters.defaultProtocolStack.applicationProtocols.insert(webSocket, at: 0)
