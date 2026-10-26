@@ -34,7 +34,7 @@ actor WebSocket: Loggable, AsyncSequence {
 
     private let connection: NWConnection
     /// Network.framework delivers on a queue it is given; a shared one, not one of our own: every callback here only
-    /// resumes a continuation, and those sit in `StateSync`.
+    /// resumes an `AsyncCompleter` or a continuation.
     private static var queue: DispatchQueue { .global(qos: .userInitiated) }
 
     /// Every header entry is added, not set, so a repeated name keeps all of its values.
@@ -77,33 +77,24 @@ actor WebSocket: Loggable, AsyncSequence {
         let connection = NWConnection(to: .url(url), using: parameters)
         self.connection = connection
 
-        let opening = Once<Void>()
-        do {
-            try await withTaskCancellationHandler {
-                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                    opening.start(continuation)
-                    connection.stateUpdateHandler = { state in
-                        switch state {
-                        case .ready:
-                            opening.finish(.success(()))
-                        case let .failed(error), let .waiting(error):
-                            // `.waiting` too: a connection that cannot be made now fails, as URLSession's did
-                            // (waitsForConnectivity off); the signal client owns the retries.
-                            opening.finish(.failure(error))
-                        case .cancelled:
-                            opening.finish(.failure(LiveKitError(.cancelled)))
-                        default:
-                            break
-                        }
-                    }
-                    connection.start(queue: Self.queue)
-                    Self.queue.asyncAfter(deadline: .now() + timeoutInterval) {
-                        opening.finish(.failure(URLError(.timedOut)))
-                    }
-                }
-            } onCancel: {
-                connection.cancel()
+        let opening = AsyncCompleter<Void>(label: "WebSocket.open", defaultTimeout: timeoutInterval)
+        connection.stateUpdateHandler = { state in
+            switch state {
+            case .ready:
+                opening.resume(returning: ())
+            case let .failed(error), let .waiting(error):
+                // `.waiting` too: a connection that cannot be made now fails, as URLSession's did
+                // (waitsForConnectivity off); the signal client owns the retries.
+                opening.resume(with: .failure(error))
+            case .cancelled:
+                opening.resume(with: .failure(LiveKitError(.cancelled)))
+            default:
+                break
             }
+        }
+        connection.start(queue: Self.queue)
+        do {
+            try await opening.wait()
         } catch let error as NWError {
             connection.cancel()
             // The server answered the upgrade with an HTTP status: Network.framework aborts the connection
@@ -141,7 +132,9 @@ actor WebSocket: Loggable, AsyncSequence {
         let key = Data((0 ..< 16).map { _ in UInt8.random(in: 0 ... 255) }).base64EncodedString()
         var request = "GET \(target) HTTP/1.1\r\nHost: \(host):\(port)\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
             + "Sec-WebSocket-Key: \(key)\r\nSec-WebSocket-Version: 13\r\n"
-        for (name, value) in headers { request += "\(name): \(value)\r\n" }
+        for (name, value) in headers {
+            request += "\(name): \(value)\r\n"
+        }
         request += "\r\n"
         let bytes = Data(request.utf8)
 
@@ -149,28 +142,25 @@ actor WebSocket: Loggable, AsyncSequence {
         let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort,
                                       using: makeParameters(secure: secure, timeoutInterval: timeoutInterval))
         defer { connection.cancel() }
-        let answer = Once<Int?>()
-        return try? await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Int?, Error>) in
-            answer.start(continuation)
-            connection.stateUpdateHandler = { state in
-                switch state {
-                case .ready:
-                    connection.send(content: bytes, completion: .contentProcessed { _ in })
-                    connection.receive(minimumIncompleteLength: 12, maximumLength: 512) { content, _, _, _ in
-                        // "HTTP/1.1 401 Unauthorized"
-                        let line = content.flatMap { String(data: $0, encoding: .utf8) }?.split(separator: "\r\n").first
-                        let status = line.flatMap { $0.split(separator: " ").dropFirst().first }.flatMap { Int($0) }
-                        answer.finish(.success(status == 101 ? nil : status))
-                    }
-                case .failed, .waiting, .cancelled:
-                    answer.finish(.success(nil))
-                default:
-                    break
+        let answer = AsyncCompleter<Int?>(label: "WebSocket.upgradeStatus", defaultTimeout: timeoutInterval)
+        connection.stateUpdateHandler = { state in
+            switch state {
+            case .ready:
+                connection.send(content: bytes, completion: .contentProcessed { _ in })
+                connection.receive(minimumIncompleteLength: 12, maximumLength: 512) { content, _, _, _ in
+                    // "HTTP/1.1 401 Unauthorized"
+                    let line = content.flatMap { String(data: $0, encoding: .utf8) }?.split(separator: "\r\n").first
+                    let status = line.flatMap { $0.split(separator: " ").dropFirst().first }.flatMap { Int($0) }
+                    answer.resume(returning: status == 101 ? nil : status)
                 }
+            case .failed, .waiting, .cancelled:
+                answer.resume(returning: nil)
+            default:
+                break
             }
-            connection.start(queue: queue)
-            queue.asyncAfter(deadline: .now() + timeoutInterval) { answer.finish(.success(nil)) }
         }
+        connection.start(queue: queue)
+        return try? await answer.wait()
     }
 
     /// Network.framework's errors in the shapes the SDK reads elsewhere (`isNetworkError`, `asTransportError`):
@@ -245,25 +235,6 @@ actor WebSocket: Loggable, AsyncSequence {
                     continuation.resume()
                 }
             })
-        }
-    }
-
-    // MARK: - Opening
-
-    /// A continuation resumed once, by whichever comes first: the connection's answer or the timeout.
-    private final class Once<Value: Sendable>: Sendable {
-        private let continuation = StateSync<CheckedContinuation<Value, Error>?>(nil)
-
-        func start(_ continuation: CheckedContinuation<Value, Error>) {
-            self.continuation.mutate { $0 = continuation }
-        }
-
-        func finish(_ result: Result<Value, Error>) {
-            let pending = continuation.mutate { current -> CheckedContinuation<Value, Error>? in
-                defer { current = nil }
-                return current
-            }
-            pending?.resume(with: result)
         }
     }
 }
