@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 import Foundation
 
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
-
-internal import LiveKitWebRTC
 
 @available(macOS 11.0, iOS 11.0, *)
 public class InAppScreenCapturer: VideoCapturer, @unchecked Sendable {

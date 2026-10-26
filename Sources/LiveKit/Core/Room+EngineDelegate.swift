@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 extension Room {
     // swiftlint:disable:next cyclomatic_complexity function_body_length

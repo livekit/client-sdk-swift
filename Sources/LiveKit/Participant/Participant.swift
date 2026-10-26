@@ -17,10 +17,9 @@
 #if !COCOAPODS && !LK_XCFRAMEWORK
 import LiveKitNanopb
 #endif
+internal import LiveKitWebRTC
 import Combine
 import Foundation
-
-internal import LiveKitWebRTC
 
 @objcMembers
 public class Participant: NSObject, @unchecked Sendable, ObservableObject, Loggable {

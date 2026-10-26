@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// The slice of ``TextStreamReader`` the SDK's own consumers (the RPC managers) need. They take
 /// this rather than the concrete reader so a stand-in can be built in the test target — otherwise
