@@ -30,6 +30,7 @@ private protocol ReflectableStorage {
 extension NanopbMsg: ReflectableStorage {
     var _reflectedStorage: Any { _pointer.pointee }
 }
+
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif

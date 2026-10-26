@@ -102,9 +102,9 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
 
 // MARK: - Objective-C compatibility
 
+@available(*, deprecated, message: "Use for/await on TextStreamReader reader instead.")
 public extension TextStreamReader {
     @objc
-    @available(*, deprecated, message: "Use for/await on TextStreamReader reader instead.")
     func readChunks(onChunk: @Sendable @escaping (String) -> Void, onCompletion: (@Sendable (Error?) -> Void)?) {
         Task {
             do {

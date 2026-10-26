@@ -52,8 +52,7 @@ extension LKRTCRtpSender: Loggable {
         } else {
             // For Simulcast...
             for e in qualities {
-                guard let rid = e.quality.asRID else { continue }
-                guard let encodingforRID = encodings.first(where: { $0.rid == rid }) else { continue }
+                guard let rid = e.quality.asRID, let encodingforRID = encodings.first(where: { $0.rid == rid }) else { continue }
 
                 if encodingforRID.isActive != e.enabled {
                     didUpdate = true

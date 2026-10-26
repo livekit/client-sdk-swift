@@ -39,8 +39,7 @@ final class VideoEncoderFactoryAdapter: NSObject, LKRTCVideoEncoderFactory, @unc
         // including formats only the built in fallback advertised, such as another
         // H264 profile. Declining here routes those to the fallback and keeps
         // unbridgeable codecs such as VP8 away from the packetizer.
-        guard codecs.contains(where: { $0.isSameCodec(as: codec) }) else { return nil }
-        guard let encoder = factory.createEncoder(for: codec) else { return nil }
+        guard codecs.contains(where: { $0.isSameCodec(as: codec) }), let encoder = factory.createEncoder(for: codec) else { return nil }
 
         return VideoEncoderAdapter(encoder: encoder, codec: codec)
     }

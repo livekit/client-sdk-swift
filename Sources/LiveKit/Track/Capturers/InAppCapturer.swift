@@ -46,7 +46,11 @@ public class InAppScreenCapturer: VideoCapturer, @unchecked Sendable {
                     capture(sampleBuffer: sampleBuffer, capturer: capturer, options: options)
                 }
             } completionHandler: { error in
-                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
             }
         }
 
@@ -65,10 +69,10 @@ public class InAppScreenCapturer: VideoCapturer, @unchecked Sendable {
     }
 }
 
+@available(macOS 11.0, iOS 11.0, *)
 public extension LocalVideoTrack {
     /// Creates a track that captures in-app screen only (due to limitation of ReplayKit)
     @available(*, deprecated, message: "Blocks the calling thread until WebRTC's factory responds; use the async variant instead.")
-    @available(macOS 11.0, iOS 11.0, *)
     static func createInAppScreenShareTrack(name: String = Track.screenShareVideoName,
                                             options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                             reportStatistics: Bool = false) -> LocalVideoTrack
@@ -78,7 +82,6 @@ public extension LocalVideoTrack {
 
     /// Creates an in-app screen-share track on the RTC executor: the calling task suspends
     /// instead of blocking its thread on WebRTC's factory.
-    @available(macOS 11.0, iOS 11.0, *)
     static func createInAppScreenShareTrack(name: String = Track.screenShareVideoName,
                                             options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                             reportStatistics: Bool = false) async -> LocalVideoTrack
@@ -86,7 +89,6 @@ public extension LocalVideoTrack {
         await RTC.run { _createInAppScreenShareTrack(name: name, options: options, reportStatistics: reportStatistics) }
     }
 
-    @available(macOS 11.0, iOS 11.0, *)
     internal static func _createInAppScreenShareTrack(name: String,
                                                       options: ScreenShareCaptureOptions,
                                                       reportStatistics: Bool) -> LocalVideoTrack
