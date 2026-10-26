@@ -23,25 +23,17 @@ struct WebSocketUpgradeFailure: Error, Sendable {
     let statusCode: Int
 }
 
+/// The signalling WebSocket, over Network.framework.
+///
+/// Not `URLSessionWebSocketTask`: Foundation keeps every `URLSession` that ran a WebSocket task, and the task,
+/// alive after the task is cancelled and the session invalidated, whichever way it is closed (about 25 KB a
+/// connection, measured on macOS 27 and the iOS 26.5 simulator). Every full or quick reconnect left one behind
+/// for the life of the process. An `NWConnection` is freed once cancelled.
 actor WebSocket: Loggable, AsyncSequence {
     typealias Element = URLSessionWebSocketTask.Message
 
-    private let delegate: Delegate
-    private let urlSession: URLSession
-    private let task: URLSessionWebSocketTask
-
-    private static func makeSessionConfiguration() -> URLSessionConfiguration {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 60
-        config.timeoutIntervalForResource = 604_800
-        config.shouldUseExtendedBackgroundIdleMode = true
-        config.networkServiceType = .callSignaling
-        #if os(iOS) || os(visionOS)
-        // https://developer.apple.com/documentation/foundation/urlsessionconfiguration/improving_network_reliability_using_multipath_tcp
-        config.multipathServiceType = .handover
-        #endif
-        return config
-    }
+    private let connection: NWConnection
+    private static let queue = DispatchQueue(label: "LiveKitSDK.webSocket")
 
     /// Every header entry is added, not set, so a repeated name keeps all of its values.
     static func makeRequest(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval) -> URLRequest {
@@ -54,134 +46,220 @@ actor WebSocket: Loggable, AsyncSequence {
         return request
     }
 
-    init(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval) async throws {
-        let request = Self.makeRequest(url: url, headers: headers, timeoutInterval: timeoutInterval)
+    static func makeParameters(secure: Bool, timeoutInterval: TimeInterval) -> NWParameters {
+        let tcp = NWProtocolTCP.Options()
+        tcp.connectionTimeout = Swift.max(1, Int(timeoutInterval.rounded(.up)))
+        let parameters = NWParameters(tls: secure ? NWProtocolTLS.Options() : nil, tcp: tcp)
+        // As `.callSignaling` on the URLSession configuration this replaces.
+        parameters.serviceClass = .responsiveData
+        #if os(iOS) || os(visionOS)
+        // https://developer.apple.com/documentation/foundation/urlsessionconfiguration/improving_network_reliability_using_multipath_tcp
+        parameters.multipathServiceType = .handover
+        #endif
+        return parameters
+    }
 
+    init(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval) async throws {
         #if targetEnvironment(simulator)
         if #available(iOS 26.0, *) {
             nw_tls_create_options()
         }
         #endif
 
-        delegate = Delegate()
-        urlSession = URLSession(configuration: Self.makeSessionConfiguration(),
-                                delegate: delegate, delegateQueue: nil)
-        task = urlSession.webSocketTask(with: request)
+        let webSocket = NWProtocolWebSocket.Options()
+        webSocket.autoReplyPing = true
+        webSocket.maximumMessageSize = 0 // no limit, as URLSessionWebSocketTask's 1 MB default would have been raised
+        webSocket.setAdditionalHeaders(headers)
+        let parameters = Self.makeParameters(secure: url.scheme == "wss", timeoutInterval: timeoutInterval)
+        parameters.defaultProtocolStack.applicationProtocols.insert(webSocket, at: 0)
+        let connection = NWConnection(to: .url(url), using: parameters)
+        self.connection = connection
 
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                delegate.setConnectContinuation(continuation)
-                task.resume()
+        let opening = Once<Void>()
+        do {
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    opening.start(continuation)
+                    connection.stateUpdateHandler = { state in
+                        switch state {
+                        case .ready:
+                            opening.finish(.success(()))
+                        case let .failed(error), let .waiting(error):
+                            // `.waiting` too: a connection that cannot be made now fails, as URLSession's did
+                            // (waitsForConnectivity off); the signal client owns the retries.
+                            opening.finish(.failure(error))
+                        case .cancelled:
+                            opening.finish(.failure(LiveKitError(.cancelled)))
+                        default:
+                            break
+                        }
+                    }
+                    connection.start(queue: Self.queue)
+                    Self.queue.asyncAfter(deadline: .now() + timeoutInterval) {
+                        opening.finish(.failure(URLError(.timedOut)))
+                    }
+                }
+            } onCancel: {
+                connection.cancel()
             }
-        } onCancel: {
-            self.close()
+        } catch let error as NWError {
+            connection.cancel()
+            // The server answered the upgrade with an HTTP status: Network.framework aborts the connection
+            // without it, so the same upgrade, sent once more by hand, reads it.
+            if case .posix(.ECONNABORTED) = error,
+               let status = await Self.upgradeStatus(url: url, headers: headers, timeoutInterval: timeoutInterval)
+            {
+                throw LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: status))
+            }
+            throw LiveKitError(.network, internalError: Self.bridged(error))
+        } catch {
+            connection.cancel()
+            throw error is LiveKitError ? error : LiveKitError.from(error: error) ?? LiveKitError(.unknown)
         }
     }
 
     deinit {
-        close()
+        connection.cancel()
     }
 
     nonisolated func close() {
-        task.cancel(with: .normalClosure, reason: nil)
-        urlSession.finishTasksAndInvalidate()
-        delegate.cancelConnection()
+        connection.cancel()
+    }
+
+    /// The HTTP status the server answers the upgrade with, read off the status line of the same request sent over
+    /// a plain TCP (and TLS) connection; nil when it gives none or switches protocols after all.
+    static func upgradeStatus(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval) async -> Int? {
+        guard let host = url.host else { return nil }
+        let secure = url.scheme == "wss"
+        let port = url.port ?? (secure ? 443 : 80)
+        var target = url.path.isEmpty ? "/" : url.path
+        if let query = url.query { target += "?\(query)" }
+        let key = Data((0 ..< 16).map { _ in UInt8.random(in: 0 ... 255) }).base64EncodedString()
+        var request = "GET \(target) HTTP/1.1\r\nHost: \(host):\(port)\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+            + "Sec-WebSocket-Key: \(key)\r\nSec-WebSocket-Version: 13\r\n"
+        for (name, value) in headers { request += "\(name): \(value)\r\n" }
+        request += "\r\n"
+        let bytes = Data(request.utf8)
+
+        guard let nwPort = NWEndpoint.Port(rawValue: UInt16(clamping: port)) else { return nil }
+        let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort,
+                                      using: makeParameters(secure: secure, timeoutInterval: timeoutInterval))
+        defer { connection.cancel() }
+        let answer = Once<Int?>()
+        return try? await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Int?, Error>) in
+            answer.start(continuation)
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    connection.send(content: bytes, completion: .contentProcessed { _ in })
+                    connection.receive(minimumIncompleteLength: 12, maximumLength: 512) { content, _, _, _ in
+                        // "HTTP/1.1 401 Unauthorized"
+                        let line = content.flatMap { String(data: $0, encoding: .utf8) }?.split(separator: "\r\n").first
+                        let status = line.flatMap { $0.split(separator: " ").dropFirst().first }.flatMap { Int($0) }
+                        answer.finish(.success(status == 101 ? nil : status))
+                    }
+                case .failed, .waiting, .cancelled:
+                    answer.finish(.success(nil))
+                default:
+                    break
+                }
+            }
+            connection.start(queue: queue)
+            queue.asyncAfter(deadline: .now() + timeoutInterval) { answer.finish(.success(nil)) }
+        }
+    }
+
+    /// Network.framework's errors in the shapes the SDK reads elsewhere (`isNetworkError`, `asTransportError`):
+    /// a timeout as `URLError(.timedOut)`, any other POSIX code as an `NSPOSIXErrorDomain` error.
+    static func bridged(_ error: NWError) -> Error {
+        switch error {
+        case .posix(.ETIMEDOUT):
+            URLError(.timedOut)
+        case let .posix(code):
+            NSError(domain: NSPOSIXErrorDomain, code: Int(code.rawValue))
+        default:
+            error
+        }
     }
 
     // MARK: - AsyncSequence
 
     struct AsyncIterator: AsyncIteratorProtocol {
-        fileprivate let task: URLSessionWebSocketTask
+        fileprivate let connection: NWConnection
 
         func next() async throws -> URLSessionWebSocketTask.Message? {
-            guard task.closeCode == .invalid else { return nil }
-            return try await withTaskCancellationHandler {
-                do {
-                    // Use the callback API instead of the async overlay to avoid
-                    // a TSan-visible data race inside Foundation's continuation bridge.
-                    return try await withCheckedThrowingContinuation { continuation in
-                        task.receive { result in
-                            continuation.resume(with: result)
+            while true {
+                guard let frame = try await receive() else { return nil }
+                if let message = frame { return message }
+                // A control frame (ping, pong): not a message; read on.
+            }
+        }
+
+        /// nil at the end of the stream, `.some(nil)` for a frame that is not a message.
+        private func receive() async throws -> URLSessionWebSocketTask.Message?? {
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URLSessionWebSocketTask.Message??, Error>) in
+                    connection.receiveMessage { content, context, _, error in
+                        if let error {
+                            // Our own close ends the sequence, as a cancelled task's did, rather than failing it.
+                            if case .posix(.ECANCELED) = error { return continuation.resume(returning: nil) }
+                            return continuation.resume(throwing: LiveKitError(.network, internalError: WebSocket.bridged(error)))
+                        }
+                        let metadata = context?.protocolMetadata(definition: NWProtocolWebSocket.definition) as? NWProtocolWebSocket.Metadata
+                        switch metadata?.opcode {
+                        case .binary?:
+                            continuation.resume(returning: .some(.data(content ?? Data())))
+                        case .text?:
+                            continuation.resume(returning: .some(.string(String(decoding: content ?? Data(), as: UTF8.self))))
+                        case .close?, nil:
+                            continuation.resume(returning: nil)
+                        default:
+                            continuation.resume(returning: .some(nil))
                         }
                     }
-                } catch {
-                    // On clean shutdown, task.receive() throws URLError(.cancelled)
-                    // rather than CancellationError. Return nil (end-of-sequence)
-                    // instead of propagating, so `subscribe` doesn't call onFailure.
-                    if task.closeCode != .invalid || Task.isCancelled { return nil }
-                    throw LiveKitError.from(error: error) ?? error
                 }
             } onCancel: {
-                task.cancel(with: .normalClosure, reason: nil)
+                connection.cancel()
             }
         }
     }
 
     nonisolated func makeAsyncIterator() -> AsyncIterator {
-        AsyncIterator(task: task)
+        AsyncIterator(connection: connection)
     }
 
     // MARK: - Send
 
     nonisolated func send(data: Data) async throws {
-        // Callback API rather than the async overlay, for the same reason as `next()` below: the
-        // overlay's continuation bridge carries a TSan-visible data race between the thread that
-        // creates the continuation and the one that completes it. CI caught it on the TSan leg,
-        // where it aborts the whole test bundle.
+        let context = NWConnection.ContentContext(identifier: "binary",
+                                                  metadata: [NWProtocolWebSocket.Metadata(opcode: .binary)])
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            task.send(.data(data)) { error in
+            connection.send(content: data, contentContext: context, isComplete: true, completion: .contentProcessed { error in
                 if let error {
-                    continuation.resume(throwing: error)
+                    continuation.resume(throwing: LiveKitError(.network, internalError: WebSocket.bridged(error)))
                 } else {
                     continuation.resume()
                 }
-            }
+            })
         }
     }
 
-    // MARK: - Delegate
+    // MARK: - Opening
 
-    private final class Delegate: NSObject, Loggable, URLSessionWebSocketDelegate {
-        private let _continuation = StateSync<CheckedContinuation<Void, Error>?>(nil)
+    /// A continuation resumed once, by whichever comes first: the connection's answer or the timeout.
+    private final class Once<Value: Sendable>: Sendable {
+        private let continuation = StateSync<CheckedContinuation<Value, Error>?>(nil)
 
-        func setConnectContinuation(_ continuation: CheckedContinuation<Void, Error>) {
-            _continuation.mutate { $0 = continuation }
+        func start(_ continuation: CheckedContinuation<Value, Error>) {
+            self.continuation.mutate { $0 = continuation }
         }
 
-        func cancelConnection() {
-            _continuation.mutate {
-                $0?.resume(throwing: LiveKitError(.cancelled))
-                $0 = nil
+        func finish(_ result: Result<Value, Error>) {
+            let pending = continuation.mutate { current -> CheckedContinuation<Value, Error>? in
+                defer { current = nil }
+                return current
             }
-        }
-
-        func urlSession(_: URLSession, webSocketTask _: URLSessionWebSocketTask, didOpenWithProtocol _: String?) {
-            _continuation.mutate {
-                $0?.resume()
-                $0 = nil
-            }
-        }
-
-        func urlSession(_: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-            log("didCompleteWithError: \(String(describing: error))", error != nil ? .error : .debug)
-
-            // A rejected upgrade (401 on a bad token, 404 on a wrong path) arrives as a
-            // plain URLError with the HTTP response still attached. Keep the status: it is
-            // the difference between failing fast and reconnecting forever.
-            let upgradeStatus = (task.response as? HTTPURLResponse)
-                .map(\.statusCode)
-                .flatMap { $0 == 101 ? nil : WebSocketUpgradeFailure(statusCode: $0) }
-
-            _continuation.mutate {
-                if let upgradeStatus {
-                    $0?.resume(throwing: LiveKitError(.network, internalError: upgradeStatus))
-                } else if let error {
-                    $0?.resume(throwing: LiveKitError.from(error: error) ?? LiveKitError(.unknown))
-                } else {
-                    $0?.resume()
-                }
-                $0 = nil
-            }
+            pending?.resume(with: result)
         }
     }
 }
