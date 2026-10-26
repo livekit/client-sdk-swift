@@ -20,7 +20,7 @@ internal import CLiveKitProto
 import CLiveKitProto
 import LiveKitNanopb
 #endif
-internal import LiveKitWebRTC
+@preconcurrency internal import LiveKitWebRTC
 @preconcurrency import AVFoundation
 import Foundation
 

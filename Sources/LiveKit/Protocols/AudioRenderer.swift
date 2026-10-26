@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-internal import LiveKitWebRTC
+@preconcurrency internal import LiveKitWebRTC
 @preconcurrency import AVFoundation
 import CoreMedia
 
