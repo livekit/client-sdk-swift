@@ -17,12 +17,6 @@
 import Foundation
 import Network
 
-/// The server answered the upgrade request with an HTTP response instead of switching
-/// protocols. Carried as the `internalError` of the thrown ``LiveKitError``.
-struct WebSocketUpgradeFailure: Error, Sendable {
-    let statusCode: Int
-}
-
 /// The signalling WebSocket, over Network.framework.
 ///
 /// Not `URLSessionWebSocketTask`: Foundation keeps every `URLSession` that ran a WebSocket task, and the task,
@@ -85,13 +79,8 @@ actor WebSocket: Loggable, AsyncSequence {
             try await opening.wait()
         } catch let error as NWError {
             connection.cancel()
-            // The server answered the upgrade with an HTTP status: Network.framework aborts the connection
-            // without it, so the same upgrade, sent once more by hand, reads it.
-            if case .posix(.ECONNABORTED) = error,
-               let status = await Self.upgradeStatus(url: url, headers: headers, timeoutInterval: timeoutInterval)
-            {
-                throw LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: status))
-            }
+            // A rejected upgrade arrives as ECONNABORTED, without its HTTP status: Network.framework does not keep
+            // it. Whoever needs the status asks the validation endpoint (SignalClient, WsClientAdapter).
             throw LiveKitError(.network, internalError: Self.bridged(error))
         } catch {
             connection.cancel()
@@ -105,50 +94,6 @@ actor WebSocket: Loggable, AsyncSequence {
 
     nonisolated func close() {
         connection.cancel()
-    }
-
-    /// The HTTP status the server answers the upgrade with, read off the status line of the same request sent over
-    /// a plain TCP (and TLS) connection; nil when it gives none or switches protocols after all.
-    static func upgradeStatus(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval) async -> Int? {
-        guard let host = url.host else { return nil }
-        let secure = url.scheme == "wss"
-        let port = url.port ?? (secure ? 443 : 80)
-        // The request target as the upgrade sent it: escaped, as `URL.path` would not give it.
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
-        var target = components.percentEncodedPath.isEmpty ? "/" : components.percentEncodedPath
-        if let query = components.percentEncodedQuery { target += "?\(query)" }
-        let key = Data((0 ..< 16).map { _ in UInt8.random(in: 0 ... 255) }).base64EncodedString()
-        var request = "GET \(target) HTTP/1.1\r\nHost: \(host):\(port)\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-            + "Sec-WebSocket-Key: \(key)\r\nSec-WebSocket-Version: 13\r\n"
-        for (name, value) in headers {
-            request += "\(name): \(value)\r\n"
-        }
-        request += "\r\n"
-        let bytes = Data(request.utf8)
-
-        guard let nwPort = NWEndpoint.Port(rawValue: UInt16(clamping: port)) else { return nil }
-        let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort,
-                                      using: makeParameters(secure: secure, timeoutInterval: timeoutInterval))
-        defer { connection.cancel() }
-        let answer = AsyncCompleter<Int?>(label: "WebSocket.upgradeStatus", defaultTimeout: timeoutInterval)
-        connection.stateUpdateHandler = { state in
-            switch state {
-            case .ready:
-                connection.send(content: bytes, completion: .contentProcessed { _ in })
-                connection.receive(minimumIncompleteLength: 12, maximumLength: 512) { content, _, _, _ in
-                    // "HTTP/1.1 401 Unauthorized"
-                    let line = content.flatMap { String(data: $0, encoding: .utf8) }?.split(separator: "\r\n").first
-                    let status = line.flatMap { $0.split(separator: " ").dropFirst().first }.flatMap { Int($0) }
-                    answer.resume(returning: status == 101 ? nil : status)
-                }
-            case .failed, .waiting, .cancelled:
-                answer.resume(returning: nil)
-            default:
-                break
-            }
-        }
-        connection.start(queue: queue)
-        return try? await answer.wait()
     }
 
     /// Network.framework's errors in the shapes the SDK reads elsewhere (`isNetworkError`, `asTransportError`):
