@@ -443,16 +443,14 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var nextRegion: RegionInfo?
         let regionManager = await regionManager(for: providedUrl)
 
-        if providedUrl.isCloud {
-            if let regionManager {
-                await regionManager.resetAttempts(onlyIfExhausted: true)
+        if providedUrl.isCloud, let regionManager {
+            await regionManager.resetAttempts(onlyIfExhausted: true)
 
-                if let preparedRegion {
-                    nextUrl = preparedRegion.url
-                    nextRegion = preparedRegion
-                } else if await regionManager.shouldRequestSettings() {
-                    await regionManager.prepareSettingsFetch(token: token)
-                }
+            if let preparedRegion {
+                nextUrl = preparedRegion.url
+                nextRegion = preparedRegion
+            } else if await regionManager.shouldRequestSettings() {
+                await regionManager.prepareSettingsFetch(token: token)
             }
         }
 

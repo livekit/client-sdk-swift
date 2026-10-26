@@ -54,15 +54,15 @@ extension Room: TransportDelegate {
             }
         }
 
-        if _state.connectionState == .connected {
-            // Attempt re-connect if primary or publisher transport failed
-            if transport.isPrimary || (_state.hasPublished && transport.target == .publisher), pcState.isDisconnected {
-                Task {
-                    do {
-                        try await startReconnect(reason: .transport)
-                    } catch {
-                        log("Failed calling startReconnect, error: \(error)", .error)
-                    }
+        if _state.connectionState == .connected,
+           // Attempt re-connect if primary or publisher transport failed
+           transport.isPrimary || (_state.hasPublished && transport.target == .publisher), pcState.isDisconnected
+        {
+            Task {
+                do {
+                    try await startReconnect(reason: .transport)
+                } catch {
+                    log("Failed calling startReconnect, error: \(error)", .error)
                 }
             }
         }

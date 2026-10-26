@@ -82,20 +82,16 @@ extension Room {
         }
 
         // Notify when reconnection starts
-        if oldState.isReconnectingWithMode == nil, state.isReconnectingWithMode != nil {
-            if let startMode = state.isReconnectingWithMode {
-                delegates.notify(label: { "room.didStartReconnectWithMode: \(startMode)" }) {
-                    $0.room?(self, didStartReconnectWithMode: startMode)
-                }
+        if oldState.isReconnectingWithMode == nil, state.isReconnectingWithMode != nil, let startMode = state.isReconnectingWithMode {
+            delegates.notify(label: { "room.didStartReconnectWithMode: \(startMode)" }) {
+                $0.room?(self, didStartReconnectWithMode: startMode)
             }
         }
 
         // Notify when reconnection completes
-        if oldState.isReconnectingWithMode != nil, state.isReconnectingWithMode == nil {
-            if let completedMode = oldState.isReconnectingWithMode {
-                delegates.notify(label: { "room.didCompleteReconnectWithMode: \(completedMode)" }) {
-                    $0.room?(self, didCompleteReconnectWithMode: completedMode)
-                }
+        if oldState.isReconnectingWithMode != nil, state.isReconnectingWithMode == nil, let completedMode = oldState.isReconnectingWithMode {
+            delegates.notify(label: { "room.didCompleteReconnectWithMode: \(completedMode)" }) {
+                $0.room?(self, didCompleteReconnectWithMode: completedMode)
             }
         }
 
