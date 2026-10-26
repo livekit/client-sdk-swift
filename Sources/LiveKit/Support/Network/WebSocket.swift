@@ -192,7 +192,11 @@ actor WebSocket: Loggable, AsyncSequence {
                         case .binary?:
                             continuation.resume(returning: .some(.data(content ?? Data())))
                         case .text?:
-                            continuation.resume(returning: .some(.string(String(decoding: content ?? Data(), as: UTF8.self))))
+                            if let text = String(bytes: content ?? Data(), encoding: .utf8) {
+                                continuation.resume(returning: .some(.string(text)))
+                            } else {
+                                continuation.resume(throwing: LiveKitError(.network, message: "Text frame is not valid UTF-8"))
+                            }
                         case .close?:
                             continuation.resume(returning: nil)
                         default:
