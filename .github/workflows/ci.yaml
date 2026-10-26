@@ -237,7 +237,7 @@ jobs:
         with:
           xcode-version: latest-stable
       - name: Install SwiftLint and SwiftFormat
-        run: brew upgrade swiftformat swiftlint
+        run: brew update && brew install swiftformat swiftlint && brew upgrade swiftformat swiftlint
       - name: SwiftLint
         run: swiftlint lint --strict --reporter github-actions-logging
       - name: SwiftFormat Lint
