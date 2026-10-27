@@ -141,6 +141,10 @@ extension Error {
 
         let underlying = (self as? LiveKitError)?.internalError ?? self
 
+        // livekit-net reads a close as the end of the stream, as it always has.
+        if underlying is WebSocketClosedByPeer {
+            return .Closed
+        }
         if let upgrade = underlying as? WebSocketUpgradeFailure {
             return .Http(status: UInt16(clamping: upgrade.statusCode))
         }
