@@ -1,0 +1,1 @@
+patch type="changed" "Single peer connection mode now preallocates receive media sections in the initial offer and resolves received media by `mid`, so the first remote track no longer costs an extra negotiation round trip"

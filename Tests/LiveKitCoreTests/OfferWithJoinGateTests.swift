@@ -97,7 +97,7 @@ struct OfferWithJoinGateTests {
 private final class AnswerRecorder: SignalClientDelegate {
     let answer = AsyncCompleter<UInt32>(label: "Answer", defaultTimeout: 5)
 
-    func signalClient(_: SignalClient, didReceiveAnswer _: LKRTCSessionDescription, offerId: UInt32) async {
+    func signalClient(_: SignalClient, didReceiveAnswer _: LKRTCSessionDescription, offerId: UInt32, midToTrackSid _: [String: Track.Sid]) async {
         answer.resume(returning: offerId)
     }
 

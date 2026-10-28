@@ -137,6 +137,14 @@ extension Room: SignalClientDelegate {
         log("didReceiveRoomMoved to room: \(response.hasRoom ? response.room.name : "unknown")")
 
         _updateState(for: response)
+
+        // Before the teardown, so no answer racing it can attach to a publication that is about
+        // to be discarded. The move rebuilds every publication on the same peer connection, so a
+        // section the server carries over unchanged would otherwise still read as dispatched.
+        if let publisher = _state.transport?.publisher, publisher.singlePCMode {
+            await publisher.forgetReceivedMedia()
+        }
+
         await _disconnectAllParticipants()
 
         if response.hasRoom {
@@ -342,7 +350,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32) async {
+    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32, midToTrackSid: [String: Track.Sid]) async {
         log("Received answer for offerId: \(offerId)")
 
         // Clamp to the SDK default — libwebrtc advertises larger (~256 KiB)
@@ -362,8 +370,48 @@ extension Room: SignalClientDelegate {
             if _state.roomOptions.dynacast {
                 await localParticipant.refreshSubscribedQualities()
             }
+
+            // After the description, so the transceivers this maps over have their mids and
+            // receivers. Only single PC mode receives media on the publisher connection.
+            if publisher.singlePCMode {
+                await attachReceivedMedia(on: publisher, midToTrackSid: midToTrackSid)
+            }
         } catch {
             log("Failed to set remote description with offerId: \(offerId), error: \(error)", .error)
+        }
+    }
+
+    /// Attaches media the server has bound to the publisher's receive sections.
+    ///
+    /// In single PC mode this is the only path that identifies received media. The `didAddTrack`
+    /// callback cannot: native libwebrtc fires it when a transceiver is created, never when an
+    /// already-negotiated `recvonly` section has a track bound to it — which is what the SFU does
+    /// to a section the client preallocated. ``Transport/receivedMedia(applying:)`` recovers those
+    /// by scanning the transceivers after each description, the same diff browsers run natively
+    /// and rust-sdks reimplements in `process_remote_track_addition`.
+    private func attachReceivedMedia(on publisher: Transport, midToTrackSid: [String: Track.Sid]) async {
+        let received = await publisher.receivedMedia(applying: midToTrackSid)
+        guard !received.isEmpty else { return }
+
+        for media in received {
+            guard let participant = _state.read({ state in
+                state.remoteParticipants.values.first { $0._state.trackPublications[media.trackSid] != nil }
+            }) else {
+                // The publication announcement can trail the description that binds it. Undoing
+                // the dispatch is what lets a later scan pick the section up again.
+                log("No publication yet for \(media.trackSid), deferring attach", .debug)
+                await publisher.undispatch(mid: media.mid, trackSid: media.trackSid)
+                continue
+            }
+
+            do {
+                try await participant.addSubscribedMediaTrack(mediaTrack: media.track,
+                                                              rtpReceiver: media.receiver,
+                                                              trackSid: media.trackSid)
+            } catch {
+                log("Failed to attach \(media.trackSid) resolved by mid: \(error)", .error)
+                await publisher.undispatch(mid: media.mid, trackSid: media.trackSid)
+            }
         }
     }
 
@@ -432,18 +480,19 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {
         guard case let .publisherOnly(publisher) = _state.transport else { return }
 
-        let transceiverInit = LKRTCRtpTransceiverInit()
-        transceiverInit.direction = .recvOnly
-
         do {
-            try await RTC.run {
-                for _ in 0 ..< requirement.numAudios {
-                    _ = try publisher.addTransceiver(ofType: .audio, transceiverInit: transceiverInit)
-                }
-                for _ in 0 ..< requirement.numVideos {
-                    _ = try publisher.addTransceiver(ofType: .video, transceiverInit: transceiverInit)
-                }
-            }
+            // Additive, matching client-sdk-js and rust-sdks: the count is what the server needs
+            // *on top of* the sections already offered, so it is zero once the initial offer
+            // preallocated enough.
+            try await publisher.addRecvMediaSections(audio: Int(requirement.numAudios),
+                                                     video: Int(requirement.numVideos))
+
+            // Unconditional, including for a zero count. The requirement is the server's only
+            // way to ask for a renegotiation in single PC mode, where the client is the sole
+            // offerer — and the binding it needs to deliver (`a=msid`, `mid_to_track_id`) can
+            // only be stamped on an answer. Skipping the offer when no section has to be added
+            // strands every subscription the preallocated sections already cover, which after a
+            // migration is all of them.
             try await publisherShouldNegotiate()
         } catch {
             log("Failed to add transceivers for media sections requirement: \(error)", .error)
