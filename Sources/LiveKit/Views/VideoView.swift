@@ -493,11 +493,9 @@ public class VideoView: NativeView, Loggable {
             debugView.layer!.borderWidth = 3
             #endif
             bringSubviewToFront(debugView)
-        } else {
-            if let debugView = _debugTextView {
-                debugView.removeFromSuperview()
-                _debugTextView = nil
-            }
+        } else if let debugView = _debugTextView {
+            debugView.removeFromSuperview()
+            _debugTextView = nil
         }
 
         guard let track = state.track else {

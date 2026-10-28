@@ -125,17 +125,15 @@ extension Room {
                         $0.isSpeaking = true
                     }
                     activeSpeakers.append(localParticipant)
-                } else {
-                    if let participant = state.remoteParticipant(forSid: participantSid) {
-                        participant._state.mutate {
-                            $0.audioLevel = speaker.level
-                            if !$0.isSpeaking {
-                                $0.lastSpokeAt = Date()
-                            }
-                            $0.isSpeaking = true
+                } else if let participant = state.remoteParticipant(forSid: participantSid) {
+                    participant._state.mutate {
+                        $0.audioLevel = speaker.level
+                        if !$0.isSpeaking {
+                            $0.lastSpokeAt = Date()
                         }
-                        activeSpeakers.append(participant)
+                        $0.isSpeaking = true
                     }
+                    activeSpeakers.append(participant)
                 }
             }
 
