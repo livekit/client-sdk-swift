@@ -16,11 +16,11 @@
 
 import Foundation
 @testable import LiveKit
+import LiveKitFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
-import LiveKitFFI
 
 @Suite(.tags(.networking))
 struct TokenSourceTests {

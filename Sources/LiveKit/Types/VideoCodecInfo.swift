@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 /// Identifies a video codec together with its SDP format parameters.
 ///

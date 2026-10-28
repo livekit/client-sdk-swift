@@ -19,9 +19,8 @@
 #if !COCOAPODS && !LK_XCFRAMEWORK
 import LiveKitNanopb
 #endif
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateConnectionState connectionState: ConnectionState,

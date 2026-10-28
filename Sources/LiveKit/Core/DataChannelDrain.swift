@@ -16,9 +16,8 @@
 
 // swiftlint:disable file_length
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 // MARK: - Drain
 
@@ -508,7 +507,11 @@ extension DataChannelDrain {
     /// production reaches it only through the mutation sites above.
     func publishOpenState() {
         _state.read { state in
-            if state.sendTarget?.isOpen == true { whenOpen.resume(returning: ()) } else { whenOpen.rearm() }
+            if state.sendTarget?.isOpen == true {
+                whenOpen.resume(returning: ())
+            } else {
+                whenOpen.rearm()
+            }
         }
     }
 }

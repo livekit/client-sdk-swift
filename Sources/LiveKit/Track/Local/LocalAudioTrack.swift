@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 import AVFAudio
 import Combine
 import Foundation
-
-internal import LiveKitWebRTC
 
 @objcMembers
 public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @unchecked Sendable {

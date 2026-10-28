@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 extension Room {
     // swiftlint:disable:next cyclomatic_complexity function_body_length
@@ -82,20 +81,16 @@ extension Room {
         }
 
         // Notify when reconnection starts
-        if oldState.isReconnectingWithMode == nil, state.isReconnectingWithMode != nil {
-            if let startMode = state.isReconnectingWithMode {
-                delegates.notify(label: { "room.didStartReconnectWithMode: \(startMode)" }) {
-                    $0.room?(self, didStartReconnectWithMode: startMode)
-                }
+        if oldState.isReconnectingWithMode == nil, state.isReconnectingWithMode != nil, let startMode = state.isReconnectingWithMode {
+            delegates.notify(label: { "room.didStartReconnectWithMode: \(startMode)" }) {
+                $0.room?(self, didStartReconnectWithMode: startMode)
             }
         }
 
         // Notify when reconnection completes
-        if oldState.isReconnectingWithMode != nil, state.isReconnectingWithMode == nil {
-            if let completedMode = oldState.isReconnectingWithMode {
-                delegates.notify(label: { "room.didCompleteReconnectWithMode: \(completedMode)" }) {
-                    $0.room?(self, didCompleteReconnectWithMode: completedMode)
-                }
+        if oldState.isReconnectingWithMode != nil, state.isReconnectingWithMode == nil, let completedMode = oldState.isReconnectingWithMode {
+            delegates.notify(label: { "room.didCompleteReconnectWithMode: \(completedMode)" }) {
+                $0.room?(self, didCompleteReconnectWithMode: completedMode)
             }
         }
 
@@ -130,17 +125,15 @@ extension Room {
                         $0.isSpeaking = true
                     }
                     activeSpeakers.append(localParticipant)
-                } else {
-                    if let participant = state.remoteParticipant(forSid: participantSid) {
-                        participant._state.mutate {
-                            $0.audioLevel = speaker.level
-                            if !$0.isSpeaking {
-                                $0.lastSpokeAt = Date()
-                            }
-                            $0.isSpeaking = true
+                } else if let participant = state.remoteParticipant(forSid: participantSid) {
+                    participant._state.mutate {
+                        $0.audioLevel = speaker.level
+                        if !$0.isSpeaking {
+                            $0.lastSpokeAt = Date()
                         }
-                        activeSpeakers.append(participant)
+                        $0.isSpeaking = true
                     }
+                    activeSpeakers.append(participant)
                 }
             }
 

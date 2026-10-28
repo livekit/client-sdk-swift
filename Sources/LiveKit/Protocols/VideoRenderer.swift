@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import AVFoundation
-
 internal import LiveKitWebRTC
+import AVFoundation
 
 @objc
 public protocol VideoRenderer: Sendable {

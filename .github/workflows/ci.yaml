@@ -236,14 +236,13 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-      - name: Install SwiftLint
-        run: brew install swiftlint
+      - name: Install SwiftLint and SwiftFormat
+        run: brew update && brew install swiftformat swiftlint && brew upgrade swiftformat swiftlint
       - name: SwiftLint
         run: swiftlint lint --strict --reporter github-actions-logging
       - name: SwiftFormat Lint
         if: always()
         run: swiftformat --lint . --reporter github-actions-log
-        # Comes pre-installed on macOS runners
   build-docs:
     name: Build Docs
     needs: build-and-test

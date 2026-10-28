@@ -333,9 +333,9 @@ extension Collection<VideoRenderer> {
     }
 }
 
+@MainActor
 extension RemoteTrackPublication {
     // executed on .main
-    @MainActor
     private func onAdaptiveStreamTimer() async {
         // don't continue if the engine is disconnected
         guard engineConnectionState != .disconnected else {
