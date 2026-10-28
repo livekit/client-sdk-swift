@@ -653,16 +653,21 @@ extension Transport {
         var document = SDP(parsing: sdp)
 
         var canonicalByPayload: [String: String] = [:]
-        for section in document.mediaSections {
-            let isReceiveOnly = isReceiveOnlySection(section)
-            for fmtp in section.fmtps {
-                // A sending section overwrites unconditionally, so it wins regardless of the
-                // order the sections appear in.
-                if !isReceiveOnly {
-                    canonicalByPayload[fmtp.payload] = fmtp.config
-                } else if canonicalByPayload[fmtp.payload] == nil {
-                    canonicalByPayload[fmtp.payload] = fmtp.config
-                }
+        for section in document.mediaSections where !isReceiveOnlySection(section) {
+            // Every payload a sending section declares is canonical, including the ones it
+            // declares with no fmtp at all: "no parameters" collides with "some parameters"
+            // exactly as two different parameter sets do, so the absence has to be recorded or
+            // a receive section's fmtp would become canonical for a payload the sender leaves
+            // bare — and the rewrite below, which only touches receive sections, could never
+            // resolve it. A sending section overwrites unconditionally, so it wins regardless
+            // of the order the sections appear in.
+            for rtpmap in section.rtpmaps {
+                canonicalByPayload[rtpmap.payload] = section.fmtp(forPayload: rtpmap.payload)?.config ?? ""
+            }
+        }
+        for section in document.mediaSections where isReceiveOnlySection(section) {
+            for fmtp in section.fmtps where canonicalByPayload[fmtp.payload] == nil {
+                canonicalByPayload[fmtp.payload] = fmtp.config
             }
         }
         guard !canonicalByPayload.isEmpty else { return sdp }
@@ -674,9 +679,10 @@ extension Transport {
             // some, and that section has no fmtp line to iterate.
             for rtpmap in document.mediaSections[index].rtpmaps {
                 guard let canonical = canonicalByPayload[rtpmap.payload] else { continue }
-                if document.mediaSections[index].setFmtp(config: canonical, forPayload: rtpmap.payload) {
-                    modified = true
-                }
+                let changed = canonical.isEmpty
+                    ? document.mediaSections[index].removeFmtp(forPayload: rtpmap.payload)
+                    : document.mediaSections[index].setFmtp(config: canonical, forPayload: rtpmap.payload)
+                if changed { modified = true }
             }
         }
         return modified ? document.write() : sdp

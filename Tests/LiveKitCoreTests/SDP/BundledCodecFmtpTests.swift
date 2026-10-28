@@ -137,6 +137,22 @@ struct BundledCodecFmtpTests {
             == once.replacingOccurrences(of: "a=recvonly", with: "a=sendrecv"))
     }
 
+    /// A payload a sending section declares with no fmtp at all is canonical in that state, so a
+    /// receive section carrying parameters for it is stripped rather than left to collide. The
+    /// rewrite only visits receive sections, so recording the absence is the only way this
+    /// resolves.
+    @Test func sendingSectionWithoutFmtpStripsTheReceiveSection() {
+        let senderBare = Self.singlePCOffer
+            .replacingOccurrences(of: "a=fmtp:100 x-google-start-bitrate=900\r\n", with: "")
+        let sections = SDP(parsing: Transport.conformBundledCodecFmtp(senderBare)).mediaSections
+
+        // Sending section (mid 2) declares 100 with no fmtp; the receive section must match.
+        #expect(sections[2].fmtp(forPayload: "100") == nil)
+        #expect(sections[3].fmtp(forPayload: "100") == nil)
+        #expect(Self.fmtpConfigsByPayload(Transport.conformBundledCodecFmtp(senderBare))
+            .allSatisfy { $0.value.count == 1 })
+    }
+
     /// The pipeline the publisher actually runs: the start-bitrate munge diverges the shared
     /// payload types, the conform pass puts them back. Expressed as the invariant libwebrtc
     /// enforces — one fmtp config per payload type across the BUNDLE group — rather than as

@@ -171,6 +171,20 @@ struct SDPMediaSection {
         return true
     }
 
+    /// Removes the fmtp line of `payload`, if any. Returns `true` if the section was modified.
+    ///
+    /// The counterpart to ``setFmtp(config:forPayload:)`` for conforming a section to a codec
+    /// that is declared with no parameters at all: "no fmtp" is a config like any other, and a
+    /// section cannot be conformed to it by writing.
+    @discardableResult
+    mutating func removeFmtp(forPayload payload: String) -> Bool {
+        guard let index = lines.indices.first(where: {
+            Self.fmtp(fromLine: lines[$0])?.payload == payload
+        }) else { return false }
+        lines.remove(at: index)
+        return true
+    }
+
     /// Whether an `a=rtcp-fb:<payload> <value>` line with exactly `value` exists for
     /// `payload`. Exact-value match: `nack` does not match `nack pli` (RFC 4585 §4.2
     /// — they are distinct feedback parameters).
