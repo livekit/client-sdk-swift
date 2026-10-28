@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Benchmark
 import CoreMedia
 import CoreVideo
 import Foundation
@@ -32,6 +33,14 @@ final class EventLatch: @unchecked Sendable {
     private enum Waiter {
         case waiting(CheckedContinuation<Double, Error>)
         case cancelled
+    }
+
+    /// Names the milestone in a timeout, so a failed run says *which* event never arrived rather
+    /// than only that one didn't.
+    let name: String
+
+    init(_ name: String) {
+        self.name = name
     }
 
     private struct State {
@@ -64,7 +73,7 @@ final class EventLatch: @unchecked Sendable {
             group.addTask { try await self.awaitFire() }
             group.addTask {
                 try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                throw BenchmarkTimeout()
+                throw BenchmarkTimeout(milestone: self.name)
             }
             defer { group.cancelAll() }
             return try await group.next()!
@@ -130,12 +139,69 @@ final class EventLatch: @unchecked Sendable {
 }
 
 struct BenchmarkTimeout: Error, CustomStringConvertible {
-    var description: String { "Timed out waiting for a lifecycle event" }
+    let milestone: String
+    var description: String { "Timed out waiting for lifecycle event '\(milestone)'" }
+}
+
+/// Runs one measured iteration, absorbing a failure instead of letting it end the variant.
+///
+/// The framework treats a thrown iteration as a failed benchmark and discards the variant
+/// whole, so a single flaky run costs all 15 samples. That silently biases a comparison: the
+/// arm that occasionally fails contributes no row at all rather than a visibly worse one, and
+/// its surviving percentiles are read as if nothing had gone wrong. Here a failure costs only
+/// its own sample, and is counted so the rate is part of the result.
+///
+/// - Returns: The milestone that timed out, or `nil` if the iteration completed.
+@discardableResult
+func runTolerantly(_ iteration: () async throws -> Void) async -> String? {
+    do {
+        try await iteration()
+        return nil
+    } catch let timeout as BenchmarkTimeout {
+        return timeout.milestone
+    } catch {
+        return "\(error)"
+    }
+}
+
+/// Collects an iteration's measurements and hands them to the framework only once the whole
+/// iteration has completed.
+///
+/// Milestones are measured as they happen, but a session that fails at, say, `data_echo` has
+/// already produced a `connect_ms` and a `pub_to_sub_ms`. Recording those directly would mix
+/// samples from sessions that went wrong into the percentiles of the metrics that came before
+/// the failure — and leave each metric with a different sample count. Buffering keeps an
+/// iteration all-or-nothing, which is what the percentiles assume.
+final class MeasurementBuffer {
+    private var pending: [(BenchmarkMetric, Int)] = []
+
+    func record(_ metric: BenchmarkMetric, _ value: Int) {
+        pending.append((metric, value))
+    }
+
+    /// Hands the buffered samples to `benchmark`. Call only on the success path.
+    func commit(to benchmark: Benchmark) {
+        for (metric, value) in pending {
+            benchmark.measurement(metric, value)
+        }
+        pending.removeAll()
+    }
+}
+
+/// Reports a failed iteration, naming the milestone that never arrived.
+///
+/// Printed rather than only recorded as a metric: the milestone is the useful part and the
+/// results table has no column for it. One line per failure — the framework invokes a benchmark
+/// body once per iteration, so there is no point in the body at which a per-variant total could
+/// be known. Count the lines to get the rate.
+func reportFailure(_ milestone: String?, variant: String) {
+    guard let milestone else { return }
+    print("[\(variant)] iteration failed, never reached: \(milestone)")
 }
 
 /// Marks the moment a remote participant becomes visible to an already-connected peer.
 final class PeerVisibleObserver: NSObject, RoomDelegate, @unchecked Sendable {
-    let visible = EventLatch()
+    let visible = EventLatch("peer_visible")
 
     func room(_: Room, participantDidConnect _: RemoteParticipant) {
         visible.fire()
@@ -148,8 +214,8 @@ final class PeerVisibleObserver: NSObject, RoomDelegate, @unchecked Sendable {
 /// timeline: subscription is a signalling+negotiation event, the first frame is media actually
 /// flowing on the established transport.
 final class SubscriberObserver: NSObject, RoomDelegate, VideoRenderer, @unchecked Sendable {
-    let subscribed = EventLatch()
-    let firstFrame = EventLatch()
+    let subscribed = EventLatch("subscribed")
+    let firstFrame = EventLatch("first_frame")
 
     // Not adaptive: the benchmark must not have layers paused out from under it.
     var isAdaptiveStreamEnabled: Bool { false }
@@ -169,9 +235,84 @@ final class SubscriberObserver: NSObject, RoomDelegate, VideoRenderer, @unchecke
     }
 }
 
+/// Marks the milestones a *late joiner* waits for: each already-published remote track being
+/// subscribed, and each subscribed track producing its first frame.
+///
+/// Separate from ``SubscriberObserver`` because the question is a different one. There, a track is
+/// published into an established session and the single first-frame latch is the whole answer.
+/// Here the room is already full when the joiner arrives, so what matters is how long until *all*
+/// of it is on screen — the "all" latches fire on the last of `expectedTracks` rather than on a
+/// timeout, which is what makes a room larger than the preallocated receive sections measurable.
+final class LateJoinObserver: NSObject, RoomDelegate, @unchecked Sendable {
+    let firstSubscribed = EventLatch("first_subscribed")
+    let allSubscribed = EventLatch("all_subscribed")
+    let firstFrame = EventLatch("first_frame")
+    let allFrames = EventLatch("all_frames")
+
+    private struct State {
+        var subscribedCount = 0
+        var renderedTrackSids: Set<String> = []
+        /// `add(videoRenderer:)` holds the renderer weakly, so the probes live here.
+        var probes: [FrameProbe] = []
+    }
+
+    private let _state = StateSync(State())
+    private let expectedTracks: Int
+
+    init(expectedTracks: Int) {
+        self.expectedTracks = expectedTracks
+        super.init()
+    }
+
+    func room(_: Room, participant _: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
+        guard let track = publication.track as? RemoteVideoTrack else { return }
+
+        firstSubscribed.fire()
+        let subscribed = _state.mutate { state -> Int in
+            state.subscribedCount += 1
+            return state.subscribedCount
+        }
+        if subscribed >= expectedTracks { allSubscribed.fire() }
+
+        // One probe per track: a shared renderer could not tell which track a frame came from, so
+        // `allFrames` would fire on the first track delivering `expectedTracks` frames.
+        let sid = publication.sid.stringValue
+        let probe = FrameProbe { [weak self] in self?.recordFrame(trackSid: sid) }
+        _state.mutate { $0.probes.append(probe) }
+        track.add(videoRenderer: probe)
+    }
+
+    private func recordFrame(trackSid: String) {
+        firstFrame.fire()
+        let rendered = _state.mutate { state -> Int in
+            state.renderedTrackSids.insert(trackSid)
+            return state.renderedTrackSids.count
+        }
+        if rendered >= expectedTracks { allFrames.fire() }
+    }
+}
+
+/// Reports frames from one remote video track, so per-track arrival can be distinguished.
+private final class FrameProbe: NSObject, VideoRenderer, @unchecked Sendable {
+    private let onFrame: @Sendable () -> Void
+
+    // Not adaptive: the benchmark must not have layers paused out from under it.
+    var isAdaptiveStreamEnabled: Bool { false }
+    var adaptiveStreamSize: CGSize { CGSize(width: 1280, height: 720) }
+
+    init(onFrame: @escaping @Sendable () -> Void) {
+        self.onFrame = onFrame
+        super.init()
+    }
+
+    nonisolated func render(frame _: VideoFrame) {
+        onFrame()
+    }
+}
+
 /// Marks the arrival of an echoed data payload, for the data round trip.
 final class DataEchoObserver: NSObject, RoomDelegate, @unchecked Sendable {
-    let received = EventLatch()
+    let received = EventLatch("data_echo")
     private let topic: String
 
     init(topic: String) {
@@ -185,10 +326,35 @@ final class DataEchoObserver: NSObject, RoomDelegate, @unchecked Sendable {
     }
 }
 
+/// Drives a buffer track at ~15fps until cancelled, so subscribers have frames to render.
+///
+/// The frame counter is what makes the content move, and it is load-bearing. Feeding identical
+/// frames looks like it works — the track publishes and bytes flow — but the encoder correctly
+/// drops unchanged content, so it emits one keyframe and then nothing. A subscriber cannot decode
+/// until the SFU asks the publisher for a fresh keyframe, which turns `subscribed → first frame`
+/// into a measurement of that round trip rather than of media latency.
+func startFeedingFrames(into track: LocalVideoTrack) -> Task<Void, Never> {
+    Task.detached {
+        guard let capturer = track.capturer as? BufferCapturer else { return }
+        var tick = 0
+        while !Task.isCancelled {
+            if let pixelBuffer = SyntheticVideo.makePixelBuffer(tick: tick) {
+                capturer.capture(pixelBuffer)
+            }
+            tick += 1
+            try? await Task.sleep(nanoseconds: 66_000_000)
+        }
+    }
+}
+
 /// Produces frames for a buffer-backed video track, so the benchmark does not depend on a camera
 /// (unavailable, and permission-gated, on a headless bench host).
 enum SyntheticVideo {
-    static func makePixelBuffer(width: Int = 640, height: Int = 360) -> CVPixelBuffer? {
+    /// A mid-grey frame with a bright block whose position follows `tick`.
+    ///
+    /// The motion is the point: a static frame is encoded once and then dropped, which makes
+    /// every downstream measurement a measurement of keyframe-on-demand instead.
+    static func makePixelBuffer(width: Int = 640, height: Int = 360, tick: Int = 0) -> CVPixelBuffer? {
         var pixelBuffer: CVPixelBuffer?
         let attributes: [CFString: Any] = [
             kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
@@ -206,6 +372,21 @@ enum SyntheticVideo {
             guard let base = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, plane) else { continue }
             let bytes = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, plane) * CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
             memset(base, 128, bytes)
+        }
+
+        // A block sweeping across the luma plane, so consecutive frames genuinely differ.
+        if let luma = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0) {
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
+            let lumaHeight = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
+            let block = min(96, min(width, lumaHeight) / 3)
+            let spanX = max(1, width - block)
+            let spanY = max(1, lumaHeight - block)
+            let x = abs((tick * 17) % (2 * spanX) - spanX)
+            let y = abs((tick * 11) % (2 * spanY) - spanY)
+            let pointer = luma.assumingMemoryBound(to: UInt8.self)
+            for row in y ..< min(y + block, lumaHeight) {
+                memset(pointer + row * stride + x, 230, min(block, width - x))
+            }
         }
         return pixelBuffer
     }

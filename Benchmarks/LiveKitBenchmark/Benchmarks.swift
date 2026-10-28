@@ -15,6 +15,7 @@
  */
 
 import Benchmark
+import Foundation
 import LiveKit
 
 /// Shared tracer that retains completed spans for benchmark analysis.
@@ -33,6 +34,15 @@ let benchmarks: @Sendable () -> Void = {
     // Inject our tracing so we can capture timing data
     LiveKitSDK.setTracing(benchmarkTracer)
 
+    // The SDK logs to OSLog by default, which a benchmark run never shows. `LK_BENCH_SDK_LOG=1`
+    // routes it to stdout so a run can be read for what the SDK itself reported — SDP munges
+    // being rejected, descriptions failing to apply — alongside libwebrtc's own output.
+    // `PrintLogger` rather than `setLoggerStandardOutput()`: that one is deprecated and sets an
+    // `OSLogger` level, so it never reaches stdout.
+    if Timeline.isSDKLoggingEnabled {
+        LiveKitSDK.setLogger(TimelineLogger())
+    }
+
     // Metric configuration: focus on wall clock time
     Benchmark.defaultConfiguration = .init(
         metrics: .default,
@@ -46,6 +56,7 @@ let benchmarks: @Sendable () -> Void = {
     // Register all benchmark suites
     connectionBenchmarks()
     sessionLifecycleBenchmarks()
+    lateJoinerBenchmarks()
     dataChannelBenchmarks()
     rpcBenchmarks()
 }

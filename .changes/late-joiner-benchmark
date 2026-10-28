@@ -1,0 +1,1 @@
+patch type="changed" "Benchmarks gain a late-joiner scenario (BM-JOIN) and no longer discard a whole variant when one iteration times out; the synthetic video source now produces moving content from a camera-type source, so `subscribed → first frame` measures media latency rather than a server-requested keyframe round trip"
