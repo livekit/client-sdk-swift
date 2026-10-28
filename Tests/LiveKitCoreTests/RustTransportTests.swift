@@ -205,10 +205,7 @@ struct RustTransportTests {
 @Suite(.tags(.networking))
 struct TransportErrorMappingTests {
     @Test("Errors map onto livekit-net's taxonomy", arguments: [
-        // A rejected upgrade keeps its status, bare or wrapped by the WebSocket delegate.
-        (WebSocketUpgradeFailure(statusCode: 401), TransportError.Http(status: 401)),
-        (LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: 503)), .Http(status: 503)),
-        (URLError(.timedOut), .Timeout),
+        (URLError(.timedOut), TransportError.Timeout),
         (LiveKitError(.timedOut), .Timeout),
         // Every abrupt teardown livekit-net folds into end-of-stream.
         (URLError(.cancelled), .Closed),
@@ -221,6 +218,29 @@ struct TransportErrorMappingTests {
     ] as [(any Error & Sendable, TransportError)])
     func errorsMapOntoTheTaxonomy(error: any Error & Sendable, expected: TransportError) {
         #expect(error.asTransportError == expected)
+    }
+
+    /// Network.framework keeps no status for a rejected upgrade, so the adapter reads it off the validation endpoint:
+    /// the one status livekit-net's signal client fails fast on.
+    @Test("A rejected upgrade's status comes from the validation endpoint")
+    func rejectedUpgradeStatusIsValidated() async throws {
+        let server = try FakeWebSocketServer(.reject(status: 401))
+        defer { server.cancel() }
+        let url = try await server.url()
+        let headers = [Header(name: "Authorization", value: "Bearer test")]
+        let error = await #expect(throws: LiveKitError.self) {
+            try await WebSocket(url: url, headers: [(name: "Authorization", value: "Bearer test")], timeoutInterval: 10)
+        }
+        let rejection = try await WsClientAdapter.rejection(of: url, headers: headers, after: #require(error))
+        #expect(rejection == .Http(status: 401))
+    }
+
+    @Test("Any other failed connect asks the validation endpoint nothing")
+    func otherFailuresAreNotValidated() async throws {
+        let url = try #require(URL(string: "ws://127.0.0.1:1/rtc"))
+        let rejection = await WsClientAdapter.rejection(of: url, headers: [],
+                                                        after: LiveKitError(.network, internalError: URLError(.timedOut)))
+        #expect(rejection == nil)
     }
 
     @Test("A connection error keeps the URLError code, not a localized string")
@@ -260,20 +280,5 @@ struct RustHTTPRequestTests {
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer t")
         #expect(request.value(forHTTPHeaderField: "X-Trace") == "1")
         #expect(request.httpBody == Data([0x01, 0x02]))
-    }
-}
-
-/// `livekit-net` hands the Swift side an ordered header list for the WebSocket upgrade.
-@Suite(.tags(.networking))
-struct RustWebSocketRequestTests {
-    @Test("Repeated header names keep every value")
-    func repeatedHeadersKeepEveryValue() throws {
-        let request = try WebSocket.makeRequest(url: #require(URL(string: "wss://example.test/rtc")),
-                                                headers: [(name: "Sec-WebSocket-Protocol", value: "a"),
-                                                          (name: "Sec-WebSocket-Protocol", value: "b"),
-                                                          (name: "sec-websocket-protocol", value: "c")],
-                                                timeoutInterval: 10)
-
-        #expect(request.value(forHTTPHeaderField: "Sec-WebSocket-Protocol") == "a,b,c")
     }
 }

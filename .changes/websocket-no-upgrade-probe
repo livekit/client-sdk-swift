@@ -1,0 +1,1 @@
+patch type="changed" "A rejected signalling upgrade is sent once: the status livekit-net reports for it comes from the validation endpoint, as for the Swift signal client, instead of a second upgrade request"
