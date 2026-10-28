@@ -119,6 +119,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     /// of the WebRTC engine lifecycle.
     ///
     /// - Throws: ``LiveKitError`` if the audio session fails to configure or activate.
+    ///   The requirement is not registered in that case.
     public func acquire(requirement: SessionRequirement) throws -> SessionRequirementHandle {
         let id = UUID()
         try set(requirement: requirement, for: id)
@@ -161,10 +162,19 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 $0.hasRecorded = false
             }
 
+            // Every requirement stayed or shrank, so this is a release. Rolling a
+            // release back would leave a requirement that no owner can remove,
+            // and keep the session from deactivating for good.
+            let isRelease = $0.sessionRequirements.allSatisfy { id, requirement in
+                oldState.sessionRequirements[id]?.isSuperset(of: requirement) == true
+            }
+
             do {
                 try configureIfNeeded(oldState: oldState, newState: $0)
             } catch {
-                $0 = oldState
+                if !isRelease {
+                    $0 = oldState
+                }
                 throw LiveKitError(.audioSession, message: "Failed to configure audio session")
             }
         }
@@ -188,7 +198,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         try configureAudioSession(oldState: oldState, newState: newState)
     }
 
-    @Sendable private func configureAudioSession(oldState: State, newState: State) throws {
+    func configureAudioSession(oldState: State, newState: State) throws {
         let session = AVAudioSession.sharedInstance()
 
         log("configure isRecordingEnabled: \(newState.isRecordingEnabled), isPlayoutEnabled: \(newState.isPlayoutEnabled)")
