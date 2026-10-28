@@ -302,13 +302,21 @@ final class DataEchoObserver: NSObject, RoomDelegate, @unchecked Sendable {
 }
 
 /// Drives a buffer track at ~15fps until cancelled, so subscribers have frames to render.
+///
+/// The frame counter is what makes the content move, and it is load-bearing. Feeding identical
+/// frames looks like it works — the track publishes and bytes flow — but the encoder correctly
+/// drops unchanged content, so it emits one keyframe and then nothing. A subscriber cannot decode
+/// until the SFU asks the publisher for a fresh keyframe, which turns `subscribed → first frame`
+/// into a measurement of that round trip rather than of media latency.
 func startFeedingFrames(into track: LocalVideoTrack) -> Task<Void, Never> {
     Task.detached {
         guard let capturer = track.capturer as? BufferCapturer else { return }
+        var tick = 0
         while !Task.isCancelled {
-            if let pixelBuffer = SyntheticVideo.makePixelBuffer() {
+            if let pixelBuffer = SyntheticVideo.makePixelBuffer(tick: tick) {
                 capturer.capture(pixelBuffer)
             }
+            tick += 1
             try? await Task.sleep(nanoseconds: 66_000_000)
         }
     }
@@ -317,7 +325,11 @@ func startFeedingFrames(into track: LocalVideoTrack) -> Task<Void, Never> {
 /// Produces frames for a buffer-backed video track, so the benchmark does not depend on a camera
 /// (unavailable, and permission-gated, on a headless bench host).
 enum SyntheticVideo {
-    static func makePixelBuffer(width: Int = 640, height: Int = 360) -> CVPixelBuffer? {
+    /// A mid-grey frame with a bright block whose position follows `tick`.
+    ///
+    /// The motion is the point: a static frame is encoded once and then dropped, which makes
+    /// every downstream measurement a measurement of keyframe-on-demand instead.
+    static func makePixelBuffer(width: Int = 640, height: Int = 360, tick: Int = 0) -> CVPixelBuffer? {
         var pixelBuffer: CVPixelBuffer?
         let attributes: [CFString: Any] = [
             kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
@@ -335,6 +347,21 @@ enum SyntheticVideo {
             guard let base = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, plane) else { continue }
             let bytes = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, plane) * CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
             memset(base, 128, bytes)
+        }
+
+        // A block sweeping across the luma plane, so consecutive frames genuinely differ.
+        if let luma = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0) {
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
+            let lumaHeight = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
+            let block = min(96, min(width, lumaHeight) / 3)
+            let spanX = max(1, width - block)
+            let spanY = max(1, lumaHeight - block)
+            let x = abs((tick * 17) % (2 * spanX) - spanX)
+            let y = abs((tick * 11) % (2 * spanY) - spanY)
+            let pointer = luma.assumingMemoryBound(to: UInt8.self)
+            for row in y ..< min(y + block, lumaHeight) {
+                memset(pointer + row * stride + x, 230, min(block, width - x))
+            }
         }
         return pixelBuffer
     }

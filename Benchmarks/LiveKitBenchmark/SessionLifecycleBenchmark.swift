@@ -180,7 +180,12 @@ private func measurePublishToFirstFrame(benchmark: Benchmark,
                                         observer: SubscriberObserver,
                                         singlePC: Bool) async throws -> Task<Void, Never>
 {
-    let track = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions())
+    // Camera source explicitly: `createBufferTrack` defaults to `.screenShareVideo`, which
+    // selects screen-share encoder presets and an uncapped start bitrate — not what a call
+    // publishes, and not what the rust and JS harnesses use.
+    let track = await LocalVideoTrack.createBufferTrack(name: "camera",
+                                                        source: .camera,
+                                                        options: BufferCaptureOptions())
     let frameFeeder = startFeedingFrames(into: track)
 
     do {

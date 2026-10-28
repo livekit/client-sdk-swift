@@ -43,12 +43,12 @@ import LiveKit
 //   connected_to_first_frame_ms `connect()` return → first frame. The *unmasked* figure.
 //
 // Read the subscribe metrics and the frame metrics as separate answers; they do not agree, and
-// the disagreement is the finding. Subscribing is signalling, and single PC wins it by ~190ms on
-// a real network because the binding rides the JOIN answer. Frames wait on DTLS either way, and
-// `connected_to_first_frame_ms` — the figure with the connect both arms pay subtracted — has so
-// far favoured *dual* PC slightly. A run where the subscribe win converts into a frame win is
-// the thing to watch for; it has not happened yet outside loopback, where a sub-50ms connect
-// stops masking the SFU's separate subscription offer.
+// the disagreement is the finding. Subscribing is signalling, and single PC settles it earlier
+// because the binding rides the JOIN answer. Frames wait on DTLS either way, so measured on
+// staging the earlier subscribe does not convert into an earlier frame — the two arms land
+// within noise of each other end to end. Quote `first_frame_ms`, not the subscribe metrics,
+// for anything user-facing: `first_subscribed_ms` also moves with *when* the SDK happens to
+// fire its callback relative to `connect()` returning, which differs between SDKs.
 //
 // The publisher sweep is the second half of the question. Once the SDK preallocates a fixed
 // number of receive sections, a room with more video publishers than that falls back to the
@@ -170,7 +170,10 @@ private func seedRoom(named roomName: String,
             try await publisher.connect(url: config.url,
                                         token: tokenGen.generate(roomName: roomName, identity: "bench-pub-\(index)"))
 
-            let track = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions())
+            // Camera source: see the note in BM-SESSION — the default is screen share.
+            let track = await LocalVideoTrack.createBufferTrack(name: "camera",
+                                                                source: .camera,
+                                                                options: BufferCaptureOptions())
             seeded.feeders.append(startFeedingFrames(into: track))
             try await publisher.localParticipant.publish(videoTrack: track)
         }
