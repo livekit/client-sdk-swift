@@ -215,6 +215,81 @@ struct TransportMungeFallbackTests {
         }
     }
 
+    // MARK: - Bundled codec fmtp
+
+    /// Adds the single PC publisher shape — receive sections preallocated for subscribed media
+    /// alongside a sending one — and returns the sender id of the sending section.
+    private func addSinglePCVideoLayout(to transport: Transport) async throws -> String {
+        try await RTC.run {
+            let receive = LKRTCRtpTransceiverInit()
+            receive.direction = .recvOnly
+            for _ in 0 ..< 3 {
+                _ = try transport.addTransceiver(ofType: .video, transceiverInit: receive)
+            }
+            let send = LKRTCRtpTransceiverInit()
+            send.direction = .sendOnly
+            return try transport.addTransceiver(ofType: .video, transceiverInit: send).sender.senderId
+        }
+    }
+
+    /// Every payload type's distinct fmtp configs across the document, keyed by payload. A
+    /// payload declared by `a=rtpmap` with no fmtp line contributes the empty config, since
+    /// libwebrtc counts "parameters" against "no parameters" as a collision too.
+    private func fmtpConfigsByPayload(_ sdp: String) -> [String: Set<String>] {
+        var result: [String: Set<String>] = [:]
+        for section in SDP(parsing: sdp).mediaSections {
+            for rtpmap in section.rtpmaps {
+                result[rtpmap.payload, default: []].insert(section.fmtp(forPayload: rtpmap.payload)?.config ?? "")
+            }
+        }
+        return result
+    }
+
+    /// What the conform pass exists for, on the shipped libwebrtc: with receive sections sharing
+    /// the sending section's payload types, writing `x-google-start-bitrate` on the sending
+    /// section alone leaves a payload type with two different configs inside one BUNDLE group —
+    /// which libwebrtc reports as "a BUNDLE group contains a codec collision".
+    ///
+    /// Note what it does *not* do: `setLocalDescription` still succeeds, the munge is not
+    /// dropped, and the hint survives. The collision is logged, not enforced, on this path.
+    @Test func startBitrateAloneLeavesTheBundleInconsistent() async throws {
+        try await withTransport { transport in
+            let senderId = try await addSinglePCVideoLayout(to: transport)
+            let offer = try await transport.createOffer()
+
+            let applied = try await transport.set(localDescription: offer, munging: [
+                { Transport.mungeVideoStartBitrate($0, kbpsBySenderId: [senderId: 1000]) },
+            ])
+
+            #expect(applied !== offer)
+            #expect(Transport.carriesVideoStartBitrate(applied.sdp))
+            #expect(fmtpConfigsByPayload(applied.sdp).contains { $0.value.count > 1 })
+        }
+    }
+
+    /// And the fix: conforming the receive sections to the sending one leaves every shared
+    /// payload type with one config, with the hint still on the description that is applied.
+    @Test func conformedStartBitrateIsAcceptedWithReceiveSections() async throws {
+        try await withTransport { transport in
+            let senderId = try await addSinglePCVideoLayout(to: transport)
+            let offer = try await transport.createOffer()
+
+            let applied = try await transport.set(localDescription: offer, munging: [
+                { Transport.mungeVideoStartBitrate($0, kbpsBySenderId: [senderId: 1000]) },
+                Transport.conformBundledCodecFmtp,
+            ])
+
+            #expect(applied !== offer)
+            #expect(Transport.carriesVideoStartBitrate(applied.sdp))
+            #expect(fmtpConfigsByPayload(applied.sdp).allSatisfy { $0.value.count == 1 })
+            let sending = try #require(SDP(parsing: applied.sdp).mediaSections.first { $0.msidTrackId == senderId })
+            for rtpmap in sending.rtpmaps where Transport.startBitrateCodecs.contains(rtpmap.codec.uppercased()) {
+                #expect(sending.fmtp(forPayload: rtpmap.payload)?.parameters.contains("x-google-start-bitrate=1000") == true,
+                        "payload \(rtpmap.payload) (\(rtpmap.codec))")
+            }
+        }
+    }
+
     private actor OfferBox {
         private(set) var all: [LKRTCSessionDescription] = []
         func append(_ offer: LKRTCSessionDescription) { all.append(offer) }
