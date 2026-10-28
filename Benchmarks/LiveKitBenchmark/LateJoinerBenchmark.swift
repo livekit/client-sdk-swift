@@ -119,13 +119,16 @@ let lateJoinerBenchmarks: @Sendable () -> Void = {
                 let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)
 
                 for _ in benchmark.scaledIterations {
+                    // As in BM-SESSION: an iteration contributes all of its samples or none.
+                    let samples = MeasurementBuffer()
                     let failure = await runTolerantly {
-                        try await runLateJoin(benchmark: benchmark,
+                        try await runLateJoin(samples: samples,
                                               config: config,
                                               tokenGen: tokenGen,
                                               singlePC: singlePC,
                                               publisherCount: publisherCount)
                     }
+                    if failure == nil { samples.commit(to: benchmark) }
                     reportFailure(failure, variant: "BM-JOIN-\(mode)-\(publisherCount)Pub")
                     benchmark.measurement(mFailed, failure == nil ? 0 : 1)
                     // Rooms are torn down; give the SFU a beat before the next room is seeded.
@@ -195,7 +198,7 @@ private func seedRoom(named roomName: String,
 
 /// Seeds a room with `publisherCount` publishing participants, then measures a joiner arriving
 /// into it. Only the join is measured; the seeding is setup.
-private func runLateJoin(benchmark: Benchmark,
+private func runLateJoin(samples: MeasurementBuffer,
                          config: BenchmarkConfig,
                          tokenGen: TokenGenerator,
                          singlePC: Bool,
@@ -235,15 +238,15 @@ private func runLateJoin(benchmark: Benchmark,
         let firstFrameAt = try await observer.firstFrame.wait()
         let allFramesAt = try await observer.allFrames.wait()
 
-        benchmark.measurement(mConnect, Int(connectedAt - joinStart))
-        benchmark.measurement(mFirstSub, Int(firstSubscribedAt - joinStart))
-        benchmark.measurement(mAllSubs, Int(allSubscribedAt - joinStart))
-        benchmark.measurement(mFirstFrame, Int(firstFrameAt - joinStart))
-        benchmark.measurement(mAllFrames, Int(allFramesAt - joinStart))
+        samples.record(mConnect, Int(connectedAt - joinStart))
+        samples.record(mFirstSub, Int(firstSubscribedAt - joinStart))
+        samples.record(mAllSubs, Int(allSubscribedAt - joinStart))
+        samples.record(mFirstFrame, Int(firstFrameAt - joinStart))
+        samples.record(mAllFrames, Int(allFramesAt - joinStart))
         // Media cannot flow before DTLS is up, so this is non-negative in practice; clamped
         // because the framework silently discards a negative sample, which would bias the
         // statistic rather than show the ordering surprise.
-        benchmark.measurement(mConnectedToFrame, max(0, Int(firstFrameAt - connectedAt)))
+        samples.record(mConnectedToFrame, max(0, Int(firstFrameAt - connectedAt)))
 
         Timeline.mark("\(singlePC ? "SinglePC" : "DualPC")-\(publisherCount)Pub", [
             ("join", joinStart),

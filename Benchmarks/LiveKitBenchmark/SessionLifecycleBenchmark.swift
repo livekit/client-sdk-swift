@@ -79,12 +79,17 @@ let sessionLifecycleBenchmarks: @Sendable () -> Void = {
             let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)
 
             for _ in benchmark.scaledIterations {
+                // Buffered so a session that fails late contributes nothing at all, rather than
+                // the milestones it happened to reach before failing.
+                let samples = MeasurementBuffer()
                 let failure = await runTolerantly {
                     try await runSession(benchmark: benchmark,
+                                         samples: samples,
                                          config: config,
                                          tokenGen: tokenGen,
                                          singlePC: singlePC)
                 }
+                if failure == nil { samples.commit(to: benchmark) }
                 reportFailure(failure, variant: name)
                 benchmark.measurement(mFailed, failure == nil ? 0 : 1)
                 // Rooms are torn down; give the SFU a beat before the next identity joins.
@@ -95,7 +100,8 @@ let sessionLifecycleBenchmarks: @Sendable () -> Void = {
 }
 
 /// One publisher/subscriber session, emitting every lifecycle metric from a single connection.
-private func runSession(benchmark: Benchmark,
+private func runSession(benchmark _: Benchmark,
+                        samples: MeasurementBuffer,
                         config: BenchmarkConfig,
                         tokenGen: TokenGenerator,
                         singlePC: Bool) async throws
@@ -130,17 +136,17 @@ private func runSession(benchmark: Benchmark,
         let connectStart = nowMs()
         try await publisher.connect(url: config.url,
                                     token: tokenGen.generate(roomName: roomName, identity: "bench-pub"))
-        benchmark.measurement(mConnect, Int(nowMs() - connectStart))
+        samples.record(mConnect, Int(nowMs() - connectStart))
 
         // peer_visible_ms — from the subscriber starting its connect to the publisher seeing it.
         let peerStart = nowMs()
         try await subscriber.connect(url: config.url,
                                      token: tokenGen.generate(roomName: roomName, identity: "bench-sub"))
         let visibleAt = try await peerVisible.visible.wait()
-        benchmark.measurement(mPeerVisible, Int(visibleAt - peerStart))
+        samples.record(mPeerVisible, Int(visibleAt - peerStart))
 
         // pub_to_sub_ms / first_frame_ms / publish_to_first_frame_ms
-        let frameFeeder = try await measurePublishToFirstFrame(benchmark: benchmark,
+        let frameFeeder = try await measurePublishToFirstFrame(samples: samples,
                                                                publisher: publisher,
                                                                observer: subscriberObserver,
                                                                singlePC: singlePC)
@@ -151,12 +157,12 @@ private func runSession(benchmark: Benchmark,
         try await publisher.localParticipant.publish(data: Data("ping".utf8),
                                                      options: DataPublishOptions(topic: dataTopic))
         let echoedAt = try await dataEcho.received.wait()
-        benchmark.measurement(mDataRtt, Int(echoedAt - rttStart))
+        samples.record(mDataRtt, Int(echoedAt - rttStart))
 
         // disconnect_ms — publisher teardown only; the subscriber is closed outside the measurement.
         let disconnectStart = nowMs()
         await publisher.disconnect()
-        benchmark.measurement(mDisconnect, Int(nowMs() - disconnectStart))
+        samples.record(mDisconnect, Int(nowMs() - disconnectStart))
 
         await subscriber.disconnect()
     } catch {
@@ -175,7 +181,7 @@ private func runSession(benchmark: Benchmark,
 ///
 /// Split out from ``runSession(benchmark:config:tokenGen:singlePC:)`` because the publish-to-frame
 /// leg is the one under investigation and reads better whole.
-private func measurePublishToFirstFrame(benchmark: Benchmark,
+private func measurePublishToFirstFrame(samples: MeasurementBuffer,
                                         publisher: Room,
                                         observer: SubscriberObserver,
                                         singlePC: Bool) async throws -> Task<Void, Never>
@@ -197,9 +203,9 @@ private func measurePublishToFirstFrame(benchmark: Benchmark,
         let subscribedAt = try await observer.subscribed.wait()
         let firstFrameAt = try await observer.firstFrame.wait()
 
-        benchmark.measurement(mPubToSub, Int(subscribedAt - publishStart))
-        benchmark.measurement(mFirstFrame, Int(firstFrameAt - subscribedAt))
-        benchmark.measurement(mPubToFrame, Int(firstFrameAt - publishStart))
+        samples.record(mPubToSub, Int(subscribedAt - publishStart))
+        samples.record(mFirstFrame, Int(firstFrameAt - subscribedAt))
+        samples.record(mPubToFrame, Int(firstFrameAt - publishStart))
 
         Timeline.mark(singlePC ? "SinglePC" : "DualPC", [
             ("publish", publishStart),

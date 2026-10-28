@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Benchmark
 import CoreMedia
 import CoreVideo
 import Foundation
@@ -160,6 +161,30 @@ func runTolerantly(_ iteration: () async throws -> Void) async -> String? {
         return timeout.milestone
     } catch {
         return "\(error)"
+    }
+}
+
+/// Collects an iteration's measurements and hands them to the framework only once the whole
+/// iteration has completed.
+///
+/// Milestones are measured as they happen, but a session that fails at, say, `data_echo` has
+/// already produced a `connect_ms` and a `pub_to_sub_ms`. Recording those directly would mix
+/// samples from sessions that went wrong into the percentiles of the metrics that came before
+/// the failure — and leave each metric with a different sample count. Buffering keeps an
+/// iteration all-or-nothing, which is what the percentiles assume.
+final class MeasurementBuffer {
+    private var pending: [(BenchmarkMetric, Int)] = []
+
+    func record(_ metric: BenchmarkMetric, _ value: Int) {
+        pending.append((metric, value))
+    }
+
+    /// Hands the buffered samples to `benchmark`. Call only on the success path.
+    func commit(to benchmark: Benchmark) {
+        for (metric, value) in pending {
+            benchmark.measurement(metric, value)
+        }
+        pending.removeAll()
     }
 }
 
