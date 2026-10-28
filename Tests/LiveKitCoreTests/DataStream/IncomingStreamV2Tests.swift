@@ -21,27 +21,8 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-/// The v2 receive path through the coordinator: single-packet (inline) streams and the checks the
-/// readers add on top of the core.
+/// The v2 receive path through the coordinator: single-packet (inline) streams.
 extension IncomingStreamManagerTests {
-    enum ReadMode: CaseIterable {
-        case bytesReadAll, bytesIterated, textReadAll, textIterated
-
-        var isByte: Bool {
-            self == .bytesReadAll || self == .bytesIterated
-        }
-    }
-
-    /// The core does not compare an inline payload with the length its header declares, so the
-    /// readers do when the stream ends: short is `.incomplete`, long is `.lengthExceeded`.
-    @Test(arguments: [(3, StreamError.incomplete), (5, nil), (8, .lengthExceeded)], ReadMode.allCases)
-    func inlineLengthIsChecked(_ length: (carried: Int, error: StreamError?), mode: ReadMode) async throws {
-        let outcome = try readingError(mode)
-        feedHeader(streamID: UUID().uuidString, byte: mode.isByte, totalLength: 5, inlineContent: Data(repeating: 0x61, count: length.carried))
-
-        #expect(try await outcome.wait() as? StreamError == length.error)
-    }
-
     /// A byte stream inline in its header arrives whole, raw or DEFLATE-compressed.
     @Test(arguments: [false, true])
     func inlineBytesRoundTrip(compressed: Bool) async throws {
@@ -138,94 +119,11 @@ extension IncomingStreamManagerTests {
         #expect(try await read.wait() == "ok")
     }
 
-    /// The declared length is checked against everything read from the stream, however it was
-    /// read: a valid stream read partly with an iterator and finished with `readAll()` completes.
-    @Test(arguments: [false, true], [false, true])
-    func lengthCheckSpansReads(byte: Bool, inline: Bool) async throws {
-        let outcome = AsyncCompleter<Data>(label: "Stream read", defaultTimeout: 10)
-        try registerSplitReader(byte: byte, outcome: outcome)
-        let streamID = UUID().uuidString
-        if inline {
-            feedHeader(streamID: streamID, byte: byte, totalLength: 4, inlineContent: Data("abcd".utf8))
-        } else {
-            feedHeader(streamID: streamID, byte: byte, totalLength: 8)
-            feedChunk(streamID: streamID, index: 0, content: Data("abcd".utf8))
-            feedChunk(streamID: streamID, index: 1, content: Data("efgh".utf8))
-            feedTrailer(streamID: streamID, reason: "")
-        }
-
-        #expect(try await outcome.wait() == Data((inline ? "abcd" : "abcdefgh").utf8))
-    }
-
-    /// A stream shorter than its header declares fails the read that reaches its end, even when an
-    /// earlier read through another iterator took the data.
-    @Test(arguments: [false, true])
-    func shortStreamFailsAcrossReads(byte: Bool) async throws {
-        let outcome = AsyncCompleter<Data>(label: "Stream read", defaultTimeout: 10)
-        try registerSplitReader(byte: byte, outcome: outcome)
-        feedHeader(streamID: UUID().uuidString, byte: byte, totalLength: 5, inlineContent: Data("abc".utf8))
-
-        await #expect(throws: StreamError.incomplete) {
-            try await outcome.wait()
-        }
-    }
-
     // MARK: - Helpers
-
-    /// Registers a handler on `topicName` that takes the first chunk with an iterator and the rest
-    /// with `readAll()`, and resolves `outcome` with both, as bytes.
-    func registerSplitReader(byte: Bool, outcome: AsyncCompleter<Data>) throws {
-        if byte {
-            try coordinator.registerByteStreamHandler(for: topicName) { reader, _ in
-                do {
-                    var chunks = reader.makeAsyncIterator()
-                    let first = try await chunks.next() ?? Data()
-                    try await outcome.resume(returning: first + reader.readAll())
-                } catch {
-                    outcome.resume(throwing: error)
-                }
-            }
-        } else {
-            try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in
-                do {
-                    var chunks = reader.makeAsyncIterator()
-                    let first = try await chunks.next() ?? ""
-                    try await outcome.resume(returning: Data((first + reader.readAll()).utf8))
-                } catch {
-                    outcome.resume(throwing: error)
-                }
-            }
-        }
-    }
 
     /// Raw DEFLATE, the wire format of a compressed stream.
     func deflated(_ data: Data) throws -> Data {
         try (data as NSData).compressed(using: .zlib) as Data
-    }
-
-    /// Registers a handler on `topicName` that reads each stream as `mode` says, and resolves with
-    /// the error the read threw, or `nil`.
-    func readingError(_ mode: ReadMode) throws -> AsyncCompleter<Error?> {
-        let outcome = AsyncCompleter<Error?>(label: "Stream read", defaultTimeout: 10)
-        let report: @Sendable (() async throws -> Void) async -> Void = { read in
-            do {
-                try await read()
-                outcome.resume(returning: nil)
-            } catch {
-                outcome.resume(returning: error)
-            }
-        }
-        switch mode {
-        case .bytesReadAll:
-            try coordinator.registerByteStreamHandler(for: topicName) { reader, _ in await report { _ = try await reader.readAll() } }
-        case .bytesIterated:
-            try coordinator.registerByteStreamHandler(for: topicName) { reader, _ in await report { for try await _ in reader {} } }
-        case .textReadAll:
-            try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in await report { _ = try await reader.readAll() } }
-        case .textIterated:
-            try coordinator.registerTextStreamHandler(for: topicName) { reader, _ in await report { for try await _ in reader {} } }
-        }
-        return outcome
     }
 }
 

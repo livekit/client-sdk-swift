@@ -109,11 +109,15 @@ struct IncomingStreamManagerTests: Sendable {
         #expect(!reason.isEmpty)
     }
 
-    @Test func abnormalClosure() async throws {
+    /// A trailer with a reason fails the stream with that reason, also when the stream is shorter
+    /// than the length its header declared.
+    @Test(arguments: [nil, 10] as [UInt64?])
+    func abnormalClosure(declaredLength: UInt64?) async throws {
         let closureReason = "test"
 
         let error = try await byteReaderError { streamID in
-            feedHeader(streamID: streamID, byte: true)
+            feedHeader(streamID: streamID, byte: true, totalLength: declaredLength)
+            feedChunk(streamID: streamID, index: 0, content: Data("abcde".utf8))
             feedTrailer(streamID: streamID, reason: closureReason)
         }
 

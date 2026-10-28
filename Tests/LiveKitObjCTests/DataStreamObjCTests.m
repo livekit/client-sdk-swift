@@ -459,4 +459,22 @@
     [self waitForExpectationsWithTimeout:10 handler:nil];
 }
 
+#pragma mark - Exposure
+
+// The progress, trailer attribute and declared text size additions reach Objective-C under these
+// selectors.
+- (void)testStreamAdditionsAreExposed {
+    XCTAssertTrue([StreamTextOptions instancesRespondToSelector:@selector(initWithTopic:attributes:destinationIdentities:id:operationType:version:attachedStreamIDs:replyToStreamID:generated:compress:senderIdentity:totalSizeNumber:)]);
+    XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendText:options:onProgress:completionHandler:)]);
+    XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendBytes:options:onProgress:completionHandler:)]);
+    XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendFile:options:onProgress:completionHandler:)]);
+    XCTAssertTrue([TextStreamReader instancesRespondToSelector:@selector(readProgressOnProgress:)]);
+    XCTAssertTrue([ByteStreamReader instancesRespondToSelector:@selector(readProgressOnProgress:)]);
+    XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(bytesProcessed)]);
+    XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(bytesTotalNumber)]);
+    XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(fractionNumber)]);
+    XCTAssertTrue([TextStreamWriter instancesRespondToSelector:@selector(closeWithReason:attributes:completionHandler:)]);
+    XCTAssertTrue([ByteStreamWriter instancesRespondToSelector:@selector(closeWithReason:attributes:completionHandler:)]);
+}
+
 @end

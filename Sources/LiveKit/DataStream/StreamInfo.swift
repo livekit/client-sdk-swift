@@ -185,3 +185,44 @@ public final class ByteStreamInfo: NSObject, StreamInfo {
         )
     }
 }
+
+// MARK: - Progress
+
+/// How much of a data stream was sent or received so far.
+@objcMembers
+public final class StreamProgress: NSObject, Sendable {
+    /// Payload bytes sent or received so far (UTF-8 for text): before compression when sending,
+    /// after decompression when receiving.
+    public let bytesProcessed: Int
+
+    /// The total size of the stream in bytes, or `nil` when it is not known, for example for a text
+    /// stream opened without ``StreamTextOptions/totalSize``.
+    public let bytesTotal: Int?
+
+    /// ``bytesProcessed`` as a fraction of ``bytesTotal``, from 0 to 1, or `nil` when the total is
+    /// not known.
+    public var fraction: Double? {
+        bytesTotal.map { $0 > 0 ? Double(bytesProcessed) / Double($0) : 1 }
+    }
+
+    /// ``bytesTotal`` as an `NSNumber`, for Objective-C callers.
+    ///
+    /// `Int?` is not representable in Objective-C, so the optional is bridged rather than exposed
+    /// directly; `nil` here means the same as `nil` there.
+    public var bytesTotalNumber: NSNumber? {
+        bytesTotal.map { NSNumber(value: $0) }
+    }
+
+    /// ``fraction`` as an `NSNumber`, for Objective-C callers.
+    ///
+    /// `Double?` is not representable in Objective-C, so the optional is bridged rather than
+    /// exposed directly; `nil` here means the same as `nil` there.
+    public var fractionNumber: NSNumber? {
+        fraction.map { NSNumber(value: $0) }
+    }
+
+    init(_ ffi: LiveKitFFI.StreamProgress) {
+        bytesProcessed = Int(clamping: ffi.bytesProcessed)
+        bytesTotal = ffi.bytesTotal.flatMap { Int(exactly: $0) }
+    }
+}

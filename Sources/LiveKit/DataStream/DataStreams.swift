@@ -201,9 +201,10 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Sending
 
-    func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
-        let options = options.ffi
-        return try await TextStreamInfo(calling { try await $0.sendText(text: text, options: options) }, encryptionType: currentEncryptionType)
+    func sendText(_ text: String, options: StreamTextOptions, onProgress: (@Sendable (StreamProgress) -> Void)? = nil) async throws -> TextStreamInfo {
+        var options = options.ffi
+        options.progress = onProgress.map(ProgressDelegate.init)
+        return try await TextStreamInfo(calling { [options] in try await $0.sendText(text: text, options: options) }, encryptionType: currentEncryptionType)
     }
 
     /// Sends `text`, then each file in `attachments` as its own byte stream, the files at the same
@@ -231,29 +232,24 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         return info
     }
 
-    func sendBytes(_ data: Data, options: StreamByteOptions) async throws -> ByteStreamInfo {
-        let options = options.ffi
-        return try await ByteStreamInfo(calling { try await $0.sendBytes(data: data, options: options) }, encryptionType: currentEncryptionType)
+    func sendBytes(_ data: Data, options: StreamByteOptions, onProgress: (@Sendable (StreamProgress) -> Void)? = nil) async throws -> ByteStreamInfo {
+        var options = options.ffi
+        options.progress = onProgress.map(ProgressDelegate.init)
+        return try await ByteStreamInfo(calling { [options] in try await $0.sendBytes(data: data, options: options) }, encryptionType: currentEncryptionType)
     }
 
-    func sendFile(_ fileURL: URL, options: StreamByteOptions) async throws -> ByteStreamInfo {
+    func sendFile(_ fileURL: URL, options: StreamByteOptions, onProgress: (@Sendable (StreamProgress) -> Void)? = nil) async throws -> ByteStreamInfo {
         // The FFI reads the file's bytes but doesn't infer its metadata, so resolve name/MIME/size
         // from disk here (matching the previous implementation) unless the caller set them.
         guard let fileInfo = FileInfo(for: fileURL) else {
             throw StreamError.fileInfoUnavailable
         }
-        let ffiOptions = LiveKitFFI.StreamByteOptions(
-            topic: options.topic,
-            attributes: options.attributes,
-            destinationIdentities: options.destinationIdentities.map(\.stringValue),
-            id: options.id,
-            mimeType: options.mimeType ?? fileInfo.mimeType,
-            name: options.name ?? fileInfo.name,
-            totalLength: UInt64(fileInfo.size),
-            compress: options.compress,
-            senderIdentity: options.senderIdentity?.stringValue,
-        )
-        return try await ByteStreamInfo(calling { try await $0.sendFile(path: fileURL.path, options: ffiOptions) }, encryptionType: currentEncryptionType)
+        var ffiOptions = options.ffi
+        ffiOptions.mimeType = options.mimeType ?? fileInfo.mimeType
+        ffiOptions.name = options.name ?? fileInfo.name
+        ffiOptions.totalLength = UInt64(fileInfo.size)
+        ffiOptions.progress = onProgress.map(ProgressDelegate.init)
+        return try await ByteStreamInfo(calling { [ffiOptions] in try await $0.sendFile(path: fileURL.path, options: ffiOptions) }, encryptionType: currentEncryptionType)
     }
 
     func streamText(options: StreamTextOptions) async throws -> TextStreamWriter {
@@ -311,26 +307,24 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     // MARK: - Stream open dispatch (called from the incoming delegate)
 
     func handleByteStreamOpened(_ ffiReader: LiveKitFFI.ByteStreamReader, identity: String) {
-        let ffiInfo = ffiReader.info()
-        let info = ByteStreamInfo(ffiInfo, encryptionType: EncryptionType(ffiInfo.encryptionType))
+        let reader = ByteStreamReader(ffiReader)
+        let info = reader.info
         guard let handler = byteStreamHandlers.copy()[info.topic] else {
             logMissingHandler(topic: info.topic, id: info.id, identity: identity)
             return
         }
-        let reader = ByteStreamReader(ffiReader, info: info)
         let participantIdentity = Participant.Identity(from: identity)
         Task.detachedDiscarding { try await handler(reader, participantIdentity) }
     }
 
     func handleTextStreamOpened(_ ffiReader: LiveKitFFI.TextStreamReader, identity: String) {
-        let ffiInfo = ffiReader.info()
-        let info = TextStreamInfo(ffiInfo, encryptionType: EncryptionType(ffiInfo.encryptionType))
+        let reader = TextStreamReader(ffiReader)
+        let info = reader.info
         guard let entry = textStreamHandlers.copy()[info.topic] else {
             logMissingHandler(topic: info.topic, id: info.id, identity: identity)
             return
         }
         let handler = entry.handler
-        let reader = TextStreamReader(ffiReader, info: info)
         let participantIdentity = Participant.Identity(from: identity)
         let topic = info.topic
         guard entry.isOrdered else {

@@ -22,94 +22,38 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-/// Cancelling a read or a file write: the call returns at once, the stream stays readable, and the
-/// declared length still holds. The reader under test reports when a read enters the core, so each
-/// cancel hits a read that is really waiting there.
+/// Cancelling a read, a file write or a progress observation. A cancelled read returns at once with
+/// `CancellationError` and closes the core reader, which ends the stream. The stand-in core readers
+/// report when a read or a progress wait is pending in them, so a cancel can hit one that is really
+/// waiting there.
 extension ByteStreamReaderTests {
-    /// UniFFI's async calls ignore Swift cancellation. A read waiting on a stream that has only its
-    /// header must still return when its task is cancelled, with the room still connected.
-    @Test(arguments: [false, true])
-    func cancellingWaitingReadReturns(iterate: Bool) async throws {
-        let (reader, manager) = try await openReader(chunks: [], trailerReason: nil)
-        let returned = AsyncCompleter<Error?>(label: "Cancelled read returned", defaultTimeout: 5)
+    /// A cancelled read ends the stream, as a v1 reader's cancel did: the read throws
+    /// `CancellationError` at once, the stream is no longer open although the sender sent nothing
+    /// more, and a later read throws `.alreadyClosed`. The cancel hits a read that waits in the core,
+    /// or a task that was cancelled before its read started.
+    @Test(arguments: Kind.allCases, CancelledRead.all)
+    func cancelledReadEndsTheStream(_ kind: Kind, _ cancelled: CancelledRead) async throws {
+        let (capture, manager) = try await openStalledReader(kind)
+        let reader = try #require(capture.take())
 
         let read = Task {
-            do {
-                if iterate {
-                    for try await _ in reader {}
-                } else {
-                    _ = try await reader.readAll()
-                }
-                returned.resume(returning: nil)
-            } catch {
-                returned.resume(returning: error)
+            if !cancelled.whileWaiting { withUnsafeCurrentTask { $0?.cancel() } }
+            if cancelled.readAll {
+                try await reader.readAll()
+            } else {
+                try await reader.iterate()
             }
         }
-        // Lets the read reach the FFI wait. If it has not yet, the cancel ends it the same way.
-        try await Task.sleep(nanoseconds: 100_000_000)
-        read.cancel()
-
-        let error = try await returned.wait()
-        #expect(error is CancellationError)
-        _ = manager
-    }
-
-    /// `readAll` reads chunk by chunk, so a cancel stops the collection: at most the chunk in flight
-    /// is lost, and the rest of the stream can still be read. A whole-stream read in the core would
-    /// keep the reader to itself until the stream ends and leave nothing to read.
-    @Test func cancelledReadAllLeavesRestOfStream() async throws {
-        let entered = AsyncCompleter<Void>(label: "Read entered the core", defaultTimeout: 5)
-        let (reader, manager) = try await openReader(chunks: [], trailerReason: nil, entered: entered)
-
-        let read = Task { try await reader.readAll() }
-        try await entered.wait()
-        read.cancel()
-        let error = try await within("Cancelled readAll") { await read.result.failure }
-        #expect(error is CancellationError)
-
-        let chunk = Data(repeating: 0x7F, count: 64)
-        feed(manager, streamID: reader.info.id, chunks: [chunk, chunk, chunk], trailer: true)
-
-        let rest = try await within("The rest of the stream") { try await Self.readByIterating(reader) }
-        #expect(rest.count >= 2 * chunk.count)
-    }
-
-    /// A chunk that a cancelled read took still counts toward the length the header declared, so
-    /// the stream completes when a later read reaches its end.
-    @Test func cancelledReadKeepsLengthCount() async throws {
-        let entered = AsyncCompleter<Void>(label: "Read entered the core", defaultTimeout: 5)
-        let (reader, manager) = try await openReader(chunks: [], trailerReason: nil, totalLength: 8, entered: entered)
-
-        let read = Task {
-            var chunks = reader.makeAsyncIterator()
-            return try await chunks.next()
+        if cancelled.whileWaiting {
+            try await capture.signals.readEntered.wait()
+            read.cancel()
         }
-        try await entered.wait()
-        read.cancel()
-        let error = try await within("Cancelled next") { await read.result.failure }
+        let error = try await within("Cancelled read") { await read.result.failure }
         #expect(error is CancellationError)
 
-        feed(manager, streamID: reader.info.id, chunks: [Data("abcd".utf8), Data("efgh".utf8)], trailer: true)
-
-        let rest = try await within("The rest of the stream") { try await reader.readAll() }
-        #expect(rest.count == 4)
-    }
-
-    /// A read cancelled while it waits in the core leaves no stream open once the stream ends.
-    @Test func cancelledReadLeavesNoOpenStream() async throws {
-        let entered = AsyncCompleter<Void>(label: "Read entered the core", defaultTimeout: 5)
-        let (reader, manager) = try await openReader(chunks: [], trailerReason: nil, totalLength: 4, entered: entered)
-
-        let read = Task { try await reader.readAll() }
-        try await entered.wait()
-        read.cancel()
-        let error = try await within("Cancelled readAll") { await read.result.failure }
-        #expect(error is CancellationError)
-
-        feed(manager, streamID: reader.info.id, chunks: [Data("abcd".utf8)], trailer: true)
-        // The core answers the count in order with the packets fed before it.
-        let open = try await within("Open stream count") { await manager.openStreamCount() }
+        let open = await manager.openStreamCount()
         #expect(open == 0)
+        await #expect(throws: StreamError.alreadyClosed) { try await reader.readAll() }
     }
 
     /// The copy runs in the caller's task, so a cancel ends `writeToFile` at once and the file stops
@@ -140,32 +84,210 @@ extension ByteStreamReaderTests {
         _ = manager
     }
 
+    /// Cancelling the observation of a stalled stream's progress does not end the stream, and
+    /// releasing the reader afterwards does. The cancel leaves the core's progress wait pending,
+    /// which holds the core reader, so only the reader's own release can close it.
+    @Test(arguments: Kind.allCases)
+    func releasingReaderAfterCancelledProgressEndsTheStream(_ kind: Kind) async throws {
+        let (capture, manager) = try await openStalledReader(kind)
+        var reader: AnyReader? = capture.take()
+        let progress = try #require(reader).progress()
+
+        let observing = Task { for await _ in progress {} }
+        try await capture.signals.progressWaiting.wait()
+        observing.cancel()
+        try await within("Cancelled progress") { await observing.value }
+        let openAfterCancel = await manager.openStreamCount()
+        #expect(openAfterCancel == 1)
+
+        reader = nil
+        let openAfterRelease = await manager.openStreamCount()
+        #expect(openAfterRelease == 0)
+    }
+
+    /// Progress that is still being observed keeps its reader: after the app releases the reader,
+    /// the stream stays open, and the observation follows it to its normal end.
+    @Test(arguments: Kind.allCases)
+    func observedProgressKeepsTheStreamOpen(_ kind: Kind) async throws {
+        let streamID = UUID().uuidString
+        let (capture, manager) = try await openStalledReader(kind, streamID: streamID)
+        var reader: AnyReader? = capture.take()
+        let progress = try #require(reader).progress()
+
+        let firstUpdate = AsyncCompleter<Void>(label: "First progress update", defaultTimeout: 5)
+        let received = StateSync<[Int]>([])
+        let observing = Task {
+            for await update in progress {
+                received.mutate { $0.append(update.bytesProcessed) }
+                firstUpdate.resume(returning: ())
+            }
+        }
+        try await firstUpdate.wait()
+        reader = nil
+        let openAfterRelease = await manager.openStreamCount()
+        #expect(openAfterRelease == 1)
+
+        feed(manager) {
+            $0.streamChunk = Livekit_DataStream.Chunk.with {
+                $0.streamID = streamID
+                $0.content = Data("abcde".utf8)
+            }
+        }
+        feed(manager) { $0.streamTrailer = Livekit_DataStream.Trailer.with { $0.streamID = streamID } }
+        try await within("Progress to the end of the stream") { await observing.value }
+        #expect(received.copy().last == 5)
+        let openAfterEnd = await manager.openStreamCount()
+        #expect(openAfterEnd == 0)
+    }
+
     // MARK: - Helpers
 
-    /// Wraps a core reader and reports when a read enters it, so a test can cancel a read that is
-    /// really waiting in the core.
-    final class SignallingReader: LiveKitFFI.ByteStreamReaderProtocol {
-        private let inner: any LiveKitFFI.ByteStreamReaderProtocol
-        private let entered: AsyncCompleter<Void>
+    /// Which public reader a test drives.
+    enum Kind: CaseIterable, Sendable {
+        case byte, text
+    }
 
-        init(_ inner: any LiveKitFFI.ByteStreamReaderProtocol, entered: AsyncCompleter<Void>) {
+    /// How a read meets its cancel: `readAll()` or the iterator, waiting in the core or in a task
+    /// cancelled before the read starts.
+    struct CancelledRead: Sendable, CustomTestStringConvertible {
+        let readAll: Bool
+        let whileWaiting: Bool
+
+        static let all = [false, true].flatMap { readAll in [false, true].map { CancelledRead(readAll: readAll, whileWaiting: $0) } }
+
+        var testDescription: String {
+            "\(readAll ? "readAll()" : "next()") cancelled \(whileWaiting ? "while waiting" : "before it starts")"
+        }
+    }
+
+    /// A public reader of either kind, reduced to what the cancellation tests drive. It holds the
+    /// reader, so releasing it releases the reader.
+    struct AnyReader: Sendable {
+        let readAll: @Sendable () async throws -> Void
+        let iterate: @Sendable () async throws -> Void
+        let progress: @Sendable () -> AsyncStream<LiveKit.StreamProgress>
+    }
+
+    /// What a stand-in core reader reports: a read that entered it, and a progress wait pending in
+    /// it after the first update.
+    struct Signals: Sendable {
+        let readEntered = AsyncCompleter<Void>(label: "Read entered the core", defaultTimeout: 5)
+        let progressWaiting = AsyncCompleter<Void>(label: "Progress wait pending in the core", defaultTimeout: 5)
+
+        func progressCalled(_ calls: StateSync<Int>) {
+            if calls.mutate({ $0 += 1; return $0 }) > 1 { progressWaiting.resume(returning: ()) }
+        }
+    }
+
+    /// Wraps the core's byte reader to report to ``Signals``.
+    final class SignallingByteReader: LiveKitFFI.ByteStreamReaderProtocol {
+        private let inner: any LiveKitFFI.ByteStreamReaderProtocol
+        private let signals: Signals
+        private let progressCalls = StateSync(0)
+
+        init(_ inner: any LiveKitFFI.ByteStreamReaderProtocol, signals: Signals) {
             self.inner = inner
-            self.entered = entered
+            self.signals = signals
         }
 
-        func info() -> LiveKitFFI.ByteStreamInfo {
-            inner.info()
+        func info() -> LiveKitFFI.ByteStreamInfo { inner.info() }
+
+        func close() { inner.close() }
+
+        func nextProgress() async -> LiveKitFFI.StreamProgress? {
+            signals.progressCalled(progressCalls)
+            return await inner.nextProgress()
         }
 
         func next() async throws -> Data? {
-            entered.resume(returning: ())
+            signals.readEntered.resume(returning: ())
             return try await inner.next()
         }
 
         func readAll() async throws -> Data {
-            entered.resume(returning: ())
+            signals.readEntered.resume(returning: ())
             return try await inner.readAll()
         }
+    }
+
+    /// Wraps the core's text reader to report to ``Signals``.
+    final class SignallingTextReader: LiveKitFFI.TextStreamReaderProtocol {
+        private let inner: any LiveKitFFI.TextStreamReaderProtocol
+        private let signals: Signals
+        private let progressCalls = StateSync(0)
+
+        init(_ inner: any LiveKitFFI.TextStreamReaderProtocol, signals: Signals) {
+            self.inner = inner
+            self.signals = signals
+        }
+
+        func info() -> LiveKitFFI.TextStreamInfo { inner.info() }
+
+        func close() { inner.close() }
+
+        func nextProgress() async -> LiveKitFFI.StreamProgress? {
+            signals.progressCalled(progressCalls)
+            return await inner.nextProgress()
+        }
+
+        func next() async throws -> String? {
+            signals.readEntered.resume(returning: ())
+            return try await inner.next()
+        }
+
+        func readAll() async throws -> String {
+            signals.readEntered.resume(returning: ())
+            return try await inner.readAll()
+        }
+    }
+
+    /// Builds the public reader around a signalling core reader, and hands it over once, so the
+    /// capture keeps no reference to it.
+    final class ReaderCapture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
+        let signals = Signals()
+        let opened = AsyncCompleter<Void>(label: "Stream opened", defaultTimeout: 10)
+        private let reader = StateSync<AnyReader?>(nil)
+
+        func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
+            let stream = LiveKit.ByteStreamReader(SignallingByteReader(reader, signals: signals))
+            hand(AnyReader(readAll: { _ = try await stream.readAll() }, iterate: { for try await _ in stream {} }, progress: { stream.progress }))
+        }
+
+        func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
+            let stream = LiveKit.TextStreamReader(SignallingTextReader(reader, signals: signals))
+            hand(AnyReader(readAll: { _ = try await stream.readAll() }, iterate: { for try await _ in stream {} }, progress: { stream.progress }))
+        }
+
+        func onStreamClosed(streamId _: String, identity _: String) {}
+
+        /// Takes the reader, so this capture no longer holds it.
+        func take() -> AnyReader? {
+            reader.mutate {
+                defer { $0 = nil }
+                return $0
+            }
+        }
+
+        private func hand(_ stream: AnyReader) {
+            reader.mutate { $0 = stream }
+            opened.resume(returning: ())
+        }
+    }
+
+    /// Opens a stream of `kind` that has only its header, so reads and progress wait in the core.
+    /// Returns the capture that holds the reader, and the manager, which the caller must keep alive.
+    func openStalledReader(_ kind: Kind, streamID: String = UUID().uuidString) async throws -> (ReaderCapture, IncomingDataStreamManager) {
+        let capture = ReaderCapture()
+        let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
+        feed(manager) {
+            $0.streamHeader = Livekit_DataStream.Header.with {
+                $0.streamID = streamID
+                $0.topic = topic
+                $0.contentHeader = kind == .byte ? .byteHeader(Livekit_DataStream.ByteHeader()) : .textHeader(Livekit_DataStream.TextHeader())
+            }
+        }
+        try await capture.opened.wait()
+        return (capture, manager)
     }
 
     /// Runs `body` in its own task and waits at most 5 s for it, however `body` treats cancellation.
@@ -179,14 +301,6 @@ extension ByteStreamReaderTests {
             }
         }
         return try await result.wait()
-    }
-
-    private static func readByIterating(_ reader: LiveKit.ByteStreamReader) async throws -> Data {
-        var data = Data()
-        for try await chunk in reader {
-            data += chunk
-        }
-        return data
     }
 }
 

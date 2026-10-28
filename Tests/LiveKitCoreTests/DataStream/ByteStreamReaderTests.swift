@@ -165,16 +165,9 @@ struct ByteStreamReaderTests {
     /// through a completer, which fails after a timeout instead of hanging.
     final class Capture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
         let opened = AsyncCompleter<LiveKit.ByteStreamReader>(label: "Stream opened", defaultTimeout: 10)
-        let entered: AsyncCompleter<Void>?
-
-        init(entered: AsyncCompleter<Void>?) {
-            self.entered = entered
-        }
 
         func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
-            let info = LiveKit.ByteStreamInfo(reader.info(), encryptionType: .none)
-            let core: any LiveKitFFI.ByteStreamReaderProtocol = entered.map { SignallingReader(reader, entered: $0) } ?? reader
-            opened.resume(returning: LiveKit.ByteStreamReader(core, info: info))
+            opened.resume(returning: LiveKit.ByteStreamReader(reader))
         }
 
         func onTextStreamOpened(reader _: LiveKitFFI.TextStreamReader, identity _: String) {}
@@ -184,15 +177,13 @@ struct ByteStreamReaderTests {
 
     /// Opens a byte stream through the FFI incoming manager and returns the public reader plus the
     /// manager, which the caller must keep alive while reading. A `nil` reason leaves the stream
-    /// open by sending no trailer. With `entered`, the reader reports when a read enters the core.
+    /// open by sending no trailer.
     func openReader(
         fileName: String? = nil,
         chunks: [Data]? = nil,
         trailerReason: String? = "",
-        totalLength: UInt64? = nil,
-        entered: AsyncCompleter<Void>? = nil,
     ) async throws -> (LiveKit.ByteStreamReader, IncomingDataStreamManager) {
-        let capture = Capture(entered: entered)
+        let capture = Capture()
         let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
         let streamID = UUID().uuidString
 
@@ -201,7 +192,6 @@ struct ByteStreamReaderTests {
             $0.topic = topic
             $0.mimeType = mimeType
             $0.contentHeader = .byteHeader(.with { $0.name = Self.withoutNUL(fileName ?? name) })
-            if let totalLength { $0.totalLength = totalLength }
         }
         feed(manager, wireName: fileName ?? name) { $0.streamHeader = header }
 
@@ -222,21 +212,6 @@ struct ByteStreamReaderTests {
             feed(manager) { $0.streamTrailer = trailer }
         }
         return try await (capture.opened.wait(), manager)
-    }
-
-    /// Feeds `chunks` to the open stream `streamID`, numbered from zero, then its trailer if asked.
-    func feed(_ manager: IncomingDataStreamManager, streamID: String, chunks: [Data], trailer: Bool) {
-        for (index, content) in chunks.enumerated() {
-            let chunk = Livekit_DataStream.Chunk.with {
-                $0.streamID = streamID
-                $0.chunkIndex = UInt64(index)
-                $0.content = content
-            }
-            feed(manager) { $0.streamChunk = chunk }
-        }
-        guard trailer else { return }
-        let end = Livekit_DataStream.Trailer.with { $0.streamID = streamID }
-        feed(manager) { $0.streamTrailer = end }
     }
 
     /// Runs `write` against a fresh directory and expects it to throw before creating anything,
