@@ -14,165 +14,17 @@
  * limitations under the License.
  */
 
-import CryptoKit
 import Foundation
 @testable import LiveKit
 import Network
 import Testing
 
-/// A WebSocket server on a loopback port that answers the upgrade by hand and then misbehaves on purpose.
-/// Raw TCP rather than Network.framework's own WebSocket listener, so it can send what that never would:
-/// a bare FIN, a reset, an HTTP status, or nothing at all.
-final class FakeWebSocketServer: Sendable {
-    enum Behavior: Sendable {
-        /// Upgrade, then stay quiet until the client closes.
-        case idle
-        /// Upgrade, then a close frame with code 1000, then drop the socket once the client answers it.
-        case closeFrame
-        /// Upgrade, then a TCP FIN with no close frame.
-        case fin
-        /// Upgrade, then a TCP reset.
-        case reset
-        /// Answer the upgrade with an HTTP status instead of 101.
-        case reject(status: Int)
-        /// Accept TCP and never answer the upgrade.
-        case blackhole
-    }
-
-    let behavior: Behavior
-    /// Resumed once the listener has accepted a TCP connection, before any upgrade is read.
-    let accepted = AsyncCompleter<Void>(label: "FakeWebSocketServer.accepted", defaultTimeout: 5)
-    /// Resumed once the server has finished with a connection: sent its last bytes or dropped the socket.
-    let served = AsyncCompleter<Void>(label: "FakeWebSocketServer.served", defaultTimeout: 5)
-
-    private let listener: NWListener
-    /// Network.framework delivers on a queue it is given; a shared one, as the transport under test uses.
-    private static var queue: DispatchQueue { .global(qos: .userInitiated) }
-    private let ready = AsyncCompleter<UInt16>(label: "FakeWebSocketServer.ready", defaultTimeout: 5)
-    private let stopped = AsyncCompleter<Void>(label: "FakeWebSocketServer.stopped", defaultTimeout: 5)
-    private let connections = StateSync<[NWConnection]>([])
-
-    init(_ behavior: Behavior) throws {
-        self.behavior = behavior
-        listener = try NWListener(using: .tcp, on: .any)
-        listener.stateUpdateHandler = { [ready, stopped, listener] state in
-            switch state {
-            case .ready: ready.resume(returning: listener.port?.rawValue ?? 0)
-            case let .failed(error): ready.resume(throwing: error)
-            case .cancelled: stopped.resume(returning: ())
-            default: break
-            }
-        }
-        listener.newConnectionHandler = { [self] connection in
-            connections.mutate { $0.append(connection) }
-            connection.start(queue: Self.queue)
-            accepted.resume(returning: ())
-            if case .blackhole = behavior { return }
-            readUpgrade(connection, buffered: Data())
-        }
-        listener.start(queue: Self.queue)
-    }
-
-    func url() async throws -> URL {
-        let port = try await ready.wait()
-        return try #require(URL(string: "ws://127.0.0.1:\(port)/rtc"))
-    }
-
-    /// Drops every connection and the listener; safe to call more than once.
-    func cancel() {
-        connections.mutate { $0.forEach { $0.cancel() }; $0.removeAll() }
-        listener.cancel()
-    }
-
-    /// Returns once the port refuses connections again.
-    func stop() async throws {
-        cancel()
-        try await stopped.wait()
-    }
-
-    private func readUpgrade(_ connection: NWConnection, buffered: Data) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { [self] content, _, _, error in
-            guard error == nil, let content else { return connection.cancel() }
-            let request = buffered + content
-            guard let headerEnd = request.range(of: Data("\r\n\r\n".utf8)) else {
-                return readUpgrade(connection, buffered: request)
-            }
-            let header = String(bytes: request[..<headerEnd.lowerBound], encoding: .utf8) ?? ""
-            let key = header.split(separator: "\r\n")
-                .first { $0.lowercased().hasPrefix("sec-websocket-key:") }
-                .map { $0.dropFirst("sec-websocket-key:".count).trimmingCharacters(in: .whitespaces) } ?? ""
-            answer(connection, key: key)
-        }
-    }
-
-    private func answer(_ connection: NWConnection, key: String) {
-        if case let .reject(status) = behavior {
-            let response = "HTTP/1.1 \(status) Rejected\r\nContent-Length: 0\r\n\r\n"
-            connection.send(content: Data(response.utf8), completion: .contentProcessed { [served] _ in
-                connection.cancel()
-                served.resume(returning: ())
-            })
-            return
-        }
-        let accept = Data(Insecure.SHA1.hash(data: Data((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").utf8))).base64EncodedString()
-        let response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: \(accept)\r\n\r\n"
-        connection.send(content: Data(response.utf8), completion: .contentProcessed { [self] _ in
-            switch behavior {
-            case .idle, .blackhole, .reject:
-                break
-            case .closeFrame, .fin, .reset:
-                // Only once a whole frame arrives from the client: its upgrade is then complete on its side too.
-                readFrame(connection, buffered: Data()) { [self] in goAway(connection) }
-            }
-        })
-    }
-
-    /// Reads one complete client frame, however the bytes arrive, then calls `completion`. A client frame is masked: two
-    /// header bytes, a 16-bit length when the 7-bit one is 126, a 4-byte mask key, then the payload.
-    private func readFrame(_ connection: NWConnection, buffered: Data, completion: @escaping @Sendable () -> Void) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { [self] content, _, _, error in
-            guard error == nil, let content else { return connection.cancel() }
-            let frame = buffered + content
-            guard frame.count >= 2 else { return readFrame(connection, buffered: frame, completion: completion) }
-            let length7 = Int(frame[frame.startIndex + 1] & 0x7F)
-            let masked = frame[frame.startIndex + 1] & 0x80 != 0
-            var headerLength = 2 + (masked ? 4 : 0)
-            var payloadLength = length7
-            if length7 == 126 {
-                headerLength += 2
-                guard frame.count >= 4 else { return readFrame(connection, buffered: frame, completion: completion) }
-                payloadLength = Int(frame[frame.startIndex + 2]) << 8 | Int(frame[frame.startIndex + 3])
-            } else if length7 == 127 {
-                return connection.cancel()
-            }
-            guard frame.count >= headerLength + payloadLength else {
-                return readFrame(connection, buffered: frame, completion: completion)
-            }
-            completion()
-        }
-    }
-
-    private func goAway(_ connection: NWConnection) {
-        switch behavior {
-        case .idle, .blackhole, .reject:
-            break
-        case .closeFrame:
-            connection.send(content: Data([0x88, 0x02, 0x03, 0xE8]), completion: .contentProcessed { [self] _ in
-                // The client's whole close reply, then the socket goes: the client sees a state change after its stream ended.
-                readFrame(connection, buffered: Data()) { [served] in
-                    connection.cancel()
-                    served.resume(returning: ())
-                }
-            })
-        case .fin:
-            connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { [served] _ in
-                served.resume(returning: ())
-            })
-        case .reset:
-            connection.forceCancel()
-            served.resume(returning: ())
-        }
-    }
+/// How the socket is closed: `close()`, a cancelled read (how `SignalClient.cleanUp` ends it first), or the last
+/// reference going away (`deinit`).
+enum ClosePath: Sendable, CaseIterable {
+    case close
+    case cancelledRead
+    case release
 }
 
 /// How iteration over the socket ends.
@@ -207,6 +59,8 @@ private enum Limits {
 @Suite(.tags(.networking), Limits.unit)
 struct WebSocketLifecycleTests {
     private static let headers = [(name: "Authorization", value: "Bearer test")]
+    /// How long `close()` waits for the server's answer, in nanoseconds.
+    private static let closeLimit: UInt64 = 250_000_000
 
     private static func open(_ server: FakeWebSocketServer, timeoutInterval: TimeInterval = 10) async throws -> LiveKit.WebSocket {
         try await LiveKit.WebSocket(url: server.url(), headers: headers, timeoutInterval: timeoutInterval)
@@ -226,6 +80,109 @@ struct WebSocketLifecycleTests {
         await Task.yield()
         socket.close()
         #expect(try await reader.value == 0)
+    }
+
+    /// As URLSession's `cancel(with: .normalClosure)`: the server sees a normal disconnect, and then the client drops the
+    /// connection, whichever way the socket closes.
+    @Test(arguments: ClosePath.allCases)
+    func closeSendsNormalClosure(path: ClosePath) async throws {
+        let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
+        var socket: LiveKit.WebSocket? = try await Self.open(server)
+        switch path {
+        case .close:
+            socket?.close()
+        case .cancelledRead:
+            let reading = try #require(socket)
+            let reader = Task { try await Self.messageCount(of: reading) }
+            reader.cancel()
+            #expect(try await reader.value == 0)
+        case .release:
+            socket = nil
+        }
+        _ = try await server.clientGone.wait()
+        let close = server.frames.read { $0.last }
+        #expect(close?.opcode == 0x8)
+        #expect(close?.payload == Data([0x03, 0xE8]))
+    }
+
+    /// A message that the server sends before it answers our close frame does not end the wait: the client drops the
+    /// connection after the answer, or at the 250 ms limit if the answer comes later than that.
+    @Test func closeWaitsPastAMessageForTheAnswer() async throws {
+        let server = try FakeWebSocketServer(.messageBeforeCloseAnswer)
+        defer { server.cancel() }
+        let socket = try await Self.open(server)
+        let start = DispatchTime.now().uptimeNanoseconds
+        socket.close()
+        let gone = try await server.clientGone.wait()
+        let answered = server.closeAnswered.copy() ?? .max
+        #expect(gone > answered || gone >= start + Self.closeLimit)
+    }
+
+    /// With no answer the client drops the connection at the 250 ms limit, not before, and well within the server's 5 s
+    /// wait.
+    @Test func unansweredCloseEndsAtTheLimit() async throws {
+        let server = try FakeWebSocketServer(.unansweredClose)
+        defer { server.cancel() }
+        let socket = try await Self.open(server)
+        let start = DispatchTime.now().uptimeNanoseconds
+        socket.close()
+        let gone = try await server.clientGone.wait()
+        #expect(gone >= start + Self.closeLimit)
+    }
+
+    /// Network.framework's own `Host` has no port and no IPv6 brackets, and `setAdditionalHeaders` keeps only the last
+    /// value of a repeated name.
+    @Test(arguments: ["127.0.0.1", "[::1]"])
+    func upgradeHeaders(host: String) async throws {
+        let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
+        let url = try await server.url(host: host)
+        let headers = Self.headers + [(name: "X-Repeated", value: "a"), (name: "x-repeated", value: "b"), (name: "Host", value: "caller")]
+        _ = try await LiveKit.WebSocket(url: url, headers: headers, timeoutInterval: 10)
+
+        let port = try #require(url.port)
+        let lines = server.requestHeaders.copy()
+        #expect(lines.filter { $0.lowercased().hasPrefix("host:") } == ["Host: \(host):\(port)"])
+        #expect(lines.contains("X-Repeated: a,b"))
+    }
+
+    /// URLSessionWebSocketTask's limit on a received message.
+    @Test(arguments: [1 << 20, (1 << 20) + 1])
+    func maximumMessageSize(size: Int) async throws {
+        let server = try FakeWebSocketServer(.message(size: size))
+        defer { server.cancel() }
+        let socket = try await Self.open(server)
+        try await socket.send(data: Data([0x01]))
+
+        let iterator = socket.makeAsyncIterator()
+        if size <= 1 << 20 {
+            guard case let .data(message) = try await iterator.next() else { return #expect(Bool(false)) }
+            #expect(message.count == size)
+        } else {
+            let error = await #expect(throws: LiveKitError.self) { try await iterator.next() }
+            #expect(error?.type == .network)
+        }
+    }
+
+    /// The cookies stored for the URL go with the upgrade, as URLSession sent them; secure ones on a `wss` URL too.
+    @Test func upgradeSendsStoredCookies() async throws {
+        let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
+        let url = try await server.url()
+        let name = "lk-test-\(UUID().uuidString.prefix(8))"
+        let cookies = try [
+            #require(HTTPCookie(properties: [.domain: "127.0.0.1", .path: "/", .name: name, .value: "plain"])),
+            #require(HTTPCookie(properties: [.domain: "cookie.test", .path: "/", .name: name, .value: "secure", .secure: "TRUE"])),
+        ]
+        cookies.forEach(HTTPCookieStorage.shared.setCookie)
+        defer { cookies.forEach(HTTPCookieStorage.shared.deleteCookie) }
+
+        _ = try await LiveKit.WebSocket(url: url, headers: Self.headers, timeoutInterval: 10)
+        #expect(server.requestHeaders.copy().contains("Cookie: \(name)=plain"))
+
+        let secure = try LiveKit.WebSocket.upgradeHeaders(url: #require(URL(string: "wss://cookie.test/rtc")), headers: [])
+        #expect(secure.contains { $0.name == "Cookie" && $0.value == "\(name)=secure" })
     }
 
     @Test func refusedConnectionFails() async throws {
