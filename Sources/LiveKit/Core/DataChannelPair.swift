@@ -206,6 +206,14 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
             return
         }
 
+        let e2eeManager = _state.e2eeManager
+        if e2eeManager?.isDataChannelEncryptionEnabled == true,
+           Livekit_EncryptedPacketPayload(dataPacket: dataPacket) != nil
+        {
+            log("Dropping unencrypted data packet while data channel encryption is enabled")
+            return
+        }
+
         if isReliable, dataPacket.sequence > 0, !dataPacket.participantSid.isEmpty {
             // Check and update in one locked step so two concurrent receives for the same sender
             // can't both pass the dedup gate.
@@ -223,7 +231,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
 
         guard let encryptedPacket = dataPacket.encryptedPacketOrNil,
-              let e2eeManager = _state.e2eeManager
+              let e2eeManager
         else {
             delegates.notify {
                 $0.dataChannel(self, didReceiveDataPacket: dataPacket, serialized: data, encryptionType: .none)
