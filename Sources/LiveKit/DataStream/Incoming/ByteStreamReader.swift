@@ -125,7 +125,14 @@ extension ByteStreamReader {
         }
         let fileURL = directory.appendingPathComponent(fileName)
 
-        let writer = try AsyncFileStream(writingTo: fileURL)
+        // Created exclusively: the sender chooses the name, so an existing file must not be
+        // truncated and a symlink at that path must not be followed out of `directory`.
+        let writer: AsyncFileStream<WriteMode>
+        do {
+            writer = try AsyncFileStream(creatingNewAt: fileURL)
+        } catch AsyncFileStream<WriteMode>.Error.openFailed(EEXIST) {
+            throw StreamError.io(reason: "A file already exists at \(fileURL.path)")
+        }
         defer { writer.close() }
         for try await chunk in self {
             try await writer.write(chunk)

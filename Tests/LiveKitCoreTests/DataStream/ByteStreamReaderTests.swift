@@ -86,11 +86,59 @@ struct ByteStreamReaderTests {
     }
 
     @Test func readToFile() async throws {
+        // A fresh directory per run: the destination is created exclusively, so a fixed name in
+        // the shared temporary directory would collide with a previous run's file.
+        let directory = try Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
         let (reader, manager) = try await openReader()
-        let fileURL = try await reader.writeToFile()
+        let fileURL = try await reader.writeToFile(in: directory)
         #expect(fileURL.lastPathComponent == reader.info.name)
         #expect(try Data(contentsOf: fileURL) == testPayload)
         _ = manager
+    }
+
+    /// The sender chooses the stored name, so an existing file must not be replaced by one.
+    @Test func writeToFileDoesNotOverwriteExistingFile() async throws {
+        let directory = try Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let victim = directory.appendingPathComponent(name)
+        try Data("original".utf8).write(to: victim)
+
+        let (reader, manager) = try await openReader()
+        await #expect(throws: StreamError.self) {
+            try await reader.writeToFile(in: directory)
+        }
+        #expect(try Data(contentsOf: victim) == Data("original".utf8))
+        _ = manager
+    }
+
+    /// A symlink already at the destination must not be followed to its target.
+    @Test func writeToFileDoesNotFollowSymlink() async throws {
+        let directory = try Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let target = directory.appendingPathComponent("target.bin")
+        try Data("original".utf8).write(to: target)
+        try FileManager.default.createSymbolicLink(
+            at: directory.appendingPathComponent(name),
+            withDestinationURL: target,
+        )
+
+        let (reader, manager) = try await openReader()
+        await #expect(throws: StreamError.self) {
+            try await reader.writeToFile(in: directory)
+        }
+        #expect(try Data(contentsOf: target) == Data("original".utf8))
+        _ = manager
+    }
+
+    private static func makeTemporaryDirectory() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
     }
 
     /// Releasing the manager, as a disconnect does, fails a reader still waiting for its trailer, so
