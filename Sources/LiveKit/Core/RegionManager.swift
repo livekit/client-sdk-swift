@@ -91,6 +91,7 @@ actor RegionManager: Loggable {
         guard providedUrl.isCloud else { return }
 
         let allRegions = regions.regions.compactMap { $0.toLKType() }
+        logRejectedRegions(received: regions.regions.count, accepted: allRegions.count)
         guard !allRegions.isEmpty else { return }
 
         // Keep previously failed regions excluded when updating the list.
@@ -104,6 +105,14 @@ actor RegionManager: Loggable {
         state.all = allRegions
         state.remaining = remainingRegions
         state.lastRequested = Date()
+    }
+
+    /// Reports regions dropped by ``RegionInfo``'s trust check, so a discovery response the SDK
+    /// refuses to use is visible rather than silently shortening the list.
+    private nonisolated func logRejectedRegions(received: Int, accepted: Int) {
+        let rejected = received - accepted
+        guard rejected > 0 else { return }
+        log("[Region] Ignoring \(rejected) of \(received) regions: not an encrypted LiveKit Cloud URL", .warning)
     }
 
     // MARK: - Testing
@@ -228,6 +237,7 @@ actor RegionManager: Loggable {
     private nonisolated static func parseRegionSettings(data: Data) throws -> [RegionInfo] {
         do {
             let json = try JSONDecoder().decode(RegionSettingsJSON.self, from: data)
+            let received = (json.regions ?? []).count
             let allRegions = (json.regions ?? []).compactMap { region in
                 Livekit_RegionInfo.with {
                     $0.region = region.region ?? ""
@@ -236,7 +246,12 @@ actor RegionManager: Loggable {
                 }.toLKType()
             }
             guard !allRegions.isEmpty else {
-                throw LiveKitError(.regionManager, message: "Fetched region data is empty.")
+                // Distinguishes "the server sent nothing" from "every entry was refused", so a
+                // tampered or misconfigured response does not read as an empty region list.
+                let reason = received > 0
+                    ? "Fetched region data had no usable entries: all \(received) were refused as not an encrypted LiveKit Cloud URL."
+                    : "Fetched region data is empty."
+                throw LiveKitError(.regionManager, message: reason)
             }
             return allRegions
         } catch {

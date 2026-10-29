@@ -142,6 +142,82 @@ import LiveKitTestSupport
         #expect(URL(string: input)?.regionSettingsUrl().absoluteString == expected)
     }
 
+    @Test(arguments: [
+        // Encrypted cloud URLs are the only thing failover may use.
+        ("wss://eu.livekit.cloud", true),
+        ("https://eu.livekit.cloud", true),
+        ("wss://staging.livekit.run", true),
+        ("https://eu.livekit.cloud:443/rtc", true),
+        // Foundation does not normalise host case, so this must still match.
+        ("https://EU.LIVEKIT.CLOUD", true),
+        // Cleartext must never carry the token, even to a real cloud host.
+        ("ws://eu.livekit.cloud", false),
+        ("http://eu.livekit.cloud", false),
+        // Foreign origins, and near-misses that must not match on suffix alone.
+        ("https://other.example.com", false),
+        ("wss://other.example.com/rtc", false),
+        ("https://not-livekit.cloud", false),
+        ("https://livekit.cloud.example.com", false),
+        // Malformed or hostless.
+        ("", false),
+        ("eu.livekit.cloud", false),
+        ("file:///etc/passwd", false),
+    ])
+    func isTrustedRegionURL(urlString: String, expected: Bool) {
+        #expect(URL(string: urlString)?.isTrustedRegionURL ?? false == expected)
+    }
+
+    /// A region the SDK must not fail over to is dropped rather than connected to with the token.
+    @Test func rejectsUntrustedRegionsFromFetchedSettings() async throws {
+        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
+        let regionManager = RegionManager(providedUrl: providedUrl)
+
+        try MockURLProtocol.setAllowedHosts([#require(providedUrl.host)])
+        MockURLProtocol.setAllowedPaths(["/settings/regions"])
+        MockURLProtocol.setRequestHandler { (_: URLRequest) in
+            MockURLProtocol.Response(statusCode: 200, headers: [:], body: Data("""
+            {"regions": [
+                {"region": "foreign", "url": "https://other.example.com", "distance": "1"},
+                {"region": "cleartext", "url": "ws://example.dblr1a.livekit.cloud", "distance": "2"},
+                {"region": "good", "url": "https://example.otokyo1a.livekit.cloud", "distance": "3"}
+            ]}
+            """.utf8))
+        }
+        URLProtocol.registerClass(MockURLProtocol.self)
+        defer { cleanUpMockURLProtocol() }
+
+        _ = try #require(await regionManager.resolveBest(token: "token"))
+
+        let regions = await regionManager.snapshot().all
+        #expect(regions.map(\.regionId) == ["good"])
+        #expect(regions.map(\.url.absoluteString) == ["https://example.otokyo1a.livekit.cloud"])
+    }
+
+    /// Server-reported settings arrive over signalling and are the second ingestion path.
+    @Test func rejectsUntrustedServerReportedRegions() async throws {
+        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
+        let regionManager = RegionManager(providedUrl: providedUrl)
+
+        let reported = Livekit_RegionSettings.with {
+            $0.regions = [
+                Livekit_RegionInfo.with {
+                    $0.region = "foreign"
+                    $0.url = "https://other.example.com"
+                    $0.distance = 1
+                },
+                Livekit_RegionInfo.with {
+                    $0.region = "good"
+                    $0.url = "https://example.otokyo1a.livekit.cloud"
+                    $0.distance = 2
+                },
+            ]
+        }
+        await regionManager.updateFromServerReportedRegions(reported)
+
+        let regions = await regionManager.snapshot().all
+        #expect(regions.map(\.regionId) == ["good"])
+    }
+
     @Test(.bug("https://github.com/livekit/client-sdk-swift/issues/1159"))
     func parsesFetchedCloudRegionSettings() async throws {
         let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
