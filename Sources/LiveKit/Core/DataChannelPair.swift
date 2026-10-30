@@ -79,7 +79,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     enum PlaintextReceivePolicy {
         case drop, deliver
 
-        // CLT-3536 / CLT-3531: flip here if the cross-SDK product decision changes.
         static let `default`: Self = .drop
     }
 
@@ -223,7 +222,10 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
            e2eeManager?.isDataChannelEncryptionEnabled == true,
            Livekit_EncryptedPacketPayload(dataPacket: dataPacket) != nil
         {
-            log("Dropping unencrypted data packet while data channel encryption is enabled")
+            delegates.notify {
+                $0.dataChannel(self, didFailToDecryptDataPacket: dataPacket,
+                               error: LiveKitError(.decryptionFailed, message: "Received an unencrypted data packet while data channel encryption is enabled"))
+            }
             return
         }
 

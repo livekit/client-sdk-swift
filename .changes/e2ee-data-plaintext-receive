@@ -1,0 +1,1 @@
+patch type="fixed" "Drop and report unencrypted user, chat, RPC, and stream data packets when data channel encryption is on"

@@ -90,7 +90,10 @@ struct PlaintextDataChannelTests {
                                              delivered: reception.delivered,
                                              encryptionType: reception.encrypted ? .gcm : .none,
                                              hasAppCallback: payload.hasAppCallback)
-            #expect(context.observer.decryptionErrors == (reception == .wrongKey ? 1 : 0))
+            context.expectDecryptionErrors(count: reception.delivered ? 0 : 1)
+            if reception == .plaintextEncryptedRoom {
+                #expect(context.observer.decryptionErrors.first?.message == "Received an unencrypted data packet while data channel encryption is enabled")
+            }
         }
     }
 
@@ -103,6 +106,7 @@ struct PlaintextDataChannelTests {
         #expect(context.room.e2eeManager?.isDataChannelEncryptionEnabled == false)
         try await context.receive(payload.packet, reliable: true)
         try await context.expectDelivery(payload.packet, delivered: true, encryptionType: .none, hasAppCallback: payload.hasAppCallback)
+        context.expectDecryptionErrors(count: 0)
     }
 
     enum Control: CaseIterable {
@@ -129,7 +133,7 @@ struct PlaintextDataChannelTests {
             #expect(Livekit_EncryptedPacketPayload(dataPacket: control.packet) == nil)
             try await context.receive(control.packet, reliable: reliable)
             try await context.expectDelivery(control.packet, delivered: true, encryptionType: .none, hasAppCallback: false)
-            #expect(context.observer.decryptionErrors == 0)
+            context.expectDecryptionErrors(count: 0)
         }
     }
 
@@ -138,13 +142,17 @@ struct PlaintextDataChannelTests {
         let context = try await ReceiveContext()
         defer { context.cleanUp() }
         let plaintext = payload.packet.modifying { $0.participantSid = "PA_sender"; $0.sequence = 100 }
-        try await context.receive(plaintext, reliable: true)
+        for count in 1 ... 2 {
+            try await context.receive(plaintext, reliable: true)
+            context.expectDecryptionErrors(count: count)
+        }
         #expect(context.pair.receiveStates().isEmpty)
         #expect(context.observer.packets.isEmpty)
         let packet = plaintext.modifying { $0.sequence = 1 }
         try await context.receive(context.encrypt(packet), reliable: true)
         try await context.expectDelivery(packet, delivered: true, encryptionType: .gcm, hasAppCallback: payload.hasAppCallback)
         #expect(context.pair.receiveStates().map(\.lastSeq) == [1])
+        context.expectDecryptionErrors(count: 2)
     }
 }
 
@@ -226,13 +234,20 @@ private struct ReceiveContext {
         #expect(observer.encryptionTypes == (delivered ? [encryptionType] : []))
         #expect(observer.appCallbacks == (hasAppCallback && delivered ? 1 : 0))
     }
+
+    func expectDecryptionErrors(count: Int) {
+        #expect(observer.decryptionErrors.count == count)
+        #expect(observer.decryptionErrors.allSatisfy { $0.type == .decryptionFailed })
+        #expect(observer.roomDecryptionErrors == observer.decryptionErrors)
+    }
 }
 
 private final class ReceiveObserver: NSObject, DataChannelDelegate, RoomDelegate, Sendable {
     private struct State {
         var packets: [Livekit_DataPacket] = []
         var encryptionTypes: [EncryptionType] = []
-        var decryptionErrors = 0
+        var decryptionErrors: [LiveKitError] = []
+        var roomDecryptionErrors: [LiveKitError] = []
         var appCallbacks = 0
     }
 
@@ -247,7 +262,8 @@ private final class ReceiveObserver: NSObject, DataChannelDelegate, RoomDelegate
 
     var packets: [Livekit_DataPacket] { state.packets }
     var encryptionTypes: [EncryptionType] { state.encryptionTypes }
-    var decryptionErrors: Int { state.decryptionErrors }
+    var decryptionErrors: [LiveKitError] { state.decryptionErrors }
+    var roomDecryptionErrors: [LiveKitError] { state.roomDecryptionErrors }
 
     func dataChannel(_: DataChannelPair, didReceiveDataPacket packet: Livekit_DataPacket, serialized _: Data?, encryptionType: EncryptionType) {
         state.mutate {
@@ -256,8 +272,12 @@ private final class ReceiveObserver: NSObject, DataChannelDelegate, RoomDelegate
         }
     }
 
-    func dataChannel(_: DataChannelPair, didFailToDecryptDataPacket _: Livekit_DataPacket, error _: LiveKitError) {
-        state.mutate { $0.decryptionErrors += 1 }
+    func dataChannel(_: DataChannelPair, didFailToDecryptDataPacket _: Livekit_DataPacket, error: LiveKitError) {
+        state.mutate { $0.decryptionErrors.append(error) }
+    }
+
+    func room(_: Room, didFailToDecryptDataWithEror error: LiveKitError) {
+        state.mutate { $0.roomDecryptionErrors.append(error) }
     }
 
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData _: Data, forTopic _: String, encryptionType _: EncryptionType) {
