@@ -685,10 +685,17 @@ private extension VideoView {
     /// `CAMetalLayer` pool, and 36x the fragment shading per frame. Handing the renderer the
     /// displayed size instead costs nothing visually and collapses both.
     func applyRendererSize() {
-        let (nativeVideoSize, rendererSize, screenScale) = _state.read {
-            ($0.nativeVideoSize, $0.rendererSize, $0.screenScale)
+        let (nativeVideoSize, rendererSize) = _state.read {
+            ($0.nativeVideoSize, $0.rendererSize)
         }
         guard let nativeVideoSize else { return }
+
+        // Read live rather than from state: `_state.screenScale` stays 1 until the first layout,
+        // and this also runs before it (renderer creation, `set(size:)`). With 1 the video size
+        // passes through unclamped and the renderer multiplies it by the real scale. This reads
+        // the same sources as `RTCMTLVideoView.currentScaleFactor`, so the divide here and the
+        // multiply there always agree.
+        let screenScale = currentScreenScale()
 
         let target = VideoView.rendererSize(forVideoSize: nativeVideoSize,
                                             displayedSize: rendererSize,
