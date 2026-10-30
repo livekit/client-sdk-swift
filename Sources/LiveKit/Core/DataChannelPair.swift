@@ -76,6 +76,15 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     private let _state = StateSync(State())
 
+    enum PlaintextReceivePolicy {
+        case drop, deliver
+
+        // CLT-3536 / CLT-3531: flip here if the cross-SDK product decision changes.
+        static let `default`: Self = .drop
+    }
+
+    private let plaintextReceivePolicy: PlaintextReceivePolicy
+
     // Implicitly unwrapped because their message and state callbacks capture `self`, which is not
     // available until after `super.init()`. Assigned there, never reassigned — and both are set
     // before `self` escapes to any other thread (the first escape is `set(lossy:)`/`set(reliable:)`
@@ -92,8 +101,10 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     init(delegate: DataChannelDelegate? = nil,
          lossyChannel: LKRTCDataChannel? = nil,
          reliableChannel: LKRTCDataChannel? = nil,
-         onBufferStatusChange: (@Sendable (Bool, DataChannelKind) -> Void)? = nil)
+         onBufferStatusChange: (@Sendable (Bool, DataChannelKind) -> Void)? = nil,
+         plaintextReceivePolicy: PlaintextReceivePolicy = .default)
     {
+        self.plaintextReceivePolicy = plaintextReceivePolicy
         super.init()
 
         if let delegate {
@@ -207,7 +218,9 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
 
         let e2eeManager = _state.e2eeManager
-        if e2eeManager?.isDataChannelEncryptionEnabled == true,
+        // Match the send path's encryptable payloads; control packets stay plaintext.
+        if plaintextReceivePolicy == .drop,
+           e2eeManager?.isDataChannelEncryptionEnabled == true,
            Livekit_EncryptedPacketPayload(dataPacket: dataPacket) != nil
         {
             log("Dropping unencrypted data packet while data channel encryption is enabled")
