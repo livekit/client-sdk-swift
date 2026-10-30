@@ -200,9 +200,22 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Receive
 
-    private func handle(received data: Data, isReliable: Bool) {
+    func handle(received data: Data, isReliable: Bool) {
         guard let dataPacket = try? Livekit_DataPacket(serializedBytes: data) else {
             log("Could not decode data message", .error)
+            return
+        }
+
+        let e2eeManager = _state.e2eeManager
+        // Match the send path's encryptable payloads; control packets stay plaintext.
+        if e2eeManager?.isDataChannelEncryptionEnabled == true,
+           Livekit_EncryptedPacketPayload(dataPacket: dataPacket) != nil,
+           !isServerUserPacket(dataPacket)
+        {
+            delegates.notify {
+                $0.dataChannel(self, didFailToDecryptDataPacket: dataPacket,
+                               error: LiveKitError(.decryptionFailed, message: "Received an unencrypted data packet while data channel encryption is enabled"))
+            }
             return
         }
 
@@ -223,7 +236,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
         }
 
         guard let encryptedPacket = dataPacket.encryptedPacketOrNil,
-              let e2eeManager = _state.e2eeManager
+              let e2eeManager
         else {
             delegates.notify {
                 $0.dataChannel(self, didReceiveDataPacket: dataPacket, serialized: data, encryptionType: .none)
@@ -250,6 +263,13 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
                 $0.dataChannel(self, didFailToDecryptDataPacket: dataPacket, error: LiveKitError(.decryptionFailed, internalError: error))
             }
         }
+    }
+
+    private func isServerUserPacket(_ packet: Livekit_DataPacket) -> Bool {
+        guard case let .user(user) = packet.value else { return false }
+        return packet.participantSid.isEmpty
+            && packet.participantIdentity.isEmpty
+            && user.participantIdentity.isEmpty
     }
 
     // MARK: - Sync state
