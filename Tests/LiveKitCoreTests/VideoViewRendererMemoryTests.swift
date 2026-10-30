@@ -40,15 +40,11 @@ import MetalKit
 struct VideoViewRendererMemoryTests {
     // MARK: - The drawable-size law
 
-    /// Left to itself, `RTCMTLVideoView` sizes its `CAMetalLayer` drawables from the *video* and
-    /// then multiplies by the screen scale: upstream assigns `drawableSize = videoFrameSize`, and
-    /// LiveKit's WebRTC fork scales that by `contentScaleFactor` ("Metal renderer scale factor",
-    /// xcframework 125.6422.25, shipped by 05fc61bb). `autoResizeDrawable = NO`, so the view's own
-    /// bounds never enter into it — a 320x180 view showing 1080p on a 3x screen would allocate
-    /// 5760x3240 drawables, 324x the pixels it displays and ~214 MB of pool.
-    ///
-    /// ``VideoView`` now hands the renderer the displayed size instead, so the pool tracks what is
-    /// on screen rather than what arrived on the wire.
+    /// `RTCMTLVideoView` sets `autoResizeDrawable = NO` and sizes its `CAMetalLayer` drawables
+    /// from the video size passed to `setSize:`. Before 150.7871.05 the WebRTC fork also multiplied
+    /// that by the screen scale, so a 320x180 view showing 1080p on a 3x screen allocated 5760x3240
+    /// drawables, 324x the pixels it displays and ~214 MB of pool. The renderer now clamps the
+    /// drawable to the pixels the view displays, without upscaling the video.
     @Test(arguments: RendererProbe.resolutions)
     func drawableSizeIsClampedToDisplayedPixels(_ resolution: RendererProbe.Resolution) async throws {
         // `.metal`, not `.auto`: on a real A14+ iPhone `.auto` resolves to `.metal`, but the
@@ -77,43 +73,9 @@ struct VideoViewRendererMemoryTests {
             "=> \(RendererProbe.mb(poolBytes)) MB of drawables per view " +
             "(was \(RendererProbe.mb(unclampedPool)) MB before the clamp)")
 
-        // A pixel of tolerance per axis: the renderer re-multiplies by the screen scale.
+        // A pixel of tolerance per axis: the renderer rounds the clamped size up.
         #expect(abs(drawable.width - expected.width) <= 1)
         #expect(abs(drawable.height - expected.height) <= 1)
-    }
-
-    /// The clamp in isolation, without a renderer in the way.
-    @Test
-    func rendererSizeClampPreservesAspectAndNeverUpscales() {
-        let hd = CGSize(width: 1920, height: 1080)
-        // The helper returns points; the renderer multiplies by the scale to get the drawable.
-        func drawable(video: CGSize, displayed: CGSize?, scale: CGFloat) -> CGSize {
-            let points = VideoView.rendererSize(forVideoSize: video, displayedSize: displayed, screenScale: scale)
-            return CGSize(width: points.width * scale, height: points.height * scale)
-        }
-
-        // A 320x180 point view on a 3x screen displays 960x540 pixels; the drawable matches it.
-        #expect(drawable(video: hd, displayed: CGSize(width: 320, height: 180), scale: 3) == CGSize(width: 960, height: 540))
-
-        // A view larger than the video does not get a drawable bigger than the video.
-        #expect(drawable(video: hd, displayed: CGSize(width: 1920, height: 1080), scale: 3) == hd)
-
-        // Unknown geometry still caps at the video's native resolution.
-        #expect(drawable(video: hd, displayed: nil, scale: 3) == hd)
-        #expect(drawable(video: hd, displayed: .zero, scale: 3) == hd)
-
-        // A degenerate scale is treated as 1 rather than dividing by zero.
-        #expect(VideoView.rendererSize(forVideoSize: hd, displayedSize: nil, screenScale: 0) == hd)
-
-        // Degenerate video size is passed through untouched.
-        #expect(VideoView.rendererSize(forVideoSize: .zero,
-                                       displayedSize: CGSize(width: 320, height: 180),
-                                       screenScale: 3) == .zero)
-
-        // Aspect ratio is preserved through the clamp.
-        #expect(drawable(video: CGSize(width: 1080, height: 1920),
-                         displayed: CGSize(width: 180, height: 320),
-                         scale: 3) == CGSize(width: 540, height: 960))
     }
 
     // MARK: - Is the drawable pool real memory?
