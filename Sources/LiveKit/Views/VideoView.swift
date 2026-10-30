@@ -246,6 +246,10 @@ public class VideoView: NativeView, Loggable {
         // layout related
         var viewSize: CGSize
         var rendererSize: CGSize?
+        /// The frame's native pixel size, as reported by WebRTC. Kept unclamped: it is the input
+        /// to ``VideoView/rendererSize(forVideoSize:displayedSize:screenScale:)``, which has to be
+        /// recomputed from it whenever the view's geometry changes.
+        var nativeVideoSize: CGSize?
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
         var mirrorMode: MirrorMode = .auto
@@ -536,6 +540,8 @@ public class VideoView: NativeView, Loggable {
                 $0.rendererSize = rendererFrame.size
                 $0.screenScale = screenScale
             }
+            // The render target is sized from this geometry, so it has to follow it.
+            applyRendererSize()
         }
 
         if let _primaryRenderer {
@@ -593,6 +599,9 @@ private extension VideoView {
         _renderedMode = renderMode
 
         let renderer = recreatePrimaryRenderer(for: renderMode)
+        // A fresh renderer starts with no size; give it the clamped one before the first frame so
+        // it never allocates a full-resolution drawable pool it would immediately discard.
+        applyRendererSize()
         if let frame = track._state.videoFrame {
             log("rendering cached frame track: \(String(describing: track._state.sid))")
             renderer.renderFrame(frame.toRTCType())
@@ -647,6 +656,26 @@ private extension VideoView {
         return newView
     }
 
+    /// Sizes the native renderer's render target to the pixels it actually displays.
+    ///
+    /// WebRTC reports the frame's native dimensions, and `RTCMTLVideoView` turns that straight
+    /// into `drawableSize = videoSize * screenScale`. A 320x180 view showing 1080p on a 3x screen
+    /// would therefore allocate 5760x3240 drawables — 324x the pixels it displays, ~214 MB of
+    /// `CAMetalLayer` pool, and 36x the fragment shading per frame. Handing the renderer the
+    /// displayed size instead costs nothing visually and collapses both.
+    func applyRendererSize() {
+        let (nativeVideoSize, rendererSize, screenScale) = _state.read {
+            ($0.nativeVideoSize, $0.rendererSize, $0.screenScale)
+        }
+        guard let nativeVideoSize else { return }
+
+        let target = VideoView.rendererSize(forVideoSize: nativeVideoSize,
+                                            displayedSize: rendererSize,
+                                            screenScale: screenScale)
+        _primaryRenderer?.setSize(target)
+        _secondaryRenderer?.setSize(target)
+    }
+
     func _shouldMirror() -> Bool {
         switch _state.mirrorMode {
         case .auto: _state.captureDevice?.facingPosition == .front
@@ -674,9 +703,9 @@ extension VideoView: VideoRenderer {
     }
 
     public func set(size: CGSize) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self, let nr = _primaryRenderer else { return }
-            nr.setSize(size)
+        _state.mutate { $0.nativeVideoSize = size }
+        Task { @MainActor in
+            self.applyRendererSize()
         }
     }
 
@@ -817,6 +846,47 @@ extension VideoView: VideoRenderer {
 // MARK: - Internal
 
 extension VideoView {
+    /// Returns the value to hand to the native renderer's `setSize:`, given the frame's native
+    /// pixel size and the points the renderer occupies on screen.
+    ///
+    /// The result is in **points**, not pixels: `RTCMTLVideoView` multiplies whatever it is given
+    /// by the screen scale to get `drawableSize`, so `drawableSize == result * screenScale`.
+    /// Passing pixels here would scale twice.
+    ///
+    /// The drawable it produces is `min(video pixels, displayed pixels)` with the aspect ratio
+    /// preserved — never above the video's own resolution, since upsampling past it invents no
+    /// detail, and never above what is actually on screen. With `displayedSize` unknown the
+    /// result still caps at the video's native resolution rather than the scaled-up default.
+    ///
+    /// - Warning: This compensates for a behaviour of the WebRTC fork, so the two are coupled. If
+    ///   the fork ever stops scaling by `contentScaleFactor` — the right long-term fix, since only
+    ///   it can clamp before the layer is sized — dividing here would under-sample by the screen
+    ///   scale and soften every stream. `VideoViewRendererMemoryTests` asserts the resulting
+    ///   `drawableSize`, not this function's output, so an xcframework bump that changes the
+    ///   contract fails there rather than shipping blurry video.
+    nonisolated static func rendererSize(forVideoSize videoSize: CGSize,
+                                         displayedSize: CGSize?,
+                                         screenScale: CGFloat) -> CGSize
+    {
+        guard videoSize.width > 0, videoSize.height > 0 else { return videoSize }
+        let scale = screenScale > 0 ? screenScale : 1
+
+        // The video's native resolution, expressed in the points the renderer expects.
+        var target = CGSize(width: videoSize.width / scale, height: videoSize.height / scale)
+
+        if let displayedSize, displayedSize.width > 0, displayedSize.height > 0 {
+            // The larger of the two ratios, so neither axis is under-sampled when `.fill` crops one.
+            let ratio = max(displayedSize.width / target.width, displayedSize.height / target.height)
+            if ratio.isFinite, ratio < 1 {
+                target = CGSize(width: target.width * ratio, height: target.height * ratio)
+            }
+        }
+
+        // Left fractional on purpose: the renderer multiplies by the scale again, and rounding
+        // here would drift the drawable off the video's exact dimensions.
+        return CGSize(width: max(1, target.width), height: max(1, target.height))
+    }
+
     nonisolated static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
         // equal if both tracks are nil
         if track1 == nil, track2 == nil { return true }
@@ -880,9 +950,9 @@ extension VideoView {
                 #elseif os(macOS)
                 mtkView.layerContentsPlacement = .scaleProportionallyToFit
                 #endif
-                // ensure it's capable of rendering 60fps
+                // Note: `RTCMTLRenderer.setupWithView:` resets this to 30 when it attaches, which
+                // happens lazily on the first frame — so this assignment only holds until then.
                 // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
-                log("preferredFramesPerSecond = 60")
                 mtkView.preferredFramesPerSecond = 60
             }
 

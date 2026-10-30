@@ -1,0 +1,1 @@
+patch type="fixed" "VideoView's Metal renderer sized its CAMetalLayer drawables from the video's resolution multiplied by the screen scale, so a small view showing a 1080p stream allocated 5760x3240 drawables (~214 MB) on a 3x screen. The render target is now clamped to the pixels actually displayed"
