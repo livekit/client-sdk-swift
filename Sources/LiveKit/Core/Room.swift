@@ -826,7 +826,7 @@ extension Room: DataChannelDelegate {
     func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, serialized: Data?, encryptionType: EncryptionType) {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
-        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: encryptionType)
+        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, participantIdentity: dataPacket.participantIdentity, encryptionType: encryptionType)
         case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)

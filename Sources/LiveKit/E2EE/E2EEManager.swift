@@ -275,7 +275,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         }
     }
 
-    private func addDataChannelCryptor() {
+    func addDataChannelCryptor() {
         _state.mutate {
             $0.dataCryptor = LKRTCDataPacketCryptor(algorithm: .aesGcm, keyProvider: keyProvider.rtcKeyProvider)
         }

@@ -196,10 +196,10 @@ extension Room {
         await publication.set(track: nil)
     }
 
-    func engine(_ engine: Room, didReceiveUserPacket packet: Livekit_UserPacket, encryptionType: EncryptionType) {
+    func engine(_ engine: Room, didReceiveUserPacket packet: Livekit_UserPacket, participantIdentity: String, encryptionType: EncryptionType) {
         // participant could be null if data broadcasted from server
-        let identity = Participant.Identity(from: packet.participantIdentity)
-        let participant = _state.remoteParticipants[identity]
+        let identity = Participant.Identity(from: participantIdentity)
+        let participant = participantIdentity.isEmpty ? nil : _state.remoteParticipants[identity]
 
         if case .connected = engine._state.connectionState {
             delegates.notify(label: { "room.didReceive data: \(packet.payload)" }) {
