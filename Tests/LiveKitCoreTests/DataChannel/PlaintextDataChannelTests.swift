@@ -60,7 +60,7 @@ struct PlaintextDataChannelTests {
 
     @Test func controlPacketIsStillDelivered() async throws {
         let context = ReceiveContext()
-        let packet = Livekit_DataPacket.with { $0.speaker = .with { _ in } }
+        let packet = Livekit_DataPacket.with { $0.sipDtmf = .with { _ in } }
         try await context.receive(packet)
         context.expect(packets: [packet], errorCount: 0)
     }
@@ -68,17 +68,24 @@ struct PlaintextDataChannelTests {
     @available(*, deprecated, message: "Covers the deprecated media-only E2EEOptions")
     @Test func legacyMediaOnlyRoomDeliversPlaintext() async throws {
         let context = ReceiveContext(manager: E2EEManager(e2eeOptions: E2EEOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: testKey))))
-        try #require(context.manager.isDataChannelEncryptionEnabled == false)
+        try #require(context.manager?.isDataChannelEncryptionEnabled == false)
+        try await context.receive(Payload.user.packet)
+        context.expect(packets: [Payload.user.packet], errorCount: 0)
+    }
+
+    @Test func noEncryptionDeliversPlaintext() async throws {
+        let context = ReceiveContext(manager: nil)
         try await context.receive(Payload.user.packet)
         context.expect(packets: [Payload.user.packet], errorCount: 0)
     }
 
     @Test func togglingEncryptionAppliesPerPacket() async throws {
         let context = ReceiveContext()
-        context.manager.enableE2EE(enabled: false)
+        let manager = try #require(context.manager)
+        manager.enableE2EE(enabled: false)
         try await context.receive(Payload.user.packet)
         context.expect(packets: [Payload.user.packet], errorCount: 0)
-        context.manager.enableE2EE(enabled: true)
+        manager.enableE2EE(enabled: true)
         try await context.receive(Payload.user.packet)
         context.expect(packets: [Payload.user.packet], errorCount: 1)
     }
@@ -94,11 +101,10 @@ private final class ReceiveContext: NSObject, DataChannelDelegate, RoomDelegate,
     let state = StateSync(State())
     let pair = DataChannelPair()
     let room: Room
-    let manager: E2EEManager
+    let manager: E2EEManager?
 
-    init(manager: E2EEManager = E2EEManager(options: .sharedKey(testKey))) {
+    init(manager: E2EEManager? = E2EEManager(options: .sharedKey(testKey))) {
         let room = Room()
-        _ = room.localParticipant
         self.room = room
         self.manager = manager
         super.init()
