@@ -369,10 +369,6 @@ final class Transport: NSObject, Loggable {
 // MARK: - SDP Munging
 
 extension Transport {
-    // `mungeInactiveToRecvOnlyForMedia` used to live here, rewriting `a=inactive` to
-    // `a=recvonly` on every RTP section of a single PC offer. See
-    // `RecvOnlyOfferDirectionTests` for why it was not needed and why it was harmful.
-
     /// Munge an answer to declare `stereo=1` on the Opus fmtp of every section whose
     /// counterpart in `offer` advertises `sprop-stereo=1`.
     ///
