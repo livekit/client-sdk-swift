@@ -72,69 +72,65 @@ struct SinglePCRepublishTests {
             RoomTestingOptions(singlePeerConnection: true, canPublish: true),
             RoomTestingOptions(singlePeerConnection: true, canSubscribe: true),
         ]) { rooms in
-            let publisher = rooms[0]
-            let subscriber = rooms[1]
-            let publisherIdentity = try #require(publisher.localParticipant.identity)
-
-            /// Publishes a moving synthetic track, waits until `subscriber` renders a frame from
-            /// it, then tears everything it created back down before returning.
-            func publishThenAwaitFramesThenUnpublish(_ label: String) async throws {
-                let track = await LocalVideoTrack.createBufferTrack(
-                    name: label,
-                    source: .camera,
-                    options: BufferCaptureOptions(dimensions: Dimensions(width: Int32(Self.width),
-                                                                         height: Int32(Self.height))),
-                )
-                let capturer = try #require(track.capturer as? BufferCapturer)
-                let feeder = Task.detached {
-                    var tick = 0
-                    while !Task.isCancelled {
-                        if let pixelBuffer = Self.makePixelBuffer(tick: tick) {
-                            capturer.capture(pixelBuffer)
-                        }
-                        tick += 1
-                        try? await Task.sleep(nanoseconds: 100_000_000)
-                    }
-                }
-
-                try await publisher.localParticipant.publish(videoTrack: track)
-
-                let remote = try #require(subscriber.remoteParticipants[publisherIdentity])
-                var subscribed: RemoteVideoTrack?
-                let subscribeDeadline = Date().addingTimeInterval(45)
-                while Date() < subscribeDeadline {
-                    if let candidate = remote.videoTracks.first?.track as? RemoteVideoTrack {
-                        subscribed = candidate
-                        break
-                    }
-                    try await Task.sleep(nanoseconds: 200_000_000)
-                }
-                let remoteTrack = try #require(subscribed, "\(label): never subscribed")
-
-                let watcher = VideoTrackWatcher(id: label)
-                remoteTrack.add(videoRenderer: watcher)
-
-                let frameDeadline = Date().addingTimeInterval(45)
-                while Date() < frameDeadline, !watcher.didRenderFirstFrame {
-                    try await Task.sleep(nanoseconds: 200_000_000)
-                }
-                remoteTrack.remove(videoRenderer: watcher)
-                #expect(watcher.didRenderFirstFrame, "\(label): subscribed but no frame rendered")
-
-                // Stop feeding before unpublishing, so the capturer is idle when the transceiver
-                // is stopped and nothing of this iteration outlives it.
-                feeder.cancel()
-                _ = await feeder.result
-
-                let publication = try #require(publisher.localParticipant.videoTracks.first as? LocalTrackPublication)
-                try await publisher.localParticipant.unpublish(publication: publication)
-            }
-
             // The first cycle leaves an inactive section with a stopped transceiver behind —
             // the state the munge used to paper over. The second has to work anyway.
-            try await publishThenAwaitFramesThenUnpublish("before-unpublish")
+            try await Self.publishAwaitFramesUnpublish("before-unpublish", publisher: rooms[0], subscriber: rooms[1])
             try await Task.sleep(nanoseconds: 1_000_000_000)
-            try await publishThenAwaitFramesThenUnpublish("after-republish")
+            try await Self.publishAwaitFramesUnpublish("after-republish", publisher: rooms[0], subscriber: rooms[1])
         }
+    }
+
+    /// Publishes a moving synthetic track, waits until `subscriber` renders a frame from it,
+    /// then tears everything it created back down before returning.
+    private static func publishAwaitFramesUnpublish(_ label: String,
+                                                    publisher: Room,
+                                                    subscriber: Room) async throws
+    {
+        let publisherIdentity = try #require(publisher.localParticipant.identity)
+        let track = await LocalVideoTrack.createBufferTrack(
+            name: label,
+            source: .camera,
+            options: BufferCaptureOptions(dimensions: Dimensions(width: Int32(width), height: Int32(height))),
+        )
+        let capturer = try #require(track.capturer as? BufferCapturer)
+        let feeder = Task.detached {
+            var tick = 0
+            while !Task.isCancelled {
+                if let pixelBuffer = makePixelBuffer(tick: tick) { capturer.capture(pixelBuffer) }
+                tick += 1
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+        }
+
+        try await publisher.localParticipant.publish(videoTrack: track)
+
+        let remote = try #require(subscriber.remoteParticipants[publisherIdentity])
+        let remoteTrack = try #require(await poll(timeout: 45) {
+            remote.videoTracks.first?.track as? RemoteVideoTrack
+        }, "\(label): never subscribed")
+
+        let watcher = VideoTrackWatcher(id: label)
+        remoteTrack.add(videoRenderer: watcher)
+        let rendered = await poll(timeout: 45) { watcher.didRenderFirstFrame ? true : nil }
+        remoteTrack.remove(videoRenderer: watcher)
+        #expect(rendered == true, "\(label): subscribed but no frame rendered")
+
+        // Stop feeding before unpublishing, so the capturer is idle when the transceiver is
+        // stopped and nothing of this iteration outlives it.
+        feeder.cancel()
+        _ = await feeder.result
+
+        let publication = try #require(publisher.localParticipant.videoTracks.first as? LocalTrackPublication)
+        try await publisher.localParticipant.unpublish(publication: publication)
+    }
+
+    /// Polls `value` every 200ms until it returns non-nil or `timeout` seconds elapse.
+    private static func poll<T>(timeout: TimeInterval, _ value: () -> T?) async -> T? {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let found = value() { return found }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        return value()
     }
 }
