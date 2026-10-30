@@ -135,10 +135,13 @@ actor RegionManager: Loggable {
             defer { clearSettingsFetchTask(matching: taskId) }
             do {
                 let data = try await Self.fetchRegionSettings(providedUrl: providedUrl, token: token)
-                let allRegions = try Self.parseRegionSettings(data: data)
+                let parsed = try Self.parseRegionSettings(data: data)
+                // A partly refused response still yields regions, so report the drop here as
+                // well as on the server-reported path — otherwise the list just gets shorter.
+                logRejectedRegions(received: parsed.received, accepted: parsed.regions.count)
                 try Task.checkCancellation()
-                applyFetchedRegions(allRegions)
-                return allRegions
+                applyFetchedRegions(parsed.regions)
+                return parsed.regions
             } catch {
                 log("[Region] Failed to fetch region settings: \(error)", .error)
                 throw error
@@ -234,7 +237,16 @@ actor RegionManager: Loggable {
         var regions: [Region]?
     }
 
-    private nonisolated static func parseRegionSettings(data: Data) throws -> [RegionInfo] {
+    /// The regions a response yielded, alongside how many entries it carried.
+    ///
+    /// The counts let the caller report entries dropped by ``RegionInfo``'s trust check; the
+    /// parse itself is `nonisolated static` and so cannot reach the actor's logger.
+    private struct ParsedRegions {
+        let regions: [RegionInfo]
+        let received: Int
+    }
+
+    private nonisolated static func parseRegionSettings(data: Data) throws -> ParsedRegions {
         do {
             let json = try JSONDecoder().decode(RegionSettingsJSON.self, from: data)
             let received = (json.regions ?? []).count
@@ -253,7 +265,7 @@ actor RegionManager: Loggable {
                     : "Fetched region data is empty."
                 throw LiveKitError(.regionManager, message: reason)
             }
-            return allRegions
+            return ParsedRegions(regions: allRegions, received: received)
         } catch {
             throw LiveKitError(.regionManager, message: "Failed to parse region settings with error: \(error)")
         }

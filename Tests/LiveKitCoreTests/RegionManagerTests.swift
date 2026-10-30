@@ -162,6 +162,24 @@ import LiveKitTestSupport
         ("", false),
         ("eu.livekit.cloud", false),
         ("file:///etc/passwd", false),
+
+        // --- Policy pins for host-parsing edge cases ---------------------------------------
+        // The case that actually matters: a cloud name in the *userinfo* does not make the
+        // destination a cloud host. Foundation resolves this to `evil.com`.
+        ("wss://eu.livekit.cloud@evil.com", false),
+        // Credentials on an otherwise valid cloud URL. Refused: discovery never returns these.
+        ("wss://user:pass@eu.livekit.cloud", false),
+        ("wss://user@eu.livekit.cloud", false),
+        // Fully-qualified trailing dot resolves to the same host but does not match the
+        // suffix. Refused, which is the safe direction.
+        ("wss://eu.livekit.cloud.", false),
+        // IP literals are never a cloud host.
+        ("wss://1.2.3.4", false),
+        ("wss://[::1]", false),
+        // Percent-encoding is decoded before the match, so an encoded dot is still the real
+        // host and is accepted; an encoded slash is not, and lands outside the suffix.
+        ("wss://eu.livekit%2Ecloud", true),
+        ("wss://eu.livekit.cloud%2F.evil.com", false),
     ])
     func isTrustedRegionURL(urlString: String, expected: Bool) {
         #expect(URL(string: urlString)?.isTrustedRegionURL ?? false == expected)
@@ -191,6 +209,28 @@ import LiveKitTestSupport
         let regions = await regionManager.snapshot().all
         #expect(regions.map(\.regionId) == ["good"])
         #expect(regions.map(\.url.absoluteString) == ["https://example.otokyo1a.livekit.cloud"])
+    }
+
+    /// A response whose entries are *all* refused must not read as "the server sent nothing":
+    /// the error says which happened, so a tampered response is diagnosable.
+    @Test func reportsWhenEveryFetchedRegionIsRefused() async throws {
+        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
+        let regionManager = RegionManager(providedUrl: providedUrl)
+
+        try MockURLProtocol.setAllowedHosts([#require(providedUrl.host)])
+        MockURLProtocol.setAllowedPaths(["/settings/regions"])
+        MockURLProtocol.setRequestHandler { (_: URLRequest) in
+            MockURLProtocol.Response(statusCode: 200, headers: [:], body: Data("""
+            {"regions": [{"region": "foreign", "url": "https://other.example.com", "distance": "1"}]}
+            """.utf8))
+        }
+        URLProtocol.registerClass(MockURLProtocol.self)
+        defer { cleanUpMockURLProtocol() }
+
+        let error = try #require(await #expect(throws: LiveKitError.self) {
+            _ = try await regionManager.resolveBest(token: "token")
+        })
+        #expect(error.message?.contains("refused") == true, "got: \(String(describing: error.message))")
     }
 
     /// Server-reported settings arrive over signalling and are the second ingestion path.
