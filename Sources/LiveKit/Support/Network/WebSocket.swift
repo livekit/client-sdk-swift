@@ -31,10 +31,20 @@ struct WebSocketUpgradeFailure: Error, Sendable {
 /// for the life of the process. An `NWConnection` is freed once cancelled.
 actor WebSocket: Loggable, AsyncSequence {
     typealias Element = URLSessionWebSocketTask.Message
+    typealias EventHandler = @Sendable (Event) -> Void
 
     let connection: NWConnection
-    /// Set by the first close: reads end at once, as on the URLSession task, while the close handshake runs.
-    private let closing = StateSync(false)
+    enum Event: Sendable {
+        case receiveRegistered
+        case closeStarted
+        case teardown
+        case closeDeadline
+    }
+
+    fileprivate enum Lifecycle: Sendable { case open, closing, closed }
+
+    private let lifecycle = StateSync(Lifecycle.open)
+    private let onEvent: EventHandler?
     /// Network.framework delivers on a queue it is given; a shared one, not one of our own: every callback here only
     /// resumes an `AsyncCompleter` or a continuation.
     private static var queue: DispatchQueue { .global(qos: .default) }
@@ -54,7 +64,10 @@ actor WebSocket: Loggable, AsyncSequence {
         return parameters
     }
 
-    init(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval) async throws {
+    init(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval,
+         onEvent: EventHandler? = nil) async throws
+    {
+        self.onEvent = onEvent
         #if targetEnvironment(simulator)
         if #available(iOS 26.0, *) {
             nw_tls_create_options()
@@ -91,7 +104,7 @@ actor WebSocket: Loggable, AsyncSequence {
         do {
             try await opening.wait()
         } catch let error as NWError {
-            Self.cancel(connection)
+            Self.finish(connection, lifecycle, onEvent)
             // The server answered the upgrade with an HTTP status: Network.framework aborts the connection
             // without it, so the same upgrade, sent once more by hand, reads it.
             if case .posix(.ECONNABORTED) = error,
@@ -101,38 +114,58 @@ actor WebSocket: Loggable, AsyncSequence {
             }
             throw LiveKitError(.network, internalError: Self.bridged(error))
         } catch {
-            Self.cancel(connection)
+            Self.finish(connection, lifecycle, onEvent)
             throw error is LiveKitError ? error : LiveKitError.from(error: error) ?? LiveKitError(.unknown)
         }
     }
 
     deinit {
-        Self.close(connection, closing)
+        Self.close(connection, lifecycle, onEvent)
     }
 
     /// Sends a close frame with code 1000, as `URLSessionWebSocketTask.cancel(with: .normalClosure)` did, and cancels
-    /// once the server answers or after 250 ms (the JS SDK's wait), whichever comes first. Does not block; reads end
-    /// at once. Only the first call does anything.
+    /// once the server answers or after 250 ms (the JS SDK's wait), whichever comes first. Does not block. New reads
+    /// end immediately; a pending receive ends on whatever arrives next, at the latest on the server's reply or the
+    /// deadline. Only the first call does anything.
     nonisolated func close() {
-        Self.close(connection, closing)
+        Self.close(connection, lifecycle, onEvent)
     }
 
-    fileprivate static func close(_ connection: NWConnection, _ closing: StateSync<Bool>) {
-        guard closing.mutate({ let wasOpen = !$0; $0 = true; return wasOpen }) else { return }
+    fileprivate static func close(_ connection: NWConnection, _ lifecycle: StateSync<Lifecycle>, _ onEvent: EventHandler?) {
+        guard lifecycle.mutate({
+            guard $0 == .open else { return false }
+            $0 = .closing
+            return true
+        }) else { return }
+        onEvent?(.closeStarted)
         let metadata = NWProtocolWebSocket.Metadata(opcode: .close)
         metadata.closeCode = .protocolCode(.normalClosure)
         let context = NWConnection.ContentContext(identifier: "close", metadata: [metadata])
         connection.send(content: nil, contentContext: context, isComplete: true, completion: .contentProcessed { _ in
-            drain(connection)
+            drain(connection, lifecycle, onEvent)
         })
-        queue.asyncAfter(deadline: .now() + .milliseconds(250)) { cancel(connection) }
+        queue.asyncAfter(deadline: .now() + .milliseconds(250)) {
+            finish(connection, lifecycle, onEvent)
+            onEvent?(.closeDeadline)
+        }
     }
 
     /// Drops the messages still in flight and cancels once the close handshake is over.
-    private static func drain(_ connection: NWConnection) {
+    private static func drain(_ connection: NWConnection, _ lifecycle: StateSync<Lifecycle>, _ onEvent: EventHandler?) {
+        guard lifecycle.copy() == .closing else { return }
         connection.receiveMessage { _, context, _, error in
-            endsClose(context, error) ? cancel(connection) : drain(connection)
+            endsClose(context, error) ? finish(connection, lifecycle, onEvent) : drain(connection, lifecycle, onEvent)
         }
+    }
+
+    fileprivate static func finish(_ connection: NWConnection, _ lifecycle: StateSync<Lifecycle>, _ onEvent: EventHandler?) {
+        guard lifecycle.mutate({
+            guard $0 != .closed else { return false }
+            $0 = .closed
+            return true
+        }) else { return }
+        onEvent?(.teardown)
+        cancel(connection)
     }
 
     /// Whether a receive after our close frame ends the handshake: the server's close frame, an error, or the end of the
@@ -233,10 +266,11 @@ actor WebSocket: Loggable, AsyncSequence {
 
     struct AsyncIterator: AsyncIteratorProtocol {
         fileprivate let connection: NWConnection
-        fileprivate let closing: StateSync<Bool>
+        fileprivate let lifecycle: StateSync<Lifecycle>
+        fileprivate let onEvent: EventHandler?
 
         func next() async throws -> URLSessionWebSocketTask.Message? {
-            while !closing.copy() {
+            while lifecycle.copy() == .open {
                 guard let frame = try await receive() else { return nil }
                 if let message = frame { return message }
                 // A control frame (ping, pong): not a message; read on.
@@ -251,11 +285,12 @@ actor WebSocket: Loggable, AsyncSequence {
                     connection.receiveMessage { content, context, _, error in
                         // Our own close ends the sequence, as a cancelled task's did, whatever arrives after it. This
                         // receive can be the one that takes the server's answer, ahead of the close path's own.
-                        if closing.copy() {
-                            if WebSocket.endsClose(context, error) { WebSocket.cancel(connection) }
+                        if lifecycle.copy() != .open {
+                            if WebSocket.endsClose(context, error) { WebSocket.finish(connection, lifecycle, onEvent) }
                             return continuation.resume(returning: nil)
                         }
                         if let error {
+                            WebSocket.finish(connection, lifecycle, onEvent)
                             return continuation.resume(throwing: LiveKitError(.network, internalError: WebSocket.bridged(error)))
                         }
                         let metadata = context?.protocolMetadata(definition: NWProtocolWebSocket.definition) as? NWProtocolWebSocket.Metadata
@@ -269,25 +304,28 @@ actor WebSocket: Loggable, AsyncSequence {
                                 continuation.resume(throwing: LiveKitError(.network, message: "Text frame is not valid UTF-8"))
                             }
                         case .close?:
+                            WebSocket.finish(connection, lifecycle, onEvent)
                             continuation.resume(returning: nil)
                         case nil where content?.isEmpty ?? true:
                             // A TCP FIN with no close frame: the end of the stream, which fails the sequence.
+                            WebSocket.finish(connection, lifecycle, onEvent)
                             continuation.resume(throwing: LiveKitError(.network, internalError: URLError(.networkConnectionLost)))
                         default:
                             continuation.resume(returning: .some(nil))
                         }
                     }
+                    onEvent?(.receiveRegistered)
                 }
             } onCancel: {
                 // As the URLSession task's `cancel(with: .normalClosure)`: `SignalClient.cleanUp` cancels the
                 // read before it calls `close()`.
-                WebSocket.close(connection, closing)
+                WebSocket.close(connection, lifecycle, onEvent)
             }
         }
     }
 
     nonisolated func makeAsyncIterator() -> AsyncIterator {
-        AsyncIterator(connection: connection, closing: closing)
+        AsyncIterator(connection: connection, lifecycle: lifecycle, onEvent: onEvent)
     }
 
     // MARK: - Send

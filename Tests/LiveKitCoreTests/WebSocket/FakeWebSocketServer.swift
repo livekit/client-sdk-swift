@@ -29,6 +29,8 @@ final class FakeWebSocketServer: Sendable {
         case idle
         /// As `idle`, but answer the client's close frame with a binary message first, and the close frame 50 ms later.
         case messageBeforeCloseAnswer
+        /// Answer the client's close frame at the client's 250 ms deadline.
+        case closeAnswerAtDeadline
         /// As `idle`, but never answer the client's close frame.
         case unansweredClose
         /// Upgrade, then a close frame with code 1000, then drop the socket once the client answers it.
@@ -142,7 +144,7 @@ final class FakeWebSocketServer: Sendable {
             switch behavior {
             case .blackhole, .reject:
                 break
-            case .idle, .messageBeforeCloseAnswer, .unansweredClose:
+            case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose:
                 answerClose(connection, buffered: Data())
             case .closeFrame, .message, .fin, .reset:
                 // Only once a whole frame arrives from the client: its upgrade is then complete on its side too.
@@ -154,7 +156,9 @@ final class FakeWebSocketServer: Sendable {
     /// Reads one complete client frame, however the bytes arrive, records it, then calls `completion` with its opcode
     /// and the bytes that follow it. A client frame is masked: two header bytes, a 16-bit length when the 7-bit one is
     /// 126, a 4-byte mask key, then the payload.
-    private func readFrame(_ connection: NWConnection, buffered: Data, completion: @escaping @Sendable (_ opcode: UInt8, _ rest: Data) -> Void) {
+    private func readFrame(_ connection: NWConnection, buffered: Data, onEnd: (@Sendable () -> Void)? = nil,
+                           completion: @escaping @Sendable (_ opcode: UInt8, _ rest: Data) -> Void)
+    {
         let bytes = [UInt8](buffered)
         if bytes.count >= 2, bytes[1] & 0x7F == 127 { return connection.cancel() }
         let lengthEnd = bytes.count >= 2 && bytes[1] & 0x7F == 126 ? 4 : 2
@@ -169,8 +173,11 @@ final class FakeWebSocketServer: Sendable {
             }
         }
         connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { [self] content, _, _, error in
-            guard error == nil, let content else { return connection.cancel() }
-            readFrame(connection, buffered: buffered + content, completion: completion)
+            guard error == nil, let content, !content.isEmpty else {
+                if let onEnd { onEnd() } else { connection.cancel() }
+                return
+            }
+            readFrame(connection, buffered: buffered + content, onEnd: onEnd, completion: completion)
         }
     }
 
@@ -178,11 +185,13 @@ final class FakeWebSocketServer: Sendable {
     private func answerClose(_ connection: NWConnection, buffered: Data) {
         readFrame(connection, buffered: buffered) { [self] opcode, rest in
             guard opcode == 0x8 else { return answerClose(connection, buffered: rest) }
-            awaitTeardown(connection)
+            awaitTeardown(connection, buffered: rest)
             switch behavior {
             case .messageBeforeCloseAnswer:
                 connection.send(content: Data([0x82, 0x01, 0x00]), completion: .contentProcessed { _ in })
                 Self.queue.asyncAfter(deadline: .now() + .milliseconds(50)) { [self] in sendCloseAnswer(connection) }
+            case .closeAnswerAtDeadline:
+                Self.queue.asyncAfter(deadline: .now() + .milliseconds(250)) { [self] in sendCloseAnswer(connection) }
             case .unansweredClose:
                 break
             default:
@@ -199,16 +208,17 @@ final class FakeWebSocketServer: Sendable {
     }
 
     /// Reads on until the client's FIN or reset.
-    private func awaitTeardown(_ connection: NWConnection) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { [self] content, _, _, error in
-            guard error != nil || content?.isEmpty ?? true else { return awaitTeardown(connection) }
+    private func awaitTeardown(_ connection: NWConnection, buffered: Data) {
+        readFrame(connection, buffered: buffered, onEnd: { [clientGone] in
             clientGone.resume(returning: DispatchTime.now().uptimeNanoseconds)
+        }) { [self] _, rest in
+            awaitTeardown(connection, buffered: rest)
         }
     }
 
     private func goAway(_ connection: NWConnection) {
         switch behavior {
-        case .idle, .messageBeforeCloseAnswer, .unansweredClose, .blackhole, .reject:
+        case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose, .blackhole, .reject:
             break
         case .closeFrame:
             connection.send(content: Data([0x88, 0x02, 0x03, 0xE8]), completion: .contentProcessed { [self] _ in

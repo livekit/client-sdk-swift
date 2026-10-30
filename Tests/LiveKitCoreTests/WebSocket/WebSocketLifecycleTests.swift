@@ -62,22 +62,15 @@ struct WebSocketLifecycleTests {
     /// How long `close()` waits for the server's answer, in nanoseconds.
     private static let closeLimit: UInt64 = 250_000_000
 
-    private static func open(_ server: FakeWebSocketServer, timeoutInterval: TimeInterval = 10) async throws -> LiveKit.WebSocket {
-        try await LiveKit.WebSocket(url: server.url(), headers: headers, timeoutInterval: timeoutInterval)
-    }
-
-    private static func messageCount(of socket: LiveKit.WebSocket) async throws -> Int {
-        try await socket.reduce(0) { count, _ in count + 1 }
-    }
-
     // MARK: - Opening
 
     @Test func ownCloseEndsTheSequence() async throws {
         let server = try FakeWebSocketServer(.idle)
         defer { server.cancel() }
-        let socket = try await Self.open(server)
+        let events = SocketEvents()
+        let socket = try await Self.open(server, events: events)
         let reader = Task { try await Self.messageCount(of: socket) }
-        await Task.yield()
+        try await events.receiveRegistered.wait()
         socket.close()
         #expect(try await reader.value == 0)
     }
@@ -86,24 +79,61 @@ struct WebSocketLifecycleTests {
     /// connection, whichever way the socket closes.
     @Test(arguments: ClosePath.allCases)
     func closeSendsNormalClosure(path: ClosePath) async throws {
-        let server = try FakeWebSocketServer(.idle)
+        let server = try FakeWebSocketServer(.unansweredClose)
         defer { server.cancel() }
-        var socket: LiveKit.WebSocket? = try await Self.open(server)
+        let events = SocketEvents()
+        var socket: LiveKit.WebSocket? = try await Self.open(server, events: events)
         switch path {
         case .close:
+            socket?.close()
             socket?.close()
         case .cancelledRead:
             let reading = try #require(socket)
             let reader = Task { try await Self.messageCount(of: reading) }
+            try await events.receiveRegistered.wait()
             reader.cancel()
             #expect(try await reader.value == 0)
         case .release:
             socket = nil
         }
         _ = try await server.clientGone.wait()
+        try await events.closeDeadline.wait()
+        #expect(events.teardowns.copy() == 1)
+        #expect(server.frames.read { $0.filter { $0.opcode == 0x8 }.count } == 1)
         let close = server.frames.read { $0.last }
         #expect(close?.opcode == 0x8)
         #expect(close?.payload == Data([0x03, 0xE8]))
+    }
+
+    @Test(arguments: [FakeWebSocketServer.Behavior.idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose])
+    func closeWithPendingReadTearsDownOnce(behavior: FakeWebSocketServer.Behavior) async throws {
+        let server = try FakeWebSocketServer(behavior)
+        defer { server.cancel() }
+        let events = SocketEvents()
+        let socket = try await Self.open(server, events: events)
+        let reader = Task { try await Self.messageCount(of: socket) }
+        try await events.receiveRegistered.wait()
+
+        socket.close()
+        socket.close()
+        #expect(try await reader.value == 0)
+        _ = try await server.clientGone.wait()
+        try await events.closeDeadline.wait()
+        #expect(events.teardowns.copy() == 1)
+        #expect(server.frames.read { $0.filter { $0.opcode == 0x8 }.count } == 1)
+        #expect(await socket.connection.stateUpdateHandler == nil)
+    }
+
+    @Test func promptCloseAnswerEndsBeforeTheLimit() async throws {
+        let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
+        let socket = try await Self.open(server)
+        let start = DispatchTime.now().uptimeNanoseconds
+        socket.close()
+        let gone = try await server.clientGone.wait()
+        let answered = try #require(server.closeAnswered.copy())
+        #expect(gone >= answered)
+        #expect(gone < start + Self.closeLimit)
     }
 
     /// A message that the server sends before it answers our close frame does not end the wait: the client drops the
@@ -115,12 +145,12 @@ struct WebSocketLifecycleTests {
         let start = DispatchTime.now().uptimeNanoseconds
         socket.close()
         let gone = try await server.clientGone.wait()
-        let answered = server.closeAnswered.copy() ?? .max
-        #expect(gone > answered || gone >= start + Self.closeLimit)
+        let answered = try #require(server.closeAnswered.copy())
+        #expect(gone >= answered)
+        #expect(gone < start + Self.closeLimit)
     }
 
-    /// With no answer the client drops the connection at the 250 ms limit, not before, and well within the server's 5 s
-    /// wait.
+    /// With no answer the client drops the connection at the 250 ms limit and within one second.
     @Test func unansweredCloseEndsAtTheLimit() async throws {
         let server = try FakeWebSocketServer(.unansweredClose)
         defer { server.cancel() }
@@ -129,6 +159,7 @@ struct WebSocketLifecycleTests {
         socket.close()
         let gone = try await server.clientGone.wait()
         #expect(gone >= start + Self.closeLimit)
+        #expect(gone < start + 1_000_000_000)
     }
 
     /// Network.framework's own `Host` has no port and no IPv6 brackets, and `setAdditionalHeaders` keeps only the last
@@ -178,8 +209,14 @@ struct WebSocketLifecycleTests {
         cookies.forEach(HTTPCookieStorage.shared.setCookie)
         defer { cookies.forEach(HTTPCookieStorage.shared.deleteCookie) }
 
-        _ = try await LiveKit.WebSocket(url: url, headers: Self.headers, timeoutInterval: 10)
-        #expect(server.requestHeaders.copy().contains("Cookie: \(name)=plain"))
+        let headers = Self.headers + [(name: "Cookie", value: "caller=one"), (name: "cookie", value: "other=two")]
+        let socket = try await LiveKit.WebSocket(url: url, headers: headers, timeoutInterval: 10)
+        defer { socket.close() }
+        let lines = server.requestHeaders.copy().filter { $0.lowercased().hasPrefix("cookie:") }
+        #expect(lines.count == 1)
+        let cookie = try #require(lines.first)
+        #expect(cookie.hasPrefix("Cookie: caller=one; other=two; "))
+        #expect(cookie.contains("\(name)=plain"))
 
         let secure = try LiveKit.WebSocket.upgradeHeaders(url: #require(URL(string: "wss://cookie.test/rtc")), headers: [])
         #expect(secure.contains { $0.name == "Cookie" && $0.value == "\(name)=secure" })
@@ -191,9 +228,12 @@ struct WebSocketLifecycleTests {
         let url = try await server.url()
         try await server.stop()
 
+        let events = SocketEvents()
         let error = await #expect(throws: LiveKitError.self) {
-            try await LiveKit.WebSocket(url: url, headers: Self.headers, timeoutInterval: 10)
+            try await LiveKit.WebSocket(url: url, headers: Self.headers, timeoutInterval: 10, onEvent: events.record)
         }
+        #expect(events.teardowns.copy() == 1)
+        #expect(events.closeStarts.copy() == 0)
         #expect(error?.type == .network)
         #expect((error?.internalError as? NSError)?.code == Int(ECONNREFUSED))
     }
@@ -202,9 +242,12 @@ struct WebSocketLifecycleTests {
         let server = try FakeWebSocketServer(.blackhole)
         defer { server.cancel() }
         let started = Date()
+        let events = SocketEvents()
         let error = await #expect(throws: LiveKitError.self) {
-            try await Self.open(server, timeoutInterval: 1)
+            try await Self.open(server, timeoutInterval: 1, events: events)
         }
+        #expect(events.teardowns.copy() == 1)
+        #expect(events.closeStarts.copy() == 0)
         #expect(Date().timeIntervalSince(started) < 5)
         #expect(error?.type == .timedOut || error?.type == .network)
         #expect(error?.isRetryableForRegionFailover == true)
@@ -214,11 +257,14 @@ struct WebSocketLifecycleTests {
         let server = try FakeWebSocketServer(.blackhole)
         defer { server.cancel() }
         let url = try await server.url()
-        let connect = Task { try await LiveKit.WebSocket(url: url, headers: Self.headers, timeoutInterval: 10) }
+        let events = SocketEvents()
+        let connect = Task { try await LiveKit.WebSocket(url: url, headers: Self.headers, timeoutInterval: 10, onEvent: events.record) }
         try await server.accepted.wait()
         let started = Date()
         connect.cancel()
         let error = await #expect(throws: LiveKitError.self) { try await connect.value }
+        #expect(events.teardowns.copy() == 1)
+        #expect(events.closeStarts.copy() == 0)
         #expect(error?.type == .cancelled)
         #expect(Date().timeIntervalSince(started) < 5)
     }
@@ -226,7 +272,10 @@ struct WebSocketLifecycleTests {
     @Test func rejectedUpgradeCarriesTheStatus() async throws {
         let server = try FakeWebSocketServer(.reject(status: 401))
         defer { server.cancel() }
-        let error = await #expect(throws: LiveKitError.self) { try await Self.open(server) }
+        let events = SocketEvents()
+        let error = await #expect(throws: LiveKitError.self) { try await Self.open(server, events: events) }
+        #expect(events.teardowns.copy() == 1)
+        #expect(events.closeStarts.copy() == 0)
         #expect(error?.type == .network)
         #expect((error?.internalError as? WebSocketUpgradeFailure)?.statusCode == 401)
     }
@@ -275,7 +324,8 @@ struct WebSocketLifecycleTests {
     func peerClosure(behavior: FakeWebSocketServer.Behavior, ending: Ending) async throws {
         let server = try FakeWebSocketServer(behavior)
         defer { server.cancel() }
-        let socket = try await Self.open(server)
+        let events = SocketEvents()
+        let socket = try await Self.open(server, events: events)
         try await socket.send(data: Data([0x01]))
 
         switch ending {
@@ -297,7 +347,22 @@ struct WebSocketLifecycleTests {
         // The server drops its side after the sequence ended: the late state change lands on a socket whose
         // opening is long settled, and must neither crash nor resurface.
         try await server.served.wait()
+        #expect(events.teardowns.copy() == 1)
+        #expect(await socket.connection.stateUpdateHandler == nil)
         withExtendedLifetime(socket) {}
+    }
+}
+
+private extension WebSocketLifecycleTests {
+    static func open(_ server: FakeWebSocketServer, timeoutInterval: TimeInterval = 10,
+                     events: SocketEvents? = nil) async throws -> LiveKit.WebSocket
+    {
+        try await LiveKit.WebSocket(url: server.url(), headers: headers, timeoutInterval: timeoutInterval,
+                                    onEvent: events?.record)
+    }
+
+    static func messageCount(of socket: LiveKit.WebSocket) async throws -> Int {
+        try await socket.reduce(0) { count, _ in count + 1 }
     }
 }
 
@@ -306,4 +371,20 @@ private struct WeakTransport {
     weak var connection: NWConnection?
 
     var isReleased: Bool { socket == nil && connection == nil }
+}
+
+private struct SocketEvents: Sendable {
+    let receiveRegistered = AsyncCompleter<Void>(label: "SocketEvents.receiveRegistered", defaultTimeout: 5)
+    let closeDeadline = AsyncCompleter<Void>(label: "SocketEvents.closeDeadline", defaultTimeout: 5)
+    let teardowns = StateSync(0)
+    let closeStarts = StateSync(0)
+
+    func record(_ event: LiveKit.WebSocket.Event) {
+        switch event {
+        case .receiveRegistered: receiveRegistered.resume(returning: ())
+        case .closeDeadline: closeDeadline.resume(returning: ())
+        case .teardown: teardowns.mutate { $0 += 1 }
+        case .closeStarted: closeStarts.mutate { $0 += 1 }
+        }
+    }
 }
