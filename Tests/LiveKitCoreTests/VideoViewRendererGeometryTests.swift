@@ -330,6 +330,67 @@ struct VideoViewRendererGeometryTests {
         #expect(drawable.height <= displayed.height + 1, "drawable taller than the rotated display")
     }
 
+    /// Switching to a track whose capture has stopped: `reconcileNativeRenderer` replays the
+    /// track's cached frame straight into the new renderer, bypassing `render(frame:)`. With the
+    /// native size cleared by the switch there is nothing to size the render target from, and no
+    /// further frame arrives to correct it.
+    /// Both directions matter. A fresh `MTKView` still has `autoResizeDrawable = YES` — WebRTC
+    /// only clears it inside `addRenderingDestination:`, which runs lazily on the first draw — so
+    /// an unsized renderer auto-sizes to `bounds x scale`. That happens to equal the clamp when
+    /// the source is larger than the display, and to overshoot it enormously when it is smaller.
+    struct CachedFrameCase: Sendable, CustomTestStringConvertible {
+        let name: String
+        let view: CGRect
+        let source: RendererProbe.Resolution
+        var testDescription: String { name }
+    }
+
+    // Both views are exactly 16:9, matching the sources. The clamp scales by the *larger* of the
+    // two axis ratios so neither axis is under-sampled, which overshoots a per-axis minimum by a
+    // pixel or two when the aspects differ — real behaviour, but noise for this particular test.
+    nonisolated static let cachedFrameCases: [CachedFrameCase] = [
+        .init(name: "source-larger-than-view", view: CGRect(x: 0, y: 0, width: 128, height: 72),
+              source: RendererProbe.Resolution(width: 1920, height: 1080)),
+        .init(name: "source-smaller-than-view", view: CGRect(x: 0, y: 0, width: 1200, height: 675),
+              source: RendererProbe.Resolution(width: 320, height: 180)),
+    ]
+
+    @Test(arguments: cachedFrameCases)
+    func cachedFrameOnASwitchedToTrackIsSizedCorrectly(_ testCase: CachedFrameCase) async throws {
+        let host = try await RendererProbe.Harness(renderMode: .metal,
+                                                   resolution: RendererProbe.Resolution(width: 640, height: 360),
+                                                   frame: testCase.view)
+        defer { host.tearDown() }
+        // Priming leaves a cached frame on this track, and capture then stops.
+        let paused = try await RendererProbe.Harness(renderMode: .metal,
+                                                     resolution: testCase.source,
+                                                     frame: testCase.view)
+        defer { paused.tearDown() }
+        try #require(paused.track.videoFrame != nil, "precondition: the track must have a cached frame")
+
+        // Switch, and deliberately deliver no further frames.
+        host.view.track = paused.track
+        await RTC.run {}
+        await Task { @MainActor in }.value
+        host.layOut()
+        await Task { @MainActor in }.value
+
+        let scale = host.view.currentScreenScale()
+        let after = try #require(RendererProbe.metalView(in: host.view)).drawableSize
+        let displayed = CGSize(width: testCase.view.width * scale, height: testCase.view.height * scale)
+        let expected = CGSize(width: min(CGFloat(testCase.source.width), displayed.width),
+                              height: min(CGFloat(testCase.source.height), displayed.height))
+
+        print("[cached] \(testCase.name) view=\(Int(testCase.view.width))x\(Int(testCase.view.height))pt " +
+            "source=\(testCase.source.label) displayed=\(Int(displayed.width))x\(Int(displayed.height))px " +
+            "expected=\(Int(expected.width))x\(Int(expected.height)) " +
+            "actual=\(Int(after.width))x\(Int(after.height))")
+
+        #expect(abs(after.width - expected.width) <= 1,
+                "cached frame rendered into a \(Int(after.width))px target, expected \(Int(expected.width))px")
+        #expect(abs(after.height - expected.height) <= 1)
+    }
+
     /// Detaching the track tears the renderer down entirely; nothing may survive it.
     @Test
     func detachingTheTrackReleasesTheRenderer() async throws {
@@ -340,7 +401,11 @@ struct VideoViewRendererGeometryTests {
         try #require(metalView != nil)
 
         harness.view.track = nil
-        try await poll(for: "renderer torn down") { [view = harness.view] in view.subviews.isEmpty }
+        // Detach is applied on the RTC executor, which by this point in a serialized suite has a
+        // queue of teardowns behind it from earlier cases. The default 2s was marginal.
+        try await RendererProbe.pollOnMain(timeout: 10, for: "renderer torn down") { [view = harness.view] in
+            view.subviews.isEmpty
+        }
         try await RendererProbe.quiesce()
 
         #expect(metalView == nil)

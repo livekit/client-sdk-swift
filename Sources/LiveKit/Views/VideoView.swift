@@ -603,12 +603,29 @@ private extension VideoView {
         _renderedMode = renderMode
 
         let renderer = recreatePrimaryRenderer(for: renderMode)
+
+        // A replayed frame goes straight to the renderer and never passes through
+        // `render(frame:)`, so this is the only point at which it can set the native size. It
+        // matters when the track's capture has stopped: nothing further arrives to correct the
+        // target, and an unsized `MTKView` still has `autoResizeDrawable` set, so it would size
+        // itself to `bounds x scale` — far past a source smaller than the view.
+        let cachedFrame = track._state.videoFrame
+        if let cachedFrame {
+            let rotation = _state.rotationOverride ?? cachedFrame.rotation
+            let dimensions = cachedFrame.dimensions.apply(rotation: rotation.toRTCType())
+            _state.mutate {
+                $0.nativeVideoSize = CGSize(width: CGFloat(dimensions.width),
+                                            height: CGFloat(dimensions.height))
+            }
+        }
+
         // A fresh renderer starts with no size; give it the clamped one before the first frame so
         // it never allocates a full-resolution drawable pool it would immediately discard.
         applyRendererSize()
-        if let frame = track._state.videoFrame {
+
+        if let cachedFrame {
             log("rendering cached frame track: \(String(describing: track._state.sid))")
-            renderer.renderFrame(frame.toRTCType())
+            renderer.renderFrame(cachedFrame.toRTCType())
         }
         setNeedsLayout()
     }
