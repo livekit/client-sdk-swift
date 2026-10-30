@@ -82,6 +82,44 @@ struct VideoViewRendererMemoryTests {
         #expect(abs(drawable.height - expected.height) <= 1)
     }
 
+    /// The size is also applied before the first layout (renderer creation, `set(size:)`), while
+    /// `rendererSize` is still unknown and `screenScale` still holds its default of 1. Without a
+    /// displayed size the clamp's fallback is the video's own resolution, so the drawable must
+    /// never exceed it there either.
+    @Test
+    func drawableCapsAtVideoResolutionBeforeFirstLayout() async throws {
+        let resolution = RendererProbe.reported
+        let harness = try await RendererProbe.Harness(renderMode: .metal, resolution: resolution)
+        defer { harness.tearDown() }
+
+        let metalView = try #require(RendererProbe.metalView(in: harness.view), "`.metal` produced no MTKView")
+        let scale = harness.view.currentScreenScale()
+        guard scale > 1 else {
+            // At 1x the pre-layout default happens to be right, so there is nothing to tell apart.
+            print("[drawable] screen scale is 1 on this host; skipping")
+            return
+        }
+
+        // Put the view back in its pre-layout state and deliver the native size again, as
+        // `VideoRendererAdapter` does when the stream's resolution arrives.
+        harness.view._state.mutate {
+            $0.rendererSize = nil
+            $0.screenScale = 1
+        }
+        let videoPixels = CGSize(width: CGFloat(resolution.width), height: CGFloat(resolution.height))
+        harness.view.set(size: videoPixels)
+
+        // `set(size:)` hops to the main actor, and `RTCMTLVideoView.setSize:` hops to the main queue
+        // again before it touches `drawableSize`.
+        try await RendererProbe.quiesce()
+
+        let drawable = metalView.drawableSize
+        print("[drawable] before first layout: video=\(resolution.label) scale=\(scale) " +
+            "drawableSize=\(Int(drawable.width))x\(Int(drawable.height))")
+        #expect(drawable.width <= videoPixels.width + 1)
+        #expect(drawable.height <= videoPixels.height + 1)
+    }
+
     /// The clamp in isolation, without a renderer in the way.
     @Test
     func rendererSizeClampPreservesAspectAndNeverUpscales() {
