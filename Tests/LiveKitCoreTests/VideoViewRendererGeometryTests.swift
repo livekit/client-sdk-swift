@@ -251,6 +251,85 @@ struct VideoViewRendererGeometryTests {
         #expect(recreated == oldDrawableSize, "a recreated renderer must land on the same size")
     }
 
+    /// Reusing one view across tracks is supported, so nothing derived from the outgoing track may
+    /// outlive it. The native size is the risk: a remote track learns it from
+    /// `VideoRendererAdapter.setSize`, but a local capturer never calls that, so a stale value
+    /// would stick and size the new track's renderer from the old track's resolution.
+    @Test
+    func switchingTracksDoesNotCarryTheOldNativeSize() async throws {
+        // Big enough that the source, not the view, decides the drawable.
+        let frame = CGRect(x: 0, y: 0, width: 1200, height: 675)
+        let harness = try await RendererProbe.Harness(renderMode: .metal,
+                                                      resolution: Self.landscapeVideo,
+                                                      frame: frame)
+        defer { harness.tearDown() }
+        let metalView = try #require(RendererProbe.metalView(in: harness.view))
+        let atFullHd = metalView.drawableSize
+
+        // Stand in for a remote track reporting a much smaller layer.
+        harness.view.set(size: CGSize(width: 320, height: 180))
+        try await RendererProbe.pollOnMain(for: "small size applied") { metalView.drawableSize != atFullHd }
+        let atSmallRemote = metalView.drawableSize
+
+        // Now hand the same view a different track, as a UI reusing a cell would.
+        let replacement = try await RendererProbe.Harness(renderMode: .metal,
+                                                          resolution: Self.landscapeVideo,
+                                                          frame: frame)
+        defer { replacement.tearDown() }
+        harness.view.track = replacement.track
+        // The sink is swapped on the RTC executor and the renderer rebuilt on the main actor.
+        await RTC.run {}
+        await Task { @MainActor in }.value
+
+        // Frames now come from the replacement's capturer; drive the reused view off them.
+        for _ in 0 ..< 8 {
+            try await replacement.captureAndDrawWithoutLayout()
+            harness.layOut()
+            RendererProbe.metalView(in: harness.view)?.draw()
+        }
+        // The renderer is recreated on a track change, so the old MTKView reference is stale.
+        let afterSwitch = try #require(RendererProbe.metalView(in: harness.view)).drawableSize
+
+        print("[switch] 1080p=\(Int(atFullHd.width))x\(Int(atFullHd.height)) " +
+            "after-small-remote=\(Int(atSmallRemote.width))x\(Int(atSmallRemote.height)) " +
+            "after-track-switch=\(Int(afterSwitch.width))x\(Int(afterSwitch.height))")
+
+        #expect(atSmallRemote.width < atFullHd.width, "control: the small size must take effect")
+        #expect(afterSwitch == atFullHd,
+                "new track rendered at the previous track's size (\(Int(afterSwitch.width))px)")
+    }
+
+    /// A 90°-rotated stream is displayed with its axes swapped. The adapter reports the rotated
+    /// size and `render(frame:)` applies rotation before updating the track, so both sides of the
+    /// clamp are in display orientation — a drawable sized off the unrotated axes would be ~3x
+    /// larger than needed on one of them.
+    @Test(arguments: [VideoRotation._90, ._270])
+    func rotatedFramesDoNotOversizeTheDrawable(_ rotation: VideoRotation) async throws {
+        // Landscape buffer, rotated into a portrait viewport.
+        let frame = CGRect(x: 0, y: 0, width: 180, height: 320)
+        let harness = try await RendererProbe.Harness(renderMode: .metal,
+                                                      resolution: Self.landscapeVideo,
+                                                      frame: frame,
+                                                      rotation: rotation)
+        defer { harness.tearDown() }
+
+        let metalView = try #require(RendererProbe.metalView(in: harness.view))
+        let drawable = metalView.drawableSize
+        let scale = harness.view.currentScreenScale()
+        let rendererSize = try #require(harness.view._state.rendererSize)
+        let displayed = CGSize(width: rendererSize.width * scale, height: rendererSize.height * scale)
+
+        // Rotated by a quarter turn, so the displayed aspect is the source's inverted.
+        let displayedAspect = CGFloat(Self.landscapeVideo.height) / CGFloat(Self.landscapeVideo.width)
+        print("[rotation] \(rotation) drawable=\(Int(drawable.width))x\(Int(drawable.height)) " +
+            "displayed=\(Int(displayed.width))x\(Int(displayed.height)) " +
+            "aspect=\(String(format: "%.4f", drawable.width / drawable.height))")
+
+        #expect(abs((drawable.width / drawable.height) - displayedAspect) / displayedAspect < 0.01)
+        #expect(drawable.width <= displayed.width + 1, "drawable wider than the rotated display")
+        #expect(drawable.height <= displayed.height + 1, "drawable taller than the rotated display")
+    }
+
     /// Detaching the track tears the renderer down entirely; nothing may survive it.
     @Test
     func detachingTheTrackReleasesTheRenderer() async throws {

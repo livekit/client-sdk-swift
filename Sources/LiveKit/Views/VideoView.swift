@@ -141,6 +141,10 @@ public class VideoView: NativeView, Loggable {
                     $0.didRenderFirstFrame = false
                     $0.isRendering = false
                     $0.rendererSize = nil
+                    // Belongs to the outgoing track. Reusing a view across tracks is supported,
+                    // and keeping this would size the next track's renderer from the last one's
+                    // resolution until something replaced it.
+                    $0.nativeVideoSize = nil
                 }
                 $0.track = newValue
             }
@@ -733,6 +737,13 @@ extension VideoView: VideoRenderer {
             Task { @MainActor in self.setNeedsLayout() }
         }
 
+        // Remote tracks learn their native size from `VideoRendererAdapter`, which calls
+        // `set(size:)`. Local capture delivers straight to the renderer and never does, so for a
+        // local track the frame is the only source. Both are in display orientation: the adapter
+        // swaps the axes for a 90/270 rotation, and `dimensions` above has rotation applied.
+        let nativeVideoSize = CGSize(width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
+
+        var didUpdateNativeVideoSize = false
         let newState = _state.mutate {
             // Keep previous capture position
             let oldCaptureDevicePosition = $0.captureDevice?.position
@@ -743,6 +754,11 @@ extension VideoView: VideoRenderer {
             $0.isRendering = true
             $0.renderDate = Date()
 
+            if $0.nativeVideoSize != nativeVideoSize {
+                $0.nativeVideoSize = nativeVideoSize
+                didUpdateNativeVideoSize = true
+            }
+
             // Update renderTarget if capture position changes
             if let oldCaptureDevicePosition, oldCaptureDevicePosition != captureDevice?.position {
                 $0.renderTarget = .secondary
@@ -750,6 +766,10 @@ extension VideoView: VideoRenderer {
             }
 
             return $0
+        }
+
+        if didUpdateNativeVideoSize {
+            Task { @MainActor in self.applyRendererSize() }
         }
 
         let rtcFrame = frame.toRTCType()

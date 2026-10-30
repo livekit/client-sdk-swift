@@ -78,16 +78,20 @@ enum RendererProbe {
         let view: VideoView
         private let capturer: BufferCapturer
         private var pixelBuffer: CVPixelBuffer
+        /// Applied to every capture, so a rotated stream can be exercised end to end.
+        private var rotation: VideoRotation = ._0
 
         init(renderMode: VideoView.RenderMode,
              resolution: Resolution,
              frame: CGRect = viewFrame,
              layoutMode: VideoView.LayoutMode = .fill,
-             pattern: Pattern = .checkerboard) async throws
+             pattern: Pattern = .checkerboard,
+             rotation: VideoRotation = ._0) async throws
         {
             track = await LocalVideoTrack.createBufferTrack(name: "memory", source: .camera)
             capturer = try #require(track.capturer as? BufferCapturer)
             pixelBuffer = try Self.makePixelBuffer(resolution, pattern: pattern)
+            self.rotation = rotation
 
             view = VideoView(frame: frame)
             view.renderMode = renderMode
@@ -109,7 +113,7 @@ enum RendererProbe {
         /// skips a frame whose `timeStampNs` it already drew, so each draw needs a fresh capture.
         func prime() async throws {
             for _ in 0 ..< 6 {
-                capturer.capture(pixelBuffer)
+                capturer.capture(pixelBuffer, rotation: rotation)
                 try await Task.sleep(nanoseconds: 20_000_000)
                 layOut()
                 RendererProbe.metalView(in: view)?.draw()
@@ -120,7 +124,7 @@ enum RendererProbe {
         /// Pushes one caller-owned buffer through the capturer and draws it, so the caller controls
         /// the buffer's lifetime rather than the harness.
         func captureAndDraw(_ buffer: CVPixelBuffer) async throws {
-            capturer.capture(buffer)
+            capturer.capture(buffer, rotation: rotation)
             try await Task.sleep(nanoseconds: 8_000_000)
             layOut()
             RendererProbe.metalView(in: view)?.draw()
@@ -134,7 +138,7 @@ enum RendererProbe {
         /// delivery sleep in the measurement.
         @discardableResult
         func captureAndDrawWithoutLayout() async throws -> TimeInterval {
-            capturer.capture(pixelBuffer)
+            capturer.capture(pixelBuffer, rotation: rotation)
             try await Task.sleep(nanoseconds: 8_000_000)
             let started = CFAbsoluteTimeGetCurrent()
             RendererProbe.metalView(in: view)?.draw()
