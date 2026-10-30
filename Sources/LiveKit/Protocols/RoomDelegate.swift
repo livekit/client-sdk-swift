@@ -185,6 +185,7 @@ public protocol RoomDelegate: AnyObject, Sendable {
     func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
 
     /// Failed to decrypt a data packet when encryption is enabled.
+    /// Also called when a data packet arrives unencrypted while data channel encryption is enabled.
     @objc optional
     func room(_ room: Room, didFailToDecryptDataWithEror error: LiveKitError)
 

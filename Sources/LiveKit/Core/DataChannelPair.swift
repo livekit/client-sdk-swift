@@ -76,14 +76,6 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     private let _state = StateSync(State())
 
-    enum PlaintextReceivePolicy {
-        case drop, deliver
-
-        static let `default`: Self = .drop
-    }
-
-    private let plaintextReceivePolicy: PlaintextReceivePolicy
-
     // Implicitly unwrapped because their message and state callbacks capture `self`, which is not
     // available until after `super.init()`. Assigned there, never reassigned — and both are set
     // before `self` escapes to any other thread (the first escape is `set(lossy:)`/`set(reliable:)`
@@ -100,10 +92,8 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
     init(delegate: DataChannelDelegate? = nil,
          lossyChannel: LKRTCDataChannel? = nil,
          reliableChannel: LKRTCDataChannel? = nil,
-         onBufferStatusChange: (@Sendable (Bool, DataChannelKind) -> Void)? = nil,
-         plaintextReceivePolicy: PlaintextReceivePolicy = .default)
+         onBufferStatusChange: (@Sendable (Bool, DataChannelKind) -> Void)? = nil)
     {
-        self.plaintextReceivePolicy = plaintextReceivePolicy
         super.init()
 
         if let delegate {
@@ -210,7 +200,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Receive
 
-    private func handle(received data: Data, isReliable: Bool) {
+    func handle(received data: Data, isReliable: Bool) {
         guard let dataPacket = try? Livekit_DataPacket(serializedBytes: data) else {
             log("Could not decode data message", .error)
             return
@@ -218,8 +208,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
         let e2eeManager = _state.e2eeManager
         // Match the send path's encryptable payloads; control packets stay plaintext.
-        if plaintextReceivePolicy == .drop,
-           e2eeManager?.isDataChannelEncryptionEnabled == true,
+        if e2eeManager?.isDataChannelEncryptionEnabled == true,
            Livekit_EncryptedPacketPayload(dataPacket: dataPacket) != nil
         {
             delegates.notify {
