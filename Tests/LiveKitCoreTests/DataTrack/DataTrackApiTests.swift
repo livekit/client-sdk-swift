@@ -16,8 +16,13 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitTestSupport
 import Testing
+
+// LKTestHost compiles LiveKitTestSupport into the test target rather than linking it as a module,
+// so the import has to be conditional for the on-device build to resolve.
+#if canImport(LiveKitTestSupport)
+import LiveKitTestSupport
+#endif
 
 /// Semantics of the publication handle and the subscribe/send conveniences.
 @Suite(.serialized, .tags(.dataTrack, .e2e), TestLimits.e2e)
