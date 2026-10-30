@@ -86,7 +86,8 @@ enum RendererProbe {
              frame: CGRect = viewFrame,
              layoutMode: VideoView.LayoutMode = .fill,
              pattern: Pattern = .checkerboard,
-             rotation: VideoRotation = ._0) async throws
+             rotation: VideoRotation = ._0,
+             rotationOverride: VideoRotation? = nil) async throws
         {
             track = await LocalVideoTrack.createBufferTrack(name: "memory", source: .camera)
             capturer = try #require(track.capturer as? BufferCapturer)
@@ -96,6 +97,7 @@ enum RendererProbe {
             view = VideoView(frame: frame)
             view.renderMode = renderMode
             view.layoutMode = layoutMode
+            view.rotationOverride = rotationOverride
             view.track = track
 
             // The native renderer is created on a main-actor hop off the state mutation.
@@ -103,10 +105,10 @@ enum RendererProbe {
                 !view.subviews.isEmpty
             }
 
-            // WebRTC's `VideoRendererAdapter` calls `setSize:` with the frame's native dimensions
-            // on every size change. The local `BufferCapturer` path only calls `render(frame:)`,
-            // so drive it explicitly to match what a subscribed remote track does.
-            view.set(size: CGSize(width: CGFloat(resolution.width), height: CGFloat(resolution.height)))
+            // WebRTC's `VideoRendererAdapter` calls `setSize:` with the frame's dimensions, rotated
+            // by the frame's rotation, on every size change. The local `BufferCapturer` path only
+            // calls `render(frame:)`, so drive it explicitly to match a subscribed remote track.
+            view.set(size: RendererProbe.adapterSize(resolution, rotation: rotation))
 
             try await prime()
         }
@@ -166,7 +168,7 @@ enum RendererProbe {
         /// Switches the source to a different resolution, as a simulcast layer change would.
         func changeSourceResolution(to resolution: Resolution) async throws {
             pixelBuffer = try Self.makePixelBuffer(resolution, pattern: .checkerboard)
-            view.set(size: CGSize(width: CGFloat(resolution.width), height: CGFloat(resolution.height)))
+            view.set(size: RendererProbe.adapterSize(resolution, rotation: rotation))
             try await prime()
         }
 
@@ -350,6 +352,18 @@ enum RendererProbe {
         print("footprint MB = measured phys_footprint delta per view")
         print("NV12 frame at 1920x1080 = \(mb(reported.nv12Bytes)) MB (what was measured as '<4 MB')")
         print("")
+    }
+}
+
+extension RendererProbe {
+    /// The size `VideoRendererAdapter` passes to `setSize:`: the frame's dimensions, rotated by
+    /// the frame's rotation.
+    static func adapterSize(_ resolution: Resolution, rotation: VideoRotation) -> CGSize {
+        let size = CGSize(width: CGFloat(resolution.width), height: CGFloat(resolution.height))
+        switch rotation {
+        case ._90, ._270: return CGSize(width: size.height, height: size.width)
+        default: return size
+        }
     }
 }
 #endif

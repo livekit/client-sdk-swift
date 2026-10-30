@@ -236,6 +236,27 @@ struct VideoViewRendererLifecycleTests {
         #expect(drawable.height <= displayed.height + 1, "drawable taller than the rotated display")
     }
 
+    /// `rotationOverride` is applied by the renderer, which swaps the axes of the size it was given
+    /// when the override and the frame's own rotation disagree. So the size it gets has to be in the
+    /// frame's orientation, as `VideoRendererAdapter` reports it, or the axes get swapped twice.
+    @Test(arguments: [VideoRotation._90, ._270])
+    func rotationOverrideKeepsTheDrawableInDisplayOrientation(_ rotationOverride: VideoRotation) async throws {
+        // Landscape frames with no rotation of their own, turned into a portrait viewport.
+        let frame = CGRect(x: 0, y: 0, width: 180, height: 320)
+        let harness = try await RendererProbe.Harness(renderMode: .metal,
+                                                      resolution: Self.landscapeVideo,
+                                                      frame: frame,
+                                                      rotationOverride: rotationOverride)
+        defer { harness.tearDown() }
+
+        let drawable = try #require(RendererProbe.metalView(in: harness.view)).drawableSize
+        let displayedAspect = CGFloat(Self.landscapeVideo.height) / CGFloat(Self.landscapeVideo.width)
+        print("[override] \(rotationOverride) drawable=\(Int(drawable.width))x\(Int(drawable.height))")
+
+        #expect(abs((drawable.width / drawable.height) - displayedAspect) / displayedAspect < 0.01,
+                "drawable is not in the overridden orientation")
+    }
+
     /// Switching to a track whose capture has stopped: `reconcileNativeRenderer` replays the
     /// track's cached frame straight into the new renderer, bypassing `render(frame:)`. With the
     /// native size cleared by the switch there is nothing to size the render target from, and no

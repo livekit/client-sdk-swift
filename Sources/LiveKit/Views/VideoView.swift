@@ -608,12 +608,7 @@ private extension VideoView {
         // itself to `bounds x scale` — far past a source smaller than the view.
         let cachedFrame = track._state.videoFrame
         if let cachedFrame {
-            let rotation = _state.rotationOverride ?? cachedFrame.rotation
-            let dimensions = cachedFrame.dimensions.apply(rotation: rotation.toRTCType())
-            _state.mutate {
-                $0.nativeVideoSize = CGSize(width: CGFloat(dimensions.width),
-                                            height: CGFloat(dimensions.height))
-            }
+            _state.mutate { $0.nativeVideoSize = cachedFrame.nativeVideoSize }
         }
 
         // A fresh renderer starts with no size. Give it the known one before the first frame.
@@ -740,9 +735,8 @@ extension VideoView: VideoRenderer {
 
         // Remote tracks learn their native size from `VideoRendererAdapter`, which calls
         // `set(size:)`. Local capture delivers straight to the renderer and never does, so for a
-        // local track the frame is the only source. Both are in display orientation: the adapter
-        // swaps the axes for a 90/270 rotation, and `dimensions` above has rotation applied.
-        let nativeVideoSize = CGSize(width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
+        // local track the frame is the only source.
+        let nativeVideoSize = frame.nativeVideoSize
 
         var didUpdateNativeVideoSize = false
         let newState = _state.mutate {
@@ -865,6 +859,15 @@ extension VideoView: VideoRenderer {
 }
 
 // MARK: - Internal
+
+private extension VideoFrame {
+    /// The size `VideoRendererAdapter` reports to `set(size:)`: rotated by the frame's own
+    /// rotation, not by ``VideoView/rotationOverride``, which the renderer applies itself.
+    var nativeVideoSize: CGSize {
+        let dimensions = dimensions.apply(rotation: rotation.toRTCType())
+        return CGSize(width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
+    }
+}
 
 extension VideoView {
     nonisolated static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
