@@ -1,0 +1,2 @@
+patch type="fixed" "Stop leaking about 25 KB per signalling connection: the WebSocket runs over Network.framework, as Foundation keeps every URLSession that ran a WebSocket task alive after it is closed; a rejected upgrade still reports its HTTP status"
+patch type="changed" "The signalling WebSocket fails on an HTTP redirect and does not answer HTTP authentication challenges. livekit-server sends neither on the signal upgrade"
