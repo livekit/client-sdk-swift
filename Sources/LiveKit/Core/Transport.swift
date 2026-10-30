@@ -317,10 +317,6 @@ final class Transport: NSObject, Loggable {
         func _negotiateSequence() async throws {
             _latestOfferId += 1
             var offer = try await createOffer(for: constraints)
-            // Both munges are optional and are dropped from the right on rejection. The start
-            // bitrate is written on the first offer that carries local video only: offers
-            // before any video is published (data channel or audio only) find no target and
-            // leave the latch unset.
             let kbpsBySenderId = _startBitrateKbpsBySenderId
             let hasAppliedStartBitrate = _hasAppliedVideoStartBitrate
             let startBitrate: (String) -> String = {

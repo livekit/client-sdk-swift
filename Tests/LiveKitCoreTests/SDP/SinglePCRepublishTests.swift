@@ -74,17 +74,28 @@ struct SinglePCRepublishTests {
         ]) { rooms in
             // The first cycle leaves an inactive section with a stopped transceiver behind —
             // the state the munge used to paper over. The second has to work anyway.
-            try await Self.publishAwaitFramesUnpublish("before-unpublish", publisher: rooms[0], subscriber: rooms[1])
+            let firstSid = try await Self.publishAwaitFramesUnpublish("before-unpublish",
+                                                                      publisher: rooms[0],
+                                                                      subscriber: rooms[1])
             try await Task.sleep(nanoseconds: 1_000_000_000)
-            try await Self.publishAwaitFramesUnpublish("after-republish", publisher: rooms[0], subscriber: rooms[1])
+            try await Self.publishAwaitFramesUnpublish("after-republish",
+                                                       publisher: rooms[0],
+                                                       subscriber: rooms[1],
+                                                       excluding: firstSid)
         }
     }
 
     /// Publishes a moving synthetic track, waits until `subscriber` renders a frame from it,
     /// then tears everything it created back down before returning.
+    /// - Parameter previousSid: The track the previous cycle published, if any. The subscriber's
+    ///   view of it can outlive the unpublish, so waiting for *a* track would let the second
+    ///   cycle attach to the dead one and time out.
+    /// - Returns: The SID the subscriber received, for the next cycle to exclude.
+    @discardableResult
     private static func publishAwaitFramesUnpublish(_ label: String,
                                                     publisher: Room,
-                                                    subscriber: Room) async throws
+                                                    subscriber: Room,
+                                                    excluding previousSid: Track.Sid? = nil) async throws -> Track.Sid
     {
         let publisherIdentity = try #require(publisher.localParticipant.identity)
         let track = await LocalVideoTrack.createBufferTrack(
@@ -105,9 +116,10 @@ struct SinglePCRepublishTests {
         try await publisher.localParticipant.publish(videoTrack: track)
 
         let remote = try #require(subscriber.remoteParticipants[publisherIdentity])
-        let remoteTrack = try #require(await poll(timeout: 45) {
-            remote.videoTracks.first?.track as? RemoteVideoTrack
+        let publication = try #require(await poll(timeout: 45) {
+            remote.videoTracks.first { $0.sid != previousSid && $0.track is RemoteVideoTrack }
         }, "\(label): never subscribed")
+        let remoteTrack = try #require(publication.track as? RemoteVideoTrack)
 
         let watcher = VideoTrackWatcher(id: label)
         remoteTrack.add(videoRenderer: watcher)
@@ -120,8 +132,10 @@ struct SinglePCRepublishTests {
         feeder.cancel()
         _ = await feeder.result
 
-        let publication = try #require(publisher.localParticipant.videoTracks.first as? LocalTrackPublication)
-        try await publisher.localParticipant.unpublish(publication: publication)
+        let localPublication = try #require(publisher.localParticipant.videoTracks.first as? LocalTrackPublication)
+        try await publisher.localParticipant.unpublish(publication: localPublication)
+
+        return publication.sid
     }
 
     /// Polls `value` every 200ms until it returns non-nil or `timeout` seconds elapse.
