@@ -43,14 +43,13 @@ struct PlaintextDataChannelTests {
         }
     }
 
-    enum SenderShape: CaseIterable {
-        case server, hiddenParticipant, customLabel, innerIdentity, serverRpc, anonymousRpc
+    enum SenderShape {
+        case hiddenParticipant, customLabel, innerIdentity, serverRpc, anonymousRpc
 
         var packet: Livekit_DataPacket {
             .with {
                 $0.user = .with { _ in }
                 switch self {
-                case .server: break
                 case .hiddenParticipant: $0.participantSid = "PA_hidden"
                 case .customLabel: $0.participantIdentity = "sender"
                 case .innerIdentity: $0.user = .with { $0.participantIdentity = "sender" }
@@ -63,12 +62,19 @@ struct PlaintextDataChannelTests {
         }
     }
 
-    @Test(arguments: SenderShape.allCases)
-    func plaintextSenderShapes(shape: SenderShape) async throws {
+    @Test func serverApiUserDataIsDelivered() async throws {
+        let context = ReceiveContext()
+        let packet = Livekit_DataPacket.with { $0.user = .with { _ in } }
+        try await context.receive(packet)
+        context.expect(packets: [packet], errorCount: 0)
+    }
+
+    @Test(arguments: [SenderShape.hiddenParticipant, .customLabel, .innerIdentity, .serverRpc, .anonymousRpc])
+    func participantShapedPlaintextIsDropped(shape: SenderShape) async throws {
         let context = ReceiveContext()
         let packet = shape.packet
         try await context.receive(packet)
-        context.expect(packets: shape == .server ? [packet] : [], errorCount: shape == .server ? 0 : 1)
+        context.expect(packets: [], errorCount: 1)
     }
 
     @Test(arguments: Payload.allCases, [DataChannelKind.reliable, .lossy])
