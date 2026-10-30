@@ -132,18 +132,18 @@ actor WebSocket: Loggable, AsyncSequence {
     }
 
     fileprivate static func close(_ connection: NWConnection, _ lifecycle: StateSync<Lifecycle>, _ onEvent: EventHandler?) {
-        guard lifecycle.mutate({
-            guard $0 == .open else { return false }
-            $0 = .closing
-            return true
-        }) else { return }
-        onEvent?(.closeStarted)
         let metadata = NWProtocolWebSocket.Metadata(opcode: .close)
         metadata.closeCode = .protocolCode(.normalClosure)
         let context = NWConnection.ContentContext(identifier: "close", metadata: [metadata])
-        connection.send(content: nil, contentContext: context, isComplete: true, completion: .contentProcessed { _ in
-            drain(connection, lifecycle, onEvent)
-        })
+        guard lifecycle.mutate({
+            guard $0 == .open else { return false }
+            $0 = .closing
+            connection.send(content: nil, contentContext: context, isComplete: true, completion: .contentProcessed { _ in
+                drain(connection, lifecycle, onEvent)
+            })
+            return true
+        }) else { return }
+        onEvent?(.closeStarted)
         queue.asyncAfter(deadline: .now() + .milliseconds(250)) {
             finish(connection, lifecycle, onEvent)
             onEvent?(.closeDeadline)
@@ -179,29 +179,6 @@ actor WebSocket: Loggable, AsyncSequence {
     fileprivate static func cancel(_ connection: NWConnection) {
         connection.cancel()
         connection.stateUpdateHandler = nil
-    }
-
-    /// The upgrade headers as URLSession sent them. A repeated name is joined with commas, as `URLRequest.addValue`
-    /// did (`setAdditionalHeaders` keeps only the last value). The cookies stored for the URL go along, matched on
-    /// its `https` form so that secure ones count. `Host` carries the port and IPv6 brackets, which Network.framework's
-    /// own drops; it comes last, after the join, so it replaces the generated one and any the caller passed.
-    static func upgradeHeaders(url: URL, headers: [(name: String, value: String)]) -> [(name: String, value: String)] {
-        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        components?.scheme = url.scheme == "wss" ? "https" : "http"
-        let cookies = components?.url.flatMap { HTTPCookieStorage.shared.cookies(for: $0) } ?? []
-        let stored = HTTPCookie.requestHeaderFields(with: cookies).map { (name: $0.key, value: $0.value) }
-
-        var joined: [(name: String, value: String)] = []
-        for (name, value) in headers + stored where name.caseInsensitiveCompare("Host") != .orderedSame {
-            if let index = joined.firstIndex(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
-                joined[index].value += (name.caseInsensitiveCompare("Cookie") == .orderedSame ? "; " : ",") + value
-            } else {
-                joined.append((name, value))
-            }
-        }
-        guard let host = url.host else { return joined }
-        let port = url.port.map { ":\($0)" } ?? ""
-        return joined + [(name: "Host", value: (host.contains(":") ? "[\(host)]" : host) + port)]
     }
 
     /// The HTTP status the server answers the upgrade with, read off the status line of the same request sent over
@@ -334,13 +311,45 @@ actor WebSocket: Loggable, AsyncSequence {
         let context = NWConnection.ContentContext(identifier: "binary",
                                                   metadata: [NWProtocolWebSocket.Metadata(opcode: .binary)])
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            connection.send(content: data, contentContext: context, isComplete: true, completion: .contentProcessed { error in
-                if let error {
-                    continuation.resume(throwing: LiveKitError(.network, internalError: WebSocket.bridged(error)))
-                } else {
-                    continuation.resume()
-                }
-            })
+            guard lifecycle.read({ state in
+                guard state == .open else { return false }
+                connection.send(content: data, contentContext: context, isComplete: true, completion: .contentProcessed { error in
+                    if let error {
+                        continuation.resume(throwing: LiveKitError(.network, internalError: WebSocket.bridged(error)))
+                    } else {
+                        continuation.resume()
+                    }
+                })
+                return true
+            }) else { return continuation.resume(throwing: LiveKitError(.network, internalError: URLError(.cancelled))) }
         }
+    }
+}
+
+extension WebSocket {
+    /// The upgrade headers as URLSession sent them. A repeated name is joined with commas, as `URLRequest.addValue`
+    /// did (`setAdditionalHeaders` keeps only the last value). Unless the caller supplies `Cookie`, stored cookies go
+    /// along, matched on the URL's `https` form so that secure ones count. `Host` carries the port and IPv6 brackets,
+    /// which Network.framework's own header drops; it comes last, after the join, so it replaces the generated one
+    /// and any the caller passed.
+    static func upgradeHeaders(url: URL, headers: [(name: String, value: String)]) -> [(name: String, value: String)] {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.scheme = url.scheme == "wss" ? "https" : "http"
+        let callerCookie = headers.contains { $0.name.caseInsensitiveCompare("Cookie") == .orderedSame }
+        let cookies = callerCookie ? [] : components?.url.flatMap { HTTPCookieStorage.shared.cookies(for: $0) } ?? []
+        let stored = HTTPCookie.requestHeaderFields(with: cookies).map { (name: $0.key, value: $0.value) }
+
+        var joined: [(name: String, value: String)] = []
+        for (name, value) in headers + stored where name.caseInsensitiveCompare("Host") != .orderedSame {
+            if let index = joined.firstIndex(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+                joined[index].value += (name.caseInsensitiveCompare("Cookie") == .orderedSame ? "; " : ",") + value
+            } else {
+                joined.append((name, value))
+            }
+        }
+        guard let host = url.host else { return joined }
+        let port = url.port.map { ":\($0)" } ?? ""
+        let address = host.contains(":") ? String(host.prefix { $0 != "%" }) : host
+        return joined + [(name: "Host", value: (host.contains(":") ? "[\(address)]" : address) + port)]
     }
 }

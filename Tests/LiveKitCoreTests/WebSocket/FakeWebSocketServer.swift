@@ -35,6 +35,8 @@ final class FakeWebSocketServer: Sendable {
         case unansweredClose
         /// Upgrade, then a close frame with code 1000, then drop the socket once the client answers it.
         case closeFrame
+        /// Write binary messages and a close frame together, then drop the socket after the client answers.
+        case messagesBeforeClose(count: Int)
         /// Upgrade, then one binary message of this many bytes.
         case message(size: Int)
         /// Upgrade, then a TCP FIN with no close frame.
@@ -146,7 +148,7 @@ final class FakeWebSocketServer: Sendable {
                 break
             case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose:
                 answerClose(connection, buffered: Data())
-            case .closeFrame, .message, .fin, .reset:
+            case .closeFrame, .messagesBeforeClose, .message, .fin, .reset:
                 // Only once a whole frame arrives from the client: its upgrade is then complete on its side too.
                 readFrame(connection, buffered: Data()) { [self] _, _ in goAway(connection) }
             }
@@ -220,8 +222,14 @@ final class FakeWebSocketServer: Sendable {
         switch behavior {
         case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose, .blackhole, .reject:
             break
-        case .closeFrame:
-            connection.send(content: Data([0x88, 0x02, 0x03, 0xE8]), completion: .contentProcessed { [self] _ in
+        case .closeFrame, .messagesBeforeClose:
+            let count: Int = if case let .messagesBeforeClose(count) = behavior {
+                count
+            } else {
+                0
+            }
+            let messages = (0 ..< count).reduce(into: Data()) { $0.append(contentsOf: [0x82, 0x01, UInt8(truncatingIfNeeded: $1)]) }
+            connection.send(content: messages + Data([0x88, 0x02, 0x03, 0xE8]), completion: .contentProcessed { [self] _ in
                 // The client's whole close reply, then the socket goes: the client sees a state change after its stream ended.
                 readFrame(connection, buffered: Data()) { [served] _, _ in
                     connection.cancel()
