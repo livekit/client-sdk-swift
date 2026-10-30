@@ -25,7 +25,11 @@ import LiveKitTestSupport
 // Physical iOS hardware only. In the Simulator, Metal textures live in the host GPU's memory and
 // are not charged to the simulated process, so `phys_footprint` cannot see the drawable pool at
 // all — the numbers below would all read zero and mean nothing. Run via the LKTestHost scheme.
-#if os(iOS) && !targetEnvironment(simulator)
+//
+// Mac Catalyst has to be excluded explicitly: it is `os(iOS)` and not a simulator, so it would
+// otherwise compile and run here, on a Mac GPU with a Mac window server and none of the
+// assumptions below holding.
+#if os(iOS) && !targetEnvironment(simulator) && !targetEnvironment(macCatalyst)
 import MetalKit
 import UIKit
 
@@ -129,7 +133,9 @@ struct VideoViewDeviceBenchmarkTests {
         let maximumDrawableCount = (metalViews.first?.layer as? CAMetalLayer)?.maximumDrawableCount ?? 3
         let poolBytes = Int64(drawableSize.width * drawableSize.height) * 4 * Int64(maximumDrawableCount)
 
-        for harness in harnesses { harness.tearDown() }
+        for harness in harnesses {
+            harness.tearDown()
+        }
         harnesses.removeAll()
         metalViews.removeAll()
         try await RendererProbe.quiesce()
@@ -208,7 +214,9 @@ struct VideoViewDeviceBenchmarkTests {
         // stops `drawInMTKView:` skipping the frame as a duplicate; without it the layer would
         // keep showing the previous contents and the two snapshots would match trivially.
         metalView.drawableSize = unclamped
-        for _ in 0 ..< 8 { try await harness.captureAndDrawWithoutLayout() }
+        for _ in 0 ..< 8 {
+            try await harness.captureAndDrawWithoutLayout()
+        }
         try await Task.sleep(nanoseconds: 200_000_000)
         try #require(metalView.drawableSize == unclamped, "forced drawable size did not survive")
         let unclampedShot = try #require(Self.snapshot(harness.view))
@@ -228,7 +236,9 @@ struct VideoViewDeviceBenchmarkTests {
         // match, or that the comparison cannot see a difference at all. Render deliberately far
         // below the displayed size — that must register, or the measurement above means nothing.
         metalView.drawableSize = CGSize(width: 48, height: 27)
-        for _ in 0 ..< 8 { try await harness.captureAndDrawWithoutLayout() }
+        for _ in 0 ..< 8 {
+            try await harness.captureAndDrawWithoutLayout()
+        }
         try await Task.sleep(nanoseconds: 200_000_000)
         let degradedShot = try #require(Self.snapshot(harness.view))
         let degradedDifference = try #require(Self.meanAbsoluteDifference(clampedShot, degradedShot))
@@ -298,8 +308,8 @@ struct VideoViewDeviceBenchmarkTests {
 
         guard let contextA = CGContext(data: &bufferA, width: width, height: height, bitsPerComponent: 8,
                                        bytesPerRow: bytesPerRow, space: space, bitmapInfo: info),
-              let contextB = CGContext(data: &bufferB, width: width, height: height, bitsPerComponent: 8,
-                                       bytesPerRow: bytesPerRow, space: space, bitmapInfo: info)
+            let contextB = CGContext(data: &bufferB, width: width, height: height, bitsPerComponent: 8,
+                                     bytesPerRow: bytesPerRow, space: space, bitmapInfo: info)
         else { return nil }
         contextA.draw(a, in: CGRect(x: 0, y: 0, width: width, height: height))
         contextB.draw(b, in: CGRect(x: 0, y: 0, width: width, height: height))

@@ -99,7 +99,9 @@ enum RendererProbe {
             view.track = track
 
             // The native renderer is created on a main-actor hop off the state mutation.
-            try await poll(for: "native renderer created") { [view] in !view.subviews.isEmpty }
+            try await RendererProbe.pollOnMain(for: "native renderer created") { [view] in
+                !view.subviews.isEmpty
+            }
 
             // WebRTC's `VideoRendererAdapter` calls `setSize:` with the frame's native dimensions
             // on every size change. The local `BufferCapturer` path only calls `render(frame:)`,
@@ -191,7 +193,6 @@ enum RendererProbe {
             RendererProbe.fillWithTestPattern(pixelBuffer, pattern: pattern)
             return pixelBuffer
         }
-
     }
 
     // MARK: - Sampling
@@ -212,16 +213,23 @@ enum RendererProbe {
 
         var harnesses: [Harness] = []
         for _ in 0 ..< viewsPerSample {
-            harnesses.append(try await Harness(renderMode: renderMode, resolution: resolution))
+            try await harnesses.append(Harness(renderMode: renderMode, resolution: resolution))
         }
         try await quiesce()
         let peak = physFootprint()
 
-        let metalView = harnesses.first.flatMap { metalView(in: $0.view) }
+        // Spelled out rather than `.first.flatMap`: on Swift 6.1 that resolves `first` to the
+        // `first(where:)` overload, which has no `flatMap`.
+        var metalView: MTKView?
+        if let firstHarness = harnesses.first {
+            metalView = RendererProbe.metalView(in: firstHarness.view)
+        }
         let drawableSize = metalView?.drawableSize
         let maximumDrawableCount = (metalView?.layer as? CAMetalLayer)?.maximumDrawableCount
 
-        for harness in harnesses { harness.tearDown() }
+        for harness in harnesses {
+            harness.tearDown()
+        }
         harnesses.removeAll()
         try await quiesce()
         let settled = physFootprint()
@@ -296,6 +304,7 @@ enum RendererProbe {
 
     /// Records which renderer `.auto` actually picks here, so a run on a host that diverges from a
     /// real device cannot be mistaken for one that does not.
+    @MainActor
     static func reportEnvironment() {
         let resolved = VideoView.shouldAvoidMetalRenderer ? ".sampleBuffer" : ".metal"
         print("")

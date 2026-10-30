@@ -175,10 +175,10 @@ struct VideoViewRendererMemoryTests {
 
         var rows: [RendererProbe.Row] = []
         for resolution in RendererProbe.resolutions {
-            rows.append(try await RendererProbe.sample(renderMode: .metal, resolution: resolution))
+            try await rows.append(RendererProbe.sample(renderMode: .metal, resolution: resolution))
         }
         // Control: the same stream through AVSampleBufferDisplayLayer.
-        rows.append(try await RendererProbe.sample(renderMode: .sampleBuffer, resolution: RendererProbe.reported))
+        try await rows.append(RendererProbe.sample(renderMode: .sampleBuffer, resolution: RendererProbe.reported))
 
         RendererProbe.report(rows)
 
