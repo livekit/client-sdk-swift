@@ -1,1 +1,1 @@
-patch type="fixed" "Drop and report unencrypted user, chat, RPC, and stream data packets when data channel encryption is on, including data from participants using legacy e2eeOptions or enableE2EE(false), or data sent through the server API"
+patch type="fixed" "Drop and report unencrypted user, chat, RPC, and stream data packets from participants when data channel encryption is on, including participants using legacy e2eeOptions or enableE2EE(false). Server API user data is still delivered with encryptionType .none"

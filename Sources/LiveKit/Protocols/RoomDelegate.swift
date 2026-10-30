@@ -180,12 +180,15 @@ public protocol RoomDelegate: AnyObject, Sendable {
     @objc optional
     func room(_ room: Room, didUpdateBufferStatus isLow: Bool, of kind: DataChannelKind)
 
-    /// Received data from from a user or server. `participant` will be nil if broadcasted from server.
+    /// Received data from a user or server. `participant` will be nil if broadcasted from server.
+    /// With data channel encryption enabled, `encryptionType == .none` and a nil `participant`
+    /// indicate data sent through the server API, which cannot be authenticated.
     @objc optional
     func room(_ room: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
 
     /// Failed to decrypt a data packet when encryption is enabled.
-    /// Also called when a data packet arrives unencrypted while data channel encryption is enabled.
+    /// Also called when an encryptable data packet arrives unencrypted while data channel encryption
+    /// is enabled, except for user data sent through the server API.
     @objc optional
     func room(_ room: Room, didFailToDecryptDataWithEror error: LiveKitError)
 

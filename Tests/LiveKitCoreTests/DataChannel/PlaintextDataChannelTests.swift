@@ -27,6 +27,8 @@ struct PlaintextDataChannelTests {
 
         var packet: Livekit_DataPacket {
             .with {
+                $0.participantSid = "PA_sender"
+                $0.participantIdentity = "sender"
                 switch self {
                 case .user: $0.user = .with { _ in }
                 case .chatMessage: $0.chatMessage = .with { _ in }
@@ -39,6 +41,34 @@ struct PlaintextDataChannelTests {
                 }
             }
         }
+    }
+
+    enum SenderShape: CaseIterable {
+        case server, hiddenParticipant, customLabel, innerIdentity, serverRpc, anonymousRpc
+
+        var packet: Livekit_DataPacket {
+            .with {
+                $0.user = .with { _ in }
+                switch self {
+                case .server: break
+                case .hiddenParticipant: $0.participantSid = "PA_hidden"
+                case .customLabel: $0.participantIdentity = "sender"
+                case .innerIdentity: $0.user = .with { $0.participantIdentity = "sender" }
+                case .serverRpc:
+                    $0.participantIdentity = UUID().uuidString
+                    $0.rpcRequest = .with { _ in }
+                case .anonymousRpc: $0.rpcRequest = .with { _ in }
+                }
+            }
+        }
+    }
+
+    @Test(arguments: SenderShape.allCases)
+    func plaintextSenderShapes(shape: SenderShape) async throws {
+        let context = ReceiveContext()
+        let packet = shape.packet
+        try await context.receive(packet)
+        context.expect(packets: shape == .server ? [packet] : [], errorCount: shape == .server ? 0 : 1)
     }
 
     @Test(arguments: Payload.allCases, [DataChannelKind.reliable, .lossy])
@@ -94,6 +124,7 @@ struct PlaintextDataChannelTests {
 private final class ReceiveContext: NSObject, DataChannelDelegate, RoomDelegate, Sendable {
     struct State {
         var packets: [Livekit_DataPacket] = []
+        var encryptionTypes: [EncryptionType] = []
         var errors: [LiveKitError] = []
         var roomErrors: [LiveKitError] = []
     }
@@ -122,13 +153,17 @@ private final class ReceiveContext: NSObject, DataChannelDelegate, RoomDelegate,
 
     func expect(packets: [Livekit_DataPacket], errorCount: Int, sourceLocation: SourceLocation = #_sourceLocation) {
         #expect(state.packets == packets, sourceLocation: sourceLocation)
+        #expect(state.encryptionTypes == Array(repeating: .none, count: packets.count), sourceLocation: sourceLocation)
         #expect(state.errors.count == errorCount, sourceLocation: sourceLocation)
         #expect(state.errors.allSatisfy { $0.type == .decryptionFailed }, sourceLocation: sourceLocation)
         #expect(state.roomErrors == state.errors, sourceLocation: sourceLocation)
     }
 
-    func dataChannel(_: DataChannelPair, didReceiveDataPacket packet: Livekit_DataPacket, serialized _: Data?, encryptionType _: EncryptionType) {
-        state.mutate { $0.packets.append(packet) }
+    func dataChannel(_: DataChannelPair, didReceiveDataPacket packet: Livekit_DataPacket, serialized _: Data?, encryptionType: EncryptionType) {
+        state.mutate {
+            $0.packets.append(packet)
+            $0.encryptionTypes.append(encryptionType)
+        }
     }
 
     func dataChannel(_: DataChannelPair, didFailToDecryptDataPacket _: Livekit_DataPacket, error: LiveKitError) {
