@@ -80,6 +80,11 @@ enum RendererProbe {
         private var pixelBuffer: CVPixelBuffer
         /// Applied to every capture, so a rotated stream can be exercised end to end.
         private var rotation: VideoRotation = ._0
+        #if os(macOS)
+        /// A view outside any window has no backing scale and renders at 1x, so it would never
+        /// exercise the Retina path. Hosting it in a window picks up the display's scale.
+        private let window: NSWindow
+        #endif
 
         init(renderMode: VideoView.RenderMode,
              resolution: Resolution,
@@ -95,6 +100,10 @@ enum RendererProbe {
             self.rotation = rotation
 
             view = VideoView(frame: frame)
+            #if os(macOS)
+            window = RendererProbe.makeWindow()
+            window.contentView?.addSubview(view)
+            #endif
             view.renderMode = renderMode
             view.layoutMode = layoutMode
             view.rotationOverride = rotationOverride
@@ -175,6 +184,9 @@ enum RendererProbe {
         func tearDown() {
             view.track = nil
             view.removeFromSuperview()
+            #if os(macOS)
+            window.close()
+            #endif
         }
 
         static func makePixelBuffer(_ resolution: Resolution, pattern: Pattern = .checkerboard) throws -> CVPixelBuffer {
@@ -301,9 +313,11 @@ enum RendererProbe {
     static func mb(_ bytes: Int64) -> String {
         String(format: "%.1f", Double(bytes) / 1_048_576)
     }
+}
 
-    // MARK: - Reporting
+// MARK: - Reporting
 
+extension RendererProbe {
     /// Records which renderer `.auto` actually picks here, so a run on a host that diverges from a
     /// real device cannot be mistaken for one that does not.
     @MainActor
@@ -365,5 +379,17 @@ extension RendererProbe {
         default: return size
         }
     }
+
+    #if os(macOS)
+    @MainActor
+    static func makeWindow() -> NSWindow {
+        _ = NSApplication.shared
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1400, height: 900),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.orderFrontRegardless()
+        return window
+    }
+    #endif
 }
 #endif

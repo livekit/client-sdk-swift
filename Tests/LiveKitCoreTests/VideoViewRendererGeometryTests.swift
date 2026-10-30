@@ -69,8 +69,8 @@ struct VideoViewRendererGeometryTests {
         .init(name: "portrait-video/portrait-view/fit", video: portraitVideo,
               frame: CGRect(x: 0, y: 0, width: 180, height: 320), layoutMode: .fit),
         // Mismatched aspect: `.fill` overflows and clips, `.fit` letterboxes. The renderer frame
-        // is larger than the view in the first case, which is why the clamp reads `rendererSize`
-        // and not the view's own bounds.
+        // is larger than the view in the first case, which is why the clamp works from the
+        // renderer's bounds and not the `VideoView`'s.
         .init(name: "landscape-video/portrait-view/fill", video: landscapeVideo,
               frame: CGRect(x: 0, y: 0, width: 180, height: 320), layoutMode: .fill),
         .init(name: "landscape-video/portrait-view/fit", video: landscapeVideo,
