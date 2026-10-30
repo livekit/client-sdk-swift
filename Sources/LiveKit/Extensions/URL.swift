@@ -35,6 +35,28 @@ extension URL {
         return host.hasSuffix(".livekit.cloud") || host.hasSuffix(".livekit.run")
     }
 
+    /// Whether this URL is one the SDK may fail over to after region discovery.
+    ///
+    /// Region lists arrive over the network — from `/settings/regions` and from server-reported
+    /// settings on the signalling channel — and the SDK authenticates to whatever they name,
+    /// sending the participant token as a bearer header. Each entry is therefore checked on its
+    /// own merits rather than inheriting trust from the URL the application supplied.
+    ///
+    /// Distinct from ``isCloud``, which asks the different question of whether to attempt region
+    /// discovery at all for an application-supplied URL. The host match here is case-insensitive
+    /// because, unlike the Rust SDK's URL parser, Foundation does not normalise host case.
+    ///
+    /// Embedded userinfo is refused. It does not redirect the connection — Foundation resolves
+    /// `wss://edge.livekit.cloud@evil.com` to the host `evil.com`, which this already rejects —
+    /// but a genuine region URL never carries credentials, and an accepted one would be carried
+    /// into the connection and into the region log lines. Refusing costs nothing and keeps the
+    /// accepted shape to exactly what discovery is expected to return.
+    var isTrustedRegionURL: Bool {
+        guard isSecure, user == nil, password == nil else { return false }
+        guard let host = host?.lowercased() else { return false }
+        return host.hasSuffix(".livekit.cloud") || host.hasSuffix(".livekit.run")
+    }
+
     func cloudConfigUrl() -> URL {
         var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
         components.scheme = scheme?.replacingOccurrences(of: "ws", with: "http")
