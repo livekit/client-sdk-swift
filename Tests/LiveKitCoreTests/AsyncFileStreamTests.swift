@@ -65,7 +65,7 @@ struct AsyncFileStreamTests {
         #expect(readBuffer == testBuffer)
     }
 
-    @Test func writeRefusesAnExistingPath() async throws {
+    @Test func writeRefusesAnExistingPath() throws {
         let testFileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
         try Data("original".utf8).write(to: testFileURL)

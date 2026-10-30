@@ -107,7 +107,7 @@ struct ByteStreamReaderTests {
         try Data("original".utf8).write(to: victim)
 
         let (reader, manager) = try await openReader()
-        await #expect(throws: StreamError.self) {
+        try await Self.expectIOError {
             try await reader.writeToFile(in: directory)
         }
         #expect(try Data(contentsOf: victim) == Data("original".utf8))
@@ -127,11 +127,29 @@ struct ByteStreamReaderTests {
         )
 
         let (reader, manager) = try await openReader()
-        await #expect(throws: StreamError.self) {
+        try await Self.expectIOError {
             try await reader.writeToFile(in: directory)
         }
         #expect(try Data(contentsOf: target) == Data("original".utf8))
         _ = manager
+    }
+
+    /// Asserts `body` fails with ``StreamError/io(reason:)`` specifically.
+    ///
+    /// `StreamError.io` carries the open's description, so the case is matched rather than a
+    /// whole value — pinning the message would couple the test to the error text.
+    private static func expectIOError(
+        _ body: () async throws -> some Any,
+        sourceLocation: SourceLocation = #_sourceLocation,
+    ) async throws {
+        let error = try #require(
+            await #expect(throws: StreamError.self, sourceLocation: sourceLocation) { _ = try await body() },
+            sourceLocation: sourceLocation,
+        )
+        guard case .io = error else {
+            Issue.record("Expected StreamError.io, got \(error)", sourceLocation: sourceLocation)
+            return
+        }
     }
 
     private static func makeTemporaryDirectory() throws -> URL {

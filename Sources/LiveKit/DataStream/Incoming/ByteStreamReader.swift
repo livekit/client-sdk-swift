@@ -99,13 +99,21 @@ extension ByteStreamReader {
     ///   - directory: The directory to write the file in. The system temporary directory is used if not specified.
     ///   - nameOverride: The name to use for the written file. If not specified, file name and extension will be automatically
     ///                   inferred from the stream information.
+    /// The destination is created exclusively: if anything already exists at that path the write
+    /// fails and the existing file is left untouched, rather than being replaced. A symlink at the
+    /// path is not followed. The sender chooses the name, so replacing whatever happens to sit
+    /// there is not a safe default; pass `nameOverride`, or a directory you control, to write to a
+    /// specific destination.
+    ///
     /// - Returns: The URL of the written file on disk.
     /// - Throws: ``StreamError/notDirectory`` if `directory` is not a directory.
     ///   ``StreamError/invalidFileName`` if the file name is not a single plain path component,
     ///   for example one that contains `/`, `\` or NUL, or is `..`. The sender chooses the name in
-    ///   the stream information, so this check keeps the file inside `directory`. Another
-    ///   ``StreamError`` if reading the stream fails. `CancellationError` at once if the calling task
-    ///   is cancelled; the file then holds what was written so far.
+    ///   the stream information, so this check keeps the file inside `directory`.
+    ///   ``StreamError/io(reason:)`` if something already exists at the destination, or if the
+    ///   file cannot be opened. Another ``StreamError`` if reading the stream fails.
+    ///   `CancellationError` at once if the calling task is cancelled; the file then holds what was
+    ///   written so far.
     ///
     public func writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
