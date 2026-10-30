@@ -1,0 +1,1 @@
+patch type="fixed" "Update LiveKitWebRTC to 150.7871.05, which sizes the Metal renderer's drawables to the pixels displayed instead of the video's resolution times the screen scale (~214 MB for a small view showing 1080p on a 3x screen). VideoView also reports the video size of local and replayed frames to the renderer"

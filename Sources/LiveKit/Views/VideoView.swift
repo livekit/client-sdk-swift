@@ -141,6 +141,10 @@ public class VideoView: NativeView, Loggable {
                     $0.didRenderFirstFrame = false
                     $0.isRendering = false
                     $0.rendererSize = nil
+                    // Belongs to the outgoing track. Reusing a view across tracks is supported,
+                    // and keeping this would size the next track's renderer from the last one's
+                    // resolution until something replaced it.
+                    $0.nativeVideoSize = nil
                 }
                 $0.track = newValue
             }
@@ -246,6 +250,9 @@ public class VideoView: NativeView, Loggable {
         // layout related
         var viewSize: CGSize
         var rendererSize: CGSize?
+        /// The frame's native pixel size, as reported by WebRTC, kept so a recreated renderer can
+        /// be sized before its first frame.
+        var nativeVideoSize: CGSize?
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
         var mirrorMode: MirrorMode = .auto
@@ -593,9 +600,23 @@ private extension VideoView {
         _renderedMode = renderMode
 
         let renderer = recreatePrimaryRenderer(for: renderMode)
-        if let frame = track._state.videoFrame {
+
+        // A replayed frame goes straight to the renderer and never passes through
+        // `render(frame:)`, so this is the only point at which it can set the native size. It
+        // matters when the track's capture has stopped: nothing further arrives to correct the
+        // target, and an unsized `MTKView` still has `autoResizeDrawable` set, so it would size
+        // itself to `bounds x scale` — far past a source smaller than the view.
+        let cachedFrame = track._state.videoFrame
+        if let cachedFrame {
+            _state.mutate { $0.nativeVideoSize = cachedFrame.nativeVideoSize }
+        }
+
+        // A fresh renderer starts with no size. Give it the known one before the first frame.
+        applyNativeVideoSize()
+
+        if let cachedFrame {
             log("rendering cached frame track: \(String(describing: track._state.sid))")
-            renderer.renderFrame(frame.toRTCType())
+            renderer.renderFrame(cachedFrame.toRTCType())
         }
         setNeedsLayout()
     }
@@ -647,6 +668,14 @@ private extension VideoView {
         return newView
     }
 
+    /// Hands the native video size to the renderers. `RTCMTLVideoView` sizes its drawables from it,
+    /// clamped to the pixels the view displays.
+    func applyNativeVideoSize() {
+        guard let nativeVideoSize = _state.nativeVideoSize else { return }
+        _primaryRenderer?.setSize(nativeVideoSize)
+        _secondaryRenderer?.setSize(nativeVideoSize)
+    }
+
     func _shouldMirror() -> Bool {
         switch _state.mirrorMode {
         case .auto: _state.captureDevice?.facingPosition == .front
@@ -674,9 +703,9 @@ extension VideoView: VideoRenderer {
     }
 
     public func set(size: CGSize) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self, let nr = _primaryRenderer else { return }
-            nr.setSize(size)
+        _state.mutate { $0.nativeVideoSize = size }
+        Task { @MainActor in
+            self.applyNativeVideoSize()
         }
     }
 
@@ -704,6 +733,12 @@ extension VideoView: VideoRenderer {
             Task { @MainActor in self.setNeedsLayout() }
         }
 
+        // Remote tracks learn their native size from `VideoRendererAdapter`, which calls
+        // `set(size:)`. Local capture delivers straight to the renderer and never does, so for a
+        // local track the frame is the only source.
+        let nativeVideoSize = frame.nativeVideoSize
+
+        var didUpdateNativeVideoSize = false
         let newState = _state.mutate {
             // Keep previous capture position
             let oldCaptureDevicePosition = $0.captureDevice?.position
@@ -714,6 +749,11 @@ extension VideoView: VideoRenderer {
             $0.isRendering = true
             $0.renderDate = Date()
 
+            if $0.nativeVideoSize != nativeVideoSize {
+                $0.nativeVideoSize = nativeVideoSize
+                didUpdateNativeVideoSize = true
+            }
+
             // Update renderTarget if capture position changes
             if let oldCaptureDevicePosition, oldCaptureDevicePosition != captureDevice?.position {
                 $0.renderTarget = .secondary
@@ -721,6 +761,10 @@ extension VideoView: VideoRenderer {
             }
 
             return $0
+        }
+
+        if didUpdateNativeVideoSize {
+            Task { @MainActor in self.applyNativeVideoSize() }
         }
 
         let rtcFrame = frame.toRTCType()
@@ -816,6 +860,15 @@ extension VideoView: VideoRenderer {
 
 // MARK: - Internal
 
+private extension VideoFrame {
+    /// The size `VideoRendererAdapter` reports to `set(size:)`: rotated by the frame's own
+    /// rotation, not by ``VideoView/rotationOverride``, which the renderer applies itself.
+    var nativeVideoSize: CGSize {
+        let dimensions = dimensions.apply(rotation: rotation.toRTCType())
+        return CGSize(width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
+    }
+}
+
 extension VideoView {
     nonisolated static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
         // equal if both tracks are nil
@@ -880,9 +933,9 @@ extension VideoView {
                 #elseif os(macOS)
                 mtkView.layerContentsPlacement = .scaleProportionallyToFit
                 #endif
-                // ensure it's capable of rendering 60fps
+                // Note: `RTCMTLRenderer.setupWithView:` resets this to 30 when it attaches, which
+                // happens lazily on the first frame — so this assignment only holds until then.
                 // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
-                log("preferredFramesPerSecond = 60")
                 mtkView.preferredFramesPerSecond = 60
             }
 
