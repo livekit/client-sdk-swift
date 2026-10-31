@@ -180,7 +180,7 @@ final class Transport: NSObject, Loggable {
         }
 
         let offer = try await createOffer()
-        let mungedSDP = [Self.mungeInactiveToRecvOnlyForMedia, Self.mungeOpusStereoForAllAudio]
+        let mungedSDP = [Self.mungeOpusStereoForAllAudio]
             .reduce(offer.sdp) { $1($0) }
         let munged = mungedSDP == offer.sdp ? offer : RTC.createSessionDescription(type: offer.type, sdp: mungedSDP)
 
@@ -317,18 +317,13 @@ final class Transport: NSObject, Loggable {
         func _negotiateSequence() async throws {
             _latestOfferId += 1
             var offer = try await createOffer(for: constraints)
-            // The direction rewrite is required to receive media in single PC mode; the
-            // stereo preference and the video start bitrate are optional and are dropped
-            // from the right on rejection. The start bitrate is written on the first offer
-            // that carries local video only: offers before any video is published (data
-            // channel or audio only) find no target and leave the latch unset.
             let kbpsBySenderId = _startBitrateKbpsBySenderId
             let hasAppliedStartBitrate = _hasAppliedVideoStartBitrate
             let startBitrate: (String) -> String = {
                 hasAppliedStartBitrate ? $0 : Self.mungeVideoStartBitrate($0, kbpsBySenderId: kbpsBySenderId)
             }
             offer = try await set(localDescription: offer, munging: singlePCMode
-                ? [Self.mungeInactiveToRecvOnlyForMedia, Self.mungeOpusStereoForAllAudio, startBitrate]
+                ? [Self.mungeOpusStereoForAllAudio, startBitrate]
                 : [startBitrate])
             // A rejected munge is dropped and the offer retried without it, so the one-shot
             // hint is consumed only once the description that carries it has been accepted.
@@ -370,20 +365,6 @@ final class Transport: NSObject, Loggable {
 // MARK: - SDP Munging
 
 extension Transport {
-    /// Munge SDP to change `a=inactive` to `a=recvonly` for RTP media m-lines in single PC mode.
-    /// WebRTC can generate inactive direction even when transceivers were configured as recvonly.
-    /// Only rewrites RTP m-sections — non-RTP sections (e.g. data channel `m=application`) are preserved.
-    nonisolated static func mungeInactiveToRecvOnlyForMedia(_ sdp: String) -> String {
-        var document = SDP(parsing: sdp)
-        for index in document.mediaSections.indices {
-            let section = document.mediaSections[index]
-            if section.isRTP, section.direction == .inactive {
-                document.mediaSections[index].set(direction: .recvonly)
-            }
-        }
-        return document.write()
-    }
-
     /// Munge an answer to declare `stereo=1` on the Opus fmtp of every section whose
     /// counterpart in `offer` advertises `sprop-stereo=1`.
     ///

@@ -42,27 +42,6 @@ struct TransportSDPMungeTests {
     a=inactive
     """.replacingOccurrences(of: "\n", with: "\r\n") + "\r\n"
 
-    @Test func convertsInactiveToRecvOnlyInRTPSectionsOnly() {
-        let munged = Transport.mungeInactiveToRecvOnlyForMedia(Self.offer)
-        let sections = SDP(parsing: munged)
-
-        #expect(sections.mediaSections.map(\.direction) == [.recvonly, .sendrecv, .inactive])
-        // Session-level line is not a media direction — must be untouched.
-        #expect(sections.sessionLines.contains("a=inactive"))
-    }
-
-    @Test func preservesEOLStyleAndTrailingNewline() {
-        let munged = Transport.mungeInactiveToRecvOnlyForMedia(Self.offer)
-
-        #expect(munged == Self.offer.replacingOccurrences(of: "a=inactive\r\nm=video", with: "a=recvonly\r\nm=video"))
-        #expect(munged.hasSuffix("\r\n"))
-    }
-
-    @Test func leavesSDPWithoutInactiveSectionsIdentical() {
-        let sdp = Self.offer.replacingOccurrences(of: "a=inactive", with: "a=recvonly")
-        #expect(Transport.mungeInactiveToRecvOnlyForMedia(sdp) == sdp)
-    }
-
     /// Two Opus audio sections (one already declaring `stereo=1`, one carrying the
     /// `sprop-stereo=1` substring trap), a video section, and a non-Opus audio section.
     private static let singlePCOffer = """
