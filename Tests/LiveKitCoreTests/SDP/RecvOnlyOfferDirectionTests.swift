@@ -60,8 +60,12 @@ struct RecvOnlyOfferDirectionTests {
         try await RTC.run {
             let recv = LKRTCRtpTransceiverInit()
             recv.direction = .recvOnly
-            for _ in 0 ..< audio { _ = try transport.addTransceiver(ofType: .audio, transceiverInit: recv) }
-            for _ in 0 ..< video { _ = try transport.addTransceiver(ofType: .video, transceiverInit: recv) }
+            for _ in 0 ..< audio {
+                _ = try transport.addTransceiver(ofType: .audio, transceiverInit: recv)
+            }
+            for _ in 0 ..< video {
+                _ = try transport.addTransceiver(ofType: .video, transceiverInit: recv)
+            }
         }
     }
 

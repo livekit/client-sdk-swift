@@ -34,7 +34,7 @@ import LiveKitTestSupport
 /// Deliberately uses a small synthetic source rather than `createSampleVideoTrack`: that decodes
 /// 1080p at 30fps, and the WebRTC release path other suites are timed against runs on a shared
 /// queue this would otherwise saturate.
-@Suite(.serialized, .tags(.media))
+@Suite(.serialized, .tags(.e2e, .media), TestLimits.e2e)
 struct SinglePCRepublishTests {
     private static let width = 320
     private static let height = 240
@@ -66,7 +66,7 @@ struct SinglePCRepublishTests {
         return pixelBuffer
     }
 
-    @Test(.timeLimit(.minutes(3)))
+    @Test
     func subscriberReceivesFramesAfterUnpublishAndRepublish() async throws {
         try await TestEnvironment.withRooms([
             RoomTestingOptions(singlePeerConnection: true, canPublish: true),
