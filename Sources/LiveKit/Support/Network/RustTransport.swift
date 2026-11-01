@@ -80,12 +80,11 @@ private final class WsConnectionAdapter: WsConnection {
 
     func recv() async throws -> Data? {
         do {
-            // Signalling is binary-only, so `for case let` skips any other frame kind and
-            // keeps reading. Iterating afresh per call is the same stream: the iterator
-            // buffers nothing, it reads straight off the connection.
-            for try await case let .data(frame) in socket {
-                // swiftformat:disable:next redundantReturn
-                return frame
+            // Signalling is binary-only, so skip other frame kinds and keep reading.
+            // Iterating afresh per call is the same stream: the iterator buffers nothing,
+            // it reads straight off the connection.
+            for try await message in socket {
+                if case let .data(frame) = message { return frame }
             }
             return nil
         } catch {

@@ -277,6 +277,7 @@ struct WebSocketLifecycleTests {
         #expect(events.closeStarts.copy() == 0)
         #expect(error?.type == .network)
         #expect((error?.internalError as NSError?)?.code == Int(ECONNABORTED))
+        #expect(server.acceptCount.copy() == 1)
     }
 
     // MARK: - Release

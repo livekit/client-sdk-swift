@@ -234,14 +234,19 @@ struct TransportErrorMappingTests {
         }
         let rejection = try await WsClientAdapter.rejection(of: url, headers: headers, after: #require(error))
         #expect(rejection == .Http(status: 401))
+        #expect(server.requestHeaders.copy().contains("Authorization: Bearer test"))
+        #expect(server.acceptCount.copy() == 2)
     }
 
     @Test("Any other failed connect asks the validation endpoint nothing")
     func otherFailuresAreNotValidated() async throws {
-        let url = try #require(URL(string: "ws://127.0.0.1:1/rtc"))
+        let server = try FakeWebSocketServer(.reject(status: 401))
+        defer { server.cancel() }
+        let url = try await server.url()
         let rejection = await WsClientAdapter.rejection(of: url, headers: [],
                                                         after: LiveKitError(.network, internalError: URLError(.timedOut)))
         #expect(rejection == nil)
+        #expect(server.acceptCount.copy() == 0)
     }
 
     @Test("A send completion cancelled during teardown maps to Closed")
