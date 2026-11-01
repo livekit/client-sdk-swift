@@ -19,82 +19,105 @@ import Foundation
 import LiveKitWebRTC
 import Testing
 
-@Suite(.tags(.dataChannel))
+@Suite(.tags(.dataChannel, .e2ee))
 struct DataSenderAttributionTests {
-    @Test(arguments: [("A", "B"), ("", "B"), ("A", "")], [false, true])
-    func receivedUserData(identities: (outer: String, inner: String), encrypted: Bool) async throws {
+    @Test(arguments: ["B", ""], [false, true])
+    func serverStampedSenderWins(inner: String, encrypted: Bool) async throws {
+        let deliveries = try await receive(outer: "A", inner: inner, encrypted: encrypted)
+        let expected = expectedDelivery(sender: "A", encrypted: encrypted)
+        #expect(deliveries.room == [expected])
+        #expect(deliveries.a == [expected])
+        #expect(deliveries.b.isEmpty)
+    }
+
+    @Test(arguments: ["", "H"], [false, true])
+    func unknownSenderIsUnattributed(outer: String, encrypted: Bool) async throws {
+        let deliveries = try await receive(outer: outer, inner: "B", encrypted: encrypted)
+        let expected = expectedDelivery(sender: nil, encrypted: encrypted)
+        #expect(deliveries.room == [expected])
+        #expect(deliveries.a.isEmpty)
+        #expect(deliveries.b.isEmpty)
+    }
+
+    private func receive(outer: String, inner: String, encrypted: Bool,
+                         sourceLocation: SourceLocation = #_sourceLocation) async throws -> ReceivedDeliveries
+    {
         let room = Room()
+        // Avoid connection-state callbacks that initialize the lazy local participant.
         room._state.onDidMutate = nil
-        let participants = ["A", "B"].map { identity in
-            RemoteParticipant(info: .with {
-                $0.identity = identity
-                $0.sid = "PA_\(identity)"
-            }, room: room, connectionState: .connected)
-        }
-        let sender = try #require(participants.first)
-        let other = try #require(participants.last)
+        let a = RemoteParticipant(info: .with {
+            $0.identity = "A"
+            $0.sid = "PA_A"
+        }, room: room, connectionState: .connected)
+        let b = RemoteParticipant(info: .with {
+            $0.identity = "B"
+            $0.sid = "PA_B"
+        }, room: room, connectionState: .connected)
         room._state.mutate {
-            $0.remoteParticipants = Dictionary(uniqueKeysWithValues: participants.compactMap { participant in
-                participant.identity.map { ($0, participant) }
-            })
+            $0.remoteParticipants = [Participant.Identity(from: "A"): a, Participant.Identity(from: "B"): b]
             $0.connectionState = .connected
         }
-
-        let encryptionType: EncryptionType = encrypted ? .gcm : .none
-        let roomReceiver = DataReceiver(encryptionType: encryptionType)
-        let senderReceiver = DataReceiver(encryptionType: encryptionType)
-        let otherReceiver = DataReceiver(encryptionType: encryptionType)
+        let roomReceiver = DataReceiver()
+        let aReceiver = DataReceiver()
+        let bReceiver = DataReceiver()
         room.add(delegate: roomReceiver)
-        sender.add(delegate: senderReceiver)
-        other.add(delegate: otherReceiver)
-
+        a.add(delegate: aReceiver)
+        b.add(delegate: bReceiver)
         let pair = DataChannelPair(delegate: room)
-        let userPacket = Livekit_UserPacket.with {
-            $0.participantIdentity = identities.inner
-            $0.payload = Data("payload".utf8)
-            $0.topic = "topic"
-        }
         var packet = Livekit_DataPacket.with {
-            $0.participantIdentity = identities.outer
-            $0.user = userPacket
+            $0.participantIdentity = outer
+            $0.user = .with {
+                $0.participantIdentity = inner
+                $0.payload = Data("payload".utf8)
+                $0.topic = "topic"
+            }
         }
         if encrypted {
-            packet = try encrypt(packet, for: pair)
+            let keys = BaseKeyProvider(options: KeyProviderOptions(sharedKey: true))
+            keys.setKey(key: "sender-attribution-test-key")
+            let manager = E2EEManager(options: EncryptionOptions(keyProvider: keys))
+            manager.addDataChannelCryptor()
+            pair.set(e2eeManager: manager)
+            let cryptor = try #require(LKRTCDataPacketCryptor(algorithm: .aesGcm, keyProvider: keys.rtcKeyProvider), sourceLocation: sourceLocation)
+            packet = try encrypt(packet, for: cryptor, sourceLocation: sourceLocation)
         }
-
         try pair.handle(received: packet.serializedData(), isReliable: true)
         await pair.delegates.notifyAsync { _ in }
         await room.delegates.notifyAsync { _ in }
-        await sender.delegates.notifyAsync { _ in }
-        await other.delegates.notifyAsync { _ in }
-
-        #expect(roomReceiver.identities.copy() == [identities.outer.isEmpty ? nil : "A"])
-        #expect(senderReceiver.identities.copy() == (identities.outer.isEmpty ? [] : ["A"]))
-        #expect(otherReceiver.identities.copy().isEmpty)
+        await a.delegates.notifyAsync { _ in }
+        await b.delegates.notifyAsync { _ in }
+        return ReceivedDeliveries(room: roomReceiver.deliveries.copy(), a: aReceiver.deliveries.copy(), b: bReceiver.deliveries.copy())
     }
 
-    private func encrypt(_ packet: Livekit_DataPacket, for pair: DataChannelPair) throws -> Livekit_DataPacket {
-        let keys = BaseKeyProvider(options: KeyProviderOptions(sharedKey: true))
-        keys.setKey(key: "sender-attribution-test-key")
-        let manager = E2EEManager(options: EncryptionOptions(keyProvider: keys))
-        manager.addDataChannelCryptor()
-        pair.set(e2eeManager: manager)
-
-        let cryptor = try #require(LKRTCDataPacketCryptor(algorithm: .aesGcm, keyProvider: keys.rtcKeyProvider))
+    private func encrypt(_ packet: Livekit_DataPacket, for cryptor: LKRTCDataPacketCryptor,
+                         sourceLocation: SourceLocation = #_sourceLocation) throws -> Livekit_DataPacket
+    {
         let payload = Livekit_EncryptedPacketPayload.with { $0.user = packet.user }
         let payloadData = try payload.serializedData()
-        let ciphertext = try #require(cryptor.encrypt("A", keyIndex: 0, data: payloadData))
+        let ciphertext = try #require(cryptor.encrypt("A", keyIndex: 0, data: payloadData), sourceLocation: sourceLocation)
         return packet.modifying { $0.encryptedPacket = Livekit_EncryptedPacket(rtcPacket: ciphertext) }
+    }
+
+    private func expectedDelivery(sender: String?, encrypted: Bool) -> Delivery {
+        Delivery(sender: sender, payload: Data("payload".utf8), topic: "topic", encryptionType: encrypted ? .gcm : .none)
     }
 }
 
-private final class DataReceiver: RoomDelegate, ParticipantDelegate, Sendable {
-    let identities = StateSync([String?]())
-    let encryptionType: EncryptionType
+private struct ReceivedDeliveries {
+    let room: [Delivery]
+    let a: [Delivery]
+    let b: [Delivery]
+}
 
-    init(encryptionType: EncryptionType) {
-        self.encryptionType = encryptionType
-    }
+private struct Delivery: Equatable {
+    let sender: String?
+    let payload: Data
+    let topic: String
+    let encryptionType: EncryptionType
+}
+
+private final class DataReceiver: RoomDelegate, ParticipantDelegate, Sendable {
+    let deliveries = StateSync([Delivery]())
 
     func room(_: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType) {
         record(participant, data: data, topic: topic, encryptionType: encryptionType)
@@ -105,9 +128,7 @@ private final class DataReceiver: RoomDelegate, ParticipantDelegate, Sendable {
     }
 
     private func record(_ participant: RemoteParticipant?, data: Data, topic: String, encryptionType: EncryptionType) {
-        #expect(data == Data("payload".utf8))
-        #expect(topic == "topic")
-        #expect(encryptionType == self.encryptionType)
-        identities.mutate { $0.append(participant?.identity?.stringValue) }
+        let delivery = Delivery(sender: participant?.identity?.stringValue, payload: data, topic: topic, encryptionType: encryptionType)
+        deliveries.mutate { $0.append(delivery) }
     }
 }
