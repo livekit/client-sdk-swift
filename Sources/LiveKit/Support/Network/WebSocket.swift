@@ -167,7 +167,7 @@ actor WebSocket: Loggable, AsyncSequence {
         func next() async throws -> URLSessionWebSocketTask.Message? {
             switch await core.read() {
             case let .message(message): message
-            case let .invalid(error), let .failed(error): throw error
+            case let .failed(error): throw error
             case .closed: nil
             }
         }
@@ -288,12 +288,13 @@ private struct Core: Sendable {
         for payload in reply.pongs {
             write(WebSocketFrame.client(opcode: WebSocketFrame.pong, payload))
         }
-        if let code = reply.close { answer(code) } else if reply.failed { finish() }
+        if let code = reply.closeCode { answer(code) } else if reply.failed { finish() }
         if readOn { receiveNext() } else if let paused { onEvent?(.readAheadFull(unread: paused)) }
     }
 
-    /// The server's close frame: as the answer to ours it ends the handshake; otherwise ours answers it with its code,
-    /// and the connection goes once that is written.
+    /// The stream ended with a close frame from the server, or broke the protocol. The server's close frame ends the
+    /// handshake when it answers ours; otherwise our close frame goes out with `code`, and the connection once that is
+    /// written.
     private func answer(_ code: UInt16) {
         guard lifecycle.mutate({
             guard $0 == .open else { return false }

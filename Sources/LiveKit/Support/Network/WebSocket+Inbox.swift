@@ -21,8 +21,6 @@ extension WebSocket {
     /// What a read hands out.
     enum Frame: Sendable {
         case message(URLSessionWebSocketTask.Message)
-        /// A text message that is not UTF-8: thrown, and the sequence reads on.
-        case invalid(LiveKitError)
         /// The stream is over: thrown, and the sequence ends.
         case failed(LiveKitError)
         /// Our own close: the sequence ends with nil.
@@ -32,9 +30,10 @@ extension WebSocket {
     /// What the connection does after a read, besides handing out frames.
     struct Reply {
         var pongs: [Data] = []
-        /// The server's close code, to answer with ours.
-        var close: UInt16?
-        /// The stream failed: the connection goes.
+        /// The code of our close frame: the server's own, to answer its close frame, or ours for a stream that broke the
+        /// protocol. The connection goes once it is written.
+        var closeCode: UInt16?
+        /// The connection broke: it goes without a close frame.
         var failed = false
     }
 
@@ -55,12 +54,31 @@ extension WebSocket {
 
         var unread: Int { frames.count - taken }
 
+        /// The frames held, read or not: at most twice the unread ones, plus one.
+        var retainedFrames: Int { frames.count }
+
+        /// The message bytes that the held frames carry.
+        var retainedBytes: Int {
+            frames.reduce(0) { total, frame in
+                guard case let .message(message) = frame else { return total }
+                return switch message {
+                case let .data(data): total + data.count
+                case let .string(text): total + text.utf8.count
+                @unknown default: total
+                }
+            }
+        }
+
         mutating func take() -> Frame? {
             if ended { return .closed }
             guard taken < frames.count else { return nil }
             let frame = frames[taken]
             taken += 1
-            if taken == frames.count { dropUnread() }
+            // Drops the read ones once they are as many as the unread: the order stays, and the cost spreads over reads.
+            if taken * 2 >= frames.count {
+                frames.removeFirst(taken)
+                taken = 0
+            }
             if case .failed = frame { ended = true }
             return frame
         }
@@ -104,18 +122,16 @@ extension WebSocket {
             switch item {
             case let .message(message):
                 if !ended { frames.append(.message(message)) }
-            case .invalidText:
-                if !ended { frames.append(.invalid(LiveKitError(.network, message: "Text frame is not valid UTF-8"))) }
             case let .ping(payload):
                 reply.pongs.append(payload)
             case .pong:
                 break
             case let .close(code):
                 // An error, not the end of the stream, which only our own close is.
-                reply.close = code
+                reply.closeCode = code
                 end(LiveKitError(.network, message: "Closed by the peer (\(code))", internalError: WebSocketClosedByPeer(code: code)))
-            case let .failure(error):
-                reply.failed = true
+            case let .failure(error, closeCode):
+                reply.closeCode = closeCode
                 end(error)
             }
         }

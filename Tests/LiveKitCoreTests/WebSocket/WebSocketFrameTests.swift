@@ -1,0 +1,231 @@
+/*
+ * Copyright 2026 LiveKit
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import Foundation
+@testable import LiveKit
+import Testing
+
+/// The signalling WebSocket's frame codec, inbox and upgrade check, with no connection.
+@Suite(TestLimits.unit)
+struct WebSocketFrameTests {
+    // MARK: - Encoding and parsing
+
+    /// A client frame takes the shortest length encoding at each boundary, and unmasks to its payload.
+    @Test(arguments: [0, 125, 126, 65535, 65536])
+    func clientFrameRoundTrips(length: Int) {
+        let payload = Data((0 ..< length).map { UInt8(truncatingIfNeeded: $0) })
+        let frame = [UInt8](WebSocketFrame.client(opcode: WebSocketFrame.binary, payload))
+        #expect(frame.first == 0x82)
+        #expect(frame[1] & 0x80 != 0)
+        let size = switch frame[1] & 0x7F {
+        case 126: 4
+        case 127: 10
+        default: 2
+        }
+        #expect(size == (length < 126 ? 2 : length <= 0xFFFF ? 4 : 10))
+        let declared = size == 2 ? Int(frame[1] & 0x7F) : frame[2 ..< size].reduce(0) { $0 << 8 | Int($1) }
+        #expect(declared == length)
+        let mask = Array(frame[size ..< size + 4])
+        #expect(Data(frame[(size + 4)...].enumerated().map { $1 ^ mask[$0 & 3] }) == payload)
+    }
+
+    /// A frame split across two reads at any byte parses to the same message.
+    @Test func frameSplitAtEveryPosition() {
+        let payload = Data((0 ..< 260).map { UInt8(truncatingIfNeeded: $0) })
+        let frame = FakeWebSocketServer.frame(0x2, payload)
+        for split in 0 ... frame.count {
+            var parser = Self.parser()
+            parser.append(frame.prefix(split))
+            let early = parser.next()
+            parser.append(frame.dropFirst(split))
+            guard case let .message(.data(data))? = early ?? parser.next() else {
+                Issue.record("Split at \(split): no message")
+                continue
+            }
+            #expect(data == payload, "Split at \(split)")
+        }
+    }
+
+    /// The parser drops the frames it handed out once more bytes come, so a long session holds no history.
+    @Test func parserHoldsNoHistory() {
+        var parser = Self.parser()
+        let frame = FakeWebSocketServer.frame(0x2, Data([0x01]))
+        for _ in 0 ..< 1000 {
+            parser.append(frame)
+            #expect(parser.next() != nil)
+        }
+        #expect(parser.retainedBytes == frame.count)
+    }
+
+    /// A declared length over the limit fails at once, before any payload is held, with close code 1009.
+    @Test(arguments: [UInt64(WebSocket.maximumMessageSize) + 1, UInt64.max])
+    func declaredLengthOverTheLimit(length: UInt64) {
+        let item = Self.parse([0x82, 127] + (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: length >> ($0 * 8)) })
+        guard case let .failure(error, closeCode)? = item else { return #expect(Bool(false), "No failure") }
+        #expect((error.internalError as NSError?)?.code == Int(EMSGSIZE))
+        #expect(closeCode == 1009)
+    }
+
+    /// What the header alone breaks fails before its payload arrives: an unknown opcode, a continuation without a
+    /// message, and a new message inside a fragmented one, each declaring 4 KB that never comes.
+    @Test(arguments: [[0x83, 0x7E, 0x10, 0x00], [0x80, 0x7E, 0x10, 0x00], [0x02, 0x01, 0x00, 0x82, 0x7E, 0x10, 0x00]] as [[UInt8]])
+    func headerFailsBeforeItsPayload(bytes: [UInt8]) {
+        guard case let .failure(_, closeCode)? = Self.parse(bytes) else { return #expect(Bool(false), "No failure") }
+        #expect(closeCode == 1002)
+    }
+
+    // MARK: - Close codes (RFC 6455 §7.4)
+
+    @Test(arguments: [0, 999, 1004, 1005, 1006, 1015, 1016, 2999, 5000, 65535] as [UInt16])
+    func forbiddenCloseCodeBreaksTheProtocol(code: UInt16) {
+        guard case let .failure(error, closeCode)? = Self.parse(FakeWebSocketServer.close(code)) else {
+            return #expect(Bool(false), "Close code \(code) accepted")
+        }
+        #expect(error.message?.hasPrefix("WebSocket protocol violation") == true)
+        #expect(closeCode == 1002)
+    }
+
+    @Test(arguments: [1000, 1001, 1003, 1007, 1011, 1012, 1014, 3000, 4000, 4999] as [UInt16])
+    func validCloseCodeCloses(code: UInt16) {
+        guard case let .close(received)? = Self.parse(FakeWebSocketServer.close(code, reason: "bye")) else {
+            return #expect(Bool(false), "Close code \(code) refused")
+        }
+        #expect(received == code)
+    }
+
+    /// A close frame with no code stands for 1005, which only a frame without a code can mean.
+    @Test func emptyCloseIs1005() {
+        guard case let .close(code)? = Self.parse([0x88, 0x00]) else { return #expect(Bool(false), "No close") }
+        #expect(code == 1005)
+    }
+
+    // MARK: - Text (RFC 6455 §8.1)
+
+    /// Text that is not UTF-8, whole or in fragments, ends the stream with close code 1007: nothing after it comes out.
+    @Test(arguments: [[0x81, 0x01, 0xFF, 0x82, 0x01, 0x61], [0x01, 0x01, 0xE2, 0x80, 0x01, 0x41, 0x82, 0x01, 0x61]] as [[UInt8]])
+    func invalidTextEndsTheStream(bytes: [UInt8]) {
+        var parser = Self.parser()
+        parser.append(Data(bytes))
+        guard case let .failure(_, closeCode)? = parser.next() else { return #expect(Bool(false), "No failure") }
+        #expect(closeCode == 1007)
+        #expect(parser.next() == nil)
+    }
+
+    /// A character split across fragments joins into valid text.
+    @Test func textSplitAcrossFragments() {
+        guard case let .message(.string(text))? = Self.parse([0x01, 0x01, 0xE2, 0x80, 0x02, 0x82, 0xAC]) else {
+            return #expect(Bool(false), "No text")
+        }
+        #expect(text == "€")
+    }
+
+    // MARK: - Inbox
+
+    /// A reader that keeps a backlog, reading one message as one more arrives, holds no history: the frames and bytes
+    /// it holds stay within twice the backlog.
+    @Test func inboxHoldsNoHistory() {
+        let size = 4096
+        let message = FakeWebSocketServer.frame(0x2, Data(count: size))
+        var inbox = WebSocket.Inbox()
+        _ = inbox.ingest(Data((0 ..< WebSocket.readAhead).flatMap { _ in message }), isComplete: false, error: nil)
+        for _ in 0 ..< 1000 {
+            guard case .message? = inbox.take() else { return #expect(Bool(false), "No message") }
+            let granted = inbox.startReceive()
+            #expect(granted)
+            inbox.receiving = false
+            _ = inbox.ingest(message, isComplete: false, error: nil)
+        }
+        #expect(inbox.unread == WebSocket.readAhead)
+        #expect(inbox.retainedFrames <= 2 * WebSocket.readAhead + 1)
+        #expect(inbox.retainedBytes <= (2 * WebSocket.readAhead + 1) * size)
+    }
+
+    // MARK: - Upgrade response (RFC 6455 §4.1)
+
+    /// The key and accept value of RFC 6455 §1.3.
+    private static let key = "dGhlIHNhbXBsZSBub25jZQ=="
+    private static let accept = "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+
+    /// Mixed case, a token list in `Connection`, and an interim head before the 101: the frames behind it are kept.
+    @Test(arguments: [
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}",
+        "HTTP/1.1 101 OK\r\nupgrade: WebSocket\r\nCONNECTION: keep-alive, UPGRADE\r\nsec-websocket-accept:{accept}",
+        "HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}",
+    ])
+    func upgradeOpens(head: String) {
+        guard case let .opened(rest) = WebSocket.upgradeOutcome(Self.response(head) + Data([0x82, 0x00]), key: Self.key) else {
+            return #expect(Bool(false), "Did not open")
+        }
+        #expect(rest == Data([0x82, 0x00]))
+    }
+
+    @Test(arguments: [
+        "XYZ 101 OK\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}",
+        "HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}",
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: h2c\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}",
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nSec-WebSocket-Accept: {accept}",
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: close\r\nSec-WebSocket-Accept: {accept}",
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade",
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: wrong",
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\nSec-WebSocket-Accept: {accept}",
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\nSec-WebSocket-Protocol: chat",
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\nSec-WebSocket-Extensions: permessage-deflate",
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\nno colon",
+    ])
+    func upgradeFails(head: String) {
+        guard case let .failed(error) = WebSocket.upgradeOutcome(Self.response(head), key: Self.key) else {
+            return #expect(Bool(false), "Opened")
+        }
+        #expect((error.internalError as? URLError)?.code == .badServerResponse)
+    }
+
+    /// An interim head is skipped, and the final status reaches the caller.
+    @Test func interimHeadThenRejection() {
+        let head = "HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 401 Unauthorized\r\nContent-Length: 0"
+        guard case let .failed(error) = WebSocket.upgradeOutcome(Self.response(head), key: Self.key) else {
+            return #expect(Bool(false), "No failure")
+        }
+        #expect((error.internalError as? WebSocketUpgradeFailure)?.statusCode == 401)
+    }
+
+    /// Until the final head is whole, the upgrade waits for more bytes.
+    @Test(arguments: ["HTTP/1.1 101 Switching", "HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 101 Switching Protocols\r\n"])
+    func incompleteHeadWaits(read: String) {
+        guard case .incomplete = WebSocket.upgradeOutcome(Data(read.utf8), key: Self.key) else {
+            return #expect(Bool(false), "Settled early")
+        }
+    }
+}
+
+private extension WebSocketFrameTests {
+    static func parser() -> WebSocketFrame.Parser {
+        WebSocketFrame.Parser(maximumMessageSize: WebSocket.maximumMessageSize)
+    }
+
+    static func parse(_ bytes: [UInt8]) -> WebSocketFrame.Item? {
+        parse(Data(bytes))
+    }
+
+    static func parse(_ bytes: Data) -> WebSocketFrame.Item? {
+        var parser = parser()
+        parser.append(bytes)
+        return parser.next()
+    }
+
+    static func response(_ head: String) -> Data {
+        Data((head.replacingOccurrences(of: "{accept}", with: accept) + "\r\n\r\n").utf8)
+    }
+}

@@ -84,15 +84,20 @@ extension WebSocketLifecycleTests {
         #expect(Self.closeCode(of: error) == 1000)
     }
 
-    /// The parser drops the frames it handed out once more bytes come, so a long session holds no history.
-    @Test func parserHoldsNoHistory() {
-        var parser = WebSocketFrame.Parser(maximumMessageSize: WebSocket.maximumMessageSize)
-        let frame = FakeWebSocketServer.frame(0x2, Data([0x01]))
-        for _ in 0 ..< 1000 {
-            parser.append(frame)
-            #expect(parser.next() != nil)
-        }
-        #expect(parser.retainedBytes == frame.count)
+    /// An interim head (`100 Continue`) before the 101 is skipped, as URLSession did: the socket opens, and the frames
+    /// behind the 101 come out.
+    @Test func interimHeadBeforeTheUpgrade() async throws {
+        let head = "HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+            + "Sec-WebSocket-Accept: {accept}\r\n\r\n"
+        let payloads = Self.payloads(count: 2)
+        let server = try FakeWebSocketServer(.upgradeResponse(head: head, then: FakeWebSocketServer.binary(payloads) + FakeWebSocketServer.close(1000)))
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+
+        let (received, error) = await Self.messages(of: socket)
+        #expect(received == payloads)
+        #expect(Self.closeCode(of: error) == 1000)
+        try await server.served.wait()
     }
 
     /// The bytes after the head of the upgrade response are the stream's first.
@@ -173,6 +178,41 @@ extension WebSocketLifecycleTests {
         #expect((error as? LiveKitError)?.message?.hasPrefix("WebSocket protocol violation") == true)
         try await server.served.wait()
         #expect(teardowns.copy() == 1)
+        // Our close frame, with 1002 or, for a close reason that is not UTF-8, 1007.
+        #expect(server.frames.read { $0.last?.opcode } == 0x8)
+    }
+
+    /// A close code that must not go on the wire breaks the protocol: the client answers with 1002, never with it.
+    @Test(arguments: [999, 1005, 1006, 1015] as [UInt16])
+    func forbiddenCloseCodeIsNotEchoed(code: UInt16) async throws {
+        let server = try FakeWebSocketServer(.frames(FakeWebSocketServer.close(code)))
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+        try await socket.send(data: Data([0x01]))
+        try await server.served.wait()
+
+        let (_, error) = await Self.messages(of: socket)
+        #expect((error as? LiveKitError)?.message?.hasPrefix("WebSocket protocol violation") == true)
+        #expect(Self.closeCode(of: error) == nil)
+        #expect(server.frames.read { $0.last?.payload } == Data([0x03, 0xEA]))
+    }
+
+    /// Text that is not UTF-8, whole or in fragments, fails the connection after the messages before it: nothing after
+    /// it is delivered, and the client's close frame carries 1007, as URLSession failed both reads.
+    @Test(arguments: [[0x82, 0x01, 0x00, 0x81, 0x01, 0xFF, 0x82, 0x01, 0x61],
+                      [0x82, 0x01, 0x00, 0x01, 0x01, 0xE2, 0x80, 0x01, 0x41, 0x82, 0x01, 0x61]] as [[UInt8]])
+    func invalidTextFailsTheConnection(bytes: [UInt8]) async throws {
+        let server = try FakeWebSocketServer(.frames(Data(bytes)))
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+        try await socket.send(data: Data([0x01]))
+        try await server.served.wait()
+
+        let (received, error) = await Self.messages(of: socket)
+        #expect(received == [Data([0x00])])
+        #expect(((error as? LiveKitError)?.internalError as NSError?)?.code == Int(EPROTO))
+        #expect(try await socket.makeAsyncIterator().next() == nil)
+        #expect(server.frames.read { $0.last?.payload } == Data([0x03, 0xEF]))
     }
 
     /// The stream ends inside a frame: the sequence fails as on a FIN between frames.
@@ -201,13 +241,17 @@ extension WebSocketLifecycleTests {
         #expect(((error as? LiveKitError)?.internalError as NSError?)?.code == Int(EMSGSIZE))
     }
 
-    /// A 101 response with the wrong accept key, or a head past the size limit, does not open the socket.
+    /// A 101 response with the wrong accept key, without `Upgrade: websocket`, with a subprotocol that was not asked
+    /// for, or with a head past the size limit, does not open the socket.
     @Test(arguments: [
         "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: wrong\r\n\r\n",
+        "HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n",
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n"
+            + "Sec-WebSocket-Protocol: chat\r\n\r\n",
         "HTTP/1.1 101 Switching Protocols\r\nX-Padding: \(String(repeating: "a", count: WebSocket.upgradeResponseLimit))\r\n\r\n",
     ])
     func badUpgradeResponseFails(response: String) async throws {
-        let server = try FakeWebSocketServer(.upgradeResponse(Data(response.utf8)))
+        let server = try FakeWebSocketServer(.upgradeResponse(head: response))
         defer { server.cancel() }
         let error = await #expect(throws: LiveKitError.self) {
             try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)

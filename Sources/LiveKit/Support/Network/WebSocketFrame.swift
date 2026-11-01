@@ -38,7 +38,11 @@ enum WebSocketFrame {
         }
         let mask = (0 ..< 4).map { _ in UInt8.random(in: .min ... .max) }
         frame.append(contentsOf: mask)
-        frame.append(contentsOf: payload.enumerated().map { $1 ^ mask[$0 & 3] })
+        var masked = [UInt8](payload)
+        for index in masked.indices {
+            masked[index] ^= mask[index & 3]
+        }
+        frame.append(contentsOf: masked)
         return frame
     }
 
@@ -47,17 +51,25 @@ enum WebSocketFrame {
         client(opcode: close, code == 1005 ? Data() : Data([UInt8(code >> 8), UInt8(code & 0xFF)]))
     }
 
+    /// The codes that a close frame may carry (RFC 6455 §7.4): the ones defined for use, and the range for applications.
+    /// 1005, 1006 and 1015 never go on the wire, 1004 and 1016 to 2999 are reserved, and nothing else is defined.
+    static func isValidCloseCode(_ code: UInt16) -> Bool {
+        switch code {
+        case 1000 ... 1003, 1007 ... 1014, 3000 ... 4999: true
+        default: false
+        }
+    }
+
     /// What a server frame, or the message its fragments make, means to the client.
     enum Item {
         case message(URLSessionWebSocketTask.Message)
-        /// A text message that is not UTF-8.
-        case invalidText
         case ping(Data)
         case pong
         /// The server's close frame, with its code; 1005 when it has none.
         case close(UInt16)
-        /// A frame that breaks the protocol, or a message over the size limit: the stream is over.
-        case failure(LiveKitError)
+        /// A frame that breaks the protocol, text that is not UTF-8, or a message over the size limit: the stream is
+        /// over, and our close frame carries `closeCode`.
+        case failure(LiveKitError, closeCode: UInt16)
     }
 
     /// Takes the server's bytes as they arrive and hands out whole frames in order. After a close frame or a failure it
@@ -125,29 +137,35 @@ enum WebSocketFrame {
                           length: length, size: size)
         }
 
-        /// A server frame is not masked, sets no reserved bit (no extension was negotiated), and a control frame is
-        /// whole and at most 125 bytes. A message is at most `maximumMessageSize`, its fragments together.
+        /// What the header alone says, before the payload is buffered: a server frame is not masked and sets no reserved
+        /// bit (no extension was negotiated), its opcode fits the fragments so far, a control frame is whole and at most
+        /// 125 bytes, and a message is at most `maximumMessageSize`, its fragments together.
         private func check(_ header: Header) -> Item? {
             if header.flags.reserved || header.flags.masked {
                 return Self.violation("a reserved or mask bit is set")
             }
-            if header.opcode & 0x8 != 0 {
+            switch header.opcode {
+            case WebSocketFrame.close, WebSocketFrame.ping, WebSocketFrame.pong:
                 return header.fin && header.length <= 125 ? nil : Self.violation("a fragmented or long control frame")
+            case WebSocketFrame.text, WebSocketFrame.binary:
+                if fragments != nil { return Self.violation("a message inside a fragmented one") }
+            case 0x0:
+                if fragments == nil { return Self.violation("a continuation without a message") }
+            default:
+                return Self.violation("the unknown opcode \(header.opcode)")
             }
             guard header.length <= maximumMessageSize - (fragments?.data.count ?? 0) else {
-                return .failure(LiveKitError(.network, internalError: NSError(domain: NSPOSIXErrorDomain, code: Int(EMSGSIZE))))
+                return .failure(LiveKitError(.network, internalError: NSError(domain: NSPOSIXErrorDomain, code: Int(EMSGSIZE))),
+                                closeCode: 1009)
             }
             return nil
         }
 
+        /// A frame that passed `check(_:)`.
         private mutating func item(_ header: Header, _ payload: Data) -> Item? {
             switch header.opcode {
             case WebSocketFrame.text, WebSocketFrame.binary:
-                guard fragments == nil else { return end(Self.violation("a message inside a fragmented one")) }
                 fragments = (header.opcode == WebSocketFrame.text, Data())
-                return append(payload, fin: header.fin)
-            case 0x0:
-                guard fragments != nil else { return end(Self.violation("a continuation without a message")) }
                 return append(payload, fin: header.fin)
             case WebSocketFrame.close:
                 return end(Self.close(payload))
@@ -156,7 +174,7 @@ enum WebSocketFrame {
             case WebSocketFrame.pong:
                 return .pong
             default:
-                return end(Self.violation("the unknown opcode \(header.opcode)"))
+                return append(payload, fin: header.fin)
             }
         }
 
@@ -165,7 +183,11 @@ enum WebSocketFrame {
             guard fin, let message = fragments else { return nil }
             fragments = nil
             guard message.text else { return .message(.data(message.data)) }
-            return String(bytes: message.data, encoding: .utf8).map { .message(.string($0)) } ?? .invalidText
+            // Text that is not UTF-8 fails the connection (RFC 6455 §8.1), as URLSession's did.
+            guard let text = String(bytes: message.data, encoding: .utf8) else {
+                return end(Self.invalidPayload("a text message that is not UTF-8"))
+            }
+            return .message(.string(text))
         }
 
         private mutating func end(_ item: Item) -> Item {
@@ -178,12 +200,27 @@ enum WebSocketFrame {
 
         private static func close(_ payload: Data) -> Item {
             guard payload.count >= 2 else { return payload.isEmpty ? .close(1005) : violation("a one-byte close frame") }
-            guard String(bytes: payload.dropFirst(2), encoding: .utf8) != nil else { return violation("a close reason that is not UTF-8") }
-            return .close(UInt16(payload[payload.startIndex]) << 8 | UInt16(payload[payload.startIndex + 1]))
+            let code = UInt16(payload[payload.startIndex]) << 8 | UInt16(payload[payload.startIndex + 1])
+            guard WebSocketFrame.isValidCloseCode(code) else { return violation("the close code \(code)") }
+            guard String(bytes: payload.dropFirst(2), encoding: .utf8) != nil else {
+                return invalidPayload("a close reason that is not UTF-8")
+            }
+            return .close(code)
         }
 
         private static func violation(_ reason: String) -> Item {
-            .failure(LiveKitError(.network, message: "WebSocket protocol violation: \(reason)"))
+            failure(reason, closeCode: 1002)
+        }
+
+        private static func invalidPayload(_ reason: String) -> Item {
+            failure(reason, closeCode: 1007)
+        }
+
+        /// As URLSession reported a broken stream: a POSIX protocol error.
+        private static func failure(_ reason: String, closeCode: UInt16) -> Item {
+            .failure(LiveKitError(.network, message: "WebSocket protocol violation: \(reason)",
+                                  internalError: NSError(domain: NSPOSIXErrorDomain, code: Int(EPROTO))),
+                     closeCode: closeCode)
         }
     }
 }

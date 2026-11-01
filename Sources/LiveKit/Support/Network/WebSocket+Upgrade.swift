@@ -52,43 +52,100 @@ extension WebSocket {
         return Data((request + "\r\n").utf8)
     }
 
-    /// Reads the answer to the upgrade request up to its blank line, and resumes `opening` with the bytes after it, which
-    /// can hold the first frames, once the server switches protocols with the accept key that `key` asks for.
+    /// What the bytes read so far make of the upgrade.
+    enum UpgradeOutcome {
+        /// The final response head is not whole yet.
+        case incomplete
+        /// The socket opens, with the bytes after the final head: they can hold the first frames.
+        case opened(Data)
+        case failed(LiveKitError)
+    }
+
+    /// Reads the answer to the upgrade request, at most ``upgradeResponseLimit`` bytes for every head it holds, and
+    /// resumes `opening` once ``upgradeOutcome(_:key:)`` settles it.
     static func readUpgradeResponse(_ connection: NWConnection, key: String, into opening: AsyncCompleter<Data>, read: Data = Data()) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: upgradeResponseLimit - read.count) { content, _, isComplete, error in
             let read = read + (content ?? Data())
-            guard let end = read.range(of: Data("\r\n\r\n".utf8)) else {
+            switch upgradeOutcome(read, key: key) {
+            case let .opened(rest):
+                opening.resume(returning: rest)
+            case let .failed(failure):
+                opening.resume(throwing: failure)
+            case .incomplete:
                 if let error { return opening.resume(throwing: error) }
-                guard !isComplete, read.count < upgradeResponseLimit else { return opening.resume(throwing: badUpgradeResponse) }
-                return readUpgradeResponse(connection, key: key, into: opening, read: read)
+                guard !isComplete, read.count < upgradeResponseLimit else {
+                    return opening.resume(throwing: badUpgradeResponse("no whole head in \(read.count) bytes"))
+                }
+                readUpgradeResponse(connection, key: key, into: opening, read: read)
             }
-            if let failure = upgradeFailure(head: read[..<end.lowerBound], key: key) {
-                return opening.resume(throwing: failure)
-            }
-            opening.resume(returning: Data(read[end.upperBound...]))
         }
     }
 
-    /// Why the response head `head` does not open the socket: an HTTP status other than 101, which the caller gets as a
-    /// ``WebSocketUpgradeFailure``, or a malformed head or a wrong accept key. Nil when it opens.
-    static func upgradeFailure(head: Data, key: String) -> LiveKitError? {
-        guard let lines = String(bytes: head, encoding: .isoLatin1)?.components(separatedBy: "\r\n"),
-              // "HTTP/1.1 101 Switching Protocols"
-              let status = lines.first.flatMap({ $0.split(separator: " ").dropFirst().first }).flatMap({ Int($0) })
-        else { return badUpgradeResponse }
-        guard status == 101 else {
-            return LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: status))
+    /// What `read` makes of the upgrade. Interim heads (`100 Continue`) are skipped, as SwiftNIO's HTTP decoder does. A
+    /// final status other than 101 reaches the caller as a ``WebSocketUpgradeFailure``; a 101 must switch protocols as
+    /// RFC 6455 §4.1 asks.
+    static func upgradeOutcome(_ read: Data, key: String) -> UpgradeOutcome {
+        var rest = read[...]
+        while let end = rest.range(of: Data("\r\n\r\n".utf8)) {
+            let lines = String(bytes: rest[..<end.lowerBound], encoding: .isoLatin1)?.components(separatedBy: "\r\n") ?? []
+            rest = rest[end.upperBound...]
+            guard let status = lines.first.flatMap(statusCode(of:)) else {
+                return .failed(badUpgradeResponse("a malformed status line"))
+            }
+            if (100 ..< 200).contains(status), status != 101 { continue }
+            guard status == 101 else {
+                return .failed(LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: status)))
+            }
+            if let failure = switchingFailure(fields(of: lines.dropFirst()), key: key) { return .failed(failure) }
+            return .opened(Data(rest))
         }
-        let field = "sec-websocket-accept:"
-        let accept = lines.dropFirst()
-            .first { $0.lowercased().hasPrefix(field) }
-            .map { $0.dropFirst(field.count).trimmingCharacters(in: .whitespaces) }
-        let expected = Data(Insecure.SHA1.hash(data: Data((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").utf8))).base64EncodedString()
-        return accept == expected ? nil : badUpgradeResponse
+        return .incomplete
     }
 
-    private static var badUpgradeResponse: LiveKitError {
-        LiveKitError(.network, internalError: URLError(.badServerResponse))
+    /// The status of an HTTP/1.1 status line, "HTTP/1.1 101 Switching Protocols".
+    private static func statusCode(of line: String) -> Int? {
+        let parts = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: false)
+        guard parts.first == "HTTP/1.1", let code = parts.dropFirst().first, code.count == 3,
+              code.allSatisfy({ ("0" ... "9").contains($0) }) else { return nil }
+        return Int(code)
+    }
+
+    /// The header fields, names lowercased; nil when a line is not a field.
+    private static func fields(of lines: ArraySlice<String>) -> [(name: String, value: String)]? {
+        var fields: [(name: String, value: String)] = []
+        for line in lines {
+            guard let colon = line.firstIndex(of: ":"), colon != line.startIndex,
+                  !line[..<colon].contains(where: \.isWhitespace) else { return nil }
+            fields.append((line[..<colon].lowercased(), line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)))
+        }
+        return fields
+    }
+
+    /// What keeps a 101 response from opening the socket (RFC 6455 §4.1): it needs `Upgrade: websocket`, a
+    /// `Connection` with the `upgrade` token, and exactly one `Sec-WebSocket-Accept` that answers `key`. It must name no
+    /// subprotocol and no extension, because the request asked for none.
+    private static func switchingFailure(_ fields: [(name: String, value: String)]?, key: String) -> LiveKitError? {
+        guard let fields else { return badUpgradeResponse("a malformed header field") }
+        func values(_ name: String) -> [String] { fields.filter { $0.name == name }.map(\.value) }
+        guard values("upgrade").map({ $0.lowercased() }) == ["websocket"] else {
+            return badUpgradeResponse("no Upgrade: websocket")
+        }
+        let connection = values("connection").flatMap { $0.split(separator: ",") }
+        guard connection.contains(where: { $0.trimmingCharacters(in: .whitespaces).lowercased() == "upgrade" }) else {
+            return badUpgradeResponse("no upgrade token in Connection")
+        }
+        let accept = Data(Insecure.SHA1.hash(data: Data((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").utf8))).base64EncodedString()
+        guard values("sec-websocket-accept") == [accept] else {
+            return badUpgradeResponse("not exactly one Sec-WebSocket-Accept that answers the key")
+        }
+        guard values("sec-websocket-protocol").isEmpty, values("sec-websocket-extensions").isEmpty else {
+            return badUpgradeResponse("a subprotocol or an extension that was not asked for")
+        }
+        return nil
+    }
+
+    private static func badUpgradeResponse(_ reason: String) -> LiveKitError {
+        LiveKitError(.network, message: "WebSocket upgrade response: \(reason)", internalError: URLError(.badServerResponse))
     }
 
     /// The upgrade headers as URLSession sent them. A repeated name is joined with commas, as `URLRequest.addValue`

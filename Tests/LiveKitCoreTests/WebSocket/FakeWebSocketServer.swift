@@ -46,8 +46,9 @@ final class FakeWebSocketServer: Sendable {
         case reset
         /// Answer the upgrade with an HTTP status instead of 101.
         case reject(status: Int)
-        /// Answer the upgrade with these bytes.
-        case upgradeResponse(Data)
+        /// Answer the upgrade with `head`, its `{accept}` replaced with the accept value for the client's key, and `then`
+        /// right behind it; then read until the client's close frame or its FIN.
+        case upgradeResponse(head: String, then: Data = Data())
         /// Accept TCP and never answer the upgrade.
         case blackhole
         /// Read the TLS ClientHello record without completing the handshake.
@@ -167,11 +168,12 @@ final class FakeWebSocketServer: Sendable {
             })
             return
         }
-        if case let .upgradeResponse(bytes) = behavior {
-            connection.send(content: bytes, completion: .contentProcessed { [served] _ in served.resume(returning: ()) })
+        let accept = Data(Insecure.SHA1.hash(data: Data((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").utf8))).base64EncodedString()
+        if case let .upgradeResponse(head, then) = behavior {
+            connection.send(content: Data(head.replacingOccurrences(of: "{accept}", with: accept).utf8) + then,
+                            completion: .contentProcessed { [self] _ in readUntilClose(connection, buffered: Data()) })
             return
         }
-        let accept = Data(Insecure.SHA1.hash(data: Data((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").utf8))).base64EncodedString()
         let response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: \(accept)\r\n\r\n"
         if case let .frames(bytes, true) = behavior {
             connection.send(content: Data(response.utf8) + bytes, contentContext: .finalMessage, isComplete: true,
