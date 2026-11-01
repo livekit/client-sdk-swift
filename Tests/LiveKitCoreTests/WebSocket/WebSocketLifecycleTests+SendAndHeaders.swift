@@ -20,6 +20,51 @@ import LiveKitFFI
 import Testing
 
 extension WebSocketLifecycleTests {
+    @Test func alreadyCancelledConnectOpensNoConnection() async throws {
+        let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
+        let url = try await server.url()
+        let teardowns = StateSync(0)
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                withUnsafeCurrentTask { $0?.cancel() }
+                let error = await #expect(throws: LiveKitError.self) {
+                    try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10, onEvent: { event in
+                        if case .teardown = event { teardowns.mutate { $0 += 1 } }
+                    })
+                }
+                #expect(error?.type == .cancelled)
+            }
+        }
+        #expect(teardowns.copy() == 0)
+        #expect(server.acceptCount.copy() == 0)
+        // Prove the listener accepts a subsequent connect from a task that is not cancelled.
+        let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
+        socket.close()
+        _ = try await server.clientGone.wait()
+        #expect(server.acceptCount.copy() == 1)
+    }
+
+    @Test func tlsOffersHTTP11() async throws {
+        let server = try FakeWebSocketServer(.tlsClientHello)
+        defer { server.cancel() }
+        var components = try #require(await URLComponents(url: server.url(), resolvingAgainstBaseURL: false))
+        components.scheme = "wss"
+        let url = try #require(components.url)
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                let socket = try? await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 5)
+                socket?.close()
+            }
+            let hello = try await server.clientHello.wait()
+            #expect(hello.first == 0x16) // TLS handshake record.
+            // ALPN extension 0x0010, length 11: a length-prefixed list containing only "http/1.1".
+            let alpn = Data([0x00, 0x10, 0x00, 0x0B, 0x00, 0x09, 0x08]) + Data("http/1.1".utf8)
+            #expect(hello.range(of: alpn) != nil)
+            group.cancelAll()
+        }
+    }
+
     @Test func closeRacingSendPreservesFrameOrder() async throws {
         for round in 0 ..< 150 {
             let server = try FakeWebSocketServer(.idle)

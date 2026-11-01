@@ -16,6 +16,7 @@
 
 import Foundation
 import Network
+import Security
 
 /// The signalling WebSocket, over Network.framework.
 ///
@@ -48,7 +49,11 @@ actor WebSocket: Loggable, AsyncSequence {
         tcp.connectionTimeout = Swift.max(1, Int(timeoutInterval.rounded(.up)))
         // URLSession turned Nagle off; signal messages are small.
         tcp.noDelay = true
-        let parameters = NWParameters(tls: secure ? NWProtocolTLS.Options() : nil, tcp: tcp)
+        let tls = secure ? NWProtocolTLS.Options() : nil
+        if let tls {
+            sec_protocol_options_add_tls_application_protocol(tls.securityProtocolOptions, "http/1.1")
+        }
+        let parameters = NWParameters(tls: tls, tcp: tcp)
         // As `.callSignaling` on the URLSession configuration this replaces.
         parameters.serviceClass = .signaling
         #if os(iOS) || os(visionOS)
@@ -61,6 +66,7 @@ actor WebSocket: Loggable, AsyncSequence {
     init(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval,
          onEvent: EventHandler? = nil) async throws
     {
+        guard !Task.isCancelled else { throw LiveKitError(.cancelled) }
         self.onEvent = onEvent
         #if targetEnvironment(simulator)
         if #available(iOS 26.0, *) {
@@ -171,9 +177,11 @@ actor WebSocket: Loggable, AsyncSequence {
     }
 
     /// Network.framework's errors in the shapes the SDK reads elsewhere (`isNetworkError`, `asTransportError`):
-    /// a timeout as `URLError(.timedOut)`, any other POSIX code as an `NSPOSIXErrorDomain` error.
+    /// cancellation and timeouts as `URLError`, any other POSIX code as an `NSPOSIXErrorDomain` error.
     static func bridged(_ error: NWError) -> Error {
         switch error {
+        case .posix(.ECANCELED):
+            URLError(.cancelled)
         case .posix(.ETIMEDOUT):
             URLError(.timedOut)
         case let .posix(code):

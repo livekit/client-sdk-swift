@@ -47,9 +47,13 @@ final class FakeWebSocketServer: Sendable {
         case reject(status: Int)
         /// Accept TCP and never answer the upgrade.
         case blackhole
+        /// Read the TLS ClientHello record without completing the handshake.
+        case tlsClientHello
     }
 
     let behavior: Behavior
+    let acceptCount = StateSync(0)
+    let clientHello = AsyncCompleter<Data>(label: "FakeWebSocketServer.clientHello", defaultTimeout: 5)
     /// Resumed once the listener has accepted a TCP connection, before any upgrade is read.
     let accepted = AsyncCompleter<Void>(label: "FakeWebSocketServer.accepted", defaultTimeout: 5)
     /// Resumed once the server has finished with a connection: sent its last bytes or dropped the socket.
@@ -85,10 +89,12 @@ final class FakeWebSocketServer: Sendable {
             }
         }
         listener.newConnectionHandler = { [self] connection in
+            acceptCount.mutate { $0 += 1 }
             connections.mutate { $0.append(connection) }
             connection.start(queue: Self.queue)
             accepted.resume(returning: ())
             if case .blackhole = behavior { return }
+            if case .tlsClientHello = behavior { return readClientHello(connection, buffered: Data()) }
             readUpgrade(connection, buffered: Data())
         }
         listener.start(queue: Self.queue)
@@ -112,6 +118,24 @@ final class FakeWebSocketServer: Sendable {
     func stop() async throws {
         cancel()
         try await stopped.wait()
+    }
+
+    private func readClientHello(_ connection: NWConnection, buffered: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [self] content, _, _, error in
+            guard error == nil, let content, !content.isEmpty else {
+                clientHello.resume(throwing: error ?? LiveKitError(.network))
+                return
+            }
+            let record = buffered + content
+            if record.count >= 5 {
+                let length = Int(record[3]) << 8 | Int(record[4])
+                if record.count >= 5 + length {
+                    clientHello.resume(returning: Data(record.prefix(5 + length)))
+                    return
+                }
+            }
+            readClientHello(connection, buffered: record)
+        }
     }
 
     private func readUpgrade(_ connection: NWConnection, buffered: Data) {
@@ -144,7 +168,7 @@ final class FakeWebSocketServer: Sendable {
         let response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: \(accept)\r\n\r\n"
         connection.send(content: Data(response.utf8), completion: .contentProcessed { [self] _ in
             switch behavior {
-            case .blackhole, .reject:
+            case .blackhole, .tlsClientHello, .reject:
                 break
             case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose:
                 answerClose(connection, buffered: Data())
@@ -220,7 +244,7 @@ final class FakeWebSocketServer: Sendable {
 
     private func goAway(_ connection: NWConnection) {
         switch behavior {
-        case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose, .blackhole, .reject:
+        case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose, .blackhole, .tlsClientHello, .reject:
             break
         case .closeFrame, .messagesBeforeClose:
             let count: Int = if case let .messagesBeforeClose(count) = behavior {

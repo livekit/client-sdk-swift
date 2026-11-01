@@ -17,6 +17,7 @@
 import Foundation
 @testable import LiveKit
 import LiveKitFFI
+import Network
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -241,6 +242,25 @@ struct TransportErrorMappingTests {
         let rejection = await WsClientAdapter.rejection(of: url, headers: [],
                                                         after: LiveKitError(.network, internalError: URLError(.timedOut)))
         #expect(rejection == nil)
+    }
+
+    @Test("A send completion cancelled during teardown maps to Closed")
+    func cancelledSendCompletionIsClosed() throws {
+        let underlying = LiveKit.WebSocket.bridged(.posix(.ECANCELED))
+        let urlError = try #require(underlying as? URLError)
+        #expect(urlError.code == .cancelled)
+        #expect(LiveKitError(.network, internalError: underlying).asTransportError == .Closed)
+    }
+
+    @Test("Fallback connection errors keep only their domain and code", arguments: [
+        (NSError(domain: NSPOSIXErrorDomain, code: Int(EACCES),
+                 userInfo: [NSLocalizedDescriptionKey: "Permission refusée"]), "NSPOSIXErrorDomain 13"),
+        (NSError(domain: "test.transport", code: 42,
+                 userInfo: [NSLocalizedDescriptionKey: "Verbindung fehlgeschlagen"]), "test.transport 42"),
+    ])
+    func fallbackConnectionErrorIsStable(error: NSError, expected: String) {
+        #expect(error.asTransportError == .Connection(expected))
+        #expect(LiveKitError(.network, internalError: error).asTransportError == .Connection(expected))
     }
 
     @Test("A connection error keeps the URLError code, not a localized string")

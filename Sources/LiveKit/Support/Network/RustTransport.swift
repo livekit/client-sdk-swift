@@ -18,8 +18,8 @@ internal import LiveKitFFI
 import Foundation
 
 /// Registers the SDK's own network stack as `livekit-net`'s transport, so anything the
-/// Rust side sends goes out over the same ``WebSocket``/``HTTP`` session the Swift path
-/// uses — one place tuning `networkServiceType`, multipath, TLS workarounds and logging.
+/// Rust side sends uses the Swift path's ``WebSocket`` (Network.framework) and ``HTTP``
+/// (URLSession) implementations, sharing service class, multipath, TLS workarounds and logging.
 ///
 /// Lazily initialized on first access, like ``sharedLogger``: `livekit-net` keeps its
 /// clients in a `OnceLock`, so this runs once and later accesses are free.
@@ -82,7 +82,7 @@ private final class WsConnectionAdapter: WsConnection {
         do {
             // Signalling is binary-only, so `for case let` skips any other frame kind and
             // keeps reading. Iterating afresh per call is the same stream: the iterator
-            // buffers nothing, it reads straight off the task.
+            // buffers nothing, it reads straight off the connection.
             for try await case let .data(frame) in socket {
                 // swiftformat:disable:next redundantReturn
                 return frame
@@ -163,7 +163,7 @@ extension Error {
             switch urlError.code {
             case .timedOut:
                 return .Timeout
-            // Our own `close()` surfaces as `.cancelled`; a peer reset arrives as
+            // Our own teardown maps ECANCELED to `.cancelled`; a TCP FIN maps to
             // `.networkConnectionLost`. Both are end-of-stream to livekit-net.
             case .cancelled, .networkConnectionLost:
                 return .Closed
@@ -187,6 +187,6 @@ extension Error {
             default: break
             }
         }
-        return .Connection(String(describing: underlying))
+        return .Connection("\(nsError.domain) \(nsError.code)")
     }
 }
