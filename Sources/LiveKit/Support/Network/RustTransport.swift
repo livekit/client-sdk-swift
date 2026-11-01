@@ -41,24 +41,7 @@ final class WsClientAdapter: WsClient {
                                              timeoutInterval: TimeInterval(timeoutMs) / 1000)
             return WsConnectResult(connection: WsConnectionAdapter(socket))
         } catch {
-            throw await Self.rejection(of: url, headers: headers, after: error) ?? error.asTransportError
-        }
-    }
-
-    /// The HTTP status of a rejected upgrade, which the Rust signal client fails fast on (`.Http`). Network.framework
-    /// aborts the upgrade (`ECONNABORTED`) without keeping the status, so it is asked of the validation endpoint, as
-    /// `SignalClient.connect` does after a failed connect; nil for any other failure, or when validation passes.
-    static func rejection(of url: URL, headers: [Header], after error: Error) async -> TransportError? {
-        let underlying = ((error as? LiveKitError)?.internalError ?? error) as NSError
-        guard underlying.domain == NSPOSIXErrorDomain, underlying.code == Int(ECONNABORTED),
-              let validateUrl = try? Utils.toValidateUrl(url) else { return nil }
-        let token = headers.first { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
-            .map { $0.value.hasPrefix("Bearer ") ? String($0.value.dropFirst("Bearer ".count)) : $0.value }
-        do {
-            try await HTTP.requestValidation(from: validateUrl, token: token)
-            return nil
-        } catch {
-            return (error as? LiveKitError)?.statusCode.map { .Http(status: UInt16(clamping: $0)) }
+            throw error.asTransportError
         }
     }
 }
@@ -81,8 +64,8 @@ private final class WsConnectionAdapter: WsConnection {
     func recv() async throws -> Data? {
         do {
             // Signalling is binary-only, so skip other frame kinds and keep reading.
-            // Iterating afresh per call is the same stream: the iterator buffers nothing,
-            // it reads straight off the connection.
+            // Iterating afresh per call is the same stream: every iterator reads the
+            // socket's one ordered inbox.
             for try await message in socket {
                 if case let .data(frame) = message { return frame }
             }
@@ -161,6 +144,9 @@ extension Error {
         // livekit-net reads a close as the end of the stream, as it always has.
         if underlying is WebSocketClosedByPeer {
             return .Closed
+        }
+        if let upgrade = underlying as? WebSocketUpgradeFailure {
+            return .Http(status: UInt16(clamping: upgrade.statusCode))
         }
         if let urlError = underlying as? URLError {
             switch urlError.code {

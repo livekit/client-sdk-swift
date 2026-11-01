@@ -1,1 +1,0 @@
-patch type="changed" "The HTTP status livekit-net reports for a rejected signalling upgrade now comes from /rtc/validate rather than the upgrade response"

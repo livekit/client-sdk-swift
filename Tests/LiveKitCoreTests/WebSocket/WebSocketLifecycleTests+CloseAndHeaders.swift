@@ -87,13 +87,13 @@ extension WebSocketLifecycleTests {
                 }
                 gate.mutate { $0 += 1 }
                 while gate.copy() < 2, DispatchTime.now().uptimeNanoseconds < deadline {}
+                #expect(gate.copy() == 2, "Round \(round): the barrier timed out")
                 for _ in 0 ..< round % 75 {
                     _ = gate.copy()
                 }
                 socket.close()
                 return await group.next() ?? false
             }
-            #expect(gate.copy() == 2)
             _ = try await server.clientGone.wait()
             let opcodes = server.frames.read { $0.map(\.opcode) }
             #expect(opcodes == (sent ? [0x2, 0x8] : [0x8]), "Round \(round)")
@@ -154,44 +154,13 @@ extension WebSocketLifecycleTests {
         #expect(host?.value == "[fe80::1]:7880")
     }
 
-    @Test(arguments: [1, 5])
-    func queuedMessagesBeforeCloseAreDelivered(count: Int) async throws {
-        let server = try FakeWebSocketServer(.messagesBeforeClose(count: count))
-        defer { server.cancel() }
-        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
-        try await socket.send(data: Data([0x01]))
-        try await server.served.wait()
-
-        var received: [Data] = []
-        var receiveError: Error?
-        do {
-            for try await message in socket {
-                if case let .data(data) = message { received.append(data) }
-            }
-        } catch {
-            receiveError = error
+    /// A line break in a header would end it and start one that the caller did not write.
+    @Test(arguments: ["a\r\nX-Injected: b", "a\nb"])
+    func upgradeRequestRefusesLineBreaks(value: String) throws {
+        let url = try #require(URL(string: "ws://127.0.0.1:7880/rtc"))
+        let error = #expect(throws: LiveKitError.self) {
+            try WebSocket.upgradeRequest(url: url, key: WebSocket.upgradeKey(), headers: [(name: "X-Test", value: value)])
         }
-        withKnownIssue("Queued messages lost after a server Close frame") {
-            #expect(received == (0 ..< count).map { Data([UInt8($0)]) })
-        } matching: { issue in
-            if case .expectationFailed = issue.kind { return true }
-            return false
-        }
-        let endedWithENOTCONN = Self.isNotConnected(receiveError)
-        withKnownIssue("ENOTCONN after a server Close frame instead of a clean end") {
-            #expect(receiveError == nil)
-        } matching: { issue in
-            guard case .expectationFailed = issue.kind else { return false }
-            return endedWithENOTCONN
-        }
-    }
-}
-
-extension WebSocketLifecycleTests {
-    static func isNotConnected(_ error: Error?) -> Bool {
-        guard let error = error as? LiveKitError, error.type == .network,
-              let underlying = error.internalError as NSError?
-        else { return false }
-        return underlying.domain == NSPOSIXErrorDomain && underlying.code == Int(ENOTCONN)
+        #expect(error?.type == .invalidParameter)
     }
 }

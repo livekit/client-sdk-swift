@@ -206,14 +206,17 @@ struct RustTransportTests {
 @Suite(.tags(.networking))
 struct TransportErrorMappingTests {
     @Test("Errors map onto livekit-net's taxonomy", arguments: [
-        (URLError(.timedOut), TransportError.Timeout),
+        // A rejected upgrade keeps its status, bare or wrapped by the socket.
+        (WebSocketUpgradeFailure(statusCode: 401), TransportError.Http(status: 401)),
+        (LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: 503)), .Http(status: 503)),
+        (URLError(.timedOut), .Timeout),
         (LiveKitError(.timedOut), .Timeout),
         // Every abrupt teardown livekit-net folds into end-of-stream.
         (URLError(.cancelled), .Closed),
         (URLError(.networkConnectionLost), .Closed),
         (POSIXError(.ECONNRESET), .Closed),
         (POSIXError(.ENOTCONN), .Closed),
-        (LiveKitError(.network, internalError: WebSocketClosedByPeer(.protocolCode(.normalClosure))), .Closed),
+        (LiveKitError(.network, internalError: WebSocketClosedByPeer(code: 1000)), .Closed),
         (LiveKitError(.cancelled), .Closed),
         // Already ours: crossing the FFI twice must not re-wrap.
         (TransportError.Other("passthrough"), .Other("passthrough")),
@@ -222,32 +225,19 @@ struct TransportErrorMappingTests {
         #expect(error.asTransportError == expected)
     }
 
-    /// Network.framework keeps no status for a rejected upgrade, so the adapter reads it off the validation endpoint:
-    /// the one status livekit-net's signal client fails fast on.
-    @Test("A rejected upgrade's status comes from the validation endpoint")
-    func rejectedUpgradeStatusIsValidated() async throws {
+    /// livekit-net's signal client fails fast on a rejected upgrade's status, which comes from the upgrade's own
+    /// response: one request, no validation call.
+    @Test("A rejected upgrade's status comes from its response")
+    func rejectedUpgradeStatusComesFromTheResponse() async throws {
         let server = try FakeWebSocketServer(.reject(status: 401))
         defer { server.cancel() }
         let url = try await server.url()
-        let headers = [Header(name: "Authorization", value: "Bearer test")]
-        let error = await #expect(throws: LiveKitError.self) {
-            try await WebSocket(url: url, headers: [(name: "Authorization", value: "Bearer test")], timeoutInterval: 10)
+        await #expect(throws: TransportError.Http(status: 401)) {
+            try await WsClientAdapter().connect(url: url.absoluteString, headers: [Header(name: "Authorization", value: "Bearer test")],
+                                                timeoutMs: 10000)
         }
-        let rejection = try await WsClientAdapter.rejection(of: url, headers: headers, after: #require(error))
-        #expect(rejection == .Http(status: 401))
         #expect(server.requestHeaders.copy().contains("Authorization: Bearer test"))
-        #expect(server.acceptCount.copy() == 2)
-    }
-
-    @Test("Any other failed connect asks the validation endpoint nothing")
-    func otherFailuresAreNotValidated() async throws {
-        let server = try FakeWebSocketServer(.reject(status: 401))
-        defer { server.cancel() }
-        let url = try await server.url()
-        let rejection = await WsClientAdapter.rejection(of: url, headers: [],
-                                                        after: LiveKitError(.network, internalError: URLError(.timedOut)))
-        #expect(rejection == nil)
-        #expect(server.acceptCount.copy() == 0)
+        #expect(server.acceptCount.copy() == 1)
     }
 
     @Test("A send completion cancelled during teardown maps to Closed")

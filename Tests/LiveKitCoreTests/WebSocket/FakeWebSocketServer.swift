@@ -35,8 +35,9 @@ final class FakeWebSocketServer: Sendable {
         case unansweredClose
         /// Upgrade, then a close frame with code 1000, then drop the socket once the client answers it.
         case closeFrame
-        /// Write binary messages and a close frame together, then drop the socket after the client answers.
-        case messagesBeforeClose(count: Int)
+        /// Write these server frames and a FIN in one send, after the client's first frame or in the same send as the
+        /// upgrade response; then read until the client's close frame or its FIN, and drop the socket.
+        case frames(Data, withUpgrade: Bool = false)
         /// Upgrade, then one binary message of this many bytes.
         case message(size: Int)
         /// Upgrade, then a TCP FIN with no close frame.
@@ -45,6 +46,8 @@ final class FakeWebSocketServer: Sendable {
         case reset
         /// Answer the upgrade with an HTTP status instead of 101.
         case reject(status: Int)
+        /// Answer the upgrade with these bytes.
+        case upgradeResponse(Data)
         /// Accept TCP and never answer the upgrade.
         case blackhole
         /// Read the TLS ClientHello record without completing the handshake.
@@ -164,15 +167,24 @@ final class FakeWebSocketServer: Sendable {
             })
             return
         }
+        if case let .upgradeResponse(bytes) = behavior {
+            connection.send(content: bytes, completion: .contentProcessed { [served] _ in served.resume(returning: ()) })
+            return
+        }
         let accept = Data(Insecure.SHA1.hash(data: Data((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").utf8))).base64EncodedString()
         let response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: \(accept)\r\n\r\n"
+        if case let .frames(bytes, true) = behavior {
+            connection.send(content: Data(response.utf8) + bytes, contentContext: .finalMessage, isComplete: true,
+                            completion: .contentProcessed { [self] _ in readUntilClose(connection, buffered: Data()) })
+            return
+        }
         connection.send(content: Data(response.utf8), completion: .contentProcessed { [self] _ in
             switch behavior {
-            case .blackhole, .tlsClientHello, .reject:
+            case .blackhole, .tlsClientHello, .reject, .upgradeResponse:
                 break
             case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose:
                 answerClose(connection, buffered: Data())
-            case .closeFrame, .messagesBeforeClose, .message, .fin, .reset:
+            case .closeFrame, .frames, .message, .fin, .reset:
                 // Only once a whole frame arrives from the client: its upgrade is then complete on its side too.
                 readFrame(connection, buffered: Data()) { [self] _, _ in goAway(connection) }
             }
@@ -244,16 +256,15 @@ final class FakeWebSocketServer: Sendable {
 
     private func goAway(_ connection: NWConnection) {
         switch behavior {
-        case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose, .blackhole, .tlsClientHello, .reject:
+        case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose, .blackhole, .tlsClientHello, .reject,
+             .upgradeResponse:
             break
-        case .closeFrame, .messagesBeforeClose:
-            let count: Int = if case let .messagesBeforeClose(count) = behavior {
-                count
-            } else {
-                0
-            }
-            let messages = (0 ..< count).reduce(into: Data()) { $0.append(contentsOf: [0x82, 0x01, UInt8(truncatingIfNeeded: $1)]) }
-            connection.send(content: messages + Data([0x88, 0x02, 0x03, 0xE8]), completion: .contentProcessed { [self] _ in
+        case let .frames(bytes, _):
+            connection.send(content: bytes, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { [self] _ in
+                readUntilClose(connection, buffered: Data())
+            })
+        case .closeFrame:
+            connection.send(content: Self.close(1000), completion: .contentProcessed { [self] _ in
                 // The client's whole close reply, then the socket goes: the client sees a state change after its stream ended.
                 readFrame(connection, buffered: Data()) { [served] _, _ in
                     connection.cancel()
@@ -274,5 +285,32 @@ final class FakeWebSocketServer: Sendable {
             connection.forceCancel()
             served.resume(returning: ())
         }
+    }
+
+    private func readUntilClose(_ connection: NWConnection, buffered: Data) {
+        let done: @Sendable () -> Void = { [served] in
+            connection.cancel()
+            served.resume(returning: ())
+        }
+        readFrame(connection, buffered: buffered, onEnd: done) { [self] opcode, rest in
+            opcode == 0x8 ? done() : readUntilClose(connection, buffered: rest)
+        }
+    }
+}
+
+extension FakeWebSocketServer {
+    /// A server frame: FIN set, not masked, a 16-bit length past 125 bytes.
+    static func frame(_ opcode: UInt8, _ payload: Data) -> Data {
+        let length: [UInt8] = payload.count < 126 ? [UInt8(payload.count)] : [126, UInt8(payload.count >> 8), UInt8(payload.count & 0xFF)]
+        return Data([0x80 | opcode] + length) + payload
+    }
+
+    /// Binary messages, one per payload.
+    static func binary(_ payloads: [Data]) -> Data {
+        payloads.reduce(into: Data()) { $0 += frame(0x2, $1) }
+    }
+
+    static func close(_ code: UInt16, reason: String = "") -> Data {
+        frame(0x8, Data([UInt8(code >> 8), UInt8(code & 0xFF)]) + Data(reason.utf8))
     }
 }

@@ -29,8 +29,7 @@ enum ClosePath: Sendable, CaseIterable {
 
 /// How iteration over the socket ends.
 enum Ending: Sendable, CustomTestStringConvertible {
-    /// A close frame delivered to a pending receive fails the stream with its code. One that lands while no receive
-    /// is pending is consumed by Network.framework's close handshake, and the next receive fails with ENOTCONN instead.
+    /// Every message before a close frame is delivered, then the close frame fails the stream with its code.
     case closedByPeer(code: UInt16)
     case networkError(posix: Int32?)
 
@@ -267,9 +266,8 @@ struct WebSocketLifecycleTests {
         #expect(Date().timeIntervalSince(started) < 5)
     }
 
-    /// Network.framework keeps no status for a rejected upgrade; the socket reports the abort and sends the upgrade
-    /// once. The status is the validation endpoint's to give (`RustTransportTests`).
-    @Test func rejectedUpgradeIsAnAbort() async throws {
+    /// The status of a rejected upgrade comes from its own response: the upgrade is sent once.
+    @Test func rejectedUpgradeCarriesTheStatus() async throws {
         let server = try FakeWebSocketServer(.reject(status: 401))
         defer { server.cancel() }
         let events = SocketEvents()
@@ -277,7 +275,7 @@ struct WebSocketLifecycleTests {
         #expect(events.teardowns.copy() == 1)
         #expect(events.closeStarts.copy() == 0)
         #expect(error?.type == .network)
-        #expect((error?.internalError as NSError?)?.code == Int(ECONNABORTED))
+        #expect((error?.internalError as? WebSocketUpgradeFailure)?.statusCode == 401)
         #expect(server.acceptCount.copy() == 1)
     }
 
@@ -334,11 +332,7 @@ struct WebSocketLifecycleTests {
             try await server.served.wait()
             let error = await #expect(throws: LiveKitError.self) { try await Self.messageCount(of: socket) }
             #expect(error?.type == .network)
-            if let closed = error?.internalError as? WebSocketClosedByPeer {
-                #expect(closed.code == code)
-            } else {
-                #expect((error?.internalError as NSError?)?.code == Int(ENOTCONN))
-            }
+            #expect((error?.internalError as? WebSocketClosedByPeer)?.code == code)
         case let .networkError(posix):
             let error = await #expect(throws: LiveKitError.self) { try await Self.messageCount(of: socket) }
             #expect(error?.type == .network)
@@ -388,6 +382,7 @@ private struct SocketEvents: Sendable {
         case .closeDeadline: closeDeadline.resume(returning: ())
         case .teardown: teardowns.mutate { $0 += 1 }
         case .closeStarted: closeStarts.mutate { $0 += 1 }
+        case .readAheadFull: break
         }
     }
 }
