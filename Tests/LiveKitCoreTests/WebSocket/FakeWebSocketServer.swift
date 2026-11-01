@@ -49,6 +49,9 @@ final class FakeWebSocketServer: Sendable {
         /// Answer the upgrade with `head`, its `{accept}` replaced with the accept value for the client's key, and `then`
         /// right behind it; then read until the client's close frame or its FIN.
         case upgradeResponse(head: String, then: Data = Data())
+        /// Upgrade, read the first bytes that the client sends and nothing more, then send a close frame with code 1000
+        /// and keep TCP open: the client's writes back up behind its unread bytes.
+        case stalledReadThenClose
         /// Accept TCP and never answer the upgrade.
         case blackhole
         /// Read the TLS ClientHello record without completing the handshake.
@@ -186,6 +189,10 @@ final class FakeWebSocketServer: Sendable {
                 break
             case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose:
                 answerClose(connection, buffered: Data())
+            case .stalledReadThenClose:
+                connection.receive(minimumIncompleteLength: 1, maximumLength: 1024) { [served] _, _, _, _ in
+                    connection.send(content: Self.close(1000), completion: .contentProcessed { _ in served.resume(returning: ()) })
+                }
             case .closeFrame, .frames, .message, .fin, .reset:
                 // Only once a whole frame arrives from the client: its upgrade is then complete on its side too.
                 readFrame(connection, buffered: Data()) { [self] _, _ in goAway(connection) }
@@ -259,7 +266,7 @@ final class FakeWebSocketServer: Sendable {
     private func goAway(_ connection: NWConnection) {
         switch behavior {
         case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose, .blackhole, .tlsClientHello, .reject,
-             .upgradeResponse:
+             .upgradeResponse, .stalledReadThenClose:
             break
         case let .frames(bytes, _):
             connection.send(content: bytes, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { [self] _ in

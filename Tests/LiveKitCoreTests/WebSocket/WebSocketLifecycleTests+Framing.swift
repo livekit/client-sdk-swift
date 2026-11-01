@@ -215,6 +215,29 @@ extension WebSocketLifecycleTests {
         #expect(server.frames.read { $0.last?.payload } == Data([0x03, 0xEF]))
     }
 
+    /// The server's close frame arrives while a write is stuck behind TCP back-pressure, so the answer cannot be
+    /// written, and our own close after it finds the socket closing already: the connection still goes at the deadline.
+    @Test func peerCloseBehindAStalledWriteTearsDown() async throws {
+        let server = try FakeWebSocketServer(.stalledReadThenClose)
+        defer { server.cancel() }
+        let teardown = AsyncCompleter<Void>(label: "teardown", defaultTimeout: 5)
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10, onEvent: { event in
+            if case .teardown = event { teardown.resume(returning: ()) }
+        })
+        await withTaskGroup(of: Void.self) { group in
+            // More than the loopback socket buffers hold, 4 MB each way: the write cannot finish on its own.
+            group.addTask { _ = try? await socket.send(data: Data(count: 16 << 20)) }
+            let (_, error) = await Self.messages(of: socket)
+            #expect(Self.closeCode(of: error) == 1000)
+            socket.close()
+            let closed = DispatchTime.now().uptimeNanoseconds
+            #expect(await (try? teardown.wait()) != nil)
+            #expect(DispatchTime.now().uptimeNanoseconds - closed < 1_000_000_000)
+            // Frees the write if it is still stuck.
+            server.cancel()
+        }
+    }
+
     /// The stream ends inside a frame: the sequence fails as on a FIN between frames.
     @Test func endOfStreamInsideAFrameFails() async throws {
         let server = try FakeWebSocketServer(.frames(Data([0x82, 0x05, 0x00])))

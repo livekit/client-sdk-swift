@@ -218,17 +218,28 @@ private struct Core: Sendable {
             reader.resume(returning: .closed)
         }
         if readOn { receiveNext() }
+        guard startClosing(code: 1000, finishOnceWritten: false) else { return }
+        onEvent?(.closeStarted)
+    }
+
+    /// Moves an open socket to closing and writes our close frame, under the lock that every frame is written under, so
+    /// that no frame follows it. Every way into closing passes here, so the connection always goes: once the frame is
+    /// written if `finishOnceWritten`, on the server's answer otherwise, and at the latest 250 ms on (the JS SDK's wait),
+    /// even when the frame waits behind a write that TCP holds up. False when the socket is not open.
+    private func startClosing(code: UInt16, finishOnceWritten: Bool) -> Bool {
         guard lifecycle.mutate({
             guard $0 == .open else { return false }
             $0 = .closing
-            connection.send(content: WebSocketFrame.clientClose(1000), completion: .contentProcessed { _ in })
+            connection.send(content: WebSocketFrame.clientClose(code), completion: .contentProcessed { _ in
+                if finishOnceWritten { finish() }
+            })
             return true
-        }) else { return }
-        onEvent?(.closeStarted)
+        }) else { return false }
         WebSocket.queue.asyncAfter(deadline: .now() + .milliseconds(250)) {
             finish()
             onEvent?(.closeDeadline)
         }
+        return true
     }
 
     func finish() {
@@ -293,15 +304,9 @@ private struct Core: Sendable {
     }
 
     /// The stream ended with a close frame from the server, or broke the protocol. The server's close frame ends the
-    /// handshake when it answers ours; otherwise our close frame goes out with `code`, and the connection once that is
-    /// written.
+    /// handshake when it answers ours; otherwise our close frame goes out with `code`, and the connection with it.
     private func answer(_ code: UInt16) {
-        guard lifecycle.mutate({
-            guard $0 == .open else { return false }
-            $0 = .closing
-            connection.send(content: WebSocketFrame.clientClose(code), completion: .contentProcessed { _ in finish() })
-            return true
-        }) else { return finish() }
+        guard startClosing(code: code, finishOnceWritten: true) else { return finish() }
     }
 
     /// One TCP read at a time, as `Inbox.startReceive()` grants it.
