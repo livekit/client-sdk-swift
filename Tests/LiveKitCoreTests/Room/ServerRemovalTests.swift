@@ -27,6 +27,7 @@ import LiveKitTestSupport
 @Suite(.serialized, .tags(.e2e), TestLimits.e2e) final class ServerRemovalTests: @unchecked Sendable {
     private let reconnects = StateSync(0)
     private let disconnects = StateSync(0)
+    private let disconnectError = StateSync<LiveKitError?>(nil)
 
     @Test func aRemovedParticipantDisconnectsWithoutReconnecting() async throws {
         try await TestEnvironment.withRoom(RoomTestingOptions(delegate: self)) { room in
@@ -37,6 +38,7 @@ import LiveKitTestSupport
                 self.disconnects.copy() > 0
             }
             #expect(room.connectionState == .disconnected)
+            #expect(self.disconnectError.copy()?.type == .participantRemoved)
             #expect(self.reconnects.copy() == 0)
         }
     }
@@ -86,7 +88,8 @@ extension ServerRemovalTests: RoomDelegate {
         reconnects.mutate { $0 += 1 }
     }
 
-    func room(_: Room, didDisconnectWithError _: LiveKitError?) {
+    func room(_: Room, didDisconnectWithError error: LiveKitError?) {
+        disconnectError.mutate { $0 = $0 ?? error }
         disconnects.mutate { $0 += 1 }
     }
 }

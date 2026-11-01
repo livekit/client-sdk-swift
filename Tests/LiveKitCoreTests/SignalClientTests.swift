@@ -16,6 +16,7 @@
 
 import Foundation
 @testable import LiveKit
+import LiveKitWebRTC
 import Testing
 
 struct SignalClientTests {
@@ -40,8 +41,72 @@ struct SignalClientTests {
         #expect(await client.passesConnectResponseGate(update))
     }
 
+    /// The server's leave and its close frame arrive together: the leave reaches the delegate before the close frame
+    /// fails the stream, so a removal cannot turn into a reconnect. The same message loop as `connect` runs it.
+    @Test(.tags(.networking)) func leaveIsHandledBeforeTheCloseThatFollows() async throws {
+        let leave = try Livekit_SignalResponse.with { $0.leave = .with { $0.action = .disconnect } }.serializedData()
+        for round in 0 ..< 10 {
+            let frames = FakeWebSocketServer.binary([leave]) + FakeWebSocketServer.close(1000)
+            let server = try FakeWebSocketServer(.frames(frames, withUpgrade: true))
+            defer { server.cancel() }
+            let socket = try await WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+            let client = SignalClient()
+            let recorder = LeaveRecorder()
+            await client._delegate.set(delegate: recorder)
+            await client._state.mutate {
+                $0.socket = socket
+                $0.connectionState = .connected
+            }
+            let loop = socket.subscribe(client) { client, message in
+                await client.onWebSocketMessage(message, from: socket)
+            } onFailure: { client, error in
+                await client.onWebSocketFailure(error, from: socket)
+            }
+
+            try await recorder.disconnected.wait()
+            #expect(recorder.events.copy() == [.leave, .disconnected], "Round \(round)")
+            withExtendedLifetime(loop) {}
+        }
+    }
+
     @Test func messageNameOmitsPayload() {
         let response = Livekit_SignalResponse.with { $0.refreshToken = "secret.jwt" }
         #expect(response.messageName == "refreshToken")
     }
+}
+
+private final class LeaveRecorder: SignalClientDelegate {
+    enum Event { case leave, disconnected }
+    let events = StateSync<[Event]>([])
+    let disconnected = AsyncCompleter<Void>(label: "LeaveRecorder.disconnected", defaultTimeout: 5)
+
+    func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason _: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?) async {
+        events.mutate { $0.append(.leave) }
+    }
+
+    func signalClient(_: SignalClient, didUpdateConnectionState newState: ConnectionState, oldState _: ConnectionState, disconnectError _: LiveKitError?) async {
+        guard newState == .disconnected else { return }
+        events.mutate { $0.append(.disconnected) }
+        disconnected.resume(returning: ())
+    }
+
+    func signalClient(_: SignalClient, didReceiveConnectResponse _: SignalClient.ConnectResponse) async {}
+    func signalClient(_: SignalClient, didReceiveAnswer _: LKRTCSessionDescription, offerId _: UInt32) async {}
+    func signalClient(_: SignalClient, didReceiveOffer _: LKRTCSessionDescription, offerId _: UInt32) async {}
+    func signalClient(_: SignalClient, didReceiveIceCandidate _: IceCandidate, target _: Livekit_SignalTarget) async {}
+    func signalClient(_: SignalClient, didUnpublishLocalTrack _: Livekit_TrackUnpublishedResponse) async {}
+    func signalClient(_: SignalClient, didUpdateParticipants _: [Livekit_ParticipantInfo]) async {}
+    func signalClient(_: SignalClient, didReceiveEncodedResponse _: SignalClient.EncodedResponse) async {}
+    func signalClient(_: SignalClient, didUpdateRoom _: Livekit_Room) async {}
+    func signalClient(_: SignalClient, didUpdateSpeakers _: [Livekit_SpeakerInfo]) async {}
+    func signalClient(_: SignalClient, didUpdateConnectionQuality _: [Livekit_ConnectionQualityInfo]) async {}
+    func signalClient(_: SignalClient, didUpdateRemoteMute _: Track.Sid, muted _: Bool) async {}
+    func signalClient(_: SignalClient, didUpdateTrackStreamStates _: [Livekit_StreamStateInfo]) async {}
+    func signalClient(_: SignalClient, didUpdateSubscribedCodecs _: [Livekit_SubscribedCodec], qualities _: [Livekit_SubscribedQuality], forTrackSid _: String) async {}
+    func signalClient(_: SignalClient, didReceiveRoomMoved _: Livekit_RoomMovedResponse) async {}
+    func signalClient(_: SignalClient, didUpdateSubscriptionPermission _: Livekit_SubscriptionPermissionUpdate) async {}
+    func signalClient(_: SignalClient, didUpdateToken _: String) async {}
+    func signalClient(_: SignalClient, didSubscribeTrack _: Track.Sid) async {}
+    func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement _: Livekit_MediaSectionsRequirement) async {}
+    func signalClient(_: SignalClient, didReceiveDataTrackResponse _: Data) async {}
 }
