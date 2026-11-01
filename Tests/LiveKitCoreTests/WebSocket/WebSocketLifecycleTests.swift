@@ -41,21 +41,9 @@ enum Ending: Sendable, CustomTestStringConvertible {
     }
 }
 
-private enum Limits {
-    /// As `TestLimits.e2e`, resolved at runtime for the iOS 13 floor; a minute is ample for loopback.
-    static var unit: any SuiteTrait {
-        if #available(iOS 16, macOS 13, tvOS 16, visionOS 1, *) {
-            let limit: TimeLimitTrait = .timeLimit(.minutes(1))
-            return limit
-        }
-        let none: Tag.List = .tags()
-        return none
-    }
-}
-
 /// The signalling socket's lifecycle against a server that is not a LiveKit server: how it opens, how it fails to,
 /// and how its message sequence ends for each way a peer can go away.
-@Suite(.tags(.networking), Limits.unit)
+@Suite(.tags(.networking), TestLimits.unit)
 struct WebSocketLifecycleTests {
     private static let headers = [(name: "Authorization", value: "Bearer test")]
     /// How long `close()` waits for the server's answer, in nanoseconds.

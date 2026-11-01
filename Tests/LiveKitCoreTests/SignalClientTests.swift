@@ -19,6 +19,7 @@ import Foundation
 import LiveKitWebRTC
 import Testing
 
+@Suite(TestLimits.unit)
 struct SignalClientTests {
     /// Matches rust-sdks `get_join_response`/`get_reconnect_response`: from `cleanUp()` until the
     /// next Join/ReconnectResponse, only `join`, `reconnect` and `leave` get through.
@@ -42,16 +43,23 @@ struct SignalClientTests {
     }
 
     /// The server's leave and its close frame arrive together: the leave reaches the delegate before the close frame
-    /// fails the stream, so a removal cannot turn into a reconnect. The same message loop as `connect` runs it.
+    /// fails the stream, so a removal cannot turn into a reconnect. The same message loop as `connect` runs it, and the
+    /// delegate cleans the client up from inside its leave callback, as `Room` does.
     @Test(.tags(.networking)) func leaveIsHandledBeforeTheCloseThatFollows() async throws {
-        let leave = try Livekit_SignalResponse.with { $0.leave = .with { $0.action = .disconnect } }.serializedData()
-        for round in 0 ..< 10 {
+        let leave = try Livekit_SignalResponse.with {
+            $0.leave = .with {
+                $0.action = .disconnect
+                $0.reason = .participantRemoved
+            }
+        }.serializedData()
+        // The order is what the test checks, and a lost leave shows only when the failure wins a race: many rounds.
+        for round in 0 ..< 50 {
             let frames = FakeWebSocketServer.binary([leave]) + FakeWebSocketServer.close(1000)
             let server = try FakeWebSocketServer(.frames(frames, withUpgrade: true))
             defer { server.cancel() }
             let socket = try await WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
             let client = SignalClient()
-            let recorder = LeaveRecorder()
+            let recorder = LeaveRecorder(client: client)
             await client._delegate.set(delegate: recorder)
             await client._state.mutate {
                 $0.socket = socket
@@ -64,7 +72,7 @@ struct SignalClientTests {
             }
 
             try await recorder.disconnected.wait()
-            #expect(recorder.events.copy() == [.leave, .disconnected], "Round \(round)")
+            #expect(recorder.events.copy() == [.leave, .disconnected(.participantRemoved)], "Round \(round)")
             withExtendedLifetime(loop) {}
         }
     }
@@ -76,17 +84,24 @@ struct SignalClientTests {
 }
 
 private final class LeaveRecorder: SignalClientDelegate {
-    enum Event { case leave, disconnected }
+    enum Event: Equatable { case leave, disconnected(LiveKitErrorType?) }
+    let client: SignalClient
     let events = StateSync<[Event]>([])
     let disconnected = AsyncCompleter<Void>(label: "LeaveRecorder.disconnected", defaultTimeout: 5)
 
-    func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason _: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?) async {
+    init(client: SignalClient) {
+        self.client = client
+    }
+
+    /// As `Room` handles a leave that disconnects: it cleans the signal client up before it returns.
+    func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?) async {
+        await client.cleanUp(withError: LiveKitError.from(reason: reason))
         events.mutate { $0.append(.leave) }
     }
 
-    func signalClient(_: SignalClient, didUpdateConnectionState newState: ConnectionState, oldState _: ConnectionState, disconnectError _: LiveKitError?) async {
+    func signalClient(_: SignalClient, didUpdateConnectionState newState: ConnectionState, oldState _: ConnectionState, disconnectError: LiveKitError?) async {
         guard newState == .disconnected else { return }
-        events.mutate { $0.append(.disconnected) }
+        events.mutate { $0.append(.disconnected(disconnectError?.type)) }
         disconnected.resume(returning: ())
     }
 
