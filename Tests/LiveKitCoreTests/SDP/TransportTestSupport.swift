@@ -32,9 +32,9 @@ final class StubTransportDelegate: TransportDelegate {
 /// `defer { Task { await transport.close() } }` does not await the close, so the peer connection
 /// can outlive the test and its blocking teardown lands on whatever runs next.
 func withLiveTransport(target: Livekit_SignalTarget = .publisher,
-                   primary: Bool = true,
-                   singlePCMode: Bool = false,
-                   _ body: (Transport) async throws -> Void) async throws
+                       primary: Bool = true,
+                       singlePCMode: Bool = false,
+                       _ body: (Transport) async throws -> Void) async throws
 {
     let transport = try await Transport(config: .liveKitDefault(),
                                         target: target,
