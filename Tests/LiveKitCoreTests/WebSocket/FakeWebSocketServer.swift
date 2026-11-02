@@ -49,6 +49,8 @@ final class FakeWebSocketServer: Sendable {
         /// Answer the upgrade with `head`, its `{accept}` replaced with the accept value for the client's key, and `then`
         /// right behind it; then read until the client's close frame or its FIN.
         case upgradeResponse(head: String, then: Data = Data())
+        /// One response per request, repeating the last if the client retries again.
+        case upgradeResponses([String])
         /// Upgrade, read the first bytes that the client sends and nothing more, then send a close frame with code 1000
         /// and keep TCP open: the client's writes back up behind its unread bytes.
         case stalledReadThenClose
@@ -67,6 +69,7 @@ final class FakeWebSocketServer: Sendable {
     let served = AsyncCompleter<Void>(label: "FakeWebSocketServer.served", defaultTimeout: 5)
     /// The header lines of the last upgrade request, the request line excluded.
     let requestHeaders = StateSync<[String]>([])
+    let requests = StateSync<[(line: String, headers: [String])]>([])
     /// A frame from the client, unmasked.
     struct ClientFrame: Sendable {
         let opcode: UInt8
@@ -162,16 +165,22 @@ final class FakeWebSocketServer: Sendable {
                 return readUpgrade(connection, buffered: request)
             }
             let header = String(bytes: request[..<headerEnd.lowerBound], encoding: .utf8) ?? ""
-            let lines = header.components(separatedBy: "\r\n").dropFirst()
+            let allLines = header.components(separatedBy: "\r\n")
+            let lines = allLines.dropFirst()
             requestHeaders.mutate { $0 = Array(lines) }
+            let index = requests.mutate {
+                let index = $0.count
+                $0.append((allLines.first ?? "", Array(lines)))
+                return index
+            }
             let key = lines
                 .first { $0.lowercased().hasPrefix("sec-websocket-key:") }
                 .map { $0.dropFirst("sec-websocket-key:".count).trimmingCharacters(in: .whitespaces) } ?? ""
-            answer(connection, key: key)
+            answer(connection, key: key, index: index)
         }
     }
 
-    private func answer(_ connection: NWConnection, key: String) {
+    private func answer(_ connection: NWConnection, key: String, index: Int) {
         if case let .reject(status) = behavior {
             let response = "HTTP/1.1 \(status) Rejected\r\nContent-Length: 0\r\n\r\n"
             connection.send(content: Data(response.utf8), completion: .contentProcessed { [served] _ in
@@ -181,9 +190,8 @@ final class FakeWebSocketServer: Sendable {
             return
         }
         let accept = Data(Insecure.SHA1.hash(data: Data((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").utf8))).base64EncodedString()
-        if case let .upgradeResponse(head, then) = behavior {
-            connection.send(content: Data(head.replacingOccurrences(of: "{accept}", with: accept).utf8) + then,
-                            completion: .contentProcessed { [self] _ in readUntilClose(connection, buffered: Data()) })
+        if let response = customResponse(index: index, accept: accept) {
+            connection.send(content: response, completion: .contentProcessed { [self] _ in readUntilClose(connection, buffered: Data()) })
             return
         }
         let response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: \(accept)\r\n\r\n"
@@ -194,7 +202,7 @@ final class FakeWebSocketServer: Sendable {
         }
         connection.send(content: Data(response.utf8), completion: .contentProcessed { [self] _ in
             switch behavior {
-            case .blackhole, .tlsClientHello, .reject, .upgradeResponse:
+            case .blackhole, .tlsClientHello, .reject, .upgradeResponse, .upgradeResponses:
                 break
             case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose:
                 answerClose(connection, buffered: Data())
@@ -275,7 +283,7 @@ final class FakeWebSocketServer: Sendable {
     private func goAway(_ connection: NWConnection) {
         switch behavior {
         case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose, .blackhole, .tlsClientHello, .reject,
-             .upgradeResponse, .stalledReadThenClose:
+             .upgradeResponse, .upgradeResponses, .stalledReadThenClose:
             break
         case let .frames(bytes, _):
             connection.send(content: bytes, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { [self] _ in
@@ -330,5 +338,21 @@ extension FakeWebSocketServer {
 
     static func close(_ code: UInt16, reason: String = "") -> Data {
         frame(0x8, Data([UInt8(code >> 8), UInt8(code & 0xFF)]) + Data(reason.utf8))
+    }
+
+    private func customResponse(index: Int, accept: String) -> Data? {
+        let head: String
+        let then: Data
+        switch behavior {
+        case let .upgradeResponse(response, bytes):
+            head = response
+            then = bytes
+        case let .upgradeResponses(responses):
+            head = responses.dropFirst(index).first ?? responses.last ?? "HTTP/1.1 500 Empty fixture\r\n\r\n"
+            then = Data()
+        default:
+            return nil
+        }
+        return Data(head.replacingOccurrences(of: "{accept}", with: accept).utf8) + then
     }
 }

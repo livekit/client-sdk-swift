@@ -88,15 +88,39 @@ actor WebSocket: Loggable, AsyncSequence {
         }
         #endif
 
+        var requestURL = url
+        var requestHeaders = headers
+        var redirects = 0
+        while true {
+            do {
+                let opened = try await Self.open(url: requestURL, headers: requestHeaders, timeoutInterval: timeoutInterval, onEvent: onEvent)
+                connection = opened.connection
+                core = opened.core
+                // The server can send frames in the same segment as its upgrade response.
+                core.received(opened.rest, isComplete: false, error: nil)
+                return
+            } catch let error as LiveKitError {
+                guard let response = error.internalError as? WebSocketUpgradeFailure,
+                      let target = try Self.redirectedURL(response, from: requestURL) else { throw error }
+                guard redirects < 20 else { throw LiveKitError(.network, internalError: URLError(.httpTooManyRedirects)) }
+                redirects += 1
+                requestURL = target
+                requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
+            }
+        }
+    }
+
+    private static func open(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval,
+                             onEvent: EventHandler?) async throws -> Opened
+    {
+        guard !Task.isCancelled else { throw LiveKitError(.cancelled) }
         let key = Self.upgradeKey()
         let headers = Self.upgradeHeaders(url: url, headers: headers)
         let request = try Self.upgradeRequest(url: url, key: key, headers: headers)
         let compressionOffered = headers.contains { $0.name.caseInsensitiveCompare("Sec-WebSocket-Extensions") == .orderedSame && $0.value == "permessage-deflate" }
         let connection = NWConnection(to: .url(url), using: Self.makeParameters(secure: url.scheme == "wss",
                                                                                 timeoutInterval: timeoutInterval))
-        self.connection = connection
         let core = Core(connection: connection, onEvent: onEvent)
-        self.core = core
 
         let opening = AsyncCompleter<UpgradeResponse>(label: "WebSocket.open", defaultTimeout: timeoutInterval)
         connection.stateUpdateHandler = { state in
@@ -126,8 +150,7 @@ actor WebSocket: Loggable, AsyncSequence {
             core.finish()
             throw error is LiveKitError ? error : LiveKitError.from(error: error) ?? LiveKitError(.unknown)
         }
-        // The server can send frames in the same segment as its upgrade response.
-        core.received(response.rest, isComplete: false, error: nil)
+        return Opened(connection: connection, core: core, rest: response.rest)
     }
 
     deinit {
@@ -201,6 +224,12 @@ actor WebSocket: Loggable, AsyncSequence {
 }
 
 // MARK: - Core
+
+private struct Opened {
+    let connection: NWConnection
+    let core: Core
+    let rest: Data
+}
 
 private struct Lifecycle {
     enum Phase { case open, closing, closed }

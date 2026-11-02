@@ -22,6 +22,7 @@ import Network
 /// protocols. Carried as the `internalError` of the thrown ``LiveKitError``.
 struct WebSocketUpgradeFailure: Error, Sendable {
     let statusCode: Int
+    var headers: [(name: String, value: String)] = []
 }
 
 extension WebSocket {
@@ -103,7 +104,7 @@ extension WebSocket {
             let fields = fields(of: lines.dropFirst())
             if let url, let fields { storeCookies(fields, for: url) }
             guard status == 101 else {
-                return .failed(LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: status)))
+                return .failed(LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: status, headers: fields ?? [])))
             }
             guard minor >= 1 else { return .failed(badUpgradeResponse("a 101 in HTTP/1.0")) }
             if let failure = switchingFailure(fields, key: key) { return .failed(failure) }
