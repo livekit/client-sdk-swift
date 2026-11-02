@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 import Foundation
-
-internal import LiveKitUniFFI
 
 /// An error raised while publishing a ``LocalDataTrack``.
 public enum DataTrackPublishError: Error, Sendable {
@@ -85,7 +84,7 @@ public enum DataTrackSubscribeError: Error, Sendable {
     /// An unexpected internal error occurred.
     case internalError(String)
 
-    init(_ error: LiveKitUniFFI.DataTrackSubscribeError) {
+    init(_ error: LiveKitFFI.DataTrackSubscribeError) {
         switch error {
         case let .Unpublished(message): self = .unpublished(message)
         case let .Timeout(message): self = .timeout(message)

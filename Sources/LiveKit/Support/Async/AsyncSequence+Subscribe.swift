@@ -99,7 +99,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
         // Swift 6.2 emits `#IsolatedConformances` when `for try await` runs on `@MainActor` (SE-0470);
         // iterate on `@concurrent` and hop per element. Older toolchains keep the `@MainActor` body.
         #if compiler(>=6.2)
-        return Task(priority: priority) { @concurrent [weak observer] in
+        Task(priority: priority) { @concurrent [weak observer] in
             do {
                 for try await element in self {
                     guard let observer else { break }
@@ -113,7 +113,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
             }
         }.cancellable()
         #else
-        return Task(priority: priority) { @MainActor [weak observer] in
+        Task(priority: priority) { @MainActor [weak observer] in
             do {
                 for try await element in self {
                     guard let observer else { break }

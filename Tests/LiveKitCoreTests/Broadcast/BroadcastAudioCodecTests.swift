@@ -73,33 +73,33 @@ struct BroadcastAudioCodecTests {
 
         var formatDescription: CMAudioFormatDescription?
         guard CMAudioFormatDescriptionCreate(
-            allocator: kCFAllocatorDefault,
-            asbd: &asbd,
-            layoutSize: 0,
-            layout: nil,
-            magicCookieSize: 0,
-            magicCookie: nil,
-            extensions: nil,
-            formatDescriptionOut: &formatDescription,
-        ) == noErr,
-            let audioFormatDesc = formatDescription else { return nil }
+                  allocator: kCFAllocatorDefault,
+                  asbd: &asbd,
+                  layoutSize: 0,
+                  layout: nil,
+                  magicCookieSize: 0,
+                  magicCookie: nil,
+                  extensions: nil,
+                  formatDescriptionOut: &formatDescription,
+              ) == noErr,
+              let audioFormatDesc = formatDescription else { return nil }
 
         let pcmData = UnsafeMutablePointer<UInt8>.allocate(capacity: totalDataSize)
         pcmData.initialize(repeating: 0, count: totalDataSize)
 
         var blockBuffer: CMBlockBuffer?
         guard CMBlockBufferCreateWithMemoryBlock(
-            allocator: kCFAllocatorDefault,
-            memoryBlock: pcmData,
-            blockLength: totalDataSize,
-            blockAllocator: kCFAllocatorNull,
-            customBlockSource: nil,
-            offsetToData: 0,
-            dataLength: totalDataSize,
-            flags: 0,
-            blockBufferOut: &blockBuffer,
-        ) == kCMBlockBufferNoErr,
-            let cmBlockBuffer = blockBuffer
+                  allocator: kCFAllocatorDefault,
+                  memoryBlock: pcmData,
+                  blockLength: totalDataSize,
+                  blockAllocator: kCFAllocatorNull,
+                  customBlockSource: nil,
+                  offsetToData: 0,
+                  dataLength: totalDataSize,
+                  flags: 0,
+                  blockBufferOut: &blockBuffer,
+              ) == kCMBlockBufferNoErr,
+              let cmBlockBuffer = blockBuffer
         else {
             pcmData.deallocate()
             return nil

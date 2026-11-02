@@ -16,7 +16,7 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
+import LiveKitFFI
 
 /// Framework-agnostic test environment utilities (no XCTest/Testing dependency).
 public enum TestEnvironment {
@@ -56,7 +56,7 @@ public enum TestEnvironment {
     /// Only the server from ``liveKitServerUrl()`` is probed. A caller connecting anywhere else
     /// is using an endpoint this harness does not manage — possibly one it expects to fail
     /// against — so it goes straight to its connect.
-    static func waitForServer(_ url: String) async throws {
+    public static func waitForServer(_ url: String) async throws {
         guard url == liveKitServerUrl() else { return }
         try await serverReady.value
     }
@@ -80,13 +80,13 @@ public enum TestEnvironment {
         throw ServerUnreachable(url: url, timeout: serverReadyTimeout)
     }
 
-    // swiftlint:disable:next function_parameter_count
+    /// Grants default to the minimum needed to connect and observe; pass them explicitly to publish.
     public static func liveKitServerToken(for room: String,
                                           identity: String,
-                                          canPublish: Bool,
-                                          canPublishData: Bool,
-                                          canPublishSources: Set<Track.Source>,
-                                          canSubscribe: Bool) throws -> String
+                                          canPublish: Bool = false,
+                                          canPublishData: Bool = false,
+                                          canPublishSources: Set<Track.Source> = [],
+                                          canSubscribe: Bool = true) throws -> String
     {
         let apiKey = readEnvironmentString(for: "LIVEKIT_TESTING_API_KEY", defaultValue: "devkey")
         let apiSecret = readEnvironmentString(for: "LIVEKIT_TESTING_API_SECRET", defaultValue: "secret")
@@ -111,6 +111,7 @@ public enum TestEnvironment {
             ingressAdmin: false,
             hidden: false,
             recorder: false,
+            agent: false,
         )
 
         return try tokenGenerator.sign()
@@ -143,7 +144,8 @@ public enum TestEnvironment {
             let encryptionOptions = $0.element.isE2eeEnabled
                 ? $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
                 : nil
-            let roomOptions = RoomOptions(encryptionOptions: encryptionOptions, reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
+            let roomOptions = RoomOptions(dataStreamOptions: $0.element.dataStreamOptions, encryptionOptions: encryptionOptions,
+                                          reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
 
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
             let roomName = $0.element.roomName ?? sharedRoomName

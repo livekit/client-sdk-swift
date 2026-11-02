@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+import LKObjCHelpers
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
-import LKObjCHelpers
 
 struct ObjCHelperTests {
     @Test func helper() {

@@ -16,13 +16,12 @@
 
 // swiftlint:disable file_length
 
+internal import LiveKitWebRTC
 import Foundation
 
 #if canImport(Network)
 import Network
 #endif
-
-internal import LiveKitWebRTC
 
 // Room+Engine
 extension Room {
@@ -137,10 +136,17 @@ extension Room {
             log("publisher is not .connected", .error)
         }
 
+        // A data stream packet sent on behalf of another identity already names it, and the
+        // server decides whether to accept that. Every other packet is sent as the local participant.
+        let keepsIdentity = switch packet.value {
+        case .streamHeader, .streamChunk, .streamTrailer: !packet.participantIdentity.isEmpty
+        default: false
+        }
+
         // `modifying` is consuming: with no other owner this stamps in place,
         // where the per-field setters used to deep-copy the whole payload.
         let stamped = packet.modifying {
-            if let identity = localParticipant.identity?.stringValue {
+            if !keepsIdentity, let identity = localParticipant.identity?.stringValue {
                 $0.participantIdentity = identity
             }
             if let sid = localParticipant.sid?.stringValue {

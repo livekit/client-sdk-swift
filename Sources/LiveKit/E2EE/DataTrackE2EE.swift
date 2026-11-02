@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-import Foundation
-
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 internal import LiveKitWebRTC
+import Foundation
 
 // MARK: - Data Track Cryptor
 
@@ -52,7 +51,7 @@ final class DataTrackCryptor: EncryptionProvider, DecryptionProvider, @unchecked
                 keyIndex: UInt8(truncatingIfNeeded: packet.keyIndex),
             )
         } catch {
-            throw EncryptionError.Failed(message: String(describing: error))
+            throw EncryptionError.Failed(reason: String(describing: error))
         }
     }
 
@@ -65,7 +64,7 @@ final class DataTrackCryptor: EncryptionProvider, DecryptionProvider, @unchecked
         do {
             return try requireManager().handle(encryptedData: packet, participantIdentity: senderIdentity)
         } catch {
-            throw DecryptionError.Failed(message: String(describing: error))
+            throw DecryptionError.Failed(reason: String(describing: error))
         }
     }
 }

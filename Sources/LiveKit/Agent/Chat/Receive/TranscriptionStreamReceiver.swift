@@ -91,10 +91,10 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
 
         let topic = topic
 
-        // SDK-internal receiver — register via `incomingStreamManager` directly
-        // so the receiver works even if the `Room.reservedTopicPrefix` guard is
-        // later widened to cover non-RPC `lk.*` topics like this one.
-        try await room.incomingStreamManager.registerTextStreamHandler(for: topic, ordered: true) { [weak self] reader, participantIdentity in
+        // SDK-internal receiver — register via `dataStreams` directly so the
+        // receiver works even if the `Room.reservedTopicPrefix` guard is later
+        // widened to cover non-RPC `lk.*` topics like this one.
+        try room.dataStreams.registerTextStreamHandler(for: topic, ordered: true) { [weak self] reader, participantIdentity in
             var lastMessage: ReceivedMessage?
             for try await message in reader where !message.isEmpty {
                 guard let self else { return }
@@ -114,9 +114,7 @@ actor TranscriptionStreamReceiver: MessageReceiver, Loggable {
         }
 
         continuation.onTermination = { [weak self] _ in
-            Task { [weak self] in
-                await self?.room.incomingStreamManager.unregisterTextStreamHandler(for: topic)
-            }
+            self?.room.dataStreams.unregisterTextStreamHandler(for: topic)
         }
 
         return stream

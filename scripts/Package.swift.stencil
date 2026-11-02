@@ -13,7 +13,7 @@ let package = Package(
         .visionOS(.v26),
     ],
     products: [
-        .library(name: "LiveKit", targets: ["LiveKit", "LiveKitWebRTC", "RustLiveKitUniFFI"]),
+        .library(name: "LiveKit", targets: ["LiveKit", "LiveKitWebRTC", "RustLiveKitFFI"]),
     ],
     targets: [{% if local %}
         .binaryTarget(name: "LiveKit", path: "LiveKit.xcframework.zip"),{% else %}
@@ -28,7 +28,7 @@ let package = Package(
             checksum: "{{ webrtcChecksum }}"
         ),
         .binaryTarget(
-            name: "RustLiveKitUniFFI",
+            name: "RustLiveKitFFI",
             url: "{{ uniffiURL }}",
             checksum: "{{ uniffiChecksum }}"
         ),

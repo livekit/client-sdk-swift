@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 public enum LiveKitErrorType: Int, Sendable {
     case unknown = 0

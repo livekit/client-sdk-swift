@@ -32,9 +32,9 @@ actor RpcClientManager: Loggable {
 
     private weak var room: Room?
 
-    private var pendingAcks: Set<String> = Set()
-    private var pendingResponses: [String: PendingRpcResponse] = [:]
-    private var ackWatchdogs: [String: AnyTaskCancellable] = [:]
+    private(set) var pendingAcks: Set<String> = Set()
+    private(set) var pendingResponses: [String: PendingRpcResponse] = [:]
+    private(set) var ackWatchdogs: [String: AnyTaskCancellable] = [:]
 
     /// Hook fired once after the RPC request has been published but before the caller
     /// starts waiting on the completer. Receives the freshly-generated `requestId` so
@@ -61,6 +61,8 @@ actor RpcClientManager: Loggable {
                     responseTimeout: TimeInterval = RpcClientManager.defaultResponseTimeout,
                     maxRoundTripLatency: TimeInterval = RpcClientManager.defaultMaxRoundTripLatency) async throws -> String
     {
+        // A call cancelled before it starts sends nothing, like the data stream methods.
+        try Task.checkCancellation()
         let room = try requireRoom()
 
         let remoteClientProtocol = room.remoteParticipants[destinationIdentity]?.clientProtocol ?? .v0
@@ -100,12 +102,11 @@ actor RpcClientManager: Loggable {
         } catch {
             // Publish failed — clean up the registered state before re-throwing.
             removeAllPending(requestId)
+            try Task.checkCancellation()
             throw error
         }
 
-        if let hook = afterPublish {
-            await hook(requestId)
-        }
+        await afterPublish?(requestId)
 
         // Ack watchdog: fail fast if no ack arrives within maxRoundTripLatency.
         // Stored as `AnyTaskCancellable` so the deferred cleanup cancels the sleep
@@ -120,6 +121,8 @@ actor RpcClientManager: Loggable {
         do {
             return try await completer.wait()
         } catch {
+            // A cancelled caller gets `CancellationError`, not the completer's `LiveKitError(.cancelled)`.
+            try Task.checkCancellation()
             // AsyncCompleter signals its own `defaultTimeout` expiry with `LiveKitError(.timedOut)`.
             // That path means "we got the ack (or the ack-watchdog hasn't fired yet) but the
             // user-supplied `responseTimeout` elapsed without a response" → `responseTimeout`
@@ -165,7 +168,7 @@ actor RpcClientManager: Loggable {
                                 error: RpcError?)
     {
         guard let pending = pendingResponses.removeValue(forKey: requestId) else {
-            log("[Rpc] Response received for unexpected RPC request, id = \(requestId)", .error)
+            log("[Rpc] Response received for unexpected RPC request, id = \(requestId)")
             return
         }
         if let error {
@@ -180,18 +183,22 @@ actor RpcClientManager: Loggable {
     /// with the streamed payload — but only if `senderIdentity` matches the original
     /// destination of the call. A response from any other peer is ignored (and the
     /// pending entry is left in place so the legitimate sender can still resolve).
-    func handleIncomingResponseStream(reader: TextStreamReader, senderIdentity: Participant.Identity) async {
+    func handleIncomingResponseStream(reader: some TextStreamReading, senderIdentity: Participant.Identity) async {
         guard let requestId = reader.info.attributes[RpcStreamAttribute.requestId] else {
             log("[Rpc] Incoming v2 RPC response stream is missing request id attribute", .error)
             return
         }
 
-        // Validate the sender BEFORE reading the stream — matches JS and avoids
-        // burning cycles (or worse, hitting `readAll` side effects) on a spoofed
+        // Validate the request and the sender BEFORE reading the stream — matches JS and avoids
+        // burning cycles (or worse, hitting `readAll` side effects) on a late or spoofed
         // payload. After this check passes, both the success and read-failure
         // paths trust the sender and resume the pending call directly.
-        if let pending = pendingResponses[requestId], pending.participantIdentity != senderIdentity {
-            log("[Rpc] Response stream for \(requestId) from wrong sender (expected \(pending.participantIdentity), got \(senderIdentity)); ignoring", .error)
+        guard let expected = pendingResponses[requestId] else {
+            log("[Rpc] Response stream received for unexpected RPC request, id = \(requestId)")
+            return
+        }
+        guard expected.participantIdentity == senderIdentity else {
+            log("[Rpc] Response stream for \(requestId) from wrong sender (expected \(expected.participantIdentity), got \(senderIdentity)); ignoring", .error)
             return
         }
 
@@ -199,18 +206,21 @@ actor RpcClientManager: Loggable {
         do {
             payload = try await reader.readAll()
         } catch {
+            // The call can end while the stream is read, for example when its task is cancelled.
+            guard let pending = pendingResponses.removeValue(forKey: requestId) else {
+                log("[Rpc] Failed to read v2 RPC response payload for \(requestId), which is no longer pending: \(error)")
+                return
+            }
             log("[Rpc] Failed to read v2 RPC response payload for \(requestId): \(error)", .error)
             // Fail the pending call fast instead of letting it hang to responseTimeout.
-            if let pending = pendingResponses.removeValue(forKey: requestId) {
-                pending.completer.resume(throwing: RpcError(code: RpcError.BuiltInError.applicationError.code,
-                                                            message: "Error reading RPC response payload",
-                                                            data: ""))
-            }
+            pending.completer.resume(throwing: RpcError(code: RpcError.BuiltInError.applicationError.code,
+                                                        message: "Error reading RPC response payload",
+                                                        data: ""))
             return
         }
 
         guard let pending = pendingResponses.removeValue(forKey: requestId) else {
-            log("[Rpc] Response stream received for unexpected RPC request, id = \(requestId)", .error)
+            log("[Rpc] Response stream received for unexpected RPC request, id = \(requestId)")
             return
         }
         pending.completer.resume(returning: payload)
