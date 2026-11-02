@@ -173,6 +173,11 @@ extension WebSocket {
                 joined.append((name, value))
             }
         }
+        for (name, value) in [("Accept", "*/*"), ("Accept-Encoding", "gzip, deflate")]
+            where !joined.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame })
+        {
+            joined.append((name, value))
+        }
         guard let host = url.host else { return joined }
         let port = url.port.map { ":\($0)" } ?? ""
         let address = host.contains(":") ? String(host.prefix { $0 != "%" }) : host
