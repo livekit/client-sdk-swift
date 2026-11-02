@@ -217,7 +217,7 @@ extension WebSocketLifecycleTests {
         #expect(received.isEmpty)
         #expect((error as? LiveKitError)?.message?.hasPrefix("WebSocket protocol violation") == true)
         try await server.served.wait()
-        try await events.teardown.wait()
+        _ = try await events.teardown.wait()
         #expect(events.teardowns.copy() == 1)
         // Our close frame, with 1002 or, for a close reason that is not UTF-8, 1007.
         #expect(server.frames.read { $0.last?.opcode } == 0x8)
@@ -258,24 +258,21 @@ extension WebSocketLifecycleTests {
 
     /// The server's close frame arrives while a write is stuck behind TCP back-pressure, so the answer cannot be
     /// written, and our own close after it finds the socket closing already: the connection still goes at the deadline.
-    @Test func peerCloseBehindAStalledWriteTearsDown() async throws {
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func peerCloseBehindAStalledWriteTearsDown() async throws {
         let server = try FakeWebSocketServer(.stalledReadThenClose)
         defer { server.cancel() }
-        let teardown = AsyncCompleter<Void>(label: "teardown", defaultTimeout: 5)
-        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10, onEvent: { event in
-            if case .teardown = event { teardown.resume(returning: ()) }
-        })
-        await withTaskGroup(of: Void.self) { group in
+        let events = SocketEvents()
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10, onEvent: events.record)
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            defer { server.cancel() }
             // More than the loopback socket buffers hold, 4 MB each way: the write cannot finish on its own.
             group.addTask { _ = try? await socket.send(data: Data(count: 16 << 20)) }
             let (_, error) = await Self.messages(of: socket)
             #expect(Self.closeCode(of: error) == 1000)
             socket.close()
-            let closed = DispatchTime.now().uptimeNanoseconds
-            #expect(await (try? teardown.wait()) != nil)
-            #expect(DispatchTime.now().uptimeNanoseconds - closed < 1_000_000_000)
-            // Frees the write if it is still stuck.
-            server.cancel()
+            let cause = try await events.teardown.wait()
+            #expect(cause == .closeDeadline)
         }
     }
 

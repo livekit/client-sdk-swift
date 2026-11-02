@@ -59,7 +59,7 @@ enum WebSocketTestSupport {
         // The server drops its side after the sequence ended: the late state change lands on a socket whose
         // opening is long settled, and must neither crash nor resurface.
         try await server.served.wait()
-        try await events.teardown.wait()
+        _ = try await events.teardown.wait()
         #expect(events.teardowns.copy() == 1)
         #expect(await socket.connection.stateUpdateHandler == nil)
         withExtendedLifetime(socket) {}
@@ -69,7 +69,7 @@ enum WebSocketTestSupport {
 struct SocketEvents: Sendable {
     let receiveRegistered = AsyncCompleter<Void>(label: "SocketEvents.receiveRegistered", defaultTimeout: 5)
     let closeDeadline = AsyncCompleter<Void>(label: "SocketEvents.closeDeadline", defaultTimeout: 5)
-    let teardown = AsyncCompleter<Void>(label: "SocketEvents.teardown", defaultTimeout: 5)
+    let teardown = AsyncCompleter<LiveKit.WebSocket.TeardownCause>(label: "SocketEvents.teardown", defaultTimeout: 5)
     let teardowns = StateSync(0)
     let closeStarts = StateSync(0)
 
@@ -77,9 +77,9 @@ struct SocketEvents: Sendable {
         switch event {
         case .receiveRegistered: receiveRegistered.resume(returning: ())
         case .closeDeadline: closeDeadline.resume(returning: ())
-        case .teardown:
+        case let .teardown(cause):
             teardowns.mutate { $0 += 1 }
-            teardown.resume(returning: ())
+            teardown.resume(returning: cause)
         case .closeStarted: closeStarts.mutate { $0 += 1 }
         case .readAheadFull: break
         }

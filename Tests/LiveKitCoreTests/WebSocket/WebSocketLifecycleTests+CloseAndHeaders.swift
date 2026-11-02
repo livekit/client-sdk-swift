@@ -65,17 +65,18 @@ extension WebSocketLifecycleTests {
         }
     }
 
-    @Test func closeRacingSendPreservesFrameOrder() async throws {
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func closeRacingSendPreservesFrameOrder() async throws {
         for round in 0 ..< 150 {
             let server = try FakeWebSocketServer(.idle)
             defer { server.cancel() }
             let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
-            let gate = StateSync(0)
-            let deadline = DispatchTime.now().uptimeNanoseconds + 1_000_000_000
-            let sent = await withTaskGroup(of: Bool.self) { group in
+            let ready = AsyncCompleter<Void>(label: "race.ready", defaultTimeout: 5)
+            let start = AsyncCompleter<Void>(label: "race.start", defaultTimeout: 5)
+            let sent = try await withThrowingTaskGroup(of: Bool.self) { group in
                 group.addTask {
-                    gate.mutate { $0 += 1 }
-                    while gate.copy() < 2, DispatchTime.now().uptimeNanoseconds < deadline {}
+                    ready.resume(returning: ())
+                    try await start.wait()
                     do {
                         try await socket.send(data: Data([0x01]))
                         return true
@@ -85,14 +86,13 @@ extension WebSocketLifecycleTests {
                         return false
                     }
                 }
-                gate.mutate { $0 += 1 }
-                while gate.copy() < 2, DispatchTime.now().uptimeNanoseconds < deadline {}
-                #expect(gate.copy() == 2, "Round \(round): the barrier timed out")
+                try await ready.wait()
+                start.resume(returning: ())
                 for _ in 0 ..< round % 75 {
-                    _ = gate.copy()
+                    await Task.yield()
                 }
                 socket.close()
-                return await group.next() ?? false
+                return try await group.next() ?? false
             }
             _ = try await server.clientGone.wait()
             let opcodes = server.frames.read { $0.map(\.opcode) }

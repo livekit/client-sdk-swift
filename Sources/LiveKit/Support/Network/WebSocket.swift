@@ -34,11 +34,17 @@ actor WebSocket: Loggable, AsyncSequence {
     typealias EventHandler = @Sendable (Event) -> Void
 
     let connection: NWConnection
+    enum TeardownCause: Sendable, Equatable {
+        case closeFrame
+        case closeDeadline
+        case failure
+    }
+
     enum Event: Sendable {
         /// A read waits for a frame.
         case receiveRegistered
         case closeStarted
-        case teardown
+        case teardown(TeardownCause)
         case closeDeadline
         /// The socket stopped reading with this many frames unread; TCP holds what follows until they are read.
         case readAheadFull(unread: Int)
@@ -52,6 +58,7 @@ actor WebSocket: Loggable, AsyncSequence {
     static let maximumMessageSize = 1 << 20
     /// How many frames may wait unread before the socket stops reading. Nothing is dropped past it: TCP pushes back.
     static let readAhead = 16
+    static let closeWait: TimeInterval = 0.25
 
     static func makeParameters(secure: Bool, timeoutInterval: TimeInterval) -> NWParameters {
         let tcp = NWProtocolTCP.Options()
@@ -73,7 +80,7 @@ actor WebSocket: Loggable, AsyncSequence {
     }
 
     init(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval,
-         onEvent: EventHandler? = nil) async throws
+         closeWait: TimeInterval = WebSocket.closeWait, onEvent: EventHandler? = nil) async throws
     {
         guard !Task.isCancelled else { throw LiveKitError(.cancelled) }
         #if targetEnvironment(simulator)
@@ -89,7 +96,7 @@ actor WebSocket: Loggable, AsyncSequence {
         while true {
             do {
                 let opened = try await Self.open(url: requestURL, headers: requestHeaders, timeoutInterval: timeoutInterval,
-                                                 answerBasic: basicCredential == nil, onEvent: onEvent)
+                                                 answerBasic: basicCredential == nil, closing: (closeWait, onEvent))
                 connection = opened.connection
                 core = opened.core
                 // The server can send frames in the same segment as its upgrade response.
@@ -117,14 +124,14 @@ actor WebSocket: Loggable, AsyncSequence {
     }
 
     private static func open(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval,
-                             answerBasic: Bool, onEvent: EventHandler?) async throws -> Opened
+                             answerBasic: Bool, closing: (wait: TimeInterval, onEvent: EventHandler?)) async throws -> Opened
     {
         guard !Task.isCancelled else { throw LiveKitError(.cancelled) }
         let key = Self.upgradeKey()
         _ = try Self.upgradeRequest(url: url, key: key, headers: headers)
         let connection = NWConnection(to: .url(url), using: Self.makeParameters(secure: ["wss", "https"].contains(url.scheme?.lowercased() ?? ""),
                                                                                 timeoutInterval: timeoutInterval))
-        let core = Core(connection: connection, onEvent: onEvent)
+        let core = Core(connection: connection, closeWait: closing.wait, onEvent: closing.onEvent)
 
         let opening = AsyncCompleter<UpgradeResponse>(label: "WebSocket.open", defaultTimeout: timeoutInterval)
         connection.stateUpdateHandler = { state in
@@ -251,6 +258,7 @@ private struct Core: Sendable {
     let connection: NWConnection
     let lifecycle = StateSync(Lifecycle())
     let inbox = StateSync(WebSocket.Inbox())
+    let closeWait: TimeInterval
     let onEvent: WebSocket.EventHandler?
 
     func configure(_ compression: WebSocketCompression?) throws {
@@ -300,25 +308,25 @@ private struct Core: Sendable {
             guard $0.phase == .open else { return false }
             $0.phase = .closing
             connection.send(content: WebSocketFrame.clientClose(code), completion: .contentProcessed { _ in
-                if finishOnceWritten { finish() }
+                if finishOnceWritten { finish(cause: .closeFrame) }
             })
             return true
         }) else { return false }
-        WebSocket.queue.asyncAfter(deadline: .now() + .milliseconds(250)) {
-            finish()
+        WebSocket.queue.asyncAfter(deadline: .now() + closeWait) {
+            finish(cause: .closeDeadline)
             onEvent?(.closeDeadline)
         }
         return true
     }
 
-    func finish() {
+    func finish(cause: WebSocket.TeardownCause = .failure) {
         guard lifecycle.mutate({
             guard $0.phase != .closed else { return false }
             $0.phase = .closed
             return true
         }) else { return }
         WebSocket.cancel(connection)
-        onEvent?(.teardown)
+        onEvent?(.teardown(cause))
     }
 
     /// Writes `frame` while the socket is open, under the lock that our close frame is written under, so that no
@@ -375,7 +383,7 @@ private struct Core: Sendable {
     /// The stream ended with a close frame from the server, or broke the protocol. The server's close frame ends the
     /// handshake when it answers ours; otherwise our close frame goes out with `code`, and the connection with it.
     private func answer(_ code: UInt16) {
-        guard startClosing(code: code, finishOnceWritten: true) else { return finish() }
+        guard startClosing(code: code, finishOnceWritten: true) else { return finish(cause: .closeFrame) }
     }
 
     /// One TCP read at a time, as `Inbox.startReceive()` grants it.

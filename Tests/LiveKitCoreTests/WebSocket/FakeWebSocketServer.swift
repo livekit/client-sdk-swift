@@ -82,7 +82,6 @@ final class FakeWebSocketServer: Sendable {
 
     /// The client's frames, in the order they arrived.
     let frames = StateSync<[ClientFrame]>([])
-    /// When the server answered the client's close frame, in `DispatchTime` uptime nanoseconds.
     let closeAnswered = StateSync<UInt64?>(nil)
     /// Resumed with the time, in `DispatchTime` uptime nanoseconds, the client dropped TCP after its close frame.
     let clientGone = AsyncCompleter<UInt64>(label: "FakeWebSocketServer.clientGone", defaultTimeout: 5)
