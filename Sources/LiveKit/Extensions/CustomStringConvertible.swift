@@ -20,10 +20,9 @@ package import CLiveKitProto
 import CLiveKitProto
 import LiveKitNanopb
 #endif
+internal import LiveKitWebRTC
 import AVFoundation
 import Foundation
-
-internal import LiveKitWebRTC
 
 // Messages are all one generic type, so there is a single conformance and a
 // single witness. Per-message detail is reached through `NanopbStorage`'s
@@ -131,13 +130,13 @@ extension Track.Source: CustomStringConvertible {
 extension LKRTCPeerConnectionState {
     var description: String {
         switch self {
-        case .new: return ".new"
-        case .connecting: return ".connecting"
-        case .connected: return ".connected"
-        case .disconnected: return ".disconnected"
-        case .failed: return ".failed"
-        case .closed: return ".closed"
-        @unknown default: return "unknown"
+        case .new: ".new"
+        case .connecting: ".connecting"
+        case .connected: ".connected"
+        case .disconnected: ".disconnected"
+        case .failed: ".failed"
+        case .closed: ".closed"
+        @unknown default: "unknown"
         }
     }
 }

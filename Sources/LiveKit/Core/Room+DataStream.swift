@@ -27,12 +27,16 @@ public extension Room {
     ///     ``ByteStreamReader`` for consuming the stream data and the identity of
     ///     the remote participant who initiated the stream.
     ///
+    /// - Note: Each stream gets its own background task, so handlers can run at the same time,
+    ///   also for two streams on the same topic. A handler is not on the main actor; hop there for
+    ///   UI work.
+    ///
     func registerByteStreamHandler(for topic: String, onNewStream: @escaping ByteStreamHandler) async throws {
         guard !topic.hasPrefix(Room.reservedTopicPrefix) else {
             throw LiveKitError(.invalidParameter,
                                message: "Stream topic prefix '\(Room.reservedTopicPrefix)' is reserved for internal SDK use")
         }
-        try await incomingStreamManager.registerByteStreamHandler(for: topic, onNewStream)
+        try dataStreams.registerByteStreamHandler(for: topic, onNewStream)
     }
 
     /// Registers a handler for incoming text streams matching the given topic.
@@ -45,12 +49,16 @@ public extension Room {
     ///     ``TextStreamReader`` for consuming the stream data and the identity of
     ///     the remote participant who initiated the stream.
     ///
+    /// - Note: Each stream gets its own background task, so handlers can run at the same time,
+    ///   also for two streams on the same topic. A handler is not on the main actor; hop there for
+    ///   UI work.
+    ///
     func registerTextStreamHandler(for topic: String, onNewStream: @escaping TextStreamHandler) async throws {
         guard !topic.hasPrefix(Room.reservedTopicPrefix) else {
             throw LiveKitError(.invalidParameter,
                                message: "Stream topic prefix '\(Room.reservedTopicPrefix)' is reserved for internal SDK use")
         }
-        try await incomingStreamManager.registerTextStreamHandler(for: topic, onNewStream)
+        try dataStreams.registerTextStreamHandler(for: topic, onNewStream)
     }
 
     /// Unregisters a byte stream handler that was previously registered for the given topic.
@@ -60,7 +68,7 @@ public extension Room {
     @objc
     func unregisterByteStreamHandler(for topic: String) async {
         guard !topic.hasPrefix(Room.reservedTopicPrefix) else { return }
-        await incomingStreamManager.unregisterByteStreamHandler(for: topic)
+        dataStreams.unregisterByteStreamHandler(for: topic)
     }
 
     /// Unregisters a text stream handler that was previously registered for the given topic.
@@ -70,15 +78,23 @@ public extension Room {
     @objc
     func unregisterTextStreamHandler(for topic: String) async {
         guard !topic.hasPrefix(Room.reservedTopicPrefix) else { return }
-        await incomingStreamManager.unregisterTextStreamHandler(for: topic)
+        dataStreams.unregisterTextStreamHandler(for: topic)
     }
 }
+
+// MARK: - Handler type aliases
+
+/// Handler for incoming byte data streams.
+public typealias ByteStreamHandler = @Sendable (ByteStreamReader, Participant.Identity) async throws -> Void
+
+/// Handler for incoming text data streams.
+public typealias TextStreamHandler = @Sendable (TextStreamReader, Participant.Identity) async throws -> Void
 
 extension Room {
     /// Reserved data-stream topic prefix for RPC v2 (`lk.rpc_request` / `lk.rpc_response`,
     /// and any future `lk.rpc_*` topics). The broader `lk.*` namespace is convention-only
     /// — other internal features (chat, transcription, etc.) bypass the public API by
-    /// going through `incomingStreamManager` directly and aren't enforced here.
+    /// going through ``DataStreams`` directly and aren't enforced here.
     static let reservedTopicPrefix = "lk.rpc"
 }
 

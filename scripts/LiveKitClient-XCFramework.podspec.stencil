@@ -26,5 +26,5 @@ Pod::Spec.new do |spec|
   spec.vendored_frameworks = "LiveKit.xcframework"
 
   spec.dependency("LiveKitWebRTC", "= {{ webrtcVersion }}")
-  spec.dependency("LiveKitUniFFI", "= {{ uniffiVersion }}")
+  spec.dependency("LiveKitFFI", "= {{ uniffiVersion }}")
 end
