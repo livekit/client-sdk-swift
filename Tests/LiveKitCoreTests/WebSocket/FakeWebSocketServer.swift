@@ -353,6 +353,8 @@ extension FakeWebSocketServer {
         default:
             return nil
         }
-        return Data(head.replacingOccurrences(of: "{accept}", with: accept).utf8) + then
+        let response = head.replacingOccurrences(of: "{accept}", with: accept)
+            .replacingOccurrences(of: "{port}", with: listener.port.map { String($0.rawValue) } ?? "0")
+        return Data(response.utf8) + then
     }
 }

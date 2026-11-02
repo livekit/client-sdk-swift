@@ -105,14 +105,16 @@ actor WebSocket: Loggable, AsyncSequence {
                 if let target = try Self.redirectedURL(response, from: requestURL) {
                     guard redirects < 20 else { throw LiveKitError(.network, internalError: URLError(.httpTooManyRedirects)) }
                     redirects += 1
+                    if !authenticated || !Self.isSameOrigin(requestURL, target) {
+                        requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
+                    }
                     requestURL = target
-                    requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
                 } else if !authenticated, let authorization = Self.basicAuthorization(response, url: requestURL) {
                     authenticated = true
                     requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
                     requestHeaders.append(("Authorization", authorization))
                 } else {
-                    throw error
+                    throw LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: response.statusCode))
                 }
             }
         }

@@ -18,7 +18,7 @@ internal import CFNetwork
 import Foundation
 
 extension WebSocket {
-    /// URLSession follows at most twenty HTTP redirects, drops Authorization even on the same host, and permits
+    /// URLSession follows at most twenty HTTP redirects, drops caller Authorization even on the same host, and permits
     /// transitions between secure and cleartext WebSocket/HTTP URLs. The caller rebuilds Host and stored cookies.
     static func redirectedURL(_ response: WebSocketUpgradeFailure, from url: URL) throws -> URL? {
         guard [301, 302, 303, 307, 308].contains(response.statusCode) else { return nil }
@@ -35,12 +35,22 @@ extension WebSocket {
         return components.url
     }
 
+    static func isSameOrigin(_ source: URL, _ target: URL) -> Bool {
+        guard let source = httpURL(source), let target = httpURL(target), source.scheme == target.scheme,
+              let sourceHost = source.host, let targetHost = target.host,
+              sourceHost.caseInsensitiveCompare(targetHost) == .orderedSame else { return false }
+        let defaultPort = source.scheme == "https" ? 443 : 80
+        return (source.port ?? defaultPort) == (target.port ?? defaultPort)
+    }
+
     /// The default credential is scoped to this endpoint and Basic realm. CFNetwork builds the header, as it did for
     /// URLSession; every CFHTTPMessage here is local to this call. The caller permits only one challenge retry.
     static func basicAuthorization(_ response: WebSocketUpgradeFailure, url: URL) -> String? {
         guard response.statusCode == 401, let url = httpURL(url), let host = url.host else { return nil }
+        let challenges = response.headers.filter { $0.name == "www-authenticate" }.map(\.value)
+        guard challengeSchemes(challenges).isDisjoint(with: ["digest", "ntlm", "negotiate"]) else { return nil }
         let port = url.port ?? (url.scheme == "https" ? 443 : 80)
-        for header in response.headers.filter({ $0.name == "www-authenticate" }).map(\.value) {
+        for header in challenges {
             for realm in basicRealms(header) {
                 let space = URLProtectionSpace(host: host, port: port, protocol: url.scheme, realm: realm,
                                                authenticationMethod: NSURLAuthenticationMethodHTTPBasic)
@@ -56,6 +66,15 @@ extension WebSocket {
             }
         }
         return nil
+    }
+
+    private static func challengeSchemes(_ headers: [String]) -> Set<String> {
+        Set(headers.flatMap(authenticationFields).compactMap { field in
+            let prefix = field.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false).first ?? ""
+            let tokens = prefix.split(whereSeparator: \.isWhitespace)
+            guard !field.contains("=") || tokens.count > 1 else { return nil }
+            return tokens.first.map { String($0).lowercased() }
+        })
     }
 
     /// Commas inside quoted realms are data; commas between parameters/challenges separate fields (RFC 7235).

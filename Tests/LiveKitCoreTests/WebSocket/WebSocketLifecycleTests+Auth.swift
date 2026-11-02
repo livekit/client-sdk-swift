@@ -109,10 +109,17 @@ extension WebSocketLifecycleTests {
         let url = try await server.url()
         let stored = try Self.storeBasicCredential(url: url, realm: realm)
         defer { URLCredentialStorage.shared.remove(stored.credential, for: stored.space) }
-        let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
-        defer { socket.close() }
-        #expect(server.requests.copy().count == 2)
-        #expect(Self.authorization(server.requestHeaders.copy()) == "Basic cHJvYmU6c2VjcmV0")
+        if format == "combined" {
+            let error = await #expect(throws: LiveKitError.self) { try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10) }
+            #expect((error?.internalError as? WebSocketUpgradeFailure)?.statusCode == 401)
+            #expect(server.requests.copy().count == 1)
+            #expect(Self.authorization(server.requestHeaders.copy()) == nil)
+        } else {
+            let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
+            defer { socket.close() }
+            #expect(server.requests.copy().count == 2)
+            #expect(Self.authorization(server.requestHeaders.copy()) == "Basic cHJvYmU6c2VjcmV0")
+        }
     }
 
     @Test(arguments: ["ws", "wss", "http", "https"])
@@ -165,7 +172,7 @@ extension WebSocketLifecycleTests {
     }
 }
 
-private extension WebSocketLifecycleTests {
+extension WebSocketLifecycleTests {
     static func storeBasicCredential(url: URL, realm: String, scope: String = "matching") throws -> (space: URLProtectionSpace, credential: URLCredential) {
         let host = try #require(url.host)
         let secure = ["wss", "https"].contains(url.scheme ?? "")

@@ -22,6 +22,7 @@ import Network
 /// protocols. Carried as the `internalError` of the thrown ``LiveKitError``.
 struct WebSocketUpgradeFailure: Error, Sendable {
     let statusCode: Int
+    /// Retry metadata, removed before the failure leaves WebSocket.init.
     var headers: [(name: String, value: String)] = []
 }
 
@@ -68,7 +69,7 @@ extension WebSocket {
     }
 
     /// Reads the answer to the upgrade request, at most ``upgradeResponseLimit`` bytes for every head it holds, and
-    /// resumes `opening` once ``upgradeOutcome(_:key:)`` settles it.
+    /// resumes `opening` once ``upgradeOutcome(_:key:url:compressionOffered:)`` settles it.
     static func readUpgradeResponse(_ connection: NWConnection, url: URL, key: String, compressionOffered: Bool,
                                     into opening: AsyncCompleter<UpgradeResponse>, read: Data = Data())
     {
@@ -104,7 +105,8 @@ extension WebSocket {
             let fields = fields(of: lines.dropFirst())
             if let url, let fields { storeCookies(fields, for: url) }
             guard status == 101 else {
-                return .failed(LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: status, headers: fields ?? [])))
+                let retryHeaders = fields?.filter { ["location", "www-authenticate"].contains($0.name) } ?? []
+                return .failed(LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: status, headers: retryHeaders)))
             }
             guard minor >= 1 else { return .failed(badUpgradeResponse("a 101 in HTTP/1.0")) }
             if let failure = switchingFailure(fields, key: key) { return .failed(failure) }
