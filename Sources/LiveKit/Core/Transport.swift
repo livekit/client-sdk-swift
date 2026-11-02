@@ -550,7 +550,7 @@ extension Transport {
     /// pre-populated or unpublished section lands; `sendonly`, `sendrecv` and an omitted
     /// direction (which defaults to `sendrecv`, RFC 8866 §6.7) all send.
     nonisolated static func isSendingVideoSection(_ section: SDPMediaSection) -> Bool {
-        section.mediaType == "video" && section.direction != .recvonly && section.direction != .inactive
+        section.mediaType == "video" && !isReceiveOnlySection(section)
     }
 
     /// The single start bitrate for the peer connection described by `document`: the largest
@@ -618,39 +618,31 @@ extension Transport {
         section.direction == .recvonly || section.direction == .inactive
     }
 
-    /// Munge the offer so every payload type carries identical fmtp parameters across the BUNDLE
-    /// group, by conforming the sections that cannot send to the ones that can.
+    /// Munge the offer so every payload type carries identical fmtp parameters document-wide,
+    /// by conforming the sections that cannot send to the ones that can.
     ///
     /// A payload type is bundle-wide, so libwebrtc expects it to map to identical codec
     /// parameters in every m-line and reports "A BUNDLE group contains a codec collision
-    /// between ..." where it does not. Single PC mode creates exactly that divergence:
-    /// ``mungeVideoStartBitrate(_:kbpsBySenderId:)`` writes `x-google-start-bitrate` on the
-    /// sections that send video, while the receive sections preallocated for subscribed media
-    /// share those payload types without it.
+    /// between ..." where it does not. ``mungeVideoStartBitrate(_:kbpsBySenderId:)`` creates
+    /// exactly that divergence: it writes `x-google-start-bitrate` on the sections that send
+    /// video, while the receive sections of single PC mode share those payload types without it.
     ///
-    /// On the local-description path that report is a log, not an enforcement: the description
-    /// is accepted, the munge is not dropped, and the hint reaches the peer connection either
-    /// way. This runs because an SDP whose bundle is self-inconsistent is still wrong, and
-    /// because what libwebrtc tolerates here it does not everywhere — the same divergence in
-    /// the server's *answer* is reported on every single-PC negotiation, which this cannot
-    /// reach, since conforming an answer means selecting sections by transceiver rather than by
-    /// direction (an answer mirrors it) and munging a remote description.
+    /// On the local-description path that report is a log, not an enforcement. This runs because
+    /// an SDP whose bundle is self-inconsistent is still wrong, and because what libwebrtc
+    /// tolerates here it does not everywhere. It cannot reach the same divergence in the
+    /// server's *answer*, which would mean selecting sections by transceiver and munging a
+    /// remote description.
     ///
-    /// Sending sections always win, so a published track's encoder parameters are never altered.
-    /// Where no sending section declares a payload type, the receive sections converge on the
-    /// first config seen so two of them cannot disagree either. It is codec-agnostic by design:
-    /// it conforms whatever diverged rather than `x-google-start-bitrate` specifically, which is
-    /// what keeps it correct as other munges are added — ``mungeOpusStereoForAllAudio(_:)`` only
-    /// avoids the same fate by writing `stereo=1` to receive sections too.
+    /// Sending sections always win, so a published track's encoder parameters are never altered;
+    /// where two of them disagree the first wins, which at least keeps the receive sections
+    /// consistent with one of them. Codec-agnostic by design: it conforms whatever diverged
+    /// rather than `x-google-start-bitrate` specifically.
     ///
     /// Must run last, after every munge that can introduce divergence.
     ///
-    /// Mirrors `conformBundledCodecFmtp` in client-sdk-js, with two differences. That version
-    /// selects the sections to rewrite by transceiver — those with no outgoing track — where
-    /// this reads the direction the SDP already states, which libwebrtc derives from that same
-    /// state and which keeps the munge a pure `String -> String` like its siblings. And it only
-    /// rewrites fmtp lines that exist, where this inserts one when a receive section declares
-    /// the payload in an `a=rtpmap` but has no fmtp for it; "parameters vs. no parameters" is a
+    /// Mirrors `conformBundledCodecFmtp` in client-sdk-js, which selects sections by transceiver
+    /// where this reads the direction the SDP already states, and which only rewrites fmtp lines
+    /// that exist where this also inserts and removes them — "parameters vs. no parameters" is a
     /// collision too, and it is the one VP8 hits, since libwebrtc offers it without an fmtp line.
     nonisolated static func conformBundledCodecFmtp(_ sdp: String) -> String {
         var document = SDP(parsing: sdp)
@@ -662,19 +654,16 @@ extension Transport {
             // exactly as two different parameter sets do, so the absence has to be recorded or
             // a receive section's fmtp would become canonical for a payload the sender leaves
             // bare — and the rewrite below, which only touches receive sections, could never
-            // resolve it. A sending section overwrites unconditionally, so it wins regardless
-            // of the order the sections appear in.
-            for rtpmap in section.rtpmaps {
+            // resolve it.
+            //
+            // First writer wins. Two sending sections can disagree — libwebrtc offers that
+            // after a second video publish — and neither can be rewritten, so the collision
+            // between them stands either way; picking the first at least makes what the receive
+            // sections are conformed to independent of section order.
+            for rtpmap in section.rtpmaps where canonicalByPayload[rtpmap.payload] == nil {
                 canonicalByPayload[rtpmap.payload] = section.fmtp(forPayload: rtpmap.payload)?.config ?? ""
             }
         }
-        for section in document.mediaSections where isReceiveOnlySection(section) {
-            for fmtp in section.fmtps where canonicalByPayload[fmtp.payload] == nil {
-                canonicalByPayload[fmtp.payload] = fmtp.config
-            }
-        }
-        guard !canonicalByPayload.isEmpty else { return sdp }
-
         var modified = false
         for index in document.mediaSections.indices where isReceiveOnlySection(document.mediaSections[index]) {
             // Keyed off `a=rtpmap` rather than the existing fmtp lines: a payload the section

@@ -232,17 +232,49 @@ struct TransportMungeFallbackTests {
         }
     }
 
-    /// Every payload type's distinct fmtp configs across the document, keyed by payload. A
-    /// payload declared by `a=rtpmap` with no fmtp line contributes the empty config, since
-    /// libwebrtc counts "parameters" against "no parameters" as a collision too.
-    private func fmtpConfigsByPayload(_ sdp: String) -> [String: Set<String>] {
-        var result: [String: Set<String>] = [:]
-        for section in SDP(parsing: sdp).mediaSections {
-            for rtpmap in section.rtpmaps {
-                result[rtpmap.payload, default: []].insert(section.fmtp(forPayload: rtpmap.payload)?.config ?? "")
+    /// The wiring, not the munge: `createAndSendOffer` on a single PC transport must put the
+    /// conform pass in the chain, so deleting that call fails here rather than only showing up
+    /// as a collision log in a benchmark run.
+    @Test func singlePCOfferIsBundleConsistentEndToEnd() async throws {
+        let transport = try await Transport(config: .liveKitDefault(),
+                                            target: .publisher,
+                                            primary: true,
+                                            singlePCMode: true,
+                                            delegate: StubTransportDelegate())
+        do {
+            // The sender is added with a start-bitrate hint, so the offer genuinely diverges:
+            // without one there is nothing for the conform pass to repair and this would pass
+            // with the call deleted.
+            try await RTC.run {
+                let receive = LKRTCRtpTransceiverInit()
+                receive.direction = .recvOnly
+                for _ in 0 ..< 3 {
+                    _ = try transport.addTransceiver(ofType: .video, transceiverInit: receive)
+                }
+                let send = LKRTCRtpTransceiverInit()
+                send.direction = .sendOnly
+                let track = RTC.createVideoTrack(source: RTC.createVideoSource(forScreenShare: false))
+                _ = try transport.addTransceiver(with: track, transceiverInit: send, startBitrateKbps: 1000)
             }
+
+            let offers = OfferBox()
+            await transport.set(onOfferBlock: { offer, _ in await offers.append(offer) })
+            try await transport.createAndSendOffer()
+
+            let signalled = try #require(await offers.all.last)
+            let applied = try #require(await transport.localDescription)
+
+            #expect(Transport.carriesVideoStartBitrate(signalled.sdp),
+                    "the start bitrate must still reach the offer")
+            for sdp in [signalled.sdp, applied.sdp] {
+                #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(sdp).allSatisfy { $0.value.count == 1 },
+                        "the offer the SDK sends must carry one fmtp config per payload type")
+            }
+        } catch {
+            await transport.close()
+            throw error
         }
-        return result
+        await transport.close()
     }
 
     /// What the conform pass exists for, on the shipped libwebrtc: with receive sections sharing
@@ -263,7 +295,7 @@ struct TransportMungeFallbackTests {
 
             #expect(applied !== offer)
             #expect(Transport.carriesVideoStartBitrate(applied.sdp))
-            #expect(fmtpConfigsByPayload(applied.sdp).contains { $0.value.count > 1 })
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(applied.sdp).contains { $0.value.count > 1 })
         }
     }
 
@@ -281,7 +313,7 @@ struct TransportMungeFallbackTests {
 
             #expect(applied !== offer)
             #expect(Transport.carriesVideoStartBitrate(applied.sdp))
-            #expect(fmtpConfigsByPayload(applied.sdp).allSatisfy { $0.value.count == 1 })
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(applied.sdp).allSatisfy { $0.value.count == 1 })
             let sending = try #require(SDP(parsing: applied.sdp).mediaSections.first { $0.msidTrackId == senderId })
             for rtpmap in sending.rtpmaps where Transport.startBitrateCodecs.contains(rtpmap.codec.uppercased()) {
                 #expect(sending.fmtp(forPayload: rtpmap.payload)?.parameters.contains("x-google-start-bitrate=1000") == true,

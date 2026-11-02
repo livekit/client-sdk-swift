@@ -91,18 +91,27 @@ struct BundledCodecFmtpTests {
                                                     "x-google-start-bitrate=900"])
     }
 
-    /// With no sending section to copy from, the receive sections still converge on one
-    /// config — two of them disagreeing is a bundle collision just the same.
-    @Test func receiveSectionsConvergeWithoutASendingSection() {
-        let receiveOnly = Self.singlePCOffer
-            .replacingOccurrences(of: "a=fmtp:96 packetization-mode=1;x-google-start-bitrate=900\r\n", with: "")
-            .replacingOccurrences(of: "a=fmtp:100 x-google-start-bitrate=900\r\n", with: "")
-            .replacingOccurrences(of: "a=sendonly", with: "a=recvonly")
+    /// Two sending sections can disagree — libwebrtc offers that after a second video publish.
+    /// Neither is rewritten, so the collision between them stands; what this pins is that the
+    /// receive sections are conformed to the first of them whichever order they appear in.
+    @Test(arguments: [false, true])
+    func firstSendingSectionWinsWhenSendersDisagree(reversed: Bool) {
+        var document = SDP(parsing: Self.singlePCOffer)
+        // A second sending video section declaring payload 100 with a different config.
+        let second = SDP(parsing: Self.singlePCOffer).mediaSections[2]
+        var rival = second
+        _ = rival.setFmtp(config: "x-google-start-bitrate=250", forPayload: "100")
+        document.mediaSections.insert(rival, at: 3)
+        if reversed { document.mediaSections.swapAt(2, 3) }
 
-        let sections = SDP(parsing: Transport.conformBundledCodecFmtp(receiveOnly)).mediaSections
+        let sections = SDP(parsing: Transport.conformBundledCodecFmtp(document.write())).mediaSections
+        let receiving = try? #require(sections.last { $0.direction == .recvonly })
+        let firstSenderConfig = sections.first { !($0.direction == .recvonly || $0.direction == .inactive)
+            && $0.mediaType == "video"
+        }?.fmtp(forPayload: "100")?.config
 
-        #expect(Set(sections[0].fmtps.map(\.config)) == Set(sections[1].fmtps.map(\.config)))
-        #expect(sections[2].fmtps.map(\.config) == sections[3].fmtps.map(\.config))
+        #expect(receiving?.fmtp(forPayload: "100")?.config == firstSenderConfig,
+                "receive sections must follow the first sending section, not the last")
     }
 
     /// `inactive` is the other direction a section with no outgoing track lands on — an
@@ -137,20 +146,42 @@ struct BundledCodecFmtpTests {
             == once.replacingOccurrences(of: "a=recvonly", with: "a=sendrecv"))
     }
 
-    /// A payload a sending section declares with no fmtp at all is canonical in that state, so a
-    /// receive section carrying parameters for it is stripped rather than left to collide. The
-    /// rewrite only visits receive sections, so recording the absence is the only way this
+    /// Both orders of a bare sender and a parameterised receive section. The sender's *absence*
+    /// of fmtp is canonical, so the receive section's line is removed rather than adopted —
+    /// the rewrite only visits receive sections, so recording the absence is the only way this
     /// resolves.
-    @Test func sendingSectionWithoutFmtpStripsTheReceiveSection() {
-        let senderBare = Self.singlePCOffer
-            .replacingOccurrences(of: "a=fmtp:100 x-google-start-bitrate=900\r\n", with: "")
-        let sections = SDP(parsing: Transport.conformBundledCodecFmtp(senderBare)).mediaSections
+    @Test(arguments: [false, true])
+    func sendingSectionWithoutFmtpStripsTheReceiveSection(receiveSectionFirst: Bool) throws {
+        // Sender (mid 2) bare for payload 100; receive section (mid 3) carries parameters for it.
+        var offer = Self.singlePCOffer
+            .replacingOccurrences(of: "a=rtpmap:100 VP8/90000\r\na=fmtp:100 x-google-start-bitrate=900\r\na=sendonly",
+                                  with: "a=rtpmap:100 VP8/90000\r\na=sendonly")
+            .replacingOccurrences(of: "a=rtpmap:100 VP8/90000\r\na=recvonly",
+                                  with: "a=rtpmap:100 VP8/90000\r\na=fmtp:100 x-google-start-bitrate=900\r\na=recvonly")
 
-        // Sending section (mid 2) declares 100 with no fmtp; the receive section must match.
-        #expect(sections[2].fmtp(forPayload: "100") == nil)
-        #expect(sections[3].fmtp(forPayload: "100") == nil)
-        #expect(Self.fmtpConfigsByPayload(Transport.conformBundledCodecFmtp(senderBare))
-            .allSatisfy { $0.value.count == 1 })
+        if receiveSectionFirst {
+            offer = try Self.swappingLastTwoVideoSections(offer)
+        }
+
+        // The divergence the conform pass has to resolve: payload 100 is declared bare by one
+        // section and parameterised by the other.
+        #expect(Self.fmtpConfigsByPayload(offer)["100"] == ["", "x-google-start-bitrate=900"])
+
+        let conformed = Transport.conformBundledCodecFmtp(offer)
+        #expect(Self.fmtpConfigsByPayload(conformed)["100"] == [""],
+                "the receive section's fmtp:100 must be removed to match the bare sender")
+        #expect(Self.fmtpConfigsByPayload(conformed).allSatisfy { $0.value.count == 1 })
+    }
+
+    /// Reorders the document so the receive video section precedes the sending one, which is a
+    /// layout libwebrtc produces when a receive section is negotiated before a publish.
+    private static func swappingLastTwoVideoSections(_ sdp: String) throws -> String {
+        let document = SDP(parsing: sdp)
+        let videoIndices = document.mediaSections.indices.filter { document.mediaSections[$0].mediaType == "video" }
+        let (first, second) = (try #require(videoIndices.first), try #require(videoIndices.last))
+        var reordered = document
+        reordered.mediaSections.swapAt(first, second)
+        return reordered.write()
     }
 
     /// The pipeline the publisher actually runs: the start-bitrate munge diverges the shared
@@ -168,7 +199,7 @@ struct BundledCodecFmtpTests {
     /// Every fmtp config each payload type is given across the document, keyed by payload. A
     /// payload declared by `a=rtpmap` but given no fmtp line contributes the empty config,
     /// since "parameters" and "no parameters" collide just as two different parameter sets do.
-    private static func fmtpConfigsByPayload(_ sdp: String) -> [String: Set<String>] {
+    static func fmtpConfigsByPayload(_ sdp: String) -> [String: Set<String>] {
         var result: [String: Set<String>] = [:]
         for section in SDP(parsing: sdp).mediaSections {
             for rtpmap in section.rtpmaps {
