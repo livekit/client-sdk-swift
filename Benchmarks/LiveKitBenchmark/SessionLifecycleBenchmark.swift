@@ -51,11 +51,6 @@ private let mPubToFrame: BenchmarkMetric = .custom("publish_to_first_frame_ms", 
 private let mDataRtt: BenchmarkMetric = .custom("data_rtt_ms", polarity: .prefersSmaller, useScalingFactor: false)
 private let mDisconnect: BenchmarkMetric = .custom("disconnect_ms", polarity: .prefersSmaller, useScalingFactor: false)
 
-/// 1 per iteration that never reached a milestone, 0 per iteration that completed. See the same
-/// metric in BM-JOIN: an arm that intermittently fails must not read as a reliable one with
-/// fewer samples.
-private let mFailed: BenchmarkMetric = .custom("failed_iterations", polarity: .prefersSmaller, useScalingFactor: false)
-
 private let sessionMetrics = [mConnect, mPeerVisible, mPubToSub, mFirstFrame, mPubToFrame, mDataRtt, mDisconnect, mFailed]
 
 let sessionLifecycleBenchmarks: @Sendable () -> Void = {
@@ -78,30 +73,18 @@ let sessionLifecycleBenchmarks: @Sendable () -> Void = {
             let config = BenchmarkConfig.fromEnvironment()
             let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)
 
-            for _ in benchmark.scaledIterations {
-                // Buffered so a session that fails late contributes nothing at all, rather than
-                // the milestones it happened to reach before failing.
-                let samples = MeasurementBuffer()
-                let failure = await runTolerantly {
-                    try await runSession(benchmark: benchmark,
-                                         samples: samples,
-                                         config: config,
-                                         tokenGen: tokenGen,
-                                         singlePC: singlePC)
-                }
-                if failure == nil { samples.commit(to: benchmark) }
-                reportFailure(failure, variant: name)
-                benchmark.measurement(mFailed, failure == nil ? 0 : 1)
-                // Rooms are torn down; give the SFU a beat before the next identity joins.
-                try await Task.sleep(nanoseconds: 2_000_000_000)
+            try await runIterations(benchmark, variant: name) { samples in
+                try await runSession(samples: samples,
+                                     config: config,
+                                     tokenGen: tokenGen,
+                                     singlePC: singlePC)
             }
         }
     }
 }
 
 /// One publisher/subscriber session, emitting every lifecycle metric from a single connection.
-private func runSession(benchmark _: Benchmark,
-                        samples: MeasurementBuffer,
+private func runSession(samples: MeasurementBuffer,
                         config: BenchmarkConfig,
                         tokenGen: TokenGenerator,
                         singlePC: Bool) async throws
@@ -148,8 +131,7 @@ private func runSession(benchmark _: Benchmark,
         // pub_to_sub_ms / first_frame_ms / publish_to_first_frame_ms
         let frameFeeder = try await measurePublishToFirstFrame(samples: samples,
                                                                publisher: publisher,
-                                                               observer: subscriberObserver,
-                                                               singlePC: singlePC)
+                                                               observer: subscriberObserver)
         defer { frameFeeder.cancel() }
 
         // data_rtt_ms — publisher → subscriber → publisher.
@@ -179,12 +161,11 @@ private func runSession(benchmark _: Benchmark,
 /// Publishes a video track into the established session and records the three milestones that
 /// follow, returning the feeder task so the caller can stop it with the rest of the session.
 ///
-/// Split out from ``runSession(benchmark:config:tokenGen:singlePC:)`` because the publish-to-frame
-/// leg is the one under investigation and reads better whole.
+/// Extracted to keep ``runSession(samples:config:tokenGen:singlePC:)`` inside
+/// `function_body_length`, not for reuse.
 private func measurePublishToFirstFrame(samples: MeasurementBuffer,
                                         publisher: Room,
-                                        observer: SubscriberObserver,
-                                        singlePC: Bool) async throws -> Task<Void, Never>
+                                        observer: SubscriberObserver) async throws -> Task<Void, Never>
 {
     // Camera source explicitly: `createBufferTrack` defaults to `.screenShareVideo`, which
     // selects screen-share encoder presets and an uncapped start bitrate — not what a call
@@ -197,9 +178,6 @@ private func measurePublishToFirstFrame(samples: MeasurementBuffer,
     do {
         let publishStart = nowMs()
         try await publisher.localParticipant.publish(videoTrack: track)
-        // Splits the publisher's own negotiation off the subscriber's: `publish` returns once the
-        // track is published, so anything after this is the subscribe path, not the publish path.
-        let publishedAt = nowMs()
         let subscribedAt = try await observer.subscribed.wait()
         let firstFrameAt = try await observer.firstFrame.wait()
 
@@ -207,12 +185,6 @@ private func measurePublishToFirstFrame(samples: MeasurementBuffer,
         samples.record(mFirstFrame, Int(firstFrameAt - subscribedAt))
         samples.record(mPubToFrame, Int(firstFrameAt - publishStart))
 
-        Timeline.mark(singlePC ? "SinglePC" : "DualPC", [
-            ("publish", publishStart),
-            ("published", publishedAt),
-            ("subscribed", subscribedAt),
-            ("frame", firstFrameAt),
-        ])
         return frameFeeder
     } catch {
         frameFeeder.cancel()

@@ -153,12 +153,16 @@ struct BenchmarkTimeout: Error, CustomStringConvertible {
 ///
 /// - Returns: The milestone that timed out, or `nil` if the iteration completed.
 @discardableResult
-func runTolerantly(_ iteration: () async throws -> Void) async -> String? {
+func runTolerantly(_ iteration: () async throws -> Void) async throws -> String? {
     do {
         try await iteration()
         return nil
+    } catch is CancellationError {
+        // The run is being torn down, not a flaky iteration. Counting it as one would report a
+        // failure rate for a variant that was simply stopped.
+        throw CancellationError()
     } catch let timeout as BenchmarkTimeout {
-        return timeout.milestone
+        return timeout.description
     } catch {
         return "\(error)"
     }
@@ -194,9 +198,11 @@ final class MeasurementBuffer {
 /// results table has no column for it. One line per failure — the framework invokes a benchmark
 /// body once per iteration, so there is no point in the body at which a per-variant total could
 /// be known. Count the lines to get the rate.
-func reportFailure(_ milestone: String?, variant: String) {
-    guard let milestone else { return }
-    print("[\(variant)] iteration failed, never reached: \(milestone)")
+func reportFailure(_ reason: String?, variant: String) {
+    guard let reason else { return }
+    // `BenchmarkTimeout.description` already names the milestone it never reached, so one
+    // message covers a timeout and any other error without claiming a milestone for the latter.
+    print("[\(variant)] iteration failed: \(reason)")
 }
 
 /// Marks the moment a remote participant becomes visible to an already-connected peer.
@@ -293,7 +299,7 @@ final class LateJoinObserver: NSObject, RoomDelegate, @unchecked Sendable {
 }
 
 /// Reports frames from one remote video track, so per-track arrival can be distinguished.
-private final class FrameProbe: NSObject, VideoRenderer, @unchecked Sendable {
+private final class FrameProbe: NSObject, VideoRenderer, Sendable {
     private let onFrame: @Sendable () -> Void
 
     // Not adaptive: the benchmark must not have layers paused out from under it.

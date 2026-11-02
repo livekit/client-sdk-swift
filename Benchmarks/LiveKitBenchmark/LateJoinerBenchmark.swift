@@ -71,15 +71,17 @@ private let mConnectedToFrame: BenchmarkMetric = .custom("connected_to_first_fra
 /// 1 per iteration that never reached a milestone, 0 per iteration that completed — so a p90 of
 /// 1 means at least a tenth of the runs failed. Without it a flaky arm looks identical to a
 /// reliable one, only with fewer samples.
-private let mFailed: BenchmarkMetric = .custom("failed_iterations", polarity: .prefersSmaller, useScalingFactor: false)
-
 private let joinMetrics = [mConnect, mFirstSub, mAllSubs, mFirstFrame, mAllFrames, mConnectedToFrame, mFailed]
 
 /// Publisher counts to sweep, from `LK_BENCH_JOIN_PUBLISHERS` (comma-separated).
 ///
+/// The default straddles the three receive sections single PC mode preallocates per kind: at
+/// three publishers the joiner's video fits them exactly, at four it does not, so a cost that
+/// only appears once the server has to ask for more sections shows up as a step between them.
+///
 /// Read at registration time, so the variants a run declares match the environment it runs in.
 private func joinPublisherCounts() -> [Int] {
-    let fallback = [1, 5]
+    let fallback = [1, 3, 4, 5]
     guard let raw = ProcessInfo.processInfo.environment["LK_BENCH_JOIN_PUBLISHERS"], !raw.isEmpty else { return fallback }
     let parsed = raw.split(separator: ",")
         .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
@@ -87,14 +89,12 @@ private func joinPublisherCounts() -> [Int] {
     return parsed.isEmpty ? fallback : parsed
 }
 
-/// How long the seeded room is left publishing before the joiner arrives, from
-/// `LK_BENCH_JOIN_SETTLE_MS`. See the call site for why this is not a token delay.
-private func joinSettleMilliseconds() -> Int {
-    let fallback = 2000
-    guard let raw = ProcessInfo.processInfo.environment["LK_BENCH_JOIN_SETTLE_MS"],
-          let parsed = Int(raw), parsed >= 0 else { return fallback }
-    return parsed
-}
+/// How long the seeded room is left publishing before the joiner arrives.
+///
+/// Not a token delay: below about a second the joiner's `first_frame` measures the publishers'
+/// encoders still warming up rather than its own subscribe path, which inverts the result — one
+/// publisher reads slower than five. Two seconds is past that for every arm measured.
+private let joinSettleMilliseconds = 2000
 
 let lateJoinerBenchmarks: @Sendable () -> Void = {
     for publisherCount in joinPublisherCounts() {
@@ -118,21 +118,12 @@ let lateJoinerBenchmarks: @Sendable () -> Void = {
                 let config = BenchmarkConfig.fromEnvironment()
                 let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)
 
-                for _ in benchmark.scaledIterations {
-                    // As in BM-SESSION: an iteration contributes all of its samples or none.
-                    let samples = MeasurementBuffer()
-                    let failure = await runTolerantly {
-                        try await runLateJoin(samples: samples,
-                                              config: config,
-                                              tokenGen: tokenGen,
-                                              singlePC: singlePC,
-                                              publisherCount: publisherCount)
-                    }
-                    if failure == nil { samples.commit(to: benchmark) }
-                    reportFailure(failure, variant: "BM-JOIN-\(mode)-\(publisherCount)Pub")
-                    benchmark.measurement(mFailed, failure == nil ? 0 : 1)
-                    // Rooms are torn down; give the SFU a beat before the next room is seeded.
-                    try await Task.sleep(nanoseconds: 2_000_000_000)
+                try await runIterations(benchmark, variant: "BM-JOIN-\(mode)-\(publisherCount)Pub") { samples in
+                    try await runLateJoin(samples: samples,
+                                          config: config,
+                                          tokenGen: tokenGen,
+                                          singlePC: singlePC,
+                                          publisherCount: publisherCount)
                 }
             }
         }
@@ -147,6 +138,11 @@ private struct SeededRoom {
     func teardown() async {
         for feeder in feeders {
             feeder.cancel()
+        }
+        // Awaited, not just cancelled: a feeder still inside `capture` keeps the capturer and
+        // its track alive, so disconnecting underneath it tears the room down mid-capture.
+        for feeder in feeders {
+            await feeder.value
         }
         for publisher in publishers {
             await publisher.disconnect()
@@ -188,7 +184,7 @@ private func seedRoom(named roomName: String,
         // five, because seeding five takes longer and leaves the first of them further along. The
         // realistic arrangement is also the correct one here: the agent, or the first party to a
         // 1:1 call, has been publishing for seconds before anyone joins.
-        try await Task.sleep(nanoseconds: UInt64(joinSettleMilliseconds()) * 1_000_000)
+        try await Task.sleep(nanoseconds: UInt64(joinSettleMilliseconds) * 1_000_000)
         return seeded
     } catch {
         await seeded.teardown()
@@ -248,14 +244,6 @@ private func runLateJoin(samples: MeasurementBuffer,
         // statistic rather than show the ordering surprise.
         samples.record(mConnectedToFrame, max(0, Int(firstFrameAt - connectedAt)))
 
-        Timeline.mark("\(singlePC ? "SinglePC" : "DualPC")-\(publisherCount)Pub", [
-            ("join", joinStart),
-            ("connected", connectedAt),
-            ("firstSub", firstSubscribedAt),
-            ("allSubs", allSubscribedAt),
-            ("firstFrame", firstFrameAt),
-            ("allFrames", allFramesAt),
-        ])
     } catch {
         await teardown(joiner: joiner)
         throw error
