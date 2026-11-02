@@ -251,10 +251,18 @@ struct VideoViewRendererLifecycleTests {
 
         let drawable = try #require(RendererProbe.metalView(in: harness.view)).drawableSize
         let displayedAspect = CGFloat(Self.landscapeVideo.height) / CGFloat(Self.landscapeVideo.width)
-        print("[override] \(rotationOverride) drawable=\(Int(drawable.width))x\(Int(drawable.height))")
+        let scale = harness.view.currentScreenScale()
+        let rendererSize = try #require(harness.view._state.rendererSize)
+        let displayed = CGSize(width: rendererSize.width * scale, height: rendererSize.height * scale)
+        print("[override] \(rotationOverride) drawable=\(Int(drawable.width))x\(Int(drawable.height)) " +
+            "displayed=\(Int(displayed.width))x\(Int(displayed.height))")
 
         #expect(abs((drawable.width / drawable.height) - displayedAspect) / displayedAspect < 0.01,
                 "drawable is not in the overridden orientation")
+        // Aspect alone would also hold for a full-resolution 1080x1920 drawable, which is the
+        // thing this PR exists to prevent — so bound the size as well.
+        #expect(drawable.width <= displayed.width + 1, "drawable wider than the rotated display")
+        #expect(drawable.height <= displayed.height + 1, "drawable taller than the rotated display")
     }
 
     /// Switching to a track whose capture has stopped: `reconcileNativeRenderer` replays the

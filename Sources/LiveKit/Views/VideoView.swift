@@ -664,6 +664,10 @@ private extension VideoView {
         newView.frame = _primaryRenderer.frame
         // Store reference
         _secondaryRenderer = newView
+        // Same reason as in `reconcileNativeRenderer`: a renderer that has never been given a size
+        // falls back to sizing its drawable from its own bounds, which overshoots a source smaller
+        // than the view. This one becomes the primary after the swap, so it has to be sized too.
+        applyNativeVideoSize()
 
         return newView
     }

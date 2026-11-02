@@ -137,8 +137,13 @@ enum RendererProbe {
         /// Pushes one caller-owned buffer through the capturer and draws it, so the caller controls
         /// the buffer's lifetime rather than the harness.
         func captureAndDraw(_ buffer: CVPixelBuffer) async throws {
+            // Awaiting the render date, not a fixed sleep: a frame that never arrives puts no
+            // pressure on the caller's pool, so the measurement would pass having seen nothing.
+            let before = view._state.renderDate
             capturer.capture(buffer, rotation: rotation)
-            try await Task.sleep(nanoseconds: 8_000_000)
+            try await RendererProbe.pollOnMain(for: "frame reached the renderer") { [view] in
+                view._state.renderDate != before
+            }
             layOut()
             RendererProbe.metalView(in: view)?.draw()
         }

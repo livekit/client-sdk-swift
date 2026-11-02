@@ -43,7 +43,7 @@ struct VideoViewRendererMemoryTests {
     /// `RTCMTLVideoView` sets `autoResizeDrawable = NO` and sizes its `CAMetalLayer` drawables
     /// from the video size passed to `setSize:`. Before 150.7871.05 the WebRTC fork also multiplied
     /// that by the screen scale, so a 320x180 view showing 1080p on a 3x screen allocated 5760x3240
-    /// drawables, 324x the pixels it displays and ~214 MB of pool. The renderer now clamps the
+    /// drawables, 36x the pixels it displays and ~214 MB of pool. The renderer now clamps the
     /// drawable to the pixels the view displays, without upscaling the video.
     @Test(arguments: RendererProbe.resolutions)
     func drawableSizeIsClampedToDisplayedPixels(_ resolution: RendererProbe.Resolution) async throws {

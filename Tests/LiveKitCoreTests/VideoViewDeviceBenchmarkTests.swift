@@ -201,6 +201,7 @@ struct VideoViewDeviceBenchmarkTests {
         // A sleeping or locked display stops compositing, so nothing presents and every snapshot
         // comes back stale — which reads as a difference of zero everywhere, control included.
         UIApplication.shared.isIdleTimerDisabled = true
+        defer { UIApplication.shared.isIdleTimerDisabled = false }
         let window = try #require(Self.keyWindow(), "no key window; run under the LKTestHost app")
         window.makeKeyAndVisible()
         window.addSubview(harness.view)
