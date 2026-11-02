@@ -23,34 +23,15 @@ import Testing
 /// without poisoning the peer connection, so retrying with less-munged SDP works.
 @Suite(.tags(.media))
 struct TransportMungeFallbackTests {
-    private final class StubTransportDelegate: TransportDelegate {
-        func transport(_: Transport, didUpdateState _: LKRTCPeerConnectionState) {}
-        func transport(_: Transport, didGenerateIceCandidate _: IceCandidate) {}
-        func transport(_: Transport, didOpenDataChannel _: LKRTCDataChannel) {}
-        func transport(_: Transport, didAddTrack _: RTCMediaTrack, rtpReceiver _: RTCReceiver, streamIds _: [String]) {}
-        func transport(_: Transport, didRemoveTrackWithId _: String) {}
-        func transportShouldNegotiate(_: Transport) {}
-    }
-
-    /// Runs `body` with a live transport carrying a receive-only audio transceiver
-    /// (so offers contain a real Opus section for the munges to edit), closing it even
-    /// when `body` throws so a failed test doesn't leak a peer connection into the
-    /// rest of the parallel run.
+    /// Runs `body` with a live transport carrying a receive-only audio transceiver, so offers
+    /// contain a real Opus section for the munges to edit.
     private func withTransport(_ body: (Transport) async throws -> Void) async throws {
-        let transport = try await Transport(config: .liveKitDefault(),
-                                            target: .publisher,
-                                            primary: true,
-                                            delegate: StubTransportDelegate())
-        do {
+        try await withLiveTransport { transport in
             let transceiverInit = LKRTCRtpTransceiverInit()
             transceiverInit.direction = .recvOnly
             try await RTC.run { _ = try transport.addTransceiver(ofType: .audio, transceiverInit: transceiverInit) }
             try await body(transport)
-        } catch {
-            await transport.close()
-            throw error
         }
-        await transport.close()
     }
 
     @Test func rejectedLocalDescriptionLeavesPeerConnectionUsable() async throws {
