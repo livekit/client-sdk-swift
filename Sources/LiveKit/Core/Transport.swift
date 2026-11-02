@@ -635,7 +635,8 @@ extension Transport {
     ///
     /// Sending sections always win, so a published track's encoder parameters are never altered;
     /// where two of them disagree the first wins, which at least keeps the receive sections
-    /// consistent with one of them. Codec-agnostic by design: it conforms whatever diverged
+    /// consistent with one of them. Where no sending section declares a payload at all, the
+    /// receive sections converge on the first config among themselves. Codec-agnostic by design: it conforms whatever diverged
     /// rather than `x-google-start-bitrate` specifically.
     ///
     /// Must run last, after every munge that can introduce divergence.
@@ -664,6 +665,18 @@ extension Transport {
                 canonicalByPayload[rtpmap.payload] = section.fmtp(forPayload: rtpmap.payload)?.config ?? ""
             }
         }
+        // Where no sending section declares a payload, the receive sections settle on the first
+        // config seen. They can genuinely disagree: a section that stops sending keeps the fmtp
+        // it was last munged with, so an unpublish leaves a receive-only section carrying
+        // `x-google-start-bitrate` beside one that never had it — and with the sender gone there
+        // is nothing left to conform them to. Keyed off `a=rtpmap` for the same reason as the
+        // rewrite below, so a section that declares the payload bare can be canonical too.
+        for section in document.mediaSections where isReceiveOnlySection(section) {
+            for rtpmap in section.rtpmaps where canonicalByPayload[rtpmap.payload] == nil {
+                canonicalByPayload[rtpmap.payload] = section.fmtp(forPayload: rtpmap.payload)?.config ?? ""
+            }
+        }
+
         var modified = false
         for index in document.mediaSections.indices where isReceiveOnlySection(document.mediaSections[index]) {
             // Keyed off `a=rtpmap` rather than the existing fmtp lines: a payload the section

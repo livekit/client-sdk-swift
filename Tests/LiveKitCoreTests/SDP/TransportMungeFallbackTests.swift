@@ -214,9 +214,13 @@ struct TransportMungeFallbackTests {
             #expect(await transport.connectionSetupTime == 0.8)
         }
     }
+}
 
-    // MARK: - Bundled codec fmtp
+// MARK: - Bundled codec fmtp
 
+/// The conform pass against a real peer connection: what libwebrtc actually reports,
+/// and what the SDK actually sends, rather than what a fixture says.
+extension TransportMungeFallbackTests {
     /// Adds the single PC publisher shape — receive sections preallocated for subscribed media
     /// alongside a sending one — and returns the sender id of the sending section.
     private func addSinglePCVideoLayout(to transport: Transport) async throws -> String {
@@ -230,6 +234,60 @@ struct TransportMungeFallbackTests {
             send.direction = .sendOnly
             return try transport.addTransceiver(ofType: .video, transceiverInit: send).sender.senderId
         }
+    }
+
+    /// Two receive-only sections can disagree without any munge writing to one: a section that
+    /// stops sending keeps the fmtp it was last munged with, so an unpublish leaves one carrying
+    /// `x-google-start-bitrate` beside a receive section that never had it — and with the sender
+    /// gone, nothing is left to conform them to.
+    ///
+    /// Reachable because conform runs last and is therefore the first munge dropped when
+    /// libwebrtc rejects a set, so an offer can carry the start bitrate unconformed. This drives
+    /// that sequence rather than asserting it on a fixture.
+    @Test func unpublishedSectionCanDivergeFromAReceiveSection() async throws {
+        let transport = try await Transport(config: .liveKitDefault(), target: .publisher,
+                                            primary: true, singlePCMode: true,
+                                            delegate: StubTransportDelegate())
+        let answerer = try await Transport(config: .liveKitDefault(), target: .subscriber,
+                                           primary: false, delegate: StubTransportDelegate())
+        do {
+            let sender = try await RTC.run { () -> RTCSender in
+                let recv = LKRTCRtpTransceiverInit()
+                recv.direction = .recvOnly
+                _ = try transport.addTransceiver(ofType: .video, transceiverInit: recv)
+                let send = LKRTCRtpTransceiverInit()
+                send.direction = .sendOnly
+                let track = RTC.createVideoTrack(source: RTC.createVideoSource(forScreenShare: false))
+                return try RTCSender(transport.addTransceiver(with: track,
+                                                              transceiverInit: send,
+                                                              startBitrateKbps: 1000).sender)
+            }
+
+            // Start bitrate applied, conform not — the state a dropped conform leaves behind.
+            let first = try await transport.createOffer()
+            let munged = try await transport.set(localDescription: first, munging: [
+                { Transport.mungeVideoStartBitrate($0, kbpsBySenderId: [sender.senderId: 1000]) },
+            ])
+            try await answerer.set(remoteDescription: munged)
+            let answer = try await answerer.createAnswer()
+            try await answerer.set(localDescription: answer)
+            try await transport.set(remoteDescription: answer)
+
+            try await RTC.run { try transport.remove(track: sender) }
+            let unpublished = try await transport.createOffer().sdp
+
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(unpublished).contains { $0.value.count > 1 },
+                    "the unpublish must leave a divergence for the conform pass to resolve")
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(Transport.conformBundledCodecFmtp(unpublished))
+                .allSatisfy { $0.value.count == 1 },
+                "with no sending section left, the receive sections must still converge")
+        } catch {
+            await transport.close()
+            await answerer.close()
+            throw error
+        }
+        await transport.close()
+        await answerer.close()
     }
 
     /// The wiring, not the munge: `createAndSendOffer` on a single PC transport must put the
