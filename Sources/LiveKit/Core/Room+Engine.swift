@@ -16,13 +16,12 @@
 
 // swiftlint:disable file_length
 
+internal import LiveKitWebRTC
 import Foundation
 
 #if canImport(Network)
 import Network
 #endif
-
-internal import LiveKitWebRTC
 
 // Room+Engine
 extension Room {

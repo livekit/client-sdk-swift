@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// Options used when opening an outgoing data stream.
 public protocol StreamOptions: Sendable {

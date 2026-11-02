@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 // MARK: - DataStreams
 
@@ -366,8 +365,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         ordered.mutate { state in
             // Dropped here rather than on completion: the id is free again the moment the stream
             // ends, and a sender that reuses it must register a fresh entry.
-            guard let entry = state.openStreams.removeValue(forKey: streamID) else { return }
-            guard let task = state.running[entry.topic]?.removeValue(forKey: entry.token) else { return }
+            guard let entry = state.openStreams.removeValue(forKey: streamID), let task = state.running[entry.topic]?.removeValue(forKey: entry.token) else { return }
             state.finishing[entry.topic, default: [:]][entry.token] = task
         }
     }

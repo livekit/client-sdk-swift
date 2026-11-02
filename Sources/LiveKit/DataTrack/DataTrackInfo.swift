@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// Metadata describing a published data track.
 @objcMembers

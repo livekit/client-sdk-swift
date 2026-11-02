@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 @objc
 public enum EncryptionType: Int, Sendable {

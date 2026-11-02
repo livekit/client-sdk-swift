@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// A stream of frames received from a subscribed ``RemoteDataTrack``.
 ///

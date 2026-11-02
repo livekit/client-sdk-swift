@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// A data track published by the local participant. Obtain one from
 /// ``LocalParticipant/publishDataTrack(name:)``, then push frames with ``tryPush(frame:)``.

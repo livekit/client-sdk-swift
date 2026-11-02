@@ -16,9 +16,8 @@
 
 // swiftlint:disable file_length
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 actor SignalClient: Loggable {
     // MARK: - Types

@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// Information about a data stream.
 public protocol StreamInfo: Sendable {
