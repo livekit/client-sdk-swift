@@ -63,10 +63,10 @@ extension WebSocket {
 
     /// Reads the answer to the upgrade request, at most ``upgradeResponseLimit`` bytes for every head it holds, and
     /// resumes `opening` once ``upgradeOutcome(_:key:)`` settles it.
-    static func readUpgradeResponse(_ connection: NWConnection, key: String, into opening: AsyncCompleter<Data>, read: Data = Data()) {
+    static func readUpgradeResponse(_ connection: NWConnection, url: URL, key: String, into opening: AsyncCompleter<Data>, read: Data = Data()) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: upgradeResponseLimit - read.count) { content, _, isComplete, error in
             let read = read + (content ?? Data())
-            switch upgradeOutcome(read, key: key) {
+            switch upgradeOutcome(read, key: key, url: url) {
             case let .opened(rest):
                 opening.resume(returning: rest)
             case let .failed(failure):
@@ -76,7 +76,7 @@ extension WebSocket {
                 guard !isComplete, read.count < upgradeResponseLimit else {
                     return opening.resume(throwing: badUpgradeResponse("no whole head in \(read.count) bytes"))
                 }
-                readUpgradeResponse(connection, key: key, into: opening, read: read)
+                readUpgradeResponse(connection, url: url, key: key, into: opening, read: read)
             }
         }
     }
@@ -84,7 +84,7 @@ extension WebSocket {
     /// What `read` makes of the upgrade. Interim heads (`100 Continue`) are skipped, as SwiftNIO's HTTP decoder does. A
     /// final status other than 101, in any HTTP/1.x, reaches the caller as a ``WebSocketUpgradeFailure``; a 101 must be
     /// HTTP/1.1 or later and switch protocols as RFC 6455 §4.1 asks.
-    static func upgradeOutcome(_ read: Data, key: String) -> UpgradeOutcome {
+    static func upgradeOutcome(_ read: Data, key: String, url: URL? = nil) -> UpgradeOutcome {
         var rest = read[...]
         while let end = rest.range(of: Data("\r\n\r\n".utf8)) {
             let lines = String(bytes: rest[..<end.lowerBound], encoding: .isoLatin1)?.components(separatedBy: "\r\n") ?? []
@@ -93,11 +93,13 @@ extension WebSocket {
                 return .failed(badUpgradeResponse("a malformed status line"))
             }
             if (100 ..< 200).contains(status), status != 101 { continue }
+            let fields = fields(of: lines.dropFirst())
+            if let url, let fields { storeCookies(fields, for: url) }
             guard status == 101 else {
                 return .failed(LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: status)))
             }
             guard minor >= 1 else { return .failed(badUpgradeResponse("a 101 in HTTP/1.0")) }
-            if let failure = switchingFailure(fields(of: lines.dropFirst()), key: key) { return .failed(failure) }
+            if let failure = switchingFailure(fields, key: key) { return .failed(failure) }
             return .opened(Data(rest))
         }
         return .incomplete
@@ -154,15 +156,30 @@ extension WebSocket {
         LiveKitError(.network, message: "WebSocket upgrade response: \(reason)", internalError: URLError(.badServerResponse))
     }
 
+    /// Cookie matching uses HTTP schemes, including HTTPS for secure cookies on a WSS connection.
+    private static func cookieURL(_ url: URL) -> URL? {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.scheme = url.scheme == "wss" ? "https" : "http"
+        return components?.url
+    }
+
+    /// A final HTTP response can set cookies even when it rejects the upgrade. Keep separate Set-Cookie fields
+    /// separate: an Expires date can contain a comma. Storage policy still belongs to Foundation.
+    private static func storeCookies(_ fields: [(name: String, value: String)], for url: URL) {
+        guard let url = cookieURL(url) else { return }
+        let cookies = fields.filter { $0.name == "set-cookie" }.flatMap {
+            HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": $0.value], for: url)
+        }
+        HTTPCookieStorage.shared.setCookies(cookies, for: url, mainDocumentURL: url)
+    }
+
     /// The upgrade headers as URLSession sent them. A repeated name is joined with commas, as `URLRequest.addValue`
     /// did. Unless the caller supplies `Cookie`, stored cookies go along, matched on the URL's `https` form so that
     /// secure ones count. `Host` carries the port and IPv6 brackets; it comes last, after the join, so it replaces any
     /// that the caller passed.
     static func upgradeHeaders(url: URL, headers: [(name: String, value: String)]) -> [(name: String, value: String)] {
-        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        components?.scheme = url.scheme == "wss" ? "https" : "http"
         let callerCookie = headers.contains { $0.name.caseInsensitiveCompare("Cookie") == .orderedSame }
-        let cookies = callerCookie ? [] : components?.url.flatMap { HTTPCookieStorage.shared.cookies(for: $0) } ?? []
+        let cookies = callerCookie ? [] : cookieURL(url).flatMap { HTTPCookieStorage.shared.cookies(for: $0) } ?? []
         let stored = HTTPCookie.requestHeaderFields(with: cookies).map { (name: $0.key, value: $0.value) }
 
         var joined: [(name: String, value: String)] = []

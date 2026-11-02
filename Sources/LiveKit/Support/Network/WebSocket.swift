@@ -101,7 +101,7 @@ actor WebSocket: Loggable, AsyncSequence {
             switch state {
             case .ready:
                 connection.send(content: request, completion: .contentProcessed { _ in })
-                Self.readUpgradeResponse(connection, key: key, into: opening)
+                Self.readUpgradeResponse(connection, url: url, key: key, into: opening)
             case let .failed(error), let .waiting(error):
                 // `.waiting` too: a connection that cannot be made now fails, as URLSession's did
                 // (waitsForConnectivity off); the signal client owns the retries.
