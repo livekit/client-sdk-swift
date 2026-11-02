@@ -78,6 +78,41 @@ struct VideoViewRendererMemoryTests {
         #expect(abs(drawable.height - expected.height) <= 1)
     }
 
+    /// `setSize:` can arrive before the renderer has any bounds: the stream's resolution often
+    /// lands before the first layout. There is no displayed size to clamp to yet, so the drawable
+    /// has to stop at the video's own pixels. Before 150.7871.05 it was multiplied by the screen
+    /// scale here too, which on a 3x screen allocated 5760x3240 drawables for a 1080p stream.
+    @Test
+    func drawableCapsAtVideoResolutionBeforeFirstLayout() async throws {
+        let resolution = RendererProbe.reported
+        let harness = try await RendererProbe.Harness(renderMode: .metal, resolution: resolution)
+        defer { harness.tearDown() }
+
+        let metalView = try #require(RendererProbe.metalView(in: harness.view), "`.metal` produced no MTKView")
+        let scale = harness.view.currentScreenScale()
+        guard scale > 1 else {
+            // At 1x the scaled and unscaled sizes are the same, so there is nothing to tell apart.
+            print("[drawable] screen scale is 1 on this host; skipping")
+            return
+        }
+
+        // Collapse the renderer to no bounds, as before its first layout, then deliver the native
+        // size again, as `VideoRendererAdapter` does when the stream's resolution arrives.
+        try await harness.resize(to: .zero)
+        let videoPixels = RendererProbe.adapterSize(resolution, rotation: ._0)
+        harness.view.set(size: videoPixels)
+
+        // `set(size:)` hops to the main actor, and `RTCMTLVideoView.setSize:` hops to the main queue
+        // again before it touches `drawableSize`.
+        try await RendererProbe.quiesce()
+
+        let drawable = metalView.drawableSize
+        print("[drawable] before first layout: video=\(resolution.label) scale=\(scale) " +
+            "bounds=\(metalView.bounds.size) drawableSize=\(Int(drawable.width))x\(Int(drawable.height))")
+        #expect(drawable.width <= videoPixels.width + 1)
+        #expect(drawable.height <= videoPixels.height + 1)
+    }
+
     // MARK: - Is the drawable pool real memory?
 
     /// `drawableSize` only states what the layer is configured to allocate. This forces the layer
