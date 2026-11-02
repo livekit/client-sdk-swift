@@ -186,24 +186,36 @@ public protocol RoomDelegate: AnyObject, Sendable {
 
     /// Received data from a user or server, reporting the sender's identity.
     ///
-    /// `participant` is nil whenever the sender is not in the room — data broadcast from the
-    /// server, or sent by a participant that has already left — and in that case this is the
-    /// only way to tell who sent it. `participantIdentity` is reported either way.
+    /// `participant` is nil whenever the sender is not in the room, while the server still named
+    /// them: a packet that arrives before ``RoomDelegate/room(_:participantDidConnect:)`` for a
+    /// joining sender, or one sent by a participant who has since left. `participantIdentity`
+    /// names the sender in both cases, which is the reason this callback exists.
+    ///
+    /// `participantIdentity` is nil when the server reports no sender at all. Data published
+    /// through the Server API carries no identity, and the SFU blanks it for hidden senders; in
+    /// those cases `participant` and `participantIdentity` are nil together, and the sender cannot
+    /// be identified.
     ///
     /// Both this and ``RoomDelegate/room(_:participant:didReceiveData:forTopic:encryptionType:)``
     /// are called for every packet; implement whichever one you need.
     ///
     /// ## Example usage
     /// ```swift
-    /// func room(_ room: Room, participant: RemoteParticipant?, participantIdentity: Participant.Identity,
+    /// func room(_ room: Room, participant: RemoteParticipant?, participantIdentity: Participant.Identity?,
     ///           didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType) {
-    ///   // `participant` is nil for Server API data, but the sender is still known
+    ///   guard let participantIdentity else {
+    ///     // Published through the Server API, or sent by a hidden participant.
+    ///     return
+    ///   }
+    ///   // Named even when `participant` is nil, e.g. the sender has already left.
     ///   print("\(participantIdentity.stringValue) sent \(data.count) bytes on \(topic)")
     /// }
     /// ```
     @objc optional
+    // `disable:next` applies to the line that follows it, so with `@objc optional` present it has
+    // to sit here rather than above the attribute, unlike the siblings that carry no attributes.
     // swiftlint:disable:next function_parameter_count
-    func room(_ room: Room, participant: RemoteParticipant?, participantIdentity: Participant.Identity, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
+    func room(_ room: Room, participant: RemoteParticipant?, participantIdentity: Participant.Identity?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType)
 
     /// Failed to decrypt a data packet when encryption is enabled.
     @objc optional

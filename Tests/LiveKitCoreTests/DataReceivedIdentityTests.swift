@@ -18,85 +18,133 @@ import Foundation
 @testable import LiveKit
 import Testing
 
+/// What one delivery reported, across both the new and the legacy callback.
 private struct ReceivedData {
-    var identity: String?
-    var hadParticipant = false
-    var received = false
+    let identity: String?
+    let hadParticipant: Bool
+    /// Whether ``RoomDelegate/room(_:participant:didReceiveData:forTopic:encryptionType:)`` also
+    /// fired, and the participant it reported. Both callbacks fire for every packet.
+    let legacyFired: Bool
+    let legacyHadParticipant: Bool
 }
 
+/// Records both data callbacks and resolves once the identity-carrying one fires.
+///
+/// The legacy callback is notified first in the same `delegates.notify` block, so a resolved
+/// value always carries its outcome too.
 private final class DataRecorder: NSObject, RoomDelegate, @unchecked Sendable {
-    private let _state = StateSync(ReceivedData())
+    private let _legacy = StateSync<Bool?>(nil)
+    private let _completer = AsyncCompleter<ReceivedData>(label: "Data received", defaultTimeout: 10)
 
-    // swiftlint:disable:next function_parameter_count
     func room(_: Room,
               participant: RemoteParticipant?,
-              participantIdentity: Participant.Identity,
               didReceiveData _: Data,
               forTopic _: String,
               encryptionType _: EncryptionType)
     {
-        _state.mutate {
-            $0 = ReceivedData(identity: participantIdentity.stringValue,
-                              hadParticipant: participant != nil,
-                              received: true)
-        }
+        _legacy.mutate { $0 = participant != nil }
     }
 
-    var snapshot: ReceivedData { _state.copy() }
+    // swiftlint:disable:next function_parameter_count
+    func room(_: Room,
+              participant: RemoteParticipant?,
+              participantIdentity: Participant.Identity?,
+              didReceiveData _: Data,
+              forTopic _: String,
+              encryptionType _: EncryptionType)
+    {
+        let legacy = _legacy.copy()
+        _completer.resume(returning: ReceivedData(identity: participantIdentity?.stringValue,
+                                                  hadParticipant: participant != nil,
+                                                  legacyFired: legacy != nil,
+                                                  legacyHadParticipant: legacy ?? false))
+    }
+
+    /// Waits for the delivery, throwing if it never arrives — so an assertion can never pass
+    /// against a value that was simply never set.
+    func wait() async throws -> ReceivedData {
+        try await _completer.wait()
+    }
 }
 
-/// `participant` is nil whenever the sender is not in the room, so without the identity the
-/// receiver cannot tell who sent the data at all.
+@Suite(.tags(.dataChannel), .spec("https://github.com/livekit/client-sdk-js/pull/2092"))
 struct DataReceivedIdentityTests {
-    private func waitForDelivery(_ recorder: DataRecorder) async throws {
-        for _ in 0 ..< 100 {
-            if recorder.snapshot.received { return }
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
-        Issue.record("the delegate was never notified")
+    /// Which of the two identity fields the server populated.
+    struct IdentityCase: CustomTestStringConvertible {
+        let outer: String
+        let legacy: String
+        let expected: String?
+        let description: String
+        var testDescription: String { description }
     }
 
-    private func deliver(userPacket: Livekit_UserPacket,
-                         outerIdentity: String) async throws -> ReceivedData
+    /// The enclosing `DataPacket` wins where both are set; the deprecated `UserPacket` copy is the
+    /// fallback for servers older than the sync that keeps the two equal; neither set means the
+    /// server named no sender, which is reported as nil rather than an empty identity.
+    @Test(arguments: [
+        IdentityCase(outer: "outer-sender", legacy: "", expected: "outer-sender",
+                     description: "outer only"),
+        IdentityCase(outer: "", legacy: "legacy-sender", expected: "legacy-sender",
+                     description: "deprecated copy only"),
+        IdentityCase(outer: "outer-sender", legacy: "legacy-sender", expected: "outer-sender",
+                     description: "both set, outer wins"),
+        IdentityCase(outer: "", legacy: "", expected: nil,
+                     description: "neither set, no sender"),
+    ])
+    func reportsTheSenderIdentity(_ testCase: IdentityCase) async throws {
+        let result = try await Self.deliver(outerIdentity: testCase.outer,
+                                            legacyIdentity: testCase.legacy)
+
+        #expect(result.identity == testCase.expected)
+        #expect(result.hadParticipant == false, "the sender is not a participant in this room")
+        #expect(result.legacyFired, "the existing callback must still fire for every packet")
+    }
+
+    /// With the sender in the room both callbacks resolve the participant, and the identity still
+    /// accompanies it.
+    @Test func reportsBothParticipantAndIdentityForAnInRoomSender() async throws {
+        let identity = "in-room-sender"
+        let result = try await Self.deliver(outerIdentity: identity,
+                                            legacyIdentity: "",
+                                            remoteParticipant: identity)
+
+        #expect(result.identity == identity)
+        #expect(result.hadParticipant, "the sender is a participant in this room")
+        #expect(result.legacyHadParticipant, "the existing callback resolves the same participant")
+    }
+
+    /// Feeds one user packet through the receive path and returns what the delegates saw.
+    private static func deliver(outerIdentity: String,
+                                legacyIdentity: String,
+                                remoteParticipant: String? = nil) async throws -> ReceivedData
     {
         let room = Room()
         room._state.mutate { $0.connectionState = .connected }
 
+        if let remoteParticipant {
+            let info = Livekit_ParticipantInfo.with {
+                $0.sid = "PA_\(remoteParticipant)"
+                $0.identity = remoteParticipant
+            }
+            let participant = RemoteParticipant(info: info, room: room, connectionState: .connected)
+            room._state.mutate {
+                $0.remoteParticipants[Participant.Identity(from: remoteParticipant)] = participant
+            }
+        }
+
         let recorder = DataRecorder()
         room.delegates.add(delegate: recorder)
 
-        await room.engine(room,
-                          didReceiveUserPacket: userPacket,
-                          participantIdentity: outerIdentity,
-                          encryptionType: .none)
-        try await waitForDelivery(recorder)
-        return recorder.snapshot
-    }
-
-    /// Newer servers set the identity only on the enclosing `DataPacket`, leaving `UserPacket`'s
-    /// deprecated copy empty, so the outer value has to win.
-    @Test func reportsSenderIdentityWhenTheParticipantIsNotInTheRoom() async throws {
         let packet = Livekit_UserPacket.with {
+            $0.participantIdentity = legacyIdentity
             $0.payload = Data("hello".utf8)
             $0.topic = "greetings"
         }
+        room.engine(room,
+                    didReceiveUserPacket: packet,
+                    participantIdentity: outerIdentity,
+                    encryptionType: .none)
 
-        let result = try await deliver(userPacket: packet, outerIdentity: "server-api-sender")
-
-        #expect(result.hadParticipant == false, "the sender is not a participant in this room")
-        #expect(result.identity == "server-api-sender")
-    }
-
-    /// Older servers set only the deprecated `UserPacket` copy, which must still be honoured.
-    @Test func fallsBackToTheDeprecatedPacketIdentity() async throws {
-        let packet = Livekit_UserPacket.with {
-            $0.participantIdentity = "legacy-sender"
-            $0.payload = Data("hello".utf8)
-            $0.topic = "greetings"
-        }
-
-        let result = try await deliver(userPacket: packet, outerIdentity: "")
-
-        #expect(result.identity == "legacy-sender")
+        return try await recorder.wait()
     }
 }

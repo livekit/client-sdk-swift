@@ -197,12 +197,15 @@ extension Room {
     }
 
     func engine(_ engine: Room, didReceiveUserPacket packet: Livekit_UserPacket, participantIdentity: String, encryptionType: EncryptionType) {
-        // The enclosing DataPacket carries the authoritative identity. UserPacket's own copy is
-        // deprecated and newer servers leave it empty, so fall back to it only for older ones.
+        // Prefer the enclosing DataPacket's identity, falling back to UserPacket's deprecated
+        // copy for servers older than the sync that keeps the two fields equal.
         let identityString = participantIdentity.isEmpty ? packet.participantIdentity : participantIdentity
+        // Empty means the server named no sender: Server API data, or a hidden sender the SFU
+        // blanked. Report that as nil rather than an empty identity, so callers keying by sender
+        // do not merge every such packet under one empty key.
+        let identity = identityString.isEmpty ? nil : Participant.Identity(from: identityString)
         // participant could be null if data broadcasted from server
-        let identity = Participant.Identity(from: identityString)
-        let participant = _state.remoteParticipants[identity]
+        let participant = identity.flatMap { _state.remoteParticipants[$0] }
 
         if case .connected = engine._state.connectionState {
             delegates.notify(label: { "room.didReceive data: \(packet.payload)" }) {

@@ -1,1 +1,1 @@
-patch type="added" "RoomDelegate can now receive the sender identity alongside data packets"
+minor type="added" "RoomDelegate can now receive the sender identity alongside data packets"
