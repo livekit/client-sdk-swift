@@ -91,6 +91,7 @@ actor WebSocket: Loggable, AsyncSequence {
         var requestURL = url
         var requestHeaders = headers
         var redirects = 0
+        var authenticated = false
         while true {
             do {
                 let opened = try await Self.open(url: requestURL, headers: requestHeaders, timeoutInterval: timeoutInterval, onEvent: onEvent)
@@ -100,12 +101,19 @@ actor WebSocket: Loggable, AsyncSequence {
                 core.received(opened.rest, isComplete: false, error: nil)
                 return
             } catch let error as LiveKitError {
-                guard let response = error.internalError as? WebSocketUpgradeFailure,
-                      let target = try Self.redirectedURL(response, from: requestURL) else { throw error }
-                guard redirects < 20 else { throw LiveKitError(.network, internalError: URLError(.httpTooManyRedirects)) }
-                redirects += 1
-                requestURL = target
-                requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
+                guard let response = error.internalError as? WebSocketUpgradeFailure else { throw error }
+                if let target = try Self.redirectedURL(response, from: requestURL) {
+                    guard redirects < 20 else { throw LiveKitError(.network, internalError: URLError(.httpTooManyRedirects)) }
+                    redirects += 1
+                    requestURL = target
+                    requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
+                } else if !authenticated, let authorization = Self.basicAuthorization(response, url: requestURL) {
+                    authenticated = true
+                    requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
+                    requestHeaders.append(("Authorization", authorization))
+                } else {
+                    throw error
+                }
             }
         }
     }

@@ -171,16 +171,16 @@ extension WebSocket {
     }
 
     /// Cookie matching uses HTTP schemes, including HTTPS for secure cookies on a WSS connection.
-    private static func cookieURL(_ url: URL) -> URL? {
+    static func httpURL(_ url: URL) -> URL? {
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        components?.scheme = url.scheme == "wss" ? "https" : "http"
+        components?.scheme = ["wss", "https"].contains(url.scheme?.lowercased() ?? "") ? "https" : "http"
         return components?.url
     }
 
     /// A final HTTP response can set cookies even when it rejects the upgrade. Keep separate Set-Cookie fields
     /// separate: an Expires date can contain a comma. Storage policy still belongs to Foundation.
     private static func storeCookies(_ fields: [(name: String, value: String)], for url: URL) {
-        guard let url = cookieURL(url) else { return }
+        guard let url = httpURL(url) else { return }
         let cookies = fields.filter { $0.name == "set-cookie" }.flatMap {
             HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": $0.value], for: url)
         }
@@ -193,7 +193,7 @@ extension WebSocket {
     /// that the caller passed.
     static func upgradeHeaders(url: URL, headers: [(name: String, value: String)]) -> [(name: String, value: String)] {
         let callerCookie = headers.contains { $0.name.caseInsensitiveCompare("Cookie") == .orderedSame }
-        let cookies = callerCookie ? [] : cookieURL(url).flatMap { HTTPCookieStorage.shared.cookies(for: $0) } ?? []
+        let cookies = callerCookie ? [] : httpURL(url).flatMap { HTTPCookieStorage.shared.cookies(for: $0) } ?? []
         let stored = HTTPCookie.requestHeaderFields(with: cookies).map { (name: $0.key, value: $0.value) }
 
         var joined: [(name: String, value: String)] = []

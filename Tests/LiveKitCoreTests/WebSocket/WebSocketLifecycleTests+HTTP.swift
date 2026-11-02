@@ -135,7 +135,7 @@ extension WebSocketLifecycleTests {
         #expect(teardowns.copy() == 2)
     }
 
-    private static var successfulHTTPUpgrade: String {
+    static var successfulHTTPUpgrade: String {
         "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n"
     }
 }
