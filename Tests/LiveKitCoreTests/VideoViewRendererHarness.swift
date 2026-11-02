@@ -109,6 +109,11 @@ enum RendererProbe {
             view.rotationOverride = rotationOverride
             view.track = track
 
+            // The binder attaches the sink on the process-wide `@RTC` executor, which in a full
+            // suite has a queue of blocking WebRTC work ahead of it. Awaiting the executor returns
+            // once our turn comes; a poll would just time out at whatever deadline it picked.
+            await RTC.run {}
+
             // The native renderer is created on a main-actor hop off the state mutation.
             try await RendererProbe.pollOnMain(for: "native renderer created") { [view] in
                 !view.subviews.isEmpty
@@ -131,7 +136,8 @@ enum RendererProbe {
                 layOut()
                 RendererProbe.metalView(in: view)?.draw()
             }
-            try await poll(for: "first frame rendered") { [view] in view.didRenderFirstFrame }
+            // Generous: delivery still crosses the capturer's multicast queue and a main-actor hop.
+            try await poll(timeout: 20, for: "first frame rendered") { [view] in view.didRenderFirstFrame }
         }
 
         /// Pushes one caller-owned buffer through the capturer and draws it, so the caller controls
@@ -317,60 +323,6 @@ enum RendererProbe {
 
     static func mb(_ bytes: Int64) -> String {
         String(format: "%.1f", Double(bytes) / 1_048_576)
-    }
-}
-
-// MARK: - Reporting
-
-extension RendererProbe {
-    /// Records which renderer `.auto` actually picks here, so a run on a host that diverges from a
-    /// real device cannot be mistaken for one that does not.
-    @MainActor
-    static func reportEnvironment() {
-        let resolved = VideoView.shouldAvoidMetalRenderer ? ".sampleBuffer" : ".metal"
-        print("")
-        print("[env] isMetalAvailable=\(VideoView.isMetalAvailable()) " +
-            "shouldAvoidMetalRenderer=\(VideoView.shouldAvoidMetalRenderer) -> .auto resolves to \(resolved)")
-        #if targetEnvironment(simulator)
-        print("[env] SIMULATOR: GPU is the host's; `.auto` diverges from a real A14+ iPhone, " +
-            "so the rows below force `.metal` explicitly.")
-        #endif
-    }
-
-    static func report(_ rows: [Row]) {
-        func pad(_ value: String, _ width: Int) -> String {
-            value.count >= width ? value : value + String(repeating: " ", count: width - value.count)
-        }
-        func padLeft(_ value: String, _ width: Int) -> String {
-            value.count >= width ? value : String(repeating: " ", count: width - value.count) + value
-        }
-
-        print("")
-        print("=== VideoView renderer footprint (decoder excluded, \(viewsPerSample) views per sample) ===")
-        print("view frame: \(Int(viewFrame.width))x\(Int(viewFrame.height)) for every row")
-        print("")
-        let header = pad("mode", 15) + pad("video", 12) + pad("drawableSize", 14) + padLeft("maxDraw", 8) +
-            padLeft("drawables MB", 14) + padLeft("footprint MB", 14) + padLeft("reclaimed MB", 14)
-        print(header)
-        print(String(repeating: "-", count: header.count))
-        for row in rows {
-            let mode = row.renderMode == .metal ? ".metal" : ".sampleBuffer"
-            let drawable = row.drawableSize.map { "\(Int($0.width))x\(Int($0.height))" } ?? "n/a"
-            let maxDrawable = row.maximumDrawableCount.map(String.init) ?? "n/a"
-            var drawablesMB = "n/a"
-            if let size = row.drawableSize, let count = row.maximumDrawableCount {
-                drawablesMB = mb(Int64(size.width * size.height) * 4 * Int64(count))
-            }
-            print(pad(mode, 15) + pad(row.resolution.label, 12) + pad(drawable, 14) +
-                padLeft(maxDrawable, 8) + padLeft(drawablesMB, 14) +
-                padLeft(mb(row.perViewBytes), 14) + padLeft(mb(row.reclaimedBytes), 14))
-        }
-        print("")
-        print("drawables MB = drawableSize.w * drawableSize.h * 4 (BGRA8) * maximumDrawableCount")
-        print("             = what CAMetalLayer must allocate, by construction")
-        print("footprint MB = measured phys_footprint delta per view")
-        print("NV12 frame at 1920x1080 = \(mb(reported.nv12Bytes)) MB (what was measured as '<4 MB')")
-        print("")
     }
 }
 
