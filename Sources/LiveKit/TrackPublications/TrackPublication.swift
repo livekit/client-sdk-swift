@@ -113,17 +113,16 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
 
-            if newState.streamState != oldState.streamState {
-                if let participant = self.participant as? RemoteParticipant,
-                   let room = participant._room,
-                   let trackPublication = self as? RemoteTrackPublication
-                {
-                    participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.participant?(participant, trackPublication: trackPublication, didUpdateStreamState: newState.streamState)
-                    }
-                    room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
-                        $0.room?(room, participant: participant, trackPublication: trackPublication, didUpdateStreamState: newState.streamState)
-                    }
+            if newState.streamState != oldState.streamState,
+               let participant = self.participant as? RemoteParticipant,
+               let room = participant._room,
+               let trackPublication = self as? RemoteTrackPublication
+            {
+                participant.delegates.notify(label: { "participant.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
+                    $0.participant?(participant, trackPublication: trackPublication, didUpdateStreamState: newState.streamState)
+                }
+                room.delegates.notify(label: { "room.didUpdate \(trackPublication) streamState: \(newState.streamState)" }) {
+                    $0.room?(room, participant: participant, trackPublication: trackPublication, didUpdateStreamState: newState.streamState)
                 }
             }
 

@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import CoreMedia
-
 internal import LiveKitWebRTC
+import CoreMedia
 
 @objcMembers
 public final class Dimensions: NSObject, Loggable, Sendable {

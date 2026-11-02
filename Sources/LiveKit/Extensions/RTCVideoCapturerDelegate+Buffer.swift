@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 import Foundation
 
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
-
-internal import LiveKitWebRTC
 
 extension FixedWidthInteger {
     func roundUp(toMultipleOf powerOfTwo: Self) -> Self {

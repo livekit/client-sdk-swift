@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-import Foundation
-
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 internal import LiveKitWebRTC
+import Foundation
 
 // MARK: - DataTracks
 
@@ -359,11 +358,11 @@ final class DataTracks: NSObject, @unchecked Sendable {
             coordinator?.publisher.submit(packets)
         }
 
-        func onTrackPublished(track: LiveKitUniFFI.RemoteDataTrack) {
+        func onTrackPublished(track: LiveKitFFI.RemoteDataTrack) {
             coordinator?.remoteTrackPublished(RemoteDataTrack(track))
         }
 
-        func onTrackUnpublished(sid: LiveKitUniFFI.DataTrackSid) {
+        func onTrackUnpublished(sid: LiveKitFFI.DataTrackSid) {
             coordinator?.remoteTrackUnpublished(sid: DataTrack.Sid(from: sid))
         }
     }

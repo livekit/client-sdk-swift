@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 private final class DefaultVideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {}
 
@@ -327,7 +326,7 @@ extension RTC {
     }
 }
 
+@available(*, deprecated, message: "The SDK isolates its WebRTC calls to the RTC executor; this queue is no longer part of its public contract.")
 public extension DispatchQueue {
-    @available(*, deprecated, message: "The SDK isolates its WebRTC calls to the RTC executor; this queue is no longer part of its public contract.")
     static let liveKitWebRTC: DispatchQueue = RTC.queue
 }

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 import Foundation
 
 @objc
@@ -30,6 +31,28 @@ extension EncryptionType {
         case .gcm: .gcm
         case .custom: .custom
         default: .custom
+        }
+    }
+}
+
+extension EncryptionType {
+    /// Bridges to and from the FFI enum. Lives here beside the protobuf conversions so the data
+    /// stream types stay free of encryption-specific mapping code.
+    var ffiValue: LiveKitFFI.EncryptionType {
+        switch self {
+        case .none: .none
+        case .gcm: .gcm
+        case .custom: .custom
+        }
+    }
+
+    init(_ ffi: LiveKitFFI.EncryptionType) {
+        switch ffi {
+        case .none: self = .none
+        case .gcm: self = .gcm
+        case .custom: self = .custom
+        // A scheme added after this SDK is still a scheme — never report it as plaintext.
+        @unknown default: self = .custom
         }
     }
 }

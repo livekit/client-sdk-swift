@@ -16,9 +16,8 @@
 
 // swiftlint:disable file_length
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 @RTC
 final class Transport: NSObject, Loggable {
@@ -102,7 +101,11 @@ final class Transport: NSObject, Loggable {
     private func add(rtcCandidate: LKRTCIceCandidate) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             _pc.add(rtcCandidate) { @Sendable error in
-                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
             }
         }
     }

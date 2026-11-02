@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 import Foundation
-
-internal import LiveKitUniFFI
 
 /// A single unit of application data sent or received over a data track.
 public final class DataTrackFrame: NSObject, Sendable {
@@ -75,14 +74,14 @@ public final class DataTrackFrame: NSObject, Sendable {
         DataTrackFrame(payload: payload, userTimestamp: UInt64(Date().timeIntervalSince1970 * 1000))
     }
 
-    init(_ frame: LiveKitUniFFI.DataTrackFrame) {
+    init(_ frame: LiveKitFFI.DataTrackFrame) {
         payload = frame.payload
         userTimestamp = frame.userTimestamp
         super.init()
     }
 
-    var ffi: LiveKitUniFFI.DataTrackFrame {
-        LiveKitUniFFI.DataTrackFrame(payload: payload, userTimestamp: userTimestamp)
+    var ffi: LiveKitFFI.DataTrackFrame {
+        LiveKitFFI.DataTrackFrame(payload: payload, userTimestamp: userTimestamp)
     }
 
     override public func isEqual(_ object: Any?) -> Bool {

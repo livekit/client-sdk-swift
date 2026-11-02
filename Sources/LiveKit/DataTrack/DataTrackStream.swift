@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 import Foundation
-
-internal import LiveKitUniFFI
 
 /// A stream of frames received from a subscribed ``RemoteDataTrack``.
 ///
@@ -24,9 +23,9 @@ internal import LiveKitUniFFI
 /// callers use ``read(onFrame:)``. The sequence ends when the track is unpublished or the
 /// subscription is cancelled.
 public final class DataTrackStream: NSObject, Sendable {
-    private let stream: LiveKitUniFFI.DataTrackStream
+    private let stream: LiveKitFFI.DataTrackStream
 
-    init(_ stream: LiveKitUniFFI.DataTrackStream) {
+    init(_ stream: LiveKitFFI.DataTrackStream) {
         self.stream = stream
         super.init()
     }

@@ -16,7 +16,7 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
+import LiveKitFFI
 
 /// ObjC-compatible helper for generating tokens and reading server configuration.
 @objcMembers
@@ -112,6 +112,7 @@ public class LKObjCRoomHelper: NSObject {
             ingressAdmin: false,
             hidden: false,
             recorder: false,
+            agent: false,
         )
 
         return try tokenGenerator.sign()
