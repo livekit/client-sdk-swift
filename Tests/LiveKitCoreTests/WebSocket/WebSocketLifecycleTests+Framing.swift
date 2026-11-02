@@ -205,21 +205,20 @@ extension WebSocketLifecycleTests {
         [0x88, 0x04, 0x03, 0xE8, 0xFF, 0xFE], // a close reason that is not UTF-8
     ]
 
-    @Test(arguments: violations)
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: violations)
     func protocolViolationFailsTheStream(bytes: [UInt8]) async throws {
         let server = try FakeWebSocketServer(.frames(Data(bytes)))
         defer { server.cancel() }
-        let teardowns = StateSync(0)
-        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10, onEvent: { event in
-            if case .teardown = event { teardowns.mutate { $0 += 1 } }
-        })
+        let events = SocketEvents()
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10, onEvent: events.record)
         try await socket.send(data: Data([0x01]))
 
         let (received, error) = await Self.messages(of: socket)
         #expect(received.isEmpty)
         #expect((error as? LiveKitError)?.message?.hasPrefix("WebSocket protocol violation") == true)
         try await server.served.wait()
-        #expect(teardowns.copy() == 1)
+        try await events.teardown.wait()
+        #expect(events.teardowns.copy() == 1)
         // Our close frame, with 1002 or, for a close reason that is not UTF-8, 1007.
         #expect(server.frames.read { $0.last?.opcode } == 0x8)
     }

@@ -142,9 +142,9 @@ struct RustTransportTests {
         // Distinct identities: the same one twice is a duplicate join, and the server
         // would evict one socket for us and hide the thing under test.
         let swiftToken = try TestEnvironment.liveKitServerToken(for: room, identity: "swift-reader")
-        let swiftSocket = try await WebSocket(url: #require(URL(string: rtcUrl)),
-                                              headers: [(name: "Authorization", value: "Bearer \(swiftToken)")],
-                                              timeoutInterval: 10)
+        let swiftSocket = try await LiveKit.WebSocket(url: #require(URL(string: rtcUrl)),
+                                                      headers: [(name: "Authorization", value: "Bearer \(swiftToken)")],
+                                                      timeoutInterval: 10)
         defer { swiftSocket.close() }
         let frames = swiftSocket.makeAsyncIterator()
         #expect(try await joinedRoom(in: frames.next()) == room)

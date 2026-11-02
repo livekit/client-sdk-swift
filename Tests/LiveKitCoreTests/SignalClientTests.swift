@@ -58,7 +58,7 @@ struct SignalClientTests {
             let frames = FakeWebSocketServer.binary([leave]) + FakeWebSocketServer.close(1000)
             let server = try FakeWebSocketServer(.frames(frames, withUpgrade: true))
             defer { server.cancel() }
-            let socket = try await WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+            let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
             let client = SignalClient()
             let recorder = LeaveRecorder(client: client)
             await client._delegate.set(delegate: recorder)
@@ -76,7 +76,7 @@ struct SignalClientTests {
 }
 
 private extension SignalClient {
-    func installMessageLoopForTest(_ socket: WebSocket) {
+    func installMessageLoopForTest(_ socket: LiveKit.WebSocket) {
         let loop = socket.subscribe(self) { client, message in
             await client.onWebSocketMessage(message, from: socket)
         } onFailure: { client, error in
