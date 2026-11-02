@@ -178,7 +178,8 @@ struct BundledCodecFmtpTests {
     private static func swappingLastTwoVideoSections(_ sdp: String) throws -> String {
         let document = SDP(parsing: sdp)
         let videoIndices = document.mediaSections.indices.filter { document.mediaSections[$0].mediaType == "video" }
-        let (first, second) = (try #require(videoIndices.first), try #require(videoIndices.last))
+        let first = try #require(videoIndices.first)
+        let second = try #require(videoIndices.last)
         var reordered = document
         reordered.mediaSections.swapAt(first, second)
         return reordered.write()
