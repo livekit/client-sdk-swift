@@ -154,6 +154,17 @@ extension WebSocketLifecycleTests {
         #expect(host?.value == "[fe80::1]:7880")
     }
 
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func invalidCallerHeaderFailsBeforeConnecting() async throws {
+        let server = try FakeWebSocketServer(.blackhole)
+        defer { server.cancel() }
+        let error = await #expect(throws: LiveKitError.self) {
+            try await LiveKit.WebSocket(url: server.url(), headers: [("X-Test", "a\nb")], timeoutInterval: 10)
+        }
+        #expect(error?.type == .invalidParameter)
+        #expect(server.acceptCount.copy() == 0)
+    }
+
     /// A line break in a header would end it and start one that the caller did not write.
     @Test(arguments: ["a\r\nX-Injected: b", "a\nb"])
     func upgradeRequestRefusesLineBreaks(value: String) throws {

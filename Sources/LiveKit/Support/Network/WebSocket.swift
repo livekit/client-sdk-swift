@@ -121,6 +121,7 @@ actor WebSocket: Loggable, AsyncSequence {
     {
         guard !Task.isCancelled else { throw LiveKitError(.cancelled) }
         let key = Self.upgradeKey()
+        _ = try Self.upgradeRequest(url: url, key: key, headers: headers)
         let connection = NWConnection(to: .url(url), using: Self.makeParameters(secure: ["wss", "https"].contains(url.scheme?.lowercased() ?? ""),
                                                                                 timeoutInterval: timeoutInterval))
         let core = Core(connection: connection, onEvent: onEvent)
@@ -142,8 +143,6 @@ actor WebSocket: Loggable, AsyncSequence {
                 // `.waiting` too: a connection that cannot be made now fails, as URLSession's did
                 // (waitsForConnectivity off); the signal client owns the retries.
                 opening.resume(with: .failure(error))
-            case .cancelled:
-                opening.resume(with: .failure(LiveKitError(.cancelled)))
             default:
                 break
             }
@@ -318,8 +317,8 @@ private struct Core: Sendable {
             $0.phase = .closed
             return true
         }) else { return }
-        onEvent?(.teardown)
         WebSocket.cancel(connection)
+        onEvent?(.teardown)
     }
 
     /// Writes `frame` while the socket is open, under the lock that our close frame is written under, so that no

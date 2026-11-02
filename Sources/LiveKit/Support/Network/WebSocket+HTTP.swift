@@ -31,7 +31,9 @@ extension WebSocket {
         default: throw LiveKitError(.network, internalError: URLError(.unsupportedURL))
         }
         guard let host = components.host, !host.isEmpty else { throw LiveKitError(.network, internalError: URLError(.badURL)) }
-        components.percentEncodedPath = removeDotSegments(components.percentEncodedPath)
+        if URL(string: location)?.scheme == nil, !location.hasPrefix("//") {
+            components.percentEncodedPath = removeDotSegments(components.percentEncodedPath)
+        }
         return components.url
     }
 

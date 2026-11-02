@@ -62,15 +62,7 @@ struct SignalClientTests {
             let client = SignalClient()
             let recorder = LeaveRecorder(client: client)
             await client._delegate.set(delegate: recorder)
-            await client._state.mutate {
-                $0.socket = socket
-                $0.connectionState = .connected
-                $0.messageLoopTask = socket.subscribe(client) { client, message in
-                    await client.onWebSocketMessage(message, from: socket)
-                } onFailure: { client, error in
-                    await client.onWebSocketFailure(error, from: socket)
-                }
-            }
+            await client.installMessageLoopForTest(socket)
 
             try await recorder.disconnected.wait()
             #expect(recorder.events.copy() == [.leave, .disconnected(.participantRemoved)], "Round \(round)")
@@ -80,6 +72,21 @@ struct SignalClientTests {
     @Test func messageNameOmitsPayload() {
         let response = Livekit_SignalResponse.with { $0.refreshToken = "secret.jwt" }
         #expect(response.messageName == "refreshToken")
+    }
+}
+
+private extension SignalClient {
+    func installMessageLoopForTest(_ socket: WebSocket) {
+        let loop = socket.subscribe(self) { client, message in
+            await client.onWebSocketMessage(message, from: socket)
+        } onFailure: { client, error in
+            await client.onWebSocketFailure(error, from: socket)
+        }
+        _state.mutate {
+            $0.socket = socket
+            $0.connectionState = .connected
+            $0.messageLoopTask = loop
+        }
     }
 }
 

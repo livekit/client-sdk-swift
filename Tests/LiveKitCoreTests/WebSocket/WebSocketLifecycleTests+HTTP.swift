@@ -87,6 +87,8 @@ extension WebSocketLifecycleTests {
         ("/..", "/"),
         ("a/b/..", "/a/"),
         ("../next?escaped=one%20two&path=../kept", "/next?escaped=one%20two&path=../kept"),
+        ("ws://example.invalid/a/../next", "/a/../next"),
+        ("//example.invalid/a/./b/../c", "/a/./b/../c"),
     ])
     func redirectDotSegmentsPreserveTheRequestQuery(location: String, target: String) throws {
         let base = try #require(URL(string: "ws://example.invalid/rtc"))

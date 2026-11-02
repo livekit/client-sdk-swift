@@ -18,15 +18,15 @@ import Foundation
 @testable import LiveKit
 import Testing
 
-@Suite(.tags(.networking), TestLimits.e2e)
+@Suite(.tags(.networking), TestLimits.unit)
 struct WebSocketResetTests {
-    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1179"))
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
     func peerResetTearsDownBeforeTheReadFailsUnderLoad() async throws {
         let completed = try await withThrowingTaskGroup(of: Int.self) { group in
             for _ in 0 ..< 8 {
                 group.addTask {
                     for _ in 0 ..< 300 {
-                        try await WebSocketLifecycleTests().peerClosure(behavior: .reset, ending: .networkError(posix: ECONNRESET))
+                        try await WebSocketTestSupport.peerClosure(behavior: .reset, ending: .networkError(posix: ECONNRESET))
                     }
                     return 300
                 }
@@ -38,6 +38,5 @@ struct WebSocketResetTests {
             return rounds
         }
         #expect(completed == 2400)
-        print("Reset stress: 8 concurrent loops × 300 rounds = \(completed) completed")
     }
 }

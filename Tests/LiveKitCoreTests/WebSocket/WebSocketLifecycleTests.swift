@@ -27,20 +27,6 @@ enum ClosePath: Sendable, CaseIterable {
     case release
 }
 
-/// How iteration over the socket ends.
-enum Ending: Sendable, CustomTestStringConvertible {
-    /// Every message before a close frame is delivered, then the close frame fails the stream with its code.
-    case closedByPeer(code: UInt16)
-    case networkError(posix: Int32?)
-
-    var testDescription: String {
-        switch self {
-        case let .closedByPeer(code): "closed by the peer (\(code))"
-        case let .networkError(posix): "network error\(posix.map { " POSIX \($0)" } ?? "")"
-        }
-    }
-}
-
 /// The signalling socket's lifecycle against a server that is not a LiveKit server: how it opens, how it fails to,
 /// and how its message sequence ends for each way a peer can go away.
 @Suite(.tags(.networking), TestLimits.unit)
@@ -307,32 +293,7 @@ struct WebSocketLifecycleTests {
         [Ending.closedByPeer(code: 1000), .networkError(posix: nil), .networkError(posix: ECONNRESET)],
     ))
     func peerClosure(behavior: FakeWebSocketServer.Behavior, ending: Ending) async throws {
-        let server = try FakeWebSocketServer(behavior)
-        defer { server.cancel() }
-        let events = SocketEvents()
-        let socket = try await Self.open(server, events: events)
-        try await socket.send(data: Data([0x01]))
-
-        switch ending {
-        case let .closedByPeer(code):
-            try await server.served.wait()
-            let error = await #expect(throws: LiveKitError.self) { try await Self.messageCount(of: socket) }
-            #expect(error?.type == .network)
-            #expect((error?.internalError as? WebSocketClosedByPeer)?.code == code)
-        case let .networkError(posix):
-            let error = await #expect(throws: LiveKitError.self) { try await Self.messageCount(of: socket) }
-            #expect(error?.type == .network)
-            if let posix {
-                #expect((error?.internalError as? NSError)?.code == Int(posix))
-            }
-        }
-
-        // The server drops its side after the sequence ended: the late state change lands on a socket whose
-        // opening is long settled, and must neither crash nor resurface.
-        try await server.served.wait()
-        #expect(events.teardowns.copy() == 1)
-        #expect(await socket.connection.stateUpdateHandler == nil)
-        withExtendedLifetime(socket) {}
+        try await WebSocketTestSupport.peerClosure(behavior: behavior, ending: ending)
     }
 }
 
@@ -354,21 +315,4 @@ private struct WeakTransport {
     weak var connection: NWConnection?
 
     var isReleased: Bool { socket == nil && connection == nil }
-}
-
-private struct SocketEvents: Sendable {
-    let receiveRegistered = AsyncCompleter<Void>(label: "SocketEvents.receiveRegistered", defaultTimeout: 5)
-    let closeDeadline = AsyncCompleter<Void>(label: "SocketEvents.closeDeadline", defaultTimeout: 5)
-    let teardowns = StateSync(0)
-    let closeStarts = StateSync(0)
-
-    func record(_ event: LiveKit.WebSocket.Event) {
-        switch event {
-        case .receiveRegistered: receiveRegistered.resume(returning: ())
-        case .closeDeadline: closeDeadline.resume(returning: ())
-        case .teardown: teardowns.mutate { $0 += 1 }
-        case .closeStarted: closeStarts.mutate { $0 += 1 }
-        case .readAheadFull: break
-        }
-    }
 }
