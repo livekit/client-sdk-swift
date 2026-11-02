@@ -54,6 +54,39 @@ extension DataTrackStream {
         return try? await frame.wait()
     }
 
+    /// ``firstFrame(within:)``, but re-pushing until a frame arrives.
+    ///
+    /// `subscribe()` returning does not mean the server will deliver yet: livekit-server
+    /// reconciles a data track subscription asynchronously, so a frame pushed into that window
+    /// is dropped. A test that pushes exactly once has nothing left to deliver, and the read
+    /// times out with no frame — which reads as "data tracks are broken" rather than "the push
+    /// was early". ``DataTrackTests/resubscribe()`` buys the same guarantee by sleeping past the
+    /// window; this pays for it only when it is needed.
+    ///
+    /// The frame asserted on is whichever push first lands, so a per-frame payload or timestamp
+    /// stays meaningful. Not for tests that depend on how many frames were sent — the buffer's
+    /// drop-oldest behaviour, for one.
+    ///
+    /// - Parameter push: Sends one frame. Called once up front, so a genuine push failure still
+    ///   throws, then repeated until a frame arrives.
+    /// - Warning: Inherits ``firstFrame(within:)``'s one-read-per-stream limit.
+    func firstFrame(within timeout: TimeInterval = 15,
+                    pushing push: @Sendable @escaping () throws -> Void) async throws -> DataTrackFrame?
+    {
+        try push()
+
+        let repeater = Task {
+            while !Task.isCancelled {
+                try await Task.sleep(nanoseconds: 250_000_000)
+                guard !Task.isCancelled else { return }
+                try push()
+            }
+        }
+        defer { repeater.cancel() }
+
+        return await firstFrame(within: timeout)
+    }
+
     /// A reader that owns this stream's one and only `next()` caller.
     func reader() -> DataTrackReader { DataTrackReader(self) }
 }

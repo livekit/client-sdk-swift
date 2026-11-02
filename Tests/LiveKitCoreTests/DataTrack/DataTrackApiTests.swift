@@ -124,8 +124,11 @@ struct DataTrackApiTests {
             let stream = try await fixture.remoteTrack.subscribe(bufferSize: 0)
 
             let payload = Data([0x2A])
-            try fixture.track.tryPush(frame: DataTrackFrame(payload: payload))
-            #expect(await stream.firstFrame(within: 15)?.payload == payload)
+            let track = fixture.track
+            let frame = try await stream.firstFrame(within: 15) {
+                try track.tryPush(frame: DataTrackFrame(payload: payload))
+            }
+            #expect(frame?.payload == payload)
         }
     }
 
