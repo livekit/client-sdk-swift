@@ -300,7 +300,7 @@ final class FakeWebSocketServer: Sendable {
             })
         case let .message(size):
             // A server frame is not masked; 127 takes a 64-bit length.
-            let header: [UInt8] = [0x82, 127] + (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: UInt64(size) >> ($0 * 8)) }
+            let header: [UInt8] = [UInt8(0x82), 127] + (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: UInt64(size) >> ($0 * 8)) }
             connection.send(content: Data(header) + Data(count: size), completion: .contentProcessed { [served] _ in
                 served.resume(returning: ())
             })
@@ -356,7 +356,7 @@ extension FakeWebSocketServer {
 
     /// A server frame: FIN set, not masked, a 16-bit length past 125 bytes.
     static func frame(_ opcode: UInt8, _ payload: Data) -> Data {
-        let length: [UInt8] = payload.count < 126 ? [UInt8(payload.count)] : [126, UInt8(payload.count >> 8), UInt8(payload.count & 0xFF)]
+        let length: [UInt8] = payload.count < 126 ? [UInt8(payload.count)] : [UInt8(126), UInt8(payload.count >> 8), UInt8(payload.count & 0xFF)]
         return Data([0x80 | opcode] + length) + payload
     }
 

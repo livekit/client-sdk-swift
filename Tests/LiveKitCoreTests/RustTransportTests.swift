@@ -29,7 +29,7 @@ import LiveKitTestSupport
 /// reaches into the adapter directly, so what is under test is the whole seam.
 ///
 /// Requires a local `livekit-server` (see AGENTS.md).
-@Suite(.tags(.e2e, .networking))
+@Suite(.tags(.e2e, .networking), TestLimits.e2e)
 struct RustTransportTests {
     private let httpUrl: String
     private let wsUrl: String
@@ -203,7 +203,7 @@ struct RustTransportTests {
 /// The mapping the whole seam hinges on, exercised where a socket cannot reach it:
 /// `ECONNRESET` mid-frame and a bare `URLError(.timedOut)` are not things a healthy
 /// `livekit-server` will produce on demand.
-@Suite(.tags(.networking))
+@Suite(.tags(.networking), TestLimits.unit)
 struct TransportErrorMappingTests {
     @Test("Errors map onto livekit-net's taxonomy", arguments: [
         // A rejected upgrade keeps its status, bare or wrapped by the socket.

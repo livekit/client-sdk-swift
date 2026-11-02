@@ -126,7 +126,7 @@ extension WebSocketLifecycleTests {
     /// the error carries EMSGSIZE.
     @Test func oversizedMessageHeaderGetsClose1009() async throws {
         let length = UInt64(WebSocket.maximumMessageSize) + 1
-        let header = Data([0x82, 127] + (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: length >> ($0 * 8)) })
+        let header = Data([UInt8(0x82), 127] + (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: length >> ($0 * 8)) })
         let server = try FakeWebSocketServer(.frames(header))
         defer { server.cancel() }
         let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
@@ -294,7 +294,7 @@ extension WebSocketLifecycleTests {
     /// The 1 MiB limit counts every fragment of a message.
     @Test func fragmentsOverTheMessageLimitFail() async throws {
         let half = 600_000
-        let length: [UInt8] = [127] + (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: half >> ($0 * 8)) }
+        let length: [UInt8] = [UInt8(127)] + (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: half >> ($0 * 8)) }
         let fragments = Data([0x02] + length) + Data(count: half) + Data([0x80] + length) + Data(count: half)
         let server = try FakeWebSocketServer(.frames(fragments))
         defer { server.cancel() }

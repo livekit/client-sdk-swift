@@ -31,9 +31,9 @@ enum WebSocketFrame {
         case ..<126:
             frame.append(0x80 | UInt8(payload.count))
         case ...0xFFFF:
-            frame.append(contentsOf: [0x80 | 126, UInt8(payload.count >> 8), UInt8(payload.count & 0xFF)])
+            frame.append(contentsOf: [0x80 | UInt8(126), UInt8(payload.count >> 8), UInt8(payload.count & 0xFF)])
         default:
-            frame.append(0x80 | 127)
+            frame.append(0x80 | UInt8(127))
             frame.append(contentsOf: (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: payload.count >> ($0 * 8)) })
         }
         let mask = (0 ..< 4).map { _ in UInt8.random(in: .min ... .max) }
