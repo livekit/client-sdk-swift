@@ -107,10 +107,25 @@ struct ByteStreamReaderTests {
         try Data("original".utf8).write(to: victim)
 
         let (reader, manager) = try await openReader()
-        try await Self.expectIOError {
+        await #expect {
             try await reader.writeToFile(in: directory)
-        }
+        } throws: { Self.isIOError($0) }
         #expect(try Data(contentsOf: victim) == Data("original".utf8))
+        _ = manager
+    }
+
+    /// `notDirectory` only checks the URL's shape, so a directory that does not exist reaches
+    /// `open` and fails there. That must still surface as `StreamError`, not as the internal
+    /// `AsyncFileStream.Error` the caller cannot name.
+    @Test func writeToFileReportsAMissingDirectoryAsStreamError() async throws {
+        let missing = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent("nested", isDirectory: true)
+
+        let (reader, manager) = try await openReader()
+        await #expect {
+            try await reader.writeToFile(in: missing)
+        } throws: { Self.isIOError($0) }
         _ = manager
     }
 
@@ -127,29 +142,20 @@ struct ByteStreamReaderTests {
         )
 
         let (reader, manager) = try await openReader()
-        try await Self.expectIOError {
+        await #expect {
             try await reader.writeToFile(in: directory)
-        }
+        } throws: { Self.isIOError($0) }
         #expect(try Data(contentsOf: target) == Data("original".utf8))
         _ = manager
     }
 
-    /// Asserts `body` fails with ``StreamError/io(reason:)`` specifically.
+    /// Whether `error` is ``StreamError/io(reason:)``.
     ///
-    /// `StreamError.io` carries the open's description, so the case is matched rather than a
-    /// whole value — pinning the message would couple the test to the error text.
-    private static func expectIOError(
-        _ body: () async throws -> some Any,
-        sourceLocation: SourceLocation = #_sourceLocation,
-    ) async throws {
-        let error = try #require(
-            await #expect(throws: StreamError.self, sourceLocation: sourceLocation) { _ = try await body() },
-            sourceLocation: sourceLocation,
-        )
-        guard case .io = error else {
-            Issue.record("Expected StreamError.io, got \(error)", sourceLocation: sourceLocation)
-            return
-        }
+    /// Matches the case, not a whole value: `io` carries the `open` failure's description, and
+    /// pinning that text would couple these tests to the message.
+    private static func isIOError(_ error: any Error) -> Bool {
+        if case .io = error as? StreamError { return true }
+        return false
     }
 
     private static func makeTemporaryDirectory() throws -> URL {
