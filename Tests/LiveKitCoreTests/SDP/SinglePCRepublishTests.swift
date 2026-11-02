@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import CoreVideo
 import Foundation
 @testable import LiveKit
 import Testing
@@ -23,128 +22,70 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-/// Unpublishing in single PC mode leaves an `inactive` m-section behind, and that section is the
-/// only thing the removed `mungeInactiveToRecvOnlyForMedia` ever rewrote — it advertised
-/// `recvonly` there, on a transceiver `removeTrack` had already stopped.
+/// Unpublishing in single PC mode leaves an `inactive` m-section whose transceiver `removeTrack`
+/// has stopped. That section is the only thing the removed `mungeInactiveToRecvOnlyForMedia` ever
+/// rewrote, and it advertised `recvonly` for it.
 ///
-/// Dropping the rewrite changes what the server sees on unpublish, so this pins the round trip
-/// that depends on it: publish, unpublish, publish again, and the subscriber still gets frames.
-/// ``RecvOnlyOfferDirectionTests`` covers the SDP locally; this covers the server's half.
-///
-/// Deliberately uses a small synthetic source rather than `createSampleVideoTrack`: that decodes
-/// 1080p at 30fps, and the WebRTC release path other suites are timed against runs on a shared
-/// queue this would otherwise saturate.
+/// What that costs is a *later subscription on the same peer connection*: the server takes the
+/// offer at its word, binds a remote track to the recycled section, and nothing ever decodes,
+/// because a stopped transceiver cannot receive. So the case that matters is the publisher
+/// subscribing to someone else after its own unpublish — republishing alone exercises the send
+/// path and passes either way.
 @Suite(.serialized, .tags(.e2e, .media), TestLimits.e2e)
 struct SinglePCRepublishTests {
-    private static let width = 320
-    private static let height = 240
-
-    /// A frame whose content moves, so the encoder cannot coalesce the stream into one keyframe
-    /// and leave the subscriber waiting on a PLI round trip for the rest of the test.
-    private static func makePixelBuffer(tick: Int) -> CVPixelBuffer? {
-        var buffer: CVPixelBuffer?
-        let attrs = [kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary] as CFDictionary
-        guard CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
-                                  attrs, &buffer) == kCVReturnSuccess,
-            let pixelBuffer = buffer
-        else { return nil }
-
-        CVPixelBufferLockBaseAddress(pixelBuffer, [])
-        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
-        if let luma = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0) {
-            let stride = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
-            let rows = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
-            memset(luma, 16, stride * rows)
-            let block = 48
-            let x = (tick * 7) % max(1, width - block)
-            let y = (tick * 5) % max(1, rows - block)
-            let pointer = luma.assumingMemoryBound(to: UInt8.self)
-            for row in y ..< min(y + block, rows) {
-                memset(pointer + row * stride + x, 230, min(block, width - x))
-            }
-        }
-        return pixelBuffer
-    }
+    private static let dimensions: Dimensions = .h180_169
 
     @Test
-    func subscriberReceivesFramesAfterUnpublishAndRepublish() async throws {
+    func subscribesToRemoteVideoAfterLocalUnpublish() async throws {
         try await TestEnvironment.withRooms([
-            RoomTestingOptions(singlePeerConnection: true, canPublish: true),
-            RoomTestingOptions(singlePeerConnection: true, canSubscribe: true),
+            RoomTestingOptions(singlePeerConnection: true, canPublish: true, canSubscribe: true),
+            RoomTestingOptions(singlePeerConnection: true, canPublish: true, canSubscribe: true),
         ]) { rooms in
-            // The first cycle leaves an inactive section with a stopped transceiver behind —
-            // the state the munge used to paper over. The second has to work anyway.
-            let firstSid = try await Self.publishAwaitFramesUnpublish("before-unpublish",
-                                                                      publisher: rooms[0],
-                                                                      subscriber: rooms[1])
-            try await Task.sleep(nanoseconds: 1_000_000_000)
-            try await Self.publishAwaitFramesUnpublish("after-republish",
-                                                       publisher: rooms[0],
-                                                       subscriber: rooms[1],
-                                                       excluding: firstSid)
-        }
-    }
+            let first = rooms[0]
+            let second = rooms[1]
 
-    /// Publishes a moving synthetic track, waits until `subscriber` renders a frame from it,
-    /// then tears everything it created back down before returning.
-    /// - Parameter previousSid: The track the previous cycle published, if any. The subscriber's
-    ///   view of it can outlive the unpublish, so waiting for *a* track would let the second
-    ///   cycle attach to the dead one and time out.
-    /// - Returns: The SID the subscriber received, for the next cycle to exclude.
-    @discardableResult
-    private static func publishAwaitFramesUnpublish(_ label: String,
-                                                    publisher: Room,
-                                                    subscriber: Room,
-                                                    excluding previousSid: Track.Sid? = nil) async throws -> Track.Sid
-    {
-        let publisherIdentity = try #require(publisher.localParticipant.identity)
-        let track = await LocalVideoTrack.createBufferTrack(
-            name: label,
-            source: .camera,
-            options: BufferCaptureOptions(dimensions: Dimensions(width: Int32(width), height: Int32(height))),
-        )
-        let capturer = try #require(track.capturer as? BufferCapturer)
-        let feeder = Task.detached {
-            var tick = 0
-            while !Task.isCancelled {
-                if let pixelBuffer = makePixelBuffer(tick: tick) { capturer.capture(pixelBuffer) }
-                tick += 1
-                try? await Task.sleep(nanoseconds: 100_000_000)
+            // `first` publishes and then unpublishes, leaving the stopped section behind.
+            let track = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions(dimensions: Self.dimensions))
+            let capturer = try #require(track.capturer as? BufferCapturer)
+            let feeder = capturer.startFeedingFrames(dimensions: Self.dimensions)
+            defer { feeder.cancel() }
+
+            try await first.localParticipant.publish(videoTrack: track)
+            let publication = try #require(first.localParticipant.videoTracks.first as? LocalTrackPublication)
+            try await first.localParticipant.unpublish(publication: publication)
+            feeder.cancel()
+
+            // The unpublish renegotiation is debounced, and the section has to reach the server
+            // before the subscription that might be bound onto it. The peer losing the
+            // publication is the observable end of that round trip.
+            let firstIdentity = try #require(first.localParticipant.identity)
+            try await poll(timeout: 15, for: "the unpublish reaches the peer") {
+                second.remoteParticipants[firstIdentity]?.videoTracks.isEmpty ?? false
+            }
+
+            // Now `second` publishes, and `first` has to receive it — on the same peer connection
+            // that still carries the section it just unpublished.
+            let remoteTrack = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions(dimensions: Self.dimensions))
+            let remoteCapturer = try #require(remoteTrack.capturer as? BufferCapturer)
+            let remoteFeeder = remoteCapturer.startFeedingFrames(dimensions: Self.dimensions)
+            defer { remoteFeeder.cancel() }
+
+            try await second.localParticipant.publish(videoTrack: remoteTrack)
+
+            let secondIdentity = try #require(second.localParticipant.identity)
+            try await poll(timeout: 30, for: "first subscribes to second's video") {
+                first.remoteParticipants[secondIdentity]?.videoTracks.first?.track is RemoteVideoTrack
+            }
+
+            let subscribed = try #require(first.remoteParticipants[secondIdentity]?
+                .videoTracks.first?.track as? RemoteVideoTrack)
+            let watcher = VideoTrackWatcher(id: "after-unpublish")
+            subscribed.add(videoRenderer: watcher)
+            defer { subscribed.remove(videoRenderer: watcher) }
+
+            try await poll(timeout: 30, for: "a frame decodes on the recycled connection") {
+                watcher.didRenderFirstFrame
             }
         }
-
-        try await publisher.localParticipant.publish(videoTrack: track)
-
-        let remote = try #require(subscriber.remoteParticipants[publisherIdentity])
-        let publication = try #require(await poll(timeout: 45) {
-            remote.videoTracks.first { $0.sid != previousSid && $0.track is RemoteVideoTrack }
-        }, "\(label): never subscribed")
-        let remoteTrack = try #require(publication.track as? RemoteVideoTrack)
-
-        let watcher = VideoTrackWatcher(id: label)
-        remoteTrack.add(videoRenderer: watcher)
-        let rendered = await poll(timeout: 45) { watcher.didRenderFirstFrame ? true : nil }
-        remoteTrack.remove(videoRenderer: watcher)
-        #expect(rendered == true, "\(label): subscribed but no frame rendered")
-
-        // Stop feeding before unpublishing, so the capturer is idle when the transceiver is
-        // stopped and nothing of this iteration outlives it.
-        feeder.cancel()
-        _ = await feeder.result
-
-        let localPublication = try #require(publisher.localParticipant.videoTracks.first as? LocalTrackPublication)
-        try await publisher.localParticipant.unpublish(publication: localPublication)
-
-        return publication.sid
-    }
-
-    /// Polls `value` every 200ms until it returns non-nil or `timeout` seconds elapse.
-    private static func poll<T>(timeout: TimeInterval, _ value: () -> T?) async -> T? {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if let found = value() { return found }
-            try? await Task.sleep(nanoseconds: 200_000_000)
-        }
-        return value()
     }
 }

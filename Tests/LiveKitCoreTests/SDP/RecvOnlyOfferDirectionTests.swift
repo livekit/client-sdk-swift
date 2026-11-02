@@ -122,6 +122,12 @@ struct RecvOnlyOfferDirectionTests {
             Task { await answerer.close() }
         }
 
+        // The signalled offer, not `createOffer()`: the munges run inside
+        // `set(localDescription:munging:)`, so reading the raw offer would assert on SDP the
+        // rewrite never touched and pass just as well with it restored.
+        let offers = OfferBox()
+        await transport.set(onOfferBlock: { offer, _ in await offers.append(offer) })
+
         let sender = try await RTC.run { () -> RTCSender in
             let send = LKRTCRtpTransceiverInit()
             send.direction = .sendOnly
@@ -129,18 +135,26 @@ struct RecvOnlyOfferDirectionTests {
             return try RTCSender(transport.addTransceiver(with: track, transceiverInit: send, startBitrateKbps: nil).sender)
         }
 
-        let first = try await transport.createOffer()
-        try await transport.set(localDescription: first)
+        try await transport.createAndSendOffer()
+        let first = try #require(await offers.all.first)
+        #expect(directions(first.sdp) == [.sendonly])
+
         try await answerer.set(remoteDescription: first)
         let answer = try await answerer.createAnswer()
         try await answerer.set(localDescription: answer)
         try await transport.set(remoteDescription: answer)
-        #expect(directions(first.sdp) == [.sendonly])
 
         try await RTC.run { try transport.remove(track: sender) }
 
-        let second = try await transport.createOffer()
+        try await transport.createAndSendOffer()
+        let second = try #require(await offers.all.last)
+        #expect(await offers.all.count == 2)
         #expect(directions(second.sdp) == [.inactive],
                 "an unpublished section must stay inactive; offering recvonly on a stopped transceiver invites media it cannot receive")
+    }
+
+    private actor OfferBox {
+        private(set) var all: [LKRTCSessionDescription] = []
+        func append(_ offer: LKRTCSessionDescription) { all.append(offer) }
     }
 }
