@@ -52,8 +52,9 @@ extension URL {
     /// into the connection and into the region log lines. Refusing costs nothing and keeps the
     /// accepted shape to exactly what discovery is expected to return.
     var isTrustedRegionURL: Bool {
-        guard isSecure, user == nil, password == nil else { return false }
-        guard let host = host?.lowercased() else { return false }
+        guard isSecure, user == nil, password == nil, let host = host?.lowercased() else {
+            return false
+        }
         return host.hasSuffix(".livekit.cloud") || host.hasSuffix(".livekit.run")
     }
 
