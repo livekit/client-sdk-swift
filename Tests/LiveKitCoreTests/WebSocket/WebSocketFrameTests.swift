@@ -174,6 +174,8 @@ struct WebSocketFrameTests {
 
     @Test(arguments: [
         "XYZ 101 OK\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}",
+        "HTTP/2 401 Unauthorized",
+        "HTTP/1.0 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}",
         "HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}",
         "HTTP/1.1 101 Switching Protocols\r\nUpgrade: h2c\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}",
         "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nSec-WebSocket-Accept: {accept}",
@@ -190,6 +192,15 @@ struct WebSocketFrameTests {
             return #expect(Bool(false), "Opened")
         }
         #expect((error.internalError as? URLError)?.code == .badServerResponse)
+    }
+
+    /// A rejection keeps its status in any HTTP/1.x, as the status line of HTTP/1.0 servers and proxies has it.
+    @Test(arguments: [("HTTP/1.0 401 Unauthorized", 401), ("HTTP/1.0 503 Service Unavailable", 503), ("HTTP/1.1 401 Unauthorized", 401)])
+    func rejectionKeepsItsStatus(head: String, status: Int) {
+        guard case let .failed(error) = WebSocket.upgradeOutcome(Self.response(head + "\r\nContent-Length: 0"), key: Self.key) else {
+            return #expect(Bool(false), "No failure")
+        }
+        #expect((error.internalError as? WebSocketUpgradeFailure)?.statusCode == status)
     }
 
     /// An interim head is skipped, and the final status reaches the caller.

@@ -82,32 +82,38 @@ extension WebSocket {
     }
 
     /// What `read` makes of the upgrade. Interim heads (`100 Continue`) are skipped, as SwiftNIO's HTTP decoder does. A
-    /// final status other than 101 reaches the caller as a ``WebSocketUpgradeFailure``; a 101 must switch protocols as
-    /// RFC 6455 §4.1 asks.
+    /// final status other than 101, in any HTTP/1.x, reaches the caller as a ``WebSocketUpgradeFailure``; a 101 must be
+    /// HTTP/1.1 or later and switch protocols as RFC 6455 §4.1 asks.
     static func upgradeOutcome(_ read: Data, key: String) -> UpgradeOutcome {
         var rest = read[...]
         while let end = rest.range(of: Data("\r\n\r\n".utf8)) {
             let lines = String(bytes: rest[..<end.lowerBound], encoding: .isoLatin1)?.components(separatedBy: "\r\n") ?? []
             rest = rest[end.upperBound...]
-            guard let status = lines.first.flatMap(statusCode(of:)) else {
+            guard let (minor, status) = lines.first.flatMap(statusLine) else {
                 return .failed(badUpgradeResponse("a malformed status line"))
             }
             if (100 ..< 200).contains(status), status != 101 { continue }
             guard status == 101 else {
                 return .failed(LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: status)))
             }
+            guard minor >= 1 else { return .failed(badUpgradeResponse("a 101 in HTTP/1.0")) }
             if let failure = switchingFailure(fields(of: lines.dropFirst()), key: key) { return .failed(failure) }
             return .opened(Data(rest))
         }
         return .incomplete
     }
 
-    /// The status of an HTTP/1.1 status line, "HTTP/1.1 101 Switching Protocols".
-    private static func statusCode(of line: String) -> Int? {
+    /// The minor version and the status of an HTTP/1.x status line, "HTTP/1.1 101 Switching Protocols". Any minor
+    /// version counts, as in SwiftNIO's HTTP decoder: a rejection in HTTP/1.0 keeps its status.
+    private static func statusLine(_ line: String) -> (minor: Int, status: Int)? {
+        func digits(_ text: Substring) -> Int? {
+            text.allSatisfy { ("0" ... "9").contains($0) } ? Int(text) : nil
+        }
         let parts = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: false)
-        guard parts.first == "HTTP/1.1", let code = parts.dropFirst().first, code.count == 3,
-              code.allSatisfy({ ("0" ... "9").contains($0) }) else { return nil }
-        return Int(code)
+        guard let version = parts.first, version.count == 8, version.hasPrefix("HTTP/1."),
+              let minor = digits(version.suffix(1)),
+              let code = parts.dropFirst().first, code.count == 3, let status = digits(code) else { return nil }
+        return (minor, status)
     }
 
     /// The header fields, names lowercased; nil when a line is not a field.

@@ -67,8 +67,16 @@ final class FakeWebSocketServer: Sendable {
     let served = AsyncCompleter<Void>(label: "FakeWebSocketServer.served", defaultTimeout: 5)
     /// The header lines of the last upgrade request, the request line excluded.
     let requestHeaders = StateSync<[String]>([])
-    /// The client's frames, unmasked, in the order they arrived.
-    let frames = StateSync<[(opcode: UInt8, payload: Data)]>([])
+    /// A frame from the client, unmasked.
+    struct ClientFrame: Sendable {
+        let opcode: UInt8
+        let payload: Data
+        /// Whether it came masked, as every client frame must.
+        let masked: Bool
+    }
+
+    /// The client's frames, in the order they arrived.
+    let frames = StateSync<[ClientFrame]>([])
     /// When the server answered the client's close frame, in `DispatchTime` uptime nanoseconds.
     let closeAnswered = StateSync<UInt64?>(nil)
     /// Resumed with the time, in `DispatchTime` uptime nanoseconds, the client dropped TCP after its close frame.
@@ -215,7 +223,7 @@ final class FakeWebSocketServer: Sendable {
             if bytes.count >= maskEnd + length {
                 let mask = maskEnd > lengthEnd ? Array(bytes[lengthEnd ..< maskEnd]) : [0, 0, 0, 0]
                 let payload = Data(bytes[maskEnd ..< maskEnd + length].enumerated().map { $1 ^ mask[$0 % 4] })
-                frames.mutate { $0.append((opcode: bytes[0] & 0x0F, payload: payload)) }
+                frames.mutate { $0.append(ClientFrame(opcode: bytes[0] & 0x0F, payload: payload, masked: maskEnd > lengthEnd)) }
                 return completion(bytes[0] & 0x0F, Data(bytes[(maskEnd + length)...]))
             }
         }

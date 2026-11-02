@@ -100,6 +100,48 @@ extension WebSocketLifecycleTests {
         try await server.served.wait()
     }
 
+    /// An interim head and the final one share the 16 KB budget: together they may take it all, and not a byte more.
+    @Test(arguments: [(WebSocket.upgradeResponseLimit, true), (WebSocket.upgradeResponseLimit + 1, false)])
+    func interimAndFinalHeadShareTheBudget(total: Int, opens: Bool) async throws {
+        let final = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n"
+        // An accept value is 28 characters, where the template has 8.
+        let interim = "HTTP/1.1 100 Continue\r\nX-Padding: \r\n\r\n"
+        let padding = total - (final.utf8.count + 20) - interim.utf8.count
+        let head = interim.replacingOccurrences(of: "X-Padding: ", with: "X-Padding: " + String(repeating: "a", count: padding)) + final
+        let server = try FakeWebSocketServer(.upgradeResponse(head: head))
+        defer { server.cancel() }
+        if opens {
+            let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+            socket.close()
+            _ = try await server.served.wait()
+        } else {
+            let error = await #expect(throws: LiveKitError.self) {
+                try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+            }
+            #expect((error?.internalError as? URLError)?.code == .badServerResponse)
+        }
+    }
+
+    /// A message over 1 MiB fails as soon as its header arrives: the client sends a masked close frame with 1009, and
+    /// the error carries EMSGSIZE.
+    @Test func oversizedMessageHeaderGetsClose1009() async throws {
+        let length = UInt64(WebSocket.maximumMessageSize) + 1
+        let header = Data([0x82, 127] + (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: length >> ($0 * 8)) })
+        let server = try FakeWebSocketServer(.frames(header))
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+        try await socket.send(data: Data([0x01]))
+        try await server.served.wait()
+
+        let (received, error) = await Self.messages(of: socket)
+        #expect(received.isEmpty)
+        #expect(((error as? LiveKitError)?.internalError as NSError?)?.code == Int(EMSGSIZE))
+        let close = server.frames.read { $0.last }
+        #expect(close?.opcode == 0x8)
+        #expect(close?.masked == true)
+        #expect(close?.payload == Data([0x03, 0xF1]))
+    }
+
     /// The bytes after the head of the upgrade response are the stream's first.
     @Test func framesInTheUpgradeResponseSegment() async throws {
         let payloads = Self.payloads(count: 3)

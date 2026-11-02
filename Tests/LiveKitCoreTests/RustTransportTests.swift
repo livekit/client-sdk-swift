@@ -240,6 +240,30 @@ struct TransportErrorMappingTests {
         #expect(server.acceptCount.copy() == 1)
     }
 
+    /// A rejection in HTTP/1.0 keeps its status too; a 101 in HTTP/1.0 does not open, and is no HTTP rejection.
+    @Test("An HTTP/1.0 rejection keeps its status", arguments: [("HTTP/1.0 401 Unauthorized", 401), ("HTTP/1.0 503 Service Unavailable", 503)])
+    func http10RejectionKeepsItsStatus(statusLine: String, status: Int) async throws {
+        let server = try FakeWebSocketServer(.upgradeResponse(head: "\(statusLine)\r\nContent-Length: 0\r\n\r\n"))
+        defer { server.cancel() }
+        let url = try await server.url()
+        await #expect(throws: TransportError.Http(status: UInt16(status))) {
+            try await WsClientAdapter().connect(url: url.absoluteString, headers: [], timeoutMs: 10000)
+        }
+        #expect(server.acceptCount.copy() == 1)
+    }
+
+    @Test("An HTTP/1.0 101 does not open")
+    func http10UpgradeDoesNotOpen() async throws {
+        let head = "HTTP/1.0 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n"
+        let server = try FakeWebSocketServer(.upgradeResponse(head: head))
+        defer { server.cancel() }
+        let url = try await server.url()
+        let error = await #expect(throws: TransportError.self) {
+            try await WsClientAdapter().connect(url: url.absoluteString, headers: [], timeoutMs: 10000)
+        }
+        guard case .Connection? = error else { return #expect(Bool(false), "Not a connection error: \(String(describing: error))") }
+    }
+
     @Test("A send completion cancelled during teardown maps to Closed")
     func cancelledSendCompletionIsClosed() throws {
         let underlying = LiveKit.WebSocket.bridged(.posix(.ECANCELED))
