@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// The slice of ``TextStreamReader`` the SDK's own consumers (the RPC managers) need. They take
 /// this rather than the concrete reader so a stand-in can be built in the test target — otherwise
@@ -103,9 +102,9 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
 
 // MARK: - Objective-C compatibility
 
+@available(*, deprecated, message: "Use for/await on TextStreamReader reader instead.")
 public extension TextStreamReader {
     @objc
-    @available(*, deprecated, message: "Use for/await on TextStreamReader reader instead.")
     func readChunks(onChunk: @Sendable @escaping (String) -> Void, onCompletion: (@Sendable (Error?) -> Void)?) {
         Task {
             do {

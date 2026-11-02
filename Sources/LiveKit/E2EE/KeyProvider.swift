@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 public let defaultRatchetSalt: String = "LKFrameEncryptionKey"
 public let defaultMagicBytes: String = "LK-ROCKS"

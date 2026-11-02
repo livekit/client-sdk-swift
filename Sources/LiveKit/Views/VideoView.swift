@@ -16,10 +16,9 @@
 
 // swiftlint:disable file_length
 
+internal import LiveKitWebRTC
 @preconcurrency import AVFoundation
 import MetalKit
-
-internal import LiveKitWebRTC
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType
@@ -494,11 +493,9 @@ public class VideoView: NativeView, Loggable {
             debugView.layer!.borderWidth = 3
             #endif
             bringSubviewToFront(debugView)
-        } else {
-            if let debugView = _debugTextView {
-                debugView.removeFromSuperview()
-                _debugTextView = nil
-            }
+        } else if let debugView = _debugTextView {
+            debugView.removeFromSuperview()
+            _debugTextView = nil
         }
 
         guard let track = state.track else {

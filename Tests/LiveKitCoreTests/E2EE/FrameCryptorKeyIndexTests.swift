@@ -16,11 +16,11 @@
 
 import Foundation
 @testable import LiveKit
+import LiveKitWebRTC
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
-import LiveKitWebRTC
 
 /// Records every frame-cryptor state a room reports.
 private final class E2EEStateWatcher: RoomDelegate, @unchecked Sendable {

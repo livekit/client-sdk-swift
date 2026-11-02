@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 import AVFoundation
 import CoreMedia
-
-internal import LiveKitWebRTC
 
 @objcMembers
 public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @unchecked Sendable {

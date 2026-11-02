@@ -74,11 +74,11 @@ public extension AudioManager {
 extension LKRTCAudioEngineMuteMode {
     func toLKType() -> MicrophoneMuteMode {
         switch self {
-        case .voiceProcessing: return .voiceProcessing
-        case .restartEngine: return .restart
-        case .inputMixer: return .inputMixer
-        case .unknown: return .unknown
-        @unknown default: return .unknown
+        case .voiceProcessing: .voiceProcessing
+        case .restartEngine: .restart
+        case .inputMixer: .inputMixer
+        case .unknown: .unknown
+        @unknown default: .unknown
         }
     }
 }

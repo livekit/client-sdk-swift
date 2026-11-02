@@ -1,1 +1,0 @@
-patch type="fixed" "Fix media frame cryptors ignoring the key provider's current key index; senders now follow `setKey(index:)` / `setCurrentKeyIndex` live. In non-shared key mode `setKey(key:participantId:index:)` no longer moves the current key index (it may be a remote participant's key); use `setCurrentKeyIndex` to switch the local one"

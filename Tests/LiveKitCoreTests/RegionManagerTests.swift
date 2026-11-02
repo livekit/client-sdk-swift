@@ -16,10 +16,10 @@
 
 import Foundation
 @testable import LiveKit
+import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
-import Testing
 
 @Suite(.serialized, .tags(.networking)) struct RegionManagerTests {
     private func cleanUpMockURLProtocol() {
