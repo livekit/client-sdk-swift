@@ -66,36 +66,54 @@ extension WebSocketLifecycleTests {
         #expect(WebSocket.basicAuthorization(response, url: url) == nil)
     }
 
-    @Test(arguments: ["127.0.0.1", "localhost"])
-    func basicRedirectKeepsCredentialOnlyOnSameOrigin(host: String) async throws {
-        let realm = "lk-review-redirect-\(UUID().uuidString)"
-        let server = try FakeWebSocketServer(.upgradeResponses([
-            "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"\(realm)\"\r\n\r\n",
-            "HTTP/1.1 302 Redirect\r\nLocation: ws://\(host):{port}/ok\r\n\r\n", Self.successfulHTTPUpgrade,
-        ]))
+    @Test(arguments: [
+        ("/basic-then-redirect", ["/ok?from=basic"], [true], true),
+        ("/basic-then-redirect-host", ["ws://localhost:{port}/basic?from=host"], [false], false),
+        ("/basic-then-redirect-http", ["http://127.0.0.1:{port}/ok?from=http-basic"], [false], true),
+        ("/dir/sub/basic-then-up", ["/ok?from=up"], [false], true),
+        ("/bounce-out", ["ws://localhost:{port}/bounce-back", "ws://127.0.0.1:{port}/basic?from=bounce"], [false, true], true),
+    ])
+    func basicRedirectProtectionSpaceMatchesURLSession(path: String, targets: [String], sendsBasic: [Bool], opens: Bool) async throws {
+        let realm = "lk-redirect-scope-\(UUID().uuidString)"
+        let redirects = targets.map { "HTTP/1.1 308 Redirect\r\nLocation: \($0)\r\n\r\n" }
+        let challenge = "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"\(realm)\"\r\n\r\n"
+        let server = try FakeWebSocketServer(.upgradeResponses([challenge] + redirects + [opens ? Self.successfulHTTPUpgrade : challenge]))
         defer { server.cancel() }
-        let url = try await server.url()
+        let origin = try await server.url()
+        let url = try #require(URL(string: path, relativeTo: origin)?.absoluteURL)
         let stored = try Self.storeBasicCredential(url: url, realm: realm)
         defer { URLCredentialStorage.shared.remove(stored.credential, for: stored.space) }
-        let socket = try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer probe")], timeoutInterval: 10)
-        defer { socket.close() }
-        let requests = server.requests.copy()
-        #expect(requests.count == 3)
-        #expect(Self.authorization(requests.dropFirst().first?.headers) == "Basic cHJvYmU6c2VjcmV0")
-        #expect(Self.authorization(requests.last?.headers) == (host == "127.0.0.1" ? "Basic cHJvYmU6c2VjcmV0" : nil))
+        if opens {
+            let socket = try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer probe")], timeoutInterval: 10)
+            socket.close()
+        } else {
+            let error = await #expect(throws: LiveKitError.self) {
+                try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer probe")], timeoutInterval: 10)
+            }
+            #expect((error?.internalError as? WebSocketUpgradeFailure)?.statusCode == 401)
+        }
+        let basic = "Basic cHJvYmU6c2VjcmV0"
+        let expected: [String?] = ["Bearer probe", basic] + sendsBasic.map { $0 ? basic : nil }
+        #expect(server.requests.copy().map { Self.authorization($0.headers) } == expected)
     }
 
-    @Test func basicRedirectOriginUsesSchemeFamilyHostAndPort() throws {
-        let source = try #require(URL(string: "ws://example.invalid/rtc"))
-        let same = try #require(URL(string: "http://EXAMPLE.invalid:80/next"))
-        #expect(WebSocket.isSameOrigin(source, same))
-        let secure = try #require(URL(string: "wss://example.invalid/rtc"))
-        let secureSame = try #require(URL(string: "https://example.invalid:443/next"))
-        #expect(WebSocket.isSameOrigin(secure, secureSame))
-        for raw in ["wss://example.invalid:80/next", "ws://example.invalid:81/next", "ws://other.invalid/next"] {
+    @Test func basicProtectionSpaceUsesLiteralSchemeHostPortAndDirectory() throws {
+        let source = try #require(URL(string: "ws://example.invalid/dir/sub/basic"))
+        for raw in ["ws://EXAMPLE.invalid:80/dir/sub/next", "ws://example.invalid/dir/sub/deeper/ok?x=1"] {
             let target = try #require(URL(string: raw))
-            #expect(!WebSocket.isSameOrigin(source, target))
+            #expect(WebSocket.isInBasicProtectionSpace(target, challengedURL: source))
         }
+        for raw in ["http://example.invalid/dir/sub/next", "wss://example.invalid:80/dir/sub/next", "ws://example.invalid:81/dir/sub/next",
+                    "ws://other.invalid/dir/sub/next", "ws://example.invalid/ok", "ws://example.invalid/dir/submarine/next"]
+        {
+            let target = try #require(URL(string: raw))
+            #expect(!WebSocket.isInBasicProtectionSpace(target, challengedURL: source))
+        }
+        let secure = try #require(URL(string: "wss://example.invalid/basic"))
+        let secureSame = try #require(URL(string: "wss://example.invalid:443/ok"))
+        let secureHTTP = try #require(URL(string: "https://example.invalid:443/ok"))
+        #expect(WebSocket.isInBasicProtectionSpace(secureSame, challengedURL: secure))
+        #expect(!WebSocket.isInBasicProtectionSpace(secureHTTP, challengedURL: secure))
     }
 
     @Test(arguments: [401, 403])
@@ -138,7 +156,7 @@ extension WebSocketLifecycleTests {
         #expect(!String(reflecting: rejection).contains("other-secret"))
     }
 
-    /// A 300-byte reference fits a widened 9-bit window but exceeds an 8-bit receiver's retained history.
+    /// A peer advertising 8 bits sends a 300-byte reference that needs a larger receive window.
     @Test func eightBitServerWindowAcceptsWidenedHistory() async throws {
         let expected = try #require(Data(base64Encoded: "aelJV7OT3fUVHAKkOmFyfIfqw7dOjo9hXSHMwIpwLqSWWDfrExFMcXFYN0UrzkL31Z9riYx0lYJmYSVFWwAi38zx+cvyEXxtNS2n7C9uwQgy8S//AVgqocFU1RQfEMviLa8JkXzA23Ti4jTan5Iynyl3N6L+Ysgpd4Y7XemGjOZMyJ6SA/la9D9Xa54qMRSK4awnL4kNzkwhguVPFdLeW3Y+VQbW1mZQvpKRDuBlJ1fqRkny2y4Jz6ui/qAS278On7IQwV64RyjLwODGONPJI6w0LTWjQdXeAXjloO4mnQW2LtPEsdsaUv5JoX6b/ZdVPvlB+IZtbHMtjV6DEonl+HmW3Izb8YKAkfXg6wwjcBmJ7I7haloYIMK9rRRug/ewARx09ISm+p1MOl20"))
         let first = try #require(Data(base64Encoded: "ACwB0/5p6UlXs5Pd9RUcAqQ6YXJ8h+rDt06Oj2FdIczAinAupJZYN+sTEUxxcVg3RSvOQvfVn2uJjHSVgmZhJUVbACLfzPH5y/IRfG01LafsL27BCDLxL/8BWCqhwVTVFB8Qy+ItrwmRfMDbdOLiNNqfkjKfKXc3ov5iyCl3hjtd6YaM5kzInpID+Vr0P1drnioxFIrhrCcviQ3OTCGC5U8V0t5bdj5VBtbWZlC+kpEO4GUnV+pGSfLbLgnPq6L+oBLbvw6fshDBXrhHKMvA4MY408kjrDQtNaNB1d4BeOWg7iadBbYu08Sx2xpS/kmhfpv9l1U++UH4hm1scy2NXoMSieX4eZbcjNvxgoCR9eDrDCNwGYnsjuFqWhggwr2tFG6D97ABHHT0hKb6nUw6XbQA"))

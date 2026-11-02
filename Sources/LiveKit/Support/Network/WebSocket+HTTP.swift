@@ -25,22 +25,26 @@ extension WebSocket {
         let locations = response.headers.filter { $0.name == "location" }.map(\.value)
         guard locations.count == 1, let location = locations.first, !location.isEmpty,
               let target = URL(string: location, relativeTo: url)?.absoluteURL,
-              var components = URLComponents(url: target, resolvingAgainstBaseURL: true) else { return nil }
+              let components = URLComponents(url: target, resolvingAgainstBaseURL: true) else { return nil }
         switch components.scheme?.lowercased() {
-        case "ws", "http": components.scheme = "ws"
-        case "wss", "https": components.scheme = "wss"
+        case "ws", "http", "wss", "https": break
         default: throw LiveKitError(.network, internalError: URLError(.unsupportedURL))
         }
         guard let host = components.host, !host.isEmpty else { throw LiveKitError(.network, internalError: URLError(.badURL)) }
         return components.url
     }
 
-    static func isSameOrigin(_ source: URL, _ target: URL) -> Bool {
-        guard let source = httpURL(source), let target = httpURL(target), source.scheme == target.scheme,
-              let sourceHost = source.host, let targetHost = target.host,
-              sourceHost.caseInsensitiveCompare(targetHost) == .orderedSame else { return false }
-        let defaultPort = source.scheme == "https" ? 443 : 80
-        return (source.port ?? defaultPort) == (target.port ?? defaultPort)
+    /// Basic credentials are reused only within the challenged URL's literal scheme, host, port and directory.
+    static func isInBasicProtectionSpace(_ target: URL, challengedURL: URL) -> Bool {
+        guard target.scheme?.lowercased() == challengedURL.scheme?.lowercased(),
+              let host = challengedURL.host, let targetHost = target.host,
+              host.caseInsensitiveCompare(targetHost) == .orderedSame,
+              let sourcePath = URLComponents(url: challengedURL, resolvingAgainstBaseURL: true)?.percentEncodedPath,
+              let targetPath = URLComponents(url: target, resolvingAgainstBaseURL: true)?.percentEncodedPath else { return false }
+        let defaultPort = ["wss", "https"].contains(challengedURL.scheme?.lowercased() ?? "") ? 443 : 80
+        let directory = sourcePath.split(separator: "/", omittingEmptySubsequences: false).dropLast().joined(separator: "/") + "/"
+        return (challengedURL.port ?? defaultPort) == (target.port ?? defaultPort)
+            && (targetPath.isEmpty ? "/" : targetPath).hasPrefix(directory)
     }
 
     /// The default credential is scoped to this endpoint and Basic realm. CFNetwork builds the header, as it did for

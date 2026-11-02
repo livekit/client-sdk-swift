@@ -96,7 +96,7 @@ struct WebSocketCompression: Sendable {
                               windowBits == 8 ? Z_HUFFMAN_ONLY : Z_DEFAULT_STRATEGY,
                               ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size))
             } else {
-                // zlib can widen an 8-bit deflater to 9 bits; a full receive window accepts every negotiated size.
+                // A peer can use a larger window than it advertises. A 15-bit inflater accepts every window size.
                 inflateInit2_(storage.stream, -15, ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size))
             }
             guard status == Z_OK else { throw WebSocketCompression.failure(status == Z_MEM_ERROR ? ENOMEM : EPROTO) }

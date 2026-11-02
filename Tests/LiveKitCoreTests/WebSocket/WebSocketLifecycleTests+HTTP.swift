@@ -102,7 +102,7 @@ extension WebSocketLifecycleTests {
         let url = try #require(URL(string: "\(source)://source.invalid/rtc"))
         let response = WebSocketUpgradeFailure(statusCode: 302, headers: [("location", "\(target)://target.invalid:7880/next?x=one%20two")])
         let result = try #require(try WebSocket.redirectedURL(response, from: url))
-        #expect(result.scheme == (["wss", "https"].contains(target) ? "wss" : "ws"))
+        #expect(result.scheme == target)
         #expect(result.host == "target.invalid")
         #expect(result.port == 7880)
         #expect(result.query == "x=one%20two")

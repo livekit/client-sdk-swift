@@ -15,6 +15,7 @@
  */
 
 import CryptoKit
+import Darwin
 import Foundation
 @testable import LiveKit
 import Network
@@ -325,6 +326,34 @@ final class FakeWebSocketServer: Sendable {
 }
 
 extension FakeWebSocketServer {
+    static func unusedTCPPort() throws -> UInt16 {
+        let automaticStart = try #require(try ["first", "last", "hifirst", "hilast"].map { name in
+            var value: Int32 = 0
+            var size = MemoryLayout.size(ofValue: value)
+            try #require(sysctlbyname("net.inet.ip.portrange.\(name)", &value, &size, nil, 0) == 0)
+            return value
+        }.min())
+        try #require(automaticStart > 1024 && automaticStart <= UInt16.max)
+        let descriptor = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
+        try #require(descriptor >= 0)
+        defer { Darwin.close(descriptor) }
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr = in_addr(s_addr: inet_addr("127.0.0.1"))
+        for port in (UInt16(1024) ..< UInt16(automaticStart)).shuffled() {
+            address.sin_port = port.bigEndian
+            let bound = withUnsafePointer(to: &address) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    Darwin.bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                }
+            }
+            if bound == 0 { return port }
+            try #require(errno == EADDRINUSE)
+        }
+        return try #require(nil as UInt16?, "No unused destination outside automatic source-port ranges")
+    }
+
     /// A server frame: FIN set, not masked, a 16-bit length past 125 bytes.
     static func frame(_ opcode: UInt8, _ payload: Data) -> Data {
         let length: [UInt8] = payload.count < 126 ? [UInt8(payload.count)] : [126, UInt8(payload.count >> 8), UInt8(payload.count & 0xFF)]

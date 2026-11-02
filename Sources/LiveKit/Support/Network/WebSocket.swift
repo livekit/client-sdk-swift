@@ -91,7 +91,7 @@ actor WebSocket: Loggable, AsyncSequence {
         var requestURL = url
         var requestHeaders = headers
         var redirects = 0
-        var authenticated = false
+        var basicCredential: (url: URL, authorization: String)?
         while true {
             do {
                 let opened = try await Self.open(url: requestURL, headers: requestHeaders, timeoutInterval: timeoutInterval, onEvent: onEvent)
@@ -105,12 +105,13 @@ actor WebSocket: Loggable, AsyncSequence {
                 if let target = try Self.redirectedURL(response, from: requestURL) {
                     guard redirects < 20 else { throw LiveKitError(.network, internalError: URLError(.httpTooManyRedirects)) }
                     redirects += 1
-                    if !authenticated || !Self.isSameOrigin(requestURL, target) {
-                        requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
+                    requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
+                    if let basicCredential, Self.isInBasicProtectionSpace(target, challengedURL: basicCredential.url) {
+                        requestHeaders.append(("Authorization", basicCredential.authorization))
                     }
                     requestURL = target
-                } else if !authenticated, let authorization = Self.basicAuthorization(response, url: requestURL) {
-                    authenticated = true
+                } else if basicCredential == nil, let authorization = Self.basicAuthorization(response, url: requestURL) {
+                    basicCredential = (requestURL, authorization)
                     requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
                     requestHeaders.append(("Authorization", authorization))
                 } else {
@@ -128,7 +129,7 @@ actor WebSocket: Loggable, AsyncSequence {
         let headers = Self.upgradeHeaders(url: url, headers: headers)
         let request = try Self.upgradeRequest(url: url, key: key, headers: headers)
         let compressionOffered = headers.contains { $0.name.caseInsensitiveCompare("Sec-WebSocket-Extensions") == .orderedSame && $0.value == "permessage-deflate" }
-        let connection = NWConnection(to: .url(url), using: Self.makeParameters(secure: url.scheme == "wss",
+        let connection = NWConnection(to: .url(url), using: Self.makeParameters(secure: ["wss", "https"].contains(url.scheme?.lowercased() ?? ""),
                                                                                 timeoutInterval: timeoutInterval))
         let core = Core(connection: connection, onEvent: onEvent)
 
