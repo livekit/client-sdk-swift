@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Darwin
 import Foundation
 @testable import LiveKit
 import Network
@@ -208,10 +209,8 @@ struct WebSocketLifecycleTests {
     }
 
     @Test func refusedConnectionFails() async throws {
-        let server = try FakeWebSocketServer(.idle)
-        defer { server.cancel() }
-        let url = try await server.url()
-        try await server.stop()
+        let port = try Self.unusedTCPPort()
+        let url = try #require(URL(string: "ws://127.0.0.1:\(port)/rtc"))
 
         let events = SocketEvents()
         let error = await #expect(throws: LiveKitError.self) {
@@ -220,7 +219,7 @@ struct WebSocketLifecycleTests {
         #expect(events.teardowns.copy() == 1)
         #expect(events.closeStarts.copy() == 0)
         #expect(error?.type == .network)
-        #expect((error?.internalError as? NSError)?.code == Int(ECONNREFUSED))
+        #expect((error?.internalError as? NSError)?.code == Int(ECONNREFUSED), "A reserved TCP port that has not listened must refuse the connection")
     }
 
     @Test func deadlineFailsAnUnansweredUpgrade() async throws {
@@ -339,6 +338,28 @@ struct WebSocketLifecycleTests {
 }
 
 private extension WebSocketLifecycleTests {
+    static func unusedTCPPort() throws -> UInt16 {
+        let descriptor = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
+        try #require(descriptor >= 0)
+        defer { Darwin.close(descriptor) }
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr = in_addr(s_addr: inet_addr("127.0.0.1"))
+        let bound = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        try #require(bound == 0)
+        var size = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let located = withUnsafeMutablePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(descriptor, $0, &size) }
+        }
+        try #require(located == 0)
+        return UInt16(bigEndian: address.sin_port)
+    }
+
     static func open(_ server: FakeWebSocketServer, timeoutInterval: TimeInterval = 10,
                      events: SocketEvents? = nil) async throws -> LiveKit.WebSocket
     {
