@@ -53,20 +53,27 @@ extension WebSocket {
     }
 
     /// What the bytes read so far make of the upgrade.
+    struct UpgradeResponse: Sendable {
+        let rest: Data
+        let compression: WebSocketCompression?
+    }
+
     enum UpgradeOutcome {
         /// The final response head is not whole yet.
         case incomplete
         /// The socket opens, with the bytes after the final head: they can hold the first frames.
-        case opened(Data)
+        case opened(UpgradeResponse)
         case failed(LiveKitError)
     }
 
     /// Reads the answer to the upgrade request, at most ``upgradeResponseLimit`` bytes for every head it holds, and
     /// resumes `opening` once ``upgradeOutcome(_:key:)`` settles it.
-    static func readUpgradeResponse(_ connection: NWConnection, url: URL, key: String, into opening: AsyncCompleter<Data>, read: Data = Data()) {
+    static func readUpgradeResponse(_ connection: NWConnection, url: URL, key: String, compressionOffered: Bool,
+                                    into opening: AsyncCompleter<UpgradeResponse>, read: Data = Data())
+    {
         connection.receive(minimumIncompleteLength: 1, maximumLength: upgradeResponseLimit - read.count) { content, _, isComplete, error in
             let read = read + (content ?? Data())
-            switch upgradeOutcome(read, key: key, url: url) {
+            switch upgradeOutcome(read, key: key, url: url, compressionOffered: compressionOffered) {
             case let .opened(rest):
                 opening.resume(returning: rest)
             case let .failed(failure):
@@ -76,7 +83,7 @@ extension WebSocket {
                 guard !isComplete, read.count < upgradeResponseLimit else {
                     return opening.resume(throwing: badUpgradeResponse("no whole head in \(read.count) bytes"))
                 }
-                readUpgradeResponse(connection, url: url, key: key, into: opening, read: read)
+                readUpgradeResponse(connection, url: url, key: key, compressionOffered: compressionOffered, into: opening, read: read)
             }
         }
     }
@@ -84,7 +91,7 @@ extension WebSocket {
     /// What `read` makes of the upgrade. Interim heads (`100 Continue`) are skipped, as SwiftNIO's HTTP decoder does. A
     /// final status other than 101, in any HTTP/1.x, reaches the caller as a ``WebSocketUpgradeFailure``; a 101 must be
     /// HTTP/1.1 or later and switch protocols as RFC 6455 §4.1 asks.
-    static func upgradeOutcome(_ read: Data, key: String, url: URL? = nil) -> UpgradeOutcome {
+    static func upgradeOutcome(_ read: Data, key: String, url: URL? = nil, compressionOffered: Bool = true) -> UpgradeOutcome {
         var rest = read[...]
         while let end = rest.range(of: Data("\r\n\r\n".utf8)) {
             let lines = String(bytes: rest[..<end.lowerBound], encoding: .isoLatin1)?.components(separatedBy: "\r\n") ?? []
@@ -100,7 +107,13 @@ extension WebSocket {
             }
             guard minor >= 1 else { return .failed(badUpgradeResponse("a 101 in HTTP/1.0")) }
             if let failure = switchingFailure(fields, key: key) { return .failed(failure) }
-            return .opened(Data(rest))
+            do {
+                let compression = try WebSocketCompression.negotiate(fields?.filter { $0.name == "sec-websocket-extensions" }.map(\.value) ?? [])
+                guard compression == nil || compressionOffered else { return .failed(badUpgradeResponse("an unsolicited extension")) }
+                return .opened(UpgradeResponse(rest: Data(rest), compression: compression))
+            } catch {
+                return .failed(badUpgradeResponse("invalid compression parameters"))
+            }
         }
         return .incomplete
     }
@@ -131,7 +144,7 @@ extension WebSocket {
 
     /// What keeps a 101 response from opening the socket (RFC 6455 §4.1): it needs `Upgrade: websocket`, a
     /// `Connection` with the `upgrade` token, and exactly one `Sec-WebSocket-Accept` that answers `key`. It must name no
-    /// subprotocol and no extension, because the request asked for none.
+    /// subprotocol, because the request asked for none. Compression parameters are checked separately.
     private static func switchingFailure(_ fields: [(name: String, value: String)]?, key: String) -> LiveKitError? {
         guard let fields else { return badUpgradeResponse("a malformed header field") }
         func values(_ name: String) -> [String] { fields.filter { $0.name == name }.map(\.value) }
@@ -146,8 +159,8 @@ extension WebSocket {
         guard values("sec-websocket-accept") == [accept] else {
             return badUpgradeResponse("not exactly one Sec-WebSocket-Accept that answers the key")
         }
-        guard values("sec-websocket-protocol").isEmpty, values("sec-websocket-extensions").isEmpty else {
-            return badUpgradeResponse("a subprotocol or an extension that was not asked for")
+        guard values("sec-websocket-protocol").isEmpty else {
+            return badUpgradeResponse("a subprotocol that was not asked for")
         }
         return nil
     }
@@ -190,7 +203,7 @@ extension WebSocket {
                 joined.append((name, value))
             }
         }
-        for (name, value) in [("Accept", "*/*"), ("Accept-Encoding", "gzip, deflate")]
+        for (name, value) in [("Accept", "*/*"), ("Accept-Encoding", "gzip, deflate"), ("Sec-WebSocket-Extensions", "permessage-deflate")]
             where !joined.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame })
         {
             joined.append((name, value))

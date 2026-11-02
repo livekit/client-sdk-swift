@@ -98,4 +98,62 @@ extension WebSocketLifecycleTests {
         let cleartext = try #require(URL(string: "ws://\(name).invalid/rtc"))
         #expect(!WebSocket.upgradeHeaders(url: cleartext, headers: []).contains { $0.name == "Cookie" })
     }
+
+    @Test(arguments: [(false, false), (false, true), (true, false), (true, true)])
+    func negotiatedCompressionIsUsedForWrites(clientReset: Bool, serverReset: Bool) async throws {
+        let parameters = "permessage-deflate" + (clientReset ? "; client_no_context_takeover" : "")
+            + (serverReset ? "; server_no_context_takeover" : "")
+        let head = Self.compressedUpgradeHead(parameters)
+        let hello = Data([0xF2, 0x48, 0xCD, 0xC9, 0xC9, 0x07, 0])
+        let second = serverReset ? hello : Data([0xF2, 0, 0x11, 0, 0])
+        let server = try FakeWebSocketServer(.upgradeResponse(head: head, then: FakeWebSocketServer.frame(0x42, hello)
+                + FakeWebSocketServer.frame(0x42, second)))
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+        let iterator = socket.makeAsyncIterator()
+        for _ in 0 ..< 2 {
+            guard case let .data(data)? = try await iterator.next() else {
+                Issue.record("Missing compressed server message")
+                return
+            }
+            #expect(data == Data("Hello".utf8))
+        }
+        let offer = server.requestHeaders.copy().filter { $0.lowercased().hasPrefix("sec-websocket-extensions:") }
+        #expect(offer == ["Sec-WebSocket-Extensions: permessage-deflate"])
+        for data in [Data("Hello".utf8), Data("Hello".utf8), Data(), Data()] {
+            try await socket.send(data: data)
+        }
+        socket.close()
+        try await server.served.wait()
+        let frames = server.frames.copy()
+        #expect(frames.map(\.opcode) == [2, 2, 2, 2, 8])
+        #expect(!frames.contains { !$0.masked })
+        #expect(frames.map(\.compressed) == [true, true, true, true, false])
+        #expect(frames.first?.payload == hello)
+        #expect(frames.dropFirst().first?.payload == (clientReset ? hello : Data([0xF2, 0, 0x11, 0, 0])))
+        #expect(frames.dropFirst(2).prefix(2).allSatisfy { $0.payload == Data([0]) })
+    }
+
+    @Test func compressionIsConfiguredBeforeCoalescedFramesAreRead() async throws {
+        let bytes = FakeWebSocketServer.frame(0x42, Data([0xF2, 0x48, 0xCD, 0xC9, 0xC9, 0x07, 0]))
+            + FakeWebSocketServer.frame(0x2, Data([42])) + FakeWebSocketServer.close(1000)
+        let server = try FakeWebSocketServer(.upgradeResponse(head: Self.compressedUpgradeHead("permessage-deflate"), then: bytes))
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+        let iterator = socket.makeAsyncIterator()
+        guard case let .data(first)? = try await iterator.next(), case let .data(second)? = try await iterator.next() else {
+            Issue.record("The coalesced messages were lost")
+            return
+        }
+        #expect(first == Data("Hello".utf8))
+        #expect(second == Data([42]))
+        let error = await #expect(throws: LiveKitError.self) { try await iterator.next() }
+        #expect((error?.internalError as? WebSocketClosedByPeer)?.code == 1000)
+        try await server.served.wait()
+    }
+
+    private static func compressedUpgradeHead(_ parameters: String) -> String {
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+            + "Sec-WebSocket-Accept: {accept}\r\nSec-WebSocket-Extensions: \(parameters)\r\n\r\n"
+    }
 }

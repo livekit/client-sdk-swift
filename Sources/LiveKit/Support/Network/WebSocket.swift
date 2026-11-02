@@ -89,19 +89,21 @@ actor WebSocket: Loggable, AsyncSequence {
         #endif
 
         let key = Self.upgradeKey()
-        let request = try Self.upgradeRequest(url: url, key: key, headers: Self.upgradeHeaders(url: url, headers: headers))
+        let headers = Self.upgradeHeaders(url: url, headers: headers)
+        let request = try Self.upgradeRequest(url: url, key: key, headers: headers)
+        let compressionOffered = headers.contains { $0.name.caseInsensitiveCompare("Sec-WebSocket-Extensions") == .orderedSame && $0.value == "permessage-deflate" }
         let connection = NWConnection(to: .url(url), using: Self.makeParameters(secure: url.scheme == "wss",
                                                                                 timeoutInterval: timeoutInterval))
         self.connection = connection
         let core = Core(connection: connection, onEvent: onEvent)
         self.core = core
 
-        let opening = AsyncCompleter<Data>(label: "WebSocket.open", defaultTimeout: timeoutInterval)
+        let opening = AsyncCompleter<UpgradeResponse>(label: "WebSocket.open", defaultTimeout: timeoutInterval)
         connection.stateUpdateHandler = { state in
             switch state {
             case .ready:
                 connection.send(content: request, completion: .contentProcessed { _ in })
-                Self.readUpgradeResponse(connection, url: url, key: key, into: opening)
+                Self.readUpgradeResponse(connection, url: url, key: key, compressionOffered: compressionOffered, into: opening)
             case let .failed(error), let .waiting(error):
                 // `.waiting` too: a connection that cannot be made now fails, as URLSession's did
                 // (waitsForConnectivity off); the signal client owns the retries.
@@ -113,9 +115,10 @@ actor WebSocket: Loggable, AsyncSequence {
             }
         }
         connection.start(queue: Self.queue)
-        let rest: Data
+        let response: UpgradeResponse
         do {
-            rest = try await opening.wait()
+            response = try await opening.wait()
+            try core.configure(response.compression)
         } catch let error as NWError {
             core.finish()
             throw LiveKitError(.network, internalError: Self.bridged(error))
@@ -124,7 +127,7 @@ actor WebSocket: Loggable, AsyncSequence {
             throw error is LiveKitError ? error : LiveKitError.from(error: error) ?? LiveKitError(.unknown)
         }
         // The server can send frames in the same segment as its upgrade response.
-        core.received(rest, isComplete: false, error: nil)
+        core.received(response.rest, isComplete: false, error: nil)
     }
 
     deinit {
@@ -180,29 +183,57 @@ actor WebSocket: Loggable, AsyncSequence {
     // MARK: - Send
 
     nonisolated func send(data: Data) async throws {
-        let frame = WebSocketFrame.client(opcode: WebSocketFrame.binary, data)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            guard core.write(frame, completion: { error in
-                if let error {
-                    continuation.resume(throwing: LiveKitError(.network, internalError: WebSocket.bridged(error)))
-                } else {
-                    continuation.resume()
-                }
-            }) else { return continuation.resume(throwing: LiveKitError(.network, internalError: URLError(.cancelled))) }
+            do {
+                guard try core.send(data, completion: { error in
+                    if let error {
+                        continuation.resume(throwing: LiveKitError(.network, internalError: WebSocket.bridged(error)))
+                    } else {
+                        continuation.resume()
+                    }
+                }) else { return continuation.resume(throwing: LiveKitError(.network, internalError: URLError(.cancelled))) }
+            } catch {
+                core.finish()
+                continuation.resume(throwing: error)
+            }
         }
     }
 }
 
 // MARK: - Core
 
-private enum Lifecycle: Sendable { case open, closing, closed }
+private struct Lifecycle {
+    enum Phase { case open, closing, closed }
+    var phase: Phase = .open
+    var compressor: WebSocketCompression.Codec?
+}
 
 /// The connection, and what reads, writes and ends it: shared by the socket, its iterators and the callbacks.
 private struct Core: Sendable {
     let connection: NWConnection
-    let lifecycle = StateSync(Lifecycle.open)
+    let lifecycle = StateSync(Lifecycle())
     let inbox = StateSync(WebSocket.Inbox())
     let onEvent: WebSocket.EventHandler?
+
+    func configure(_ compression: WebSocketCompression?) throws {
+        guard let compression else { return }
+        let inflater = try WebSocketCompression.Codec(compressing: false, windowBits: compression.serverWindowBits,
+                                                      noContextTakeover: compression.serverNoContextTakeover)
+        let deflater = try WebSocketCompression.Codec(compressing: true, windowBits: compression.clientWindowBits,
+                                                      noContextTakeover: compression.clientNoContextTakeover)
+        inbox.mutate { $0.parser = WebSocketFrame.Parser(maximumMessageSize: WebSocket.maximumMessageSize, inflater: inflater) }
+        lifecycle.mutate { $0.compressor = deflater }
+    }
+
+    func send(_ data: Data, completion: @escaping @Sendable (NWError?) -> Void) throws -> Bool {
+        try lifecycle.mutate { state in
+            guard state.phase == .open else { return false }
+            let payload = try state.compressor?.process(data, final: true) ?? data
+            connection.send(content: WebSocketFrame.client(opcode: WebSocketFrame.binary, payload, compressed: state.compressor != nil),
+                            completion: .contentProcessed(completion))
+            return true
+        }
+    }
 
     /// Our close: every read ends at once with nil, unread messages are dropped, our close frame goes out, and the
     /// connection is cancelled on the server's answer or at the deadline.
@@ -228,8 +259,8 @@ private struct Core: Sendable {
     /// even when the frame waits behind a write that TCP holds up. False when the socket is not open.
     private func startClosing(code: UInt16, finishOnceWritten: Bool) -> Bool {
         guard lifecycle.mutate({
-            guard $0 == .open else { return false }
-            $0 = .closing
+            guard $0.phase == .open else { return false }
+            $0.phase = .closing
             connection.send(content: WebSocketFrame.clientClose(code), completion: .contentProcessed { _ in
                 if finishOnceWritten { finish() }
             })
@@ -244,8 +275,8 @@ private struct Core: Sendable {
 
     func finish() {
         guard lifecycle.mutate({
-            guard $0 != .closed else { return false }
-            $0 = .closed
+            guard $0.phase != .closed else { return false }
+            $0.phase = .closed
             return true
         }) else { return }
         onEvent?(.teardown)
@@ -257,7 +288,7 @@ private struct Core: Sendable {
     @discardableResult
     func write(_ frame: Data, completion: @escaping @Sendable (NWError?) -> Void = { _ in }) -> Bool {
         lifecycle.read { state in
-            guard state == .open else { return false }
+            guard state.phase == .open else { return false }
             connection.send(content: frame, completion: .contentProcessed(completion))
             return true
         }

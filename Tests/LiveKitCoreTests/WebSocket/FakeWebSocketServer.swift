@@ -73,6 +73,7 @@ final class FakeWebSocketServer: Sendable {
         let payload: Data
         /// Whether it came masked, as every client frame must.
         let masked: Bool
+        let compressed: Bool
     }
 
     /// The client's frames, in the order they arrived.
@@ -223,7 +224,7 @@ final class FakeWebSocketServer: Sendable {
             if bytes.count >= maskEnd + length {
                 let mask = maskEnd > lengthEnd ? Array(bytes[lengthEnd ..< maskEnd]) : [0, 0, 0, 0]
                 let payload = Data(bytes[maskEnd ..< maskEnd + length].enumerated().map { $1 ^ mask[$0 % 4] })
-                frames.mutate { $0.append(ClientFrame(opcode: bytes[0] & 0x0F, payload: payload, masked: maskEnd > lengthEnd)) }
+                frames.mutate { $0.append(ClientFrame(opcode: bytes[0] & 0x0F, payload: payload, masked: maskEnd > lengthEnd, compressed: bytes[0] & 0x40 != 0)) }
                 return completion(bytes[0] & 0x0F, Data(bytes[(maskEnd + length)...]))
             }
         }

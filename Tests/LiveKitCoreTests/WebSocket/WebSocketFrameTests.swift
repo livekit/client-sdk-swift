@@ -169,7 +169,7 @@ struct WebSocketFrameTests {
         guard case let .opened(rest) = WebSocket.upgradeOutcome(Self.response(head) + Data([0x82, 0x00]), key: Self.key) else {
             return #expect(Bool(false), "Did not open")
         }
-        #expect(rest == Data([0x82, 0x00]))
+        #expect(rest.rest == Data([0x82, 0x00]))
     }
 
     @Test(arguments: [
@@ -184,7 +184,7 @@ struct WebSocketFrameTests {
         "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: wrong",
         "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\nSec-WebSocket-Accept: {accept}",
         "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\nSec-WebSocket-Protocol: chat",
-        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\nSec-WebSocket-Extensions: permessage-deflate",
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\nSec-WebSocket-Extensions: unknown-extension",
         "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\nno colon",
     ])
     func upgradeFails(head: String) {

@@ -25,8 +25,8 @@ enum WebSocketFrame {
     static let pong: UInt8 = 0xA
 
     /// A client frame, whole and masked with a fresh key, as RFC 6455 §5.3 requires.
-    static func client(opcode: UInt8, _ payload: Data) -> Data {
-        var frame = Data([0x80 | opcode])
+    static func client(opcode: UInt8, _ payload: Data, compressed: Bool = false) -> Data {
+        var frame = Data([0x80 | opcode | (compressed ? 0x40 : 0)])
         switch payload.count {
         case ..<126:
             frame.append(0x80 | UInt8(payload.count))
@@ -80,11 +80,20 @@ enum WebSocketFrame {
         private var bytes: [UInt8] = []
         private var start = 0
         /// The fragments of a message so far.
-        private var fragments: (text: Bool, data: Data)?
+        private struct Message {
+            let text: Bool
+            let compressed: Bool
+            var data = Data()
+        }
+
+        private var fragments: Message?
+        private let inflater: WebSocketCompression.Codec?
+        private var active: (header: Header, remaining: Int)?
         private var over = false
 
-        init(maximumMessageSize: Int) {
+        init(maximumMessageSize: Int, inflater: WebSocketCompression.Codec? = nil) {
             self.maximumMessageSize = maximumMessageSize
+            self.inflater = inflater
         }
 
         /// The bytes held: what is not handed out yet, and at most the frames of the last read that were.
@@ -100,20 +109,46 @@ enum WebSocketFrame {
 
         /// The next item, or nil until more bytes arrive.
         mutating func next() -> Item? {
-            while !over, let header = header() {
-                if let failure = check(header) { return end(failure) }
+            while !over {
+                if active == nil {
+                    guard let header = header() else { return nil }
+                    if let item = startFrame(header) { return item }
+                }
+                guard let current = active else { return nil }
+                let count = min(current.remaining, bytes.count - start)
+                guard count > 0 || current.remaining == 0 else { return nil }
+                let payload = Data(bytes[start ..< (start + count)])
+                start += count
+                let frameEnded = count == current.remaining
+                if frameEnded { active = nil } else { active?.remaining -= count }
+                if let item = append(payload, fin: frameEnded && current.header.fin) { return item }
+            }
+            return nil
+        }
+
+        private mutating func startFrame(_ header: Header) -> Item? {
+            if let failure = check(header) { return end(failure) }
+            if header.opcode >= WebSocketFrame.close {
                 guard bytes.count - start >= header.size + header.length else { return nil }
                 let payload = Data(bytes[(start + header.size) ..< (start + header.size + header.length)])
                 start += header.size + header.length
-                if let item = item(header, payload) { return item }
+                return control(header, payload)
             }
+            start += header.size
+            if header.opcode != 0 {
+                fragments = Message(text: header.opcode == WebSocketFrame.text, compressed: header.compressed)
+            }
+            active = (header, header.length)
             return nil
         }
 
         private struct Header {
             let fin: Bool
             let opcode: UInt8
-            let flags: (reserved: Bool, masked: Bool)
+            let reserved: Bool
+            let masked: Bool
+            let compressed: Bool
+            let invalidLength: Bool
             let length: Int
             let size: Int
         }
@@ -133,53 +168,55 @@ enum WebSocketFrame {
                 guard available >= size else { return nil }
                 length = Int(clamping: bytes[(start + 2) ..< (start + 10)].reduce(UInt64(0)) { $0 << 8 | UInt64($1) })
             }
-            return Header(fin: first & 0x80 != 0, opcode: first & 0x0F, flags: (first & 0x70 != 0, second & 0x80 != 0),
-                          length: length, size: size)
+            return Header(fin: first & 0x80 != 0, opcode: first & 0x0F, reserved: first & 0x30 != 0, masked: second & 0x80 != 0, compressed: first & 0x40 != 0,
+                          invalidLength: size == 10 && bytes[start + 2] & 0x80 != 0, length: length, size: size)
         }
 
         /// What the header alone says, before the payload is buffered: a server frame is not masked and sets no reserved
-        /// bit (no extension was negotiated), its opcode fits the fragments so far, a control frame is whole and at most
-        /// 125 bytes, and a message is at most `maximumMessageSize`, its fragments together.
+        /// bit except a negotiated RSV1 on the first data frame. Control frames are whole and at most 125 bytes;
+        /// uncompressed lengths are checked here, compressed messages against their incremental inflated output.
         private func check(_ header: Header) -> Item? {
-            if header.flags.reserved || header.flags.masked {
-                return Self.violation("a reserved or mask bit is set")
+            let compressed = header.opcode == 0 ? fragments?.compressed == true : header.compressed
+            if header.reserved || header.masked || (header.invalidLength && compressed) {
+                return Self.violation("a reserved, mask or invalid length bit is set")
             }
             switch header.opcode {
             case WebSocketFrame.close, WebSocketFrame.ping, WebSocketFrame.pong:
-                return header.fin && header.length <= 125 ? nil : Self.violation("a fragmented or long control frame")
+                return header.fin && header.length <= 125 && !header.compressed ? nil : Self.violation("a fragmented, compressed or long control frame")
             case WebSocketFrame.text, WebSocketFrame.binary:
                 if fragments != nil { return Self.violation("a message inside a fragmented one") }
+                if header.compressed, inflater == nil { return Self.violation("compression was not negotiated") }
             case 0x0:
                 if fragments == nil { return Self.violation("a continuation without a message") }
+                if header.compressed { return Self.violation("RSV1 on a continuation") }
             default:
                 return Self.violation("the unknown opcode \(header.opcode)")
             }
-            guard header.length <= maximumMessageSize - (fragments?.data.count ?? 0) else {
+            guard compressed || header.length <= maximumMessageSize - (fragments?.data.count ?? 0) else {
                 return .failure(LiveKitError(.network, internalError: NSError(domain: NSPOSIXErrorDomain, code: Int(EMSGSIZE))),
                                 closeCode: 1009)
             }
             return nil
         }
 
-        /// A frame that passed `check(_:)`.
-        private mutating func item(_ header: Header, _ payload: Data) -> Item? {
+        private mutating func control(_ header: Header, _ payload: Data) -> Item {
             switch header.opcode {
-            case WebSocketFrame.text, WebSocketFrame.binary:
-                fragments = (header.opcode == WebSocketFrame.text, Data())
-                return append(payload, fin: header.fin)
-            case WebSocketFrame.close:
-                return end(Self.close(payload))
-            case WebSocketFrame.ping:
-                return .ping(payload)
-            case WebSocketFrame.pong:
-                return .pong
-            default:
-                return append(payload, fin: header.fin)
+            case WebSocketFrame.close: end(Self.close(payload))
+            case WebSocketFrame.ping: .ping(payload)
+            default: .pong
             }
         }
 
         private mutating func append(_ payload: Data, fin: Bool) -> Item? {
-            fragments?.data.append(payload)
+            do {
+                let decoded = try fragments?.compressed == true
+                    ? inflater?.process(payload, final: fin, maximumOutputSize: maximumMessageSize - (fragments?.data.count ?? 0)) ?? Data()
+                    : payload
+                fragments?.data.append(decoded)
+            } catch {
+                let tooLarge = ((error as? LiveKitError)?.internalError as? NSError)?.code == Int(EMSGSIZE)
+                return end(.failure(error as? LiveKitError ?? WebSocketCompression.failure(), closeCode: tooLarge ? 1009 : 1007))
+            }
             guard fin, let message = fragments else { return nil }
             fragments = nil
             guard message.text else { return .message(.data(message.data)) }
@@ -195,6 +232,7 @@ enum WebSocketFrame {
             bytes = []
             start = 0
             fragments = nil
+            active = nil
             return item
         }
 
