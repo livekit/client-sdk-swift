@@ -122,24 +122,77 @@ import LiveKitTestSupport
         #expect(remaining.count == regions.count - 1)
     }
 
-    @Test(arguments: [
-        ("wss://test.livekit.cloud", true),
-        ("wss://test.livekit.run", true),
-        ("wss://self-hosted.example.com", false),
-        ("ws://localhost:7880", false),
-    ])
-    func isCloud(urlString: String, expected: Bool) throws {
-        let url = try #require(URL(string: urlString))
-        #expect(url.isCloud == expected)
+    /// A region the SDK must not fail over to is dropped rather than connected to with the token.
+    @Test func rejectsUntrustedRegionsFromFetchedSettings() async throws {
+        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
+        let regionManager = RegionManager(providedUrl: providedUrl)
+
+        try MockURLProtocol.setAllowedHosts([#require(providedUrl.host)])
+        MockURLProtocol.setAllowedPaths(["/settings/regions"])
+        MockURLProtocol.setRequestHandler { (_: URLRequest) in
+            MockURLProtocol.Response(statusCode: 200, headers: [:], body: Data("""
+            {"regions": [
+                {"region": "foreign", "url": "https://other.example.com", "distance": "1"},
+                {"region": "cleartext", "url": "ws://example.dblr1a.livekit.cloud", "distance": "2"},
+                {"region": "good", "url": "https://example.otokyo1a.livekit.cloud", "distance": "3"}
+            ]}
+            """.utf8))
+        }
+        URLProtocol.registerClass(MockURLProtocol.self)
+        defer { cleanUpMockURLProtocol() }
+
+        _ = try #require(await regionManager.resolveBest(token: "token"))
+
+        let regions = await regionManager.snapshot().all
+        #expect(regions.map(\.regionId) == ["good"])
+        #expect(regions.map(\.url.absoluteString) == ["https://example.otokyo1a.livekit.cloud"])
     }
 
-    @Test(arguments: [
-        ("wss://test.livekit.cloud", "https://test.livekit.cloud/settings/regions"),
-        ("ws://test.livekit.cloud", "http://test.livekit.cloud/settings/regions"),
-        ("https://test.livekit.cloud", "https://test.livekit.cloud/settings/regions"),
-    ])
-    func regionSettingsUrlConversion(input: String, expected: String) {
-        #expect(URL(string: input)?.regionSettingsUrl().absoluteString == expected)
+    /// A response whose entries are *all* refused must not read as "the server sent nothing":
+    /// the error says which happened, so a tampered response is diagnosable.
+    @Test func reportsWhenEveryFetchedRegionIsRefused() async throws {
+        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
+        let regionManager = RegionManager(providedUrl: providedUrl)
+
+        try MockURLProtocol.setAllowedHosts([#require(providedUrl.host)])
+        MockURLProtocol.setAllowedPaths(["/settings/regions"])
+        MockURLProtocol.setRequestHandler { (_: URLRequest) in
+            MockURLProtocol.Response(statusCode: 200, headers: [:], body: Data("""
+            {"regions": [{"region": "foreign", "url": "https://other.example.com", "distance": "1"}]}
+            """.utf8))
+        }
+        URLProtocol.registerClass(MockURLProtocol.self)
+        defer { cleanUpMockURLProtocol() }
+
+        let error = try #require(await #expect(throws: LiveKitError.self) {
+            _ = try await regionManager.resolveBest(token: "token")
+        })
+        #expect(error.message?.contains("refused") == true, "got: \(String(describing: error.message))")
+    }
+
+    /// Server-reported settings arrive over signalling and are the second ingestion path.
+    @Test func rejectsUntrustedServerReportedRegions() async throws {
+        let providedUrl = try #require(URL(string: "https://example.livekit.cloud"))
+        let regionManager = RegionManager(providedUrl: providedUrl)
+
+        let reported = Livekit_RegionSettings.with {
+            $0.regions = [
+                Livekit_RegionInfo.with {
+                    $0.region = "foreign"
+                    $0.url = "https://other.example.com"
+                    $0.distance = 1
+                },
+                Livekit_RegionInfo.with {
+                    $0.region = "good"
+                    $0.url = "https://example.otokyo1a.livekit.cloud"
+                    $0.distance = 2
+                },
+            ]
+        }
+        await regionManager.updateFromServerReportedRegions(reported)
+
+        let regions = await regionManager.snapshot().all
+        #expect(regions.map(\.regionId) == ["good"])
     }
 
     @Test(.bug("https://github.com/livekit/client-sdk-swift/issues/1159"))
