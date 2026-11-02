@@ -25,13 +25,41 @@ extension WebSocket {
         let locations = response.headers.filter { $0.name == "location" }.map(\.value)
         guard locations.count == 1, let location = locations.first, !location.isEmpty,
               let target = URL(string: location, relativeTo: url)?.absoluteURL,
-              let components = URLComponents(url: target, resolvingAgainstBaseURL: true) else { return nil }
+              var components = URLComponents(url: target, resolvingAgainstBaseURL: true) else { return nil }
         switch components.scheme?.lowercased() {
         case "ws", "http", "wss", "https": break
         default: throw LiveKitError(.network, internalError: URLError(.unsupportedURL))
         }
         guard let host = components.host, !host.isEmpty else { throw LiveKitError(.network, internalError: URLError(.badURL)) }
+        components.percentEncodedPath = removeDotSegments(components.percentEncodedPath)
         return components.url
+    }
+
+    /// RFC 3986 section 5.2.4, on the percent-encoded path without interpreting escaped dots or slashes.
+    static func removeDotSegments(_ path: String) -> String {
+        var input = path[...]
+        var output = ""
+        while !input.isEmpty {
+            if input.hasPrefix("../") {
+                input.removeFirst(3)
+            } else if input.hasPrefix("./") {
+                input.removeFirst(2)
+            } else if input.hasPrefix("/./") || input == "/." {
+                input.removeFirst(2)
+                if input.isEmpty { input = "/" }
+            } else if input.hasPrefix("/../") || input == "/.." {
+                input.removeFirst(3)
+                if input.isEmpty { input = "/" }
+                output.removeSubrange((output.lastIndex(of: "/") ?? output.startIndex) ..< output.endIndex)
+            } else if input == "." || input == ".." {
+                input = ""
+            } else {
+                let end = input.dropFirst(input.first == "/" ? 1 : 0).firstIndex(of: "/") ?? input.endIndex
+                output += input[..<end]
+                input = input[end...]
+            }
+        }
+        return output
     }
 
     /// Basic credentials are reused only within the challenged URL's literal scheme, host, port and directory.

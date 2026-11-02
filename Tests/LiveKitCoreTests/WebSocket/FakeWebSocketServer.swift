@@ -91,20 +91,15 @@ final class FakeWebSocketServer: Sendable {
     /// Network.framework delivers on a queue it is given; a shared one, as the transport under test uses.
     private static var queue: DispatchQueue { .global(qos: .default) }
     private let ready = AsyncCompleter<UInt16>(label: "FakeWebSocketServer.ready", defaultTimeout: 5)
-    private let stopped = AsyncCompleter<Void>(label: "FakeWebSocketServer.stopped", defaultTimeout: 5)
     private let connections = StateSync<[NWConnection]>([])
 
     init(_ behavior: Behavior) throws {
         self.behavior = behavior
         listener = try NWListener(using: .tcp, on: .any)
-        listener.stateUpdateHandler = { [ready, stopped, listener] state in
+        listener.stateUpdateHandler = { [ready, listener] state in
             switch state {
             case .ready: ready.resume(returning: listener.port?.rawValue ?? 0)
             case let .failed(error): ready.resume(throwing: error)
-            case .cancelled:
-                // Below iOS 16 and macOS 13 a cancelled listener keeps its handlers; this one captures the listener.
-                listener.stateUpdateHandler = nil
-                stopped.resume(returning: ())
             default: break
             }
         }
@@ -129,15 +124,9 @@ final class FakeWebSocketServer: Sendable {
     /// Drops every connection and the listener; safe to call more than once.
     func cancel() {
         connections.mutate { $0.forEach { $0.cancel() }; $0.removeAll() }
+        if listener.stateUpdateHandler != nil { listener.stateUpdateHandler = nil }
+        if listener.newConnectionHandler != nil { listener.newConnectionHandler = nil }
         listener.cancel()
-        // It captures the server, which holds the listener.
-        listener.newConnectionHandler = nil
-    }
-
-    /// Returns once the port refuses connections again.
-    func stop() async throws {
-        cancel()
-        try await stopped.wait()
     }
 
     private func readClientHello(_ connection: NWConnection, buffered: Data) {

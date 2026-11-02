@@ -302,7 +302,7 @@ struct WebSocketLifecycleTests {
 
     /// Only our own close ends the stream; a close frame, a FIN or a reset fails it, so the signal client reconnects
     /// at once instead of waiting for its ping timeout.
-    @Test(arguments: zip(
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1179"), arguments: zip(
         [FakeWebSocketServer.Behavior.closeFrame, .fin, .reset],
         [Ending.closedByPeer(code: 1000), .networkError(posix: nil), .networkError(posix: ECONNRESET)],
     ))

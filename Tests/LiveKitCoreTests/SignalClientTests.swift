@@ -45,7 +45,8 @@ struct SignalClientTests {
     /// The server's leave and its close frame arrive together: the leave reaches the delegate before the close frame
     /// fails the stream, so a removal cannot turn into a reconnect. The same message loop as `connect` runs it, and the
     /// delegate cleans the client up from inside its leave callback, as `Room` does.
-    @Test(.tags(.networking)) func leaveIsHandledBeforeTheCloseThatFollows() async throws {
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1179"), .tags(.networking))
+    func leaveIsHandledBeforeTheCloseThatFollows() async throws {
         let leave = try Livekit_SignalResponse.with {
             $0.leave = .with {
                 $0.action = .disconnect
@@ -64,16 +65,15 @@ struct SignalClientTests {
             await client._state.mutate {
                 $0.socket = socket
                 $0.connectionState = .connected
-            }
-            let loop = socket.subscribe(client) { client, message in
-                await client.onWebSocketMessage(message, from: socket)
-            } onFailure: { client, error in
-                await client.onWebSocketFailure(error, from: socket)
+                $0.messageLoopTask = socket.subscribe(client) { client, message in
+                    await client.onWebSocketMessage(message, from: socket)
+                } onFailure: { client, error in
+                    await client.onWebSocketFailure(error, from: socket)
+                }
             }
 
             try await recorder.disconnected.wait()
             #expect(recorder.events.copy() == [.leave, .disconnected(.participantRemoved)], "Round \(round)")
-            withExtendedLifetime(loop) {}
         }
     }
 

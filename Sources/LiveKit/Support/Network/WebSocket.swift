@@ -27,14 +27,8 @@ struct WebSocketClosedByPeer: Error, Sendable {
 
 /// The signalling WebSocket: RFC 6455 frames over a Network.framework TCP (and TLS) connection.
 ///
-/// Not `URLSessionWebSocketTask`: Foundation keeps every `URLSession` that ran a WebSocket task, and the task,
-/// alive after the task is cancelled and the session invalidated, whichever way it is closed (about 25 KB a
-/// connection, measured on macOS 27 and the iOS 26.5 simulator). Every full or quick reconnect left one behind
-/// for the life of the process. An `NWConnection` is freed once cancelled.
-///
-/// Not `NWProtocolWebSocket` either: it drops the messages it holds when a close frame arrives with no receive waiting
-/// for them, and the server sends its leave request right before its close frame. Here one TCP read at a time feeds
-/// one parser, as in SwiftNIO, Starscream and SocketRocket, so a close frame is read after every message before it.
+/// One TCP read at a time feeds the frame parser, preserving buffered messages before a peer close.
+/// Cancelling the connection releases its handlers and ends every pending read.
 actor WebSocket: Loggable, AsyncSequence {
     typealias Element = URLSessionWebSocketTask.Message
     typealias EventHandler = @Sendable (Event) -> Void
@@ -94,7 +88,8 @@ actor WebSocket: Loggable, AsyncSequence {
         var basicCredential: (url: URL, authorization: String)?
         while true {
             do {
-                let opened = try await Self.open(url: requestURL, headers: requestHeaders, timeoutInterval: timeoutInterval, onEvent: onEvent)
+                let opened = try await Self.open(url: requestURL, headers: requestHeaders, timeoutInterval: timeoutInterval,
+                                                 answerBasic: basicCredential == nil, onEvent: onEvent)
                 connection = opened.connection
                 core = opened.core
                 // The server can send frames in the same segment as its upgrade response.
@@ -110,7 +105,7 @@ actor WebSocket: Loggable, AsyncSequence {
                         requestHeaders.append(("Authorization", basicCredential.authorization))
                     }
                     requestURL = target
-                } else if basicCredential == nil, let authorization = Self.basicAuthorization(response, url: requestURL) {
+                } else if basicCredential == nil, let authorization = response.basicAuthorization {
                     basicCredential = (requestURL, authorization)
                     requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
                     requestHeaders.append(("Authorization", authorization))
@@ -122,13 +117,10 @@ actor WebSocket: Loggable, AsyncSequence {
     }
 
     private static func open(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval,
-                             onEvent: EventHandler?) async throws -> Opened
+                             answerBasic: Bool, onEvent: EventHandler?) async throws -> Opened
     {
         guard !Task.isCancelled else { throw LiveKitError(.cancelled) }
         let key = Self.upgradeKey()
-        let headers = Self.upgradeHeaders(url: url, headers: headers)
-        let request = try Self.upgradeRequest(url: url, key: key, headers: headers)
-        let compressionOffered = headers.contains { $0.name.caseInsensitiveCompare("Sec-WebSocket-Extensions") == .orderedSame && $0.value == "permessage-deflate" }
         let connection = NWConnection(to: .url(url), using: Self.makeParameters(secure: ["wss", "https"].contains(url.scheme?.lowercased() ?? ""),
                                                                                 timeoutInterval: timeoutInterval))
         let core = Core(connection: connection, onEvent: onEvent)
@@ -137,8 +129,15 @@ actor WebSocket: Loggable, AsyncSequence {
         connection.stateUpdateHandler = { state in
             switch state {
             case .ready:
-                connection.send(content: request, completion: .contentProcessed { _ in })
-                Self.readUpgradeResponse(connection, url: url, key: key, compressionOffered: compressionOffered, into: opening)
+                do {
+                    let headers = Self.upgradeHeaders(url: url, headers: headers)
+                    let request = try Self.upgradeRequest(url: url, key: key, headers: headers)
+                    let compressionOffered = headers.contains { $0.name.caseInsensitiveCompare("Sec-WebSocket-Extensions") == .orderedSame && $0.value == "permessage-deflate" }
+                    connection.send(content: request, completion: .contentProcessed { _ in })
+                    Self.readUpgradeResponse(connection, url: url, key: key, options: (compressionOffered, answerBasic), into: opening)
+                } catch {
+                    opening.resume(with: .failure(error))
+                }
             case let .failed(error), let .waiting(error):
                 // `.waiting` too: a connection that cannot be made now fails, as URLSession's did
                 // (waitsForConnectivity off); the signal client owns the retries.
@@ -177,8 +176,8 @@ actor WebSocket: Loggable, AsyncSequence {
 
     /// Below iOS 16 and macOS 13 a cancelled connection keeps its state handler, and whatever that captures.
     fileprivate static func cancel(_ connection: NWConnection) {
-        connection.cancel()
         connection.stateUpdateHandler = nil
+        connection.cancel()
     }
 
     /// Network.framework's errors in the shapes the SDK reads elsewhere (`isNetworkError`, `asTransportError`):
@@ -364,13 +363,13 @@ private struct Core: Sendable {
             let readOn = inbox.startReceive()
             return (reply, handed, readOn, readOn || inbox.done ? nil : inbox.unread)
         }
-        for (reader, frame) in handed {
-            reader.resume(returning: frame)
-        }
         for payload in reply.pongs {
             write(WebSocketFrame.client(opcode: WebSocketFrame.pong, payload))
         }
         if let code = reply.closeCode { answer(code) } else if reply.failed { finish() }
+        for (reader, frame) in handed {
+            reader.resume(returning: frame)
+        }
         if readOn { receiveNext() } else if let paused { onEvent?(.readAheadFull(unread: paused)) }
     }
 

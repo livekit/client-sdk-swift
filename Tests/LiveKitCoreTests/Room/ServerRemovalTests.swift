@@ -24,13 +24,20 @@ import LiveKitTestSupport
 
 /// The server's own end of a session is a leave and then a close frame. A close frame fails the signalling stream, so
 /// that the client reconnects when the server drops it; it must not turn a removal into a reconnect.
-@Suite(.serialized, .tags(.e2e), TestLimits.e2e) final class ServerRemovalTests: @unchecked Sendable {
+@Suite(.serialized, .tags(.e2e), .bug("https://github.com/livekit/client-sdk-swift/pull/1179"), TestLimits.e2e) final class ServerRemovalTests: @unchecked Sendable {
     private let reconnects = StateSync(0)
     private let disconnects = StateSync(0)
+    private let unpublishes = StateSync(0)
     private let disconnectError = StateSync<LiveKitError?>(nil)
 
     @Test func aRemovedParticipantDisconnectsWithoutReconnecting() async throws {
-        try await TestEnvironment.withRoom(RoomTestingOptions(delegate: self)) { room in
+        try await TestEnvironment.withRoom(RoomTestingOptions(delegate: self, canPublish: true)) { room in
+            let dimensions = Dimensions(width: 320, height: 240)
+            let track = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions(dimensions: dimensions))
+            let capturer = try #require(track.capturer as? BufferCapturer)
+            capturer.set(dimensions: dimensions)
+            try await room.localParticipant.publish(videoTrack: track)
+            #expect(track.trackState == .started)
             let name = try #require(room.name)
             let identity = try #require(room.localParticipant.identity?.stringValue)
             try await Self.removeParticipant(identity, from: name)
@@ -40,6 +47,8 @@ import LiveKitTestSupport
             #expect(room.connectionState == .disconnected)
             #expect(self.disconnectError.copy()?.type == .participantRemoved)
             #expect(self.reconnects.copy() == 0)
+            #expect(track.trackState == .stopped)
+            #expect(self.unpublishes.copy() == 1)
         }
     }
 
@@ -80,6 +89,10 @@ import LiveKitTestSupport
 }
 
 extension ServerRemovalTests: RoomDelegate {
+    func room(_: Room, participant _: LocalParticipant, didUnpublishTrack _: LocalTrackPublication) {
+        unpublishes.mutate { $0 += 1 }
+    }
+
     func room(_: Room, didStartReconnectWithMode _: ReconnectMode) {
         reconnects.mutate { $0 += 1 }
     }

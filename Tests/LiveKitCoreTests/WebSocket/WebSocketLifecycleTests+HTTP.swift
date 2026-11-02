@@ -66,6 +66,37 @@ extension WebSocketLifecycleTests {
         #expect(requests.last?.headers.contains { $0.hasPrefix("Cookie:") && $0.contains("\(name)=stored") } == true)
     }
 
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
+        ("/../next", "/next"),
+        ("a/./b/../c", "a/c"),
+        ("/..", "/"),
+        ("/a/b/..", "/a/"),
+        ("/a/./", "/a/"),
+        ("../next", "next"),
+        ("/a//b/../c", "/a//c"),
+        ("/%2e/%2E%2e/%2F/./next", "/%2e/%2E%2e/%2F/next"),
+        (".", ""), ("..", ""), ("", ""),
+    ])
+    func redirectDotSegmentsDoNotDependOnFoundation(path: String, expected: String) {
+        #expect(WebSocket.removeDotSegments(path) == expected)
+    }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
+        ("../next", "/next"),
+        ("a/./b/../c", "/a/c"),
+        ("/..", "/"),
+        ("a/b/..", "/a/"),
+        ("../next?escaped=one%20two&path=../kept", "/next?escaped=one%20two&path=../kept"),
+    ])
+    func redirectDotSegmentsPreserveTheRequestQuery(location: String, target: String) throws {
+        let base = try #require(URL(string: "ws://example.invalid/rtc"))
+        let response = WebSocketUpgradeFailure(statusCode: 302, headers: [("location", location)])
+        let resolved = try #require(try WebSocket.redirectedURL(response, from: base))
+        let request = try WebSocket.upgradeRequest(url: resolved, key: "test", headers: [])
+        let head = try #require(String(bytes: request, encoding: .utf8))
+        #expect(head.hasPrefix("GET \(target) HTTP/1.1\r\n"))
+    }
+
     @Test func redirectLimitMatchesURLSession() async throws {
         let server = try FakeWebSocketServer(.upgradeResponse(head: "HTTP/1.1 302 Redirect\r\nLocation: /again\r\n\r\n"))
         defer { server.cancel() }
