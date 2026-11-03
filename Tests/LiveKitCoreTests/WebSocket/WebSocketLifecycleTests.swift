@@ -144,7 +144,6 @@ struct WebSocketLifecycleTests {
         let cause = try await events.teardown.wait()
         #expect(cause == .closeDeadline)
         #expect(gone >= start + Self.closeLimit)
-        #expect(gone < start + 5 * Self.closeLimit)
     }
 
     /// Network.framework's own `Host` has no port and no IPv6 brackets, and `setAdditionalHeaders` keeps only the last

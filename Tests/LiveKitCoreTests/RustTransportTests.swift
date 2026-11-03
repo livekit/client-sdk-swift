@@ -298,7 +298,7 @@ struct TransportErrorMappingTests {
 
 /// `livekit-net` hands the Swift side a method, headers and a body; these are what
 /// reach the wire.
-@Suite(.tags(.networking))
+@Suite(.tags(.networking), TestLimits.unit)
 struct RustHTTPRequestTests {
     private let url = URL(string: "https://example.test/path")!
 
