@@ -267,7 +267,7 @@ private struct Core: Sendable {
                                                       noContextTakeover: compression.serverNoContextTakeover)
         let deflater = try WebSocketCompression.Codec(compressing: true, windowBits: compression.clientWindowBits,
                                                       noContextTakeover: compression.clientNoContextTakeover)
-        inbox.mutate { $0.parser = WebSocketFrame.Parser(maximumMessageSize: WebSocket.maximumMessageSize, inflater: inflater) }
+        inbox.mutateWithoutObservation { $0.parser = WebSocketFrame.Parser(maximumMessageSize: WebSocket.maximumMessageSize, inflater: inflater) }
         lifecycle.mutate { $0.compressor = deflater }
     }
 
@@ -284,7 +284,7 @@ private struct Core: Sendable {
     /// Our close: every read ends at once with nil, unread messages are dropped, our close frame goes out, and the
     /// connection is cancelled on the server's answer or at the deadline.
     func close() {
-        let (readers, readOn) = inbox.mutate { inbox in
+        let (readers, readOn) = inbox.mutateWithoutObservation { inbox in
             inbox.ended = true
             inbox.dropUnread()
             defer { inbox.readers.removeAll() }
@@ -343,7 +343,7 @@ private struct Core: Sendable {
     func read() async -> WebSocket.Frame {
         await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<WebSocket.Frame, Never>) in
-                let (frame, readOn) = inbox.mutate { inbox -> (WebSocket.Frame?, Bool) in
+                let (frame, readOn) = inbox.mutateWithoutObservation { inbox -> (WebSocket.Frame?, Bool) in
                     guard let frame = inbox.take() else {
                         inbox.readers.append(continuation)
                         return (nil, false)
@@ -363,7 +363,7 @@ private struct Core: Sendable {
     /// Takes what a TCP read brought: parses it, hands frames to the reads that wait, answers pings and the server's
     /// close frame, and reads on unless ``WebSocket/readAhead`` frames wait unread.
     func received(_ content: Data?, isComplete: Bool, error: NWError?) {
-        let (reply, handed, readOn, paused) = inbox.mutate { inbox in
+        let (reply, handed, readOn, paused) = inbox.mutateWithoutObservation { inbox in
             inbox.receiving = false
             let reply = inbox.ingest(content, isComplete: isComplete, error: error)
             let handed = inbox.handOut()
@@ -388,7 +388,7 @@ private struct Core: Sendable {
 
     /// One TCP read at a time, as `Inbox.startReceive()` grants it.
     private func receiveNext() {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 1 << 16) { content, _, isComplete, error in
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 1 << 18) { content, _, isComplete, error in
             received(content, isComplete: isComplete, error: error)
         }
     }

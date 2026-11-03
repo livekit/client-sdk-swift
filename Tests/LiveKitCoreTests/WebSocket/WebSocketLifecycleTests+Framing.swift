@@ -67,7 +67,7 @@ extension WebSocketLifecycleTests {
     /// With nobody reading, the socket stops once `readAhead` frames wait, short of the whole burst, and TCP holds the
     /// rest: reading then still gets every message and the close frame's code.
     @Test func readAheadIsBounded() async throws {
-        let payloads = Self.payloads(count: 4 * WebSocket.readAhead, size: 4096)
+        let payloads = Self.payloads(count: 8 * WebSocket.readAhead, size: 4096)
         let server = try FakeWebSocketServer(.frames(FakeWebSocketServer.binary(payloads) + FakeWebSocketServer.close(1000)))
         defer { server.cancel() }
         let full = AsyncCompleter<Int>(label: "readAheadFull", defaultTimeout: 5)

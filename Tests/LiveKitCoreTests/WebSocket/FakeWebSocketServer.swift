@@ -342,10 +342,18 @@ extension FakeWebSocketServer {
         return try #require(nil as UInt16?, "No unused destination outside automatic source-port ranges")
     }
 
-    /// A server frame: FIN set, not masked, a 16-bit length past 125 bytes.
-    static func frame(_ opcode: UInt8, _ payload: Data) -> Data {
-        let length: [UInt8] = payload.count < 126 ? [UInt8(payload.count)] : [UInt8(126), UInt8(payload.count >> 8), UInt8(payload.count & 0xFF)]
-        return Data([0x80 | opcode] + length) + payload
+    /// A server frame with an unmasked payload and the shortest length encoding.
+    static func frame(_ opcode: UInt8, _ payload: Data, final: Bool = true) -> Data {
+        let length: [UInt8] = switch payload.count {
+        case ..<126:
+            [UInt8(payload.count)]
+        case ...0xFFFF:
+            [126, UInt8(payload.count >> 8), UInt8(payload.count & 0xFF)]
+        default:
+            [127] + (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: payload.count >> ($0 * 8)) }
+        }
+        let fin: UInt8 = final ? 0x80 : 0
+        return Data([fin | opcode] + length) + payload
     }
 
     /// Binary messages, one per payload.
