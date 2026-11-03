@@ -92,11 +92,12 @@ actor WebSocket: Loggable, AsyncSequence {
         var requestURL = url
         var requestHeaders = headers
         var redirects = 0
-        var basicCredential: (url: URL, authorization: String)?
+        var basicCredentials: [(url: URL, authorization: String)] = []
         while true {
             do {
                 let opened = try await Self.open(url: requestURL, headers: requestHeaders, timeoutInterval: timeoutInterval,
-                                                 answerBasic: basicCredential == nil, closing: (closeWait, onEvent))
+                                                 answerBasic: !basicCredentials.contains { Self.isInBasicProtectionSpace(requestURL, challengedURL: $0.url) },
+                                                 closing: (closeWait, onEvent))
                 connection = opened.connection
                 core = opened.core
                 // The server can send frames in the same segment as its upgrade response.
@@ -108,12 +109,12 @@ actor WebSocket: Loggable, AsyncSequence {
                     guard redirects < 20 else { throw LiveKitError(.network, internalError: URLError(.httpTooManyRedirects)) }
                     redirects += 1
                     requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
-                    if let basicCredential, Self.isInBasicProtectionSpace(target, challengedURL: basicCredential.url) {
-                        requestHeaders.append(("Authorization", basicCredential.authorization))
+                    if let credential = basicCredentials.last(where: { Self.isInBasicProtectionSpace(target, challengedURL: $0.url) }) {
+                        requestHeaders.append(("Authorization", credential.authorization))
                     }
                     requestURL = target
-                } else if basicCredential == nil, let authorization = response.basicAuthorization {
-                    basicCredential = (requestURL, authorization)
+                } else if let authorization = response.basicAuthorization {
+                    basicCredentials.append((requestURL, authorization))
                     requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
                     requestHeaders.append(("Authorization", authorization))
                 } else {
