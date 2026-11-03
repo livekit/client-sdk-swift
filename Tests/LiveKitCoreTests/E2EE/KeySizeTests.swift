@@ -38,6 +38,7 @@ struct KeySizeTests {
         #expect(options.hash == equalOptions.hash)
     }
 
+    @available(iOS 14.0, macOS 11.0, macCatalyst 14.0, tvOS 14.0, visionOS 1.0, *)
     @Test(arguments: [(KeySize.bits128, KeySize.bits256), (.bits256, .bits128)])
     func nativeDerivedKeyLength(keySize: KeySize, mismatchedKeySize: KeySize) throws {
         let material = Data("key-size-probe".utf8)
