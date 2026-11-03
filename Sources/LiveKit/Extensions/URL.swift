@@ -37,7 +37,7 @@ extension URL {
 
     func cloudConfigUrl() -> URL {
         var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
-        components.scheme = scheme?.replacingOccurrences(of: "ws", with: "http")
+        components.scheme = "https"
         components.user = nil
         components.password = nil
         components.query = nil

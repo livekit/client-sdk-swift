@@ -1,0 +1,1 @@
+patch type="fixed" "Fetch LiveKit Cloud region settings over https even when the server URL uses ws://"

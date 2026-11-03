@@ -135,7 +135,7 @@ import LiveKitTestSupport
 
     @Test(arguments: [
         ("wss://test.livekit.cloud", "https://test.livekit.cloud/settings/regions"),
-        ("ws://test.livekit.cloud", "http://test.livekit.cloud/settings/regions"),
+        ("ws://test.livekit.cloud", "https://test.livekit.cloud/settings/regions"),
         ("https://test.livekit.cloud", "https://test.livekit.cloud/settings/regions"),
     ])
     func regionSettingsUrlConversion(input: String, expected: String) {
