@@ -18,8 +18,8 @@ internal import CFNetwork
 import Foundation
 
 extension WebSocket {
-    /// URLSession follows at most twenty HTTP redirects, drops caller Authorization even on the same host, and permits
-    /// transitions between secure and cleartext WebSocket/HTTP URLs. The caller rebuilds Host and stored cookies.
+    /// Follows at most twenty HTTP redirects and drops caller Authorization even on the same host, as URLSession did.
+    /// A secure URL cannot redirect to cleartext. The caller rebuilds Host and stored cookies.
     static func redirectedURL(_ response: WebSocketUpgradeFailure, from url: URL) throws -> URL? {
         guard [301, 302, 303, 307, 308].contains(response.statusCode) else { return nil }
         let locations = response.headers.filter { $0.name == "location" }.map(\.value)
@@ -29,6 +29,11 @@ extension WebSocket {
         switch components.scheme?.lowercased() {
         case "ws", "http", "wss", "https": break
         default: throw LiveKitError(.network, internalError: URLError(.unsupportedURL))
+        }
+        if ["wss", "https"].contains(url.scheme?.lowercased() ?? ""),
+           ["ws", "http"].contains(components.scheme?.lowercased() ?? "")
+        {
+            throw LiveKitError(.network, internalError: URLError(.secureConnectionFailed))
         }
         guard let host = components.host, !host.isEmpty else { throw LiveKitError(.network, internalError: URLError(.badURL)) }
         if URL(string: location)?.scheme == nil, !location.hasPrefix("//") {

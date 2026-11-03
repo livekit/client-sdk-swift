@@ -45,18 +45,24 @@ extension WebSocketLifecycleTests {
         #expect(server.acceptCount.copy() == 1)
     }
 
-    @Test func tlsOffersHTTP11() async throws {
+    @Test(arguments: [false, true])
+    func tlsOffersHTTP11(redirect: Bool) async throws {
         let server = try FakeWebSocketServer(.tlsClientHello)
         defer { server.cancel() }
         var components = try #require(await URLComponents(url: server.url(), resolvingAgainstBaseURL: false))
         components.scheme = "wss"
-        let url = try #require(components.url)
+        let secureURL = try #require(components.url)
+        let redirector = try FakeWebSocketServer(.upgradeResponse(head: "HTTP/1.1 302 Redirect\r\nLocation: \(secureURL.absoluteString)\r\n\r\n"))
+        defer { redirector.cancel() }
+        let url = try await redirect ? redirector.url() : secureURL
         try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask {
                 let socket = try? await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 5)
                 socket?.close()
             }
             let hello = try await server.clientHello.wait()
+            #expect(redirector.acceptCount.copy() == (redirect ? 1 : 0))
+            #expect(server.acceptCount.copy() == 1)
             #expect(hello.first == 0x16) // TLS handshake record.
             // ALPN extension 0x0010, length 11: a length-prefixed list containing only "http/1.1".
             let alpn = Data([0x00, 0x10, 0x00, 0x0B, 0x00, 0x09, 0x08]) + Data("http/1.1".utf8)

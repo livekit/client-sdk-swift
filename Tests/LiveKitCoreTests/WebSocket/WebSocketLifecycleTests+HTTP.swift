@@ -130,7 +130,11 @@ extension WebSocketLifecycleTests {
         #expect(server.acceptCount.copy() == 1)
     }
 
-    @Test(arguments: ["ws", "wss", "http", "https"], ["ws", "wss", "http", "https"])
+    @Test(arguments: [
+        ("ws", "ws"), ("ws", "http"), ("ws", "wss"), ("ws", "https"),
+        ("http", "ws"), ("http", "http"), ("http", "wss"), ("http", "https"),
+        ("wss", "wss"), ("wss", "https"), ("https", "wss"), ("https", "https"),
+    ])
     func redirectAllowsHTTPAndWebSocketSchemes(source: String, target: String) throws {
         let url = try #require(URL(string: "\(source)://source.invalid/rtc"))
         let response = WebSocketUpgradeFailure(statusCode: 302, headers: [("location", "\(target)://target.invalid:7880/next?x=one%20two")])
@@ -139,6 +143,15 @@ extension WebSocketLifecycleTests {
         #expect(result.host == "target.invalid")
         #expect(result.port == 7880)
         #expect(result.query == "x=one%20two")
+    }
+
+    @Test(arguments: ["wss", "https"], ["ws", "http"])
+    func redirectRefusesSecureToCleartext(source: String, target: String) throws {
+        let url = try #require(URL(string: "\(source)://source.invalid/rtc"))
+        let response = WebSocketUpgradeFailure(statusCode: 302, headers: [("location", "\(target)://target.invalid:7880/next")])
+        let error = #expect(throws: LiveKitError.self) { try WebSocket.redirectedURL(response, from: url) }
+        #expect(error?.type == .network)
+        #expect((error?.internalError as? URLError)?.code == .secureConnectionFailed)
     }
 
     @Test(arguments: ["file", "ftp", "data"])
