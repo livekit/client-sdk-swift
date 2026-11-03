@@ -416,8 +416,11 @@ extension Room: SignalClientDelegate {
                 log("No publication yet for \(media.trackSid), deferring attach", .debug)
                 continue
             }
+            // `isDesired` as well as the nil track: `set(subscribed: false)` clears the track
+            // too, so a nil track alone would read an intentional unsubscribe as a pending
+            // subscription and undo it on the next scan.
             guard let publication = participant._state.trackPublications[media.trackSid] as? RemoteTrackPublication,
-                  publication.track == nil
+                  publication.track == nil, publication.isDesired
             else { continue }
 
             do {

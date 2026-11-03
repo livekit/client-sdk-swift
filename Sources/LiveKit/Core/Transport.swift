@@ -868,7 +868,10 @@ extension Transport {
         var seen: Set<String> = []
         var current: [ReceivedMedia] = []
         for transceiver in _pc.transceivers {
-            // `mid` is empty until negotiation assigns one, and again after a rollback.
+            // Empty until negotiation assigns one, and again after a rollback — a requirement can
+            // add a transceiver while an earlier offer is still unanswered, so a scan sees it
+            // before it has a mid. `RTCRtpTransceiver.mid` is declared nonnull and returns `@""`
+            // in that state, not nil.
             let mid = transceiver.mid
             guard !mid.isEmpty, seen.insert(mid).inserted,
                   let trackSid = _midToTrackSid[mid],
