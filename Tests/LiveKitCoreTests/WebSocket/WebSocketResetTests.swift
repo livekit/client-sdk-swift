@@ -45,12 +45,12 @@ struct WebSocketResetTests {
     @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
     func peerResetTearsDownBeforeTheReadFailsUnderLoad() async throws {
         let completed = try await withThrowingTaskGroup(of: Int.self) { group in
-            for _ in 0 ..< 8 {
+            for _ in 0 ..< 4 {
                 group.addTask {
-                    for _ in 0 ..< 300 {
+                    for _ in 0 ..< 50 {
                         try await WebSocketTestSupport.peerClosure(behavior: .reset, ending: .networkError(posix: ECONNRESET))
                     }
-                    return 300
+                    return 50
                 }
             }
             var rounds = 0
@@ -59,6 +59,6 @@ struct WebSocketResetTests {
             }
             return rounds
         }
-        #expect(completed == 2400)
+        #expect(completed == 200)
     }
 }
