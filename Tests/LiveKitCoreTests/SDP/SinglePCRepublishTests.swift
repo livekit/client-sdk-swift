@@ -51,17 +51,34 @@ struct SinglePCRepublishTests {
             defer { feeder.cancel() }
 
             try await first.localParticipant.publish(videoTrack: track)
+
+            // The publish has to be negotiated before it is undone. Without this the two
+            // collapse into one exchange and no section is ever left behind to reuse, which is
+            // the state the whole case is about.
+            let firstIdentity = try #require(first.localParticipant.identity)
+            try await poll(timeout: 30, for: "the peer sees the first publication") {
+                !(second.remoteParticipants[firstIdentity]?.videoTracks.isEmpty ?? true)
+            }
+
             let publication = try #require(first.localParticipant.videoTracks.first as? LocalTrackPublication)
             try await first.localParticipant.unpublish(publication: publication)
             feeder.cancel()
 
-            // The unpublish renegotiation is debounced, and the section has to reach the server
-            // before the subscription that might be bound onto it. The peer losing the
-            // publication is the observable end of that round trip.
-            let firstIdentity = try #require(first.localParticipant.identity)
-            try await poll(timeout: 15, for: "the unpublish reaches the peer") {
+            // And the unpublish has to be answered before the subscribe that may be bound onto
+            // the section it freed: the peer losing the publication is the server's half, a
+            // stable signalling state is this side's.
+            try await poll(timeout: 30, for: "the unpublish reaches the peer") {
                 second.remoteParticipants[firstIdentity]?.videoTracks.isEmpty ?? false
             }
+            // `poll` takes a synchronous condition and the signalling state is @RTC-isolated.
+            let publisher = try #require(first._state.transport?.publisher)
+            let deadline = Date().addingTimeInterval(30)
+            var settled = false
+            while Date() < deadline {
+                if await publisher.signalingState == .stable { settled = true; break }
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+            #expect(settled, "the unpublish offer was never answered")
 
             // Now `second` publishes, and `first` has to receive it — on the same peer connection
             // that still carries the section it just unpublished.
