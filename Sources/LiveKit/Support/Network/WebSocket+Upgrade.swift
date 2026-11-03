@@ -232,7 +232,7 @@ extension WebSocket {
         {
             joined.append((name, value))
         }
-        guard let host = url.host else { return joined }
+        guard let host = url.host?.lowercased() else { return joined }
         let port = url.port.map { ":\($0)" } ?? ""
         let address = host.contains(":") ? String(host.prefix { $0 != "%" }) : host
         return joined + [(name: "Host", value: (host.contains(":") ? "[\(address)]" : address) + port)]

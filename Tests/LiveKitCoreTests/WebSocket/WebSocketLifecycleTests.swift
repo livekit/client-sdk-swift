@@ -146,9 +146,9 @@ struct WebSocketLifecycleTests {
         #expect(gone >= start + Self.closeLimit)
     }
 
-    /// Network.framework's own `Host` has no port and no IPv6 brackets, and `setAdditionalHeaders` keeps only the last
-    /// value of a repeated name.
-    @Test(arguments: ["127.0.0.1", "[::1]"])
+    /// Network.framework's own `Host` has no port and no IPv6 brackets, URLSession lowercased the host name, and
+    /// `setAdditionalHeaders` keeps only the last value of a repeated name.
+    @Test(arguments: ["127.0.0.1", "[::1]", "LocalHost"])
     func upgradeHeaders(host: String) async throws {
         let server = try FakeWebSocketServer(.idle)
         defer { server.cancel() }
@@ -158,7 +158,7 @@ struct WebSocketLifecycleTests {
 
         let port = try #require(url.port)
         let lines = server.requestHeaders.copy()
-        #expect(lines.filter { $0.lowercased().hasPrefix("host:") } == ["Host: \(host):\(port)"])
+        #expect(lines.filter { $0.lowercased().hasPrefix("host:") } == ["Host: \(host.lowercased()):\(port)"])
         #expect(lines.contains("X-Repeated: a,b"))
     }
 
