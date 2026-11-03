@@ -114,6 +114,21 @@ final class FakeWebSocketServer: Sendable {
         listener.start(queue: Self.queue)
     }
 
+    /// A ready server, replacing listeners that lose their port to a transient collision.
+    static func started(_ behavior: Behavior) async throws -> (server: FakeWebSocketServer, url: URL) {
+        var retries = 3
+        while true {
+            let server = try FakeWebSocketServer(behavior)
+            do {
+                return try await (server, server.url())
+            } catch {
+                server.cancel()
+                guard case .posix(.EADDRINUSE) = error as? NWError, retries > 0 else { throw error }
+                retries -= 1
+            }
+        }
+    }
+
     /// `host` as it goes in a URL: an IPv6 address in brackets.
     func url(host: String = "127.0.0.1") async throws -> URL {
         let port = try await ready.wait()

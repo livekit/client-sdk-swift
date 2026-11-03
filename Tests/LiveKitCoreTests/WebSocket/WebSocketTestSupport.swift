@@ -35,10 +35,10 @@ enum Ending: Sendable, CustomTestStringConvertible {
 
 enum WebSocketTestSupport {
     static func peerClosure(behavior: FakeWebSocketServer.Behavior, ending: Ending) async throws {
-        let server = try FakeWebSocketServer(behavior)
+        let (server, url) = try await FakeWebSocketServer.started(behavior)
         defer { server.cancel() }
         let events = SocketEvents()
-        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [("Authorization", "Bearer test")],
+        let socket = try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer test")],
                                                  timeoutInterval: 10, onEvent: events.record)
         try await socket.send(data: Data([0x01]))
 

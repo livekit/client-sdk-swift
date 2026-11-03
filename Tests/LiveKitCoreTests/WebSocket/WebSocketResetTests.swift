@@ -16,10 +16,32 @@
 
 import Foundation
 @testable import LiveKit
+import Network
 import Testing
 
 @Suite(.tags(.networking), TestLimits.unit)
 struct WebSocketResetTests {
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func listenerPortCollisionFailsWithAddressInUse() async throws {
+        let (server, url) = try await FakeWebSocketServer.started(.idle)
+        defer { server.cancel() }
+        let portNumber = try #require(url.port)
+        let port = try #require(NWEndpoint.Port(String(portNumber)))
+        let listener = try NWListener(using: .tcp, on: port)
+        defer {
+            listener.stateUpdateHandler = nil
+            listener.newConnectionHandler = nil
+            listener.cancel()
+        }
+        let failed = AsyncCompleter<Void>(label: "WebSocketResetTests.listenerFailed", defaultTimeout: 5)
+        listener.stateUpdateHandler = { state in
+            if case let .failed(error) = state { failed.resume(throwing: error) }
+        }
+        listener.newConnectionHandler = { $0.cancel() }
+        listener.start(queue: .global(qos: .default))
+        await #expect(throws: NWError.posix(.EADDRINUSE)) { try await failed.wait() }
+    }
+
     @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
     func peerResetTearsDownBeforeTheReadFailsUnderLoad() async throws {
         let completed = try await withThrowingTaskGroup(of: Int.self) { group in
