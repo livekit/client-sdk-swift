@@ -134,6 +134,42 @@ extension WebSocketLifecycleTests {
         #expect(frames.dropFirst(2).prefix(2).allSatisfy { $0.payload == Data([0]) })
     }
 
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func concurrentCompressedSendsKeepTheDeflateContext() async throws {
+        let senders = 8, perSender = 25
+        for round in 0 ..< 20 {
+            let server = try FakeWebSocketServer(.upgradeResponse(head: Self.compressedUpgradeHead("permessage-deflate")))
+            defer { server.cancel() }
+            let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+            defer { socket.close() }
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for sender in 0 ..< senders {
+                    group.addTask {
+                        for index in 0 ..< perSender {
+                            try await socket.send(data: Self.compressedPayload(sender, index))
+                        }
+                    }
+                }
+                try await group.waitForAll()
+            }
+            socket.close()
+            try await server.served.wait()
+            let frames = server.frames.copy().filter { $0.opcode == 0x2 }
+            #expect(frames.count == senders * perSender, "Round \(round)")
+            let inflater = try WebSocketCompression.Codec(compressing: false, windowBits: 15, noContextTakeover: false)
+            var decoded: [Data] = []
+            for frame in frames {
+                guard let data = try? inflater.process(frame.payload, final: true) else {
+                    Issue.record("Round \(round): frame \(decoded.count) does not inflate")
+                    break
+                }
+                decoded.append(data)
+            }
+            let expected = (0 ..< senders).flatMap { sender in (0 ..< perSender).map { Self.compressedPayload(sender, $0) } }
+            #expect(decoded.sorted { $0.lexicographicallyPrecedes($1) } == expected.sorted { $0.lexicographicallyPrecedes($1) }, "Round \(round)")
+        }
+    }
+
     @Test func compressionIsConfiguredBeforeCoalescedFramesAreRead() async throws {
         let bytes = FakeWebSocketServer.frame(0x42, Data([0xF2, 0x48, 0xCD, 0xC9, 0xC9, 0x07, 0]))
             + FakeWebSocketServer.frame(0x2, Data([42])) + FakeWebSocketServer.close(1000)
@@ -150,6 +186,11 @@ extension WebSocketLifecycleTests {
         let error = await #expect(throws: LiveKitError.self) { try await iterator.next() }
         #expect((error?.internalError as? WebSocketClosedByPeer)?.code == 1000)
         try await server.served.wait()
+    }
+
+    private static func compressedPayload(_ sender: Int, _ index: Int) -> Data {
+        Data("signal request from sender \(sender), number \(index): ".utf8)
+            + Data(String(repeating: "subscription update track TR_abcdef ", count: 1 + (sender + index) % 7).utf8)
     }
 
     private static func compressedUpgradeHead(_ parameters: String) -> String {
