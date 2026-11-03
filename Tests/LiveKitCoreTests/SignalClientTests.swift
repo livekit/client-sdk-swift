@@ -53,20 +53,18 @@ struct SignalClientTests {
                 $0.reason = .participantRemoved
             }
         }.serializedData()
-        // The order is what the test checks, and a lost leave shows only when the failure wins a race: many rounds.
-        for round in 0 ..< 50 {
-            let frames = FakeWebSocketServer.binary([leave]) + FakeWebSocketServer.close(1000)
-            let server = try FakeWebSocketServer(.frames(frames, withUpgrade: true))
-            defer { server.cancel() }
-            let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
-            let client = SignalClient()
-            let recorder = LeaveRecorder(client: client)
-            await client._delegate.set(delegate: recorder)
-            await client.installMessageLoopForTest(socket)
+        let frames = FakeWebSocketServer.binary([leave]) + FakeWebSocketServer.close(1000)
+        let server = try FakeWebSocketServer(.frames(frames, withUpgrade: true))
+        defer { server.cancel() }
+        let client = SignalClient()
+        let recorder = LeaveRecorder(client: client)
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10,
+                                                 onEvent: recorder.socketEvents.record)
+        await client._delegate.set(delegate: recorder)
+        await client.installMessageLoopForTest(socket, recorder: recorder)
 
-            try await recorder.disconnected.wait()
-            #expect(recorder.events.copy() == [.leave, .disconnected(.participantRemoved)], "Round \(round)")
-        }
+        try await recorder.disconnected.wait()
+        #expect(recorder.events.copy() == [.leave(awaited: true), .disconnected(.participantRemoved)])
     }
 
     @Test func messageNameOmitsPayload() {
@@ -76,9 +74,9 @@ struct SignalClientTests {
 }
 
 private extension SignalClient {
-    func installMessageLoopForTest(_ socket: LiveKit.WebSocket) {
+    func installMessageLoopForTest(_ socket: LiveKit.WebSocket, recorder: LeaveRecorder) {
         let loop = socket.subscribe(self) { client, message in
-            await client.onWebSocketMessage(message, from: socket)
+            await client.handleMessageForTest(message, from: socket, recorder: recorder)
         } onFailure: { client, error in
             await client.onWebSocketFailure(error, from: socket)
         }
@@ -88,11 +86,19 @@ private extension SignalClient {
             $0.messageLoopTask = loop
         }
     }
+
+    func handleMessageForTest(_ message: URLSessionWebSocketTask.Message, from socket: LiveKit.WebSocket, recorder: LeaveRecorder) async {
+        await onWebSocketMessage(message, from: socket)
+        // Stay on SignalClient's actor: a detached response processor cannot enter before this marks the return.
+        recorder.messageReturned.mutate { $0 = true }
+    }
 }
 
 private final class LeaveRecorder: SignalClientDelegate {
-    enum Event: Equatable { case leave, disconnected(LiveKitErrorType?) }
+    enum Event: Equatable { case leave(awaited: Bool), disconnected(LiveKitErrorType?) }
     let client: SignalClient
+    let socketEvents = SocketEvents()
+    let messageReturned = StateSync(false)
     let events = StateSync<[Event]>([])
     let disconnected = AsyncCompleter<Void>(label: "LeaveRecorder.disconnected", defaultTimeout: 5)
 
@@ -102,8 +108,15 @@ private final class LeaveRecorder: SignalClientDelegate {
 
     /// As `Room` handles a leave that disconnects: it cleans the signal client up before it returns.
     func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?) async {
+        // The socket can finish its close handshake while message delivery still awaits this callback.
+        do {
+            _ = try await socketEvents.teardown.wait()
+        } catch {
+            Issue.record(error)
+        }
+        let awaited = !messageReturned.copy()
         await client.cleanUp(withError: LiveKitError.from(reason: reason))
-        events.mutate { $0.append(.leave) }
+        events.mutate { $0.append(.leave(awaited: awaited)) }
     }
 
     func signalClient(_: SignalClient, didUpdateConnectionState newState: ConnectionState, oldState _: ConnectionState, disconnectError: LiveKitError?) async {
