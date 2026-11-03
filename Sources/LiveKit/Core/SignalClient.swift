@@ -143,6 +143,7 @@ actor SignalClient: Loggable {
         }
     }
 
+    /// Creates a signaling client with injected request capture and response synchronization for tests.
     init(testingResponse: Livekit_SignalResponse,
          requestProcessor: @escaping QueueActor<Livekit_SignalRequest>.OnProcess,
          responseProcessed: @escaping @Sendable () async -> Void) async throws

@@ -73,17 +73,16 @@ struct SignalClientTests {
         let client = try await SignalClient(testingResponse: response.response, requestProcessor: { request in
             sent.mutate { $0.append(request) }
         }, responseProcessed: {
-            do {
-                try await delegate.handled.wait()
-            } catch {
-                Issue.record(error)
-            }
+            _ = try? await delegate.handled.wait()
         })
         await client._state.mutate { $0.connectionState = .connecting }
         await client._delegate.set(delegate: delegate)
 
         await client.resumeQueues()
         await client.cleanUp()
+
+        let received = try await delegate.handled.wait()
+        #expect(received == response.response)
 
         let requests = sent.copy()
         try #require(requests.count == (response == .offer ? 2 : 1))
@@ -113,10 +112,12 @@ struct SignalClientTests {
     }
 
     private func expectCandidate(_ request: Livekit_SignalRequest, target: Livekit_SignalTarget) throws {
-        guard case let .trickle(trickle)? = request.message else {
-            Issue.record("Expected an ICE candidate request")
-            return
+        let payload: Livekit_TrickleRequest? = if case let .trickle(trickle)? = request.message {
+            trickle
+        } else {
+            nil
         }
+        let trickle = try #require(payload)
         #expect(trickle.target == target)
         let candidate = try JSONDecoder().decode(IceCandidate.self, from: Data(trickle.candidateInit.utf8))
         #expect(candidate.sdp == QueueResumeDelegate.candidate.sdp)
@@ -132,40 +133,33 @@ struct SignalClientTests {
 
 private final class QueueResumeDelegate: SignalClientDelegate {
     static let candidate = IceCandidate(sdp: "candidate:1 1 udp 1 127.0.0.1 12345 typ host", sdpMLineIndex: 0, sdpMid: "0")
-    let handled = AsyncCompleter<Void>(label: "Response handler finished sending", defaultTimeout: 5)
+    let handled = AsyncCompleter<Livekit_SignalResponse>(label: "Response handler finished sending", defaultTimeout: 5)
 
     func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription, offerId: UInt32) async {
-        defer { handled.resume(returning: ()) }
-        #expect(offer.type == .offer)
-        #expect(offer.sdp == "offer")
-        #expect(offerId == 17)
         do {
             try await signalClient.send(answer: RTC.createSessionDescription(type: .answer, sdp: "answer"), offerId: offerId)
             try await signalClient.sendCandidate(candidate: Self.candidate, target: .subscriber)
+            handled.resume(returning: .with { $0.offer = offer.toPBType(offerId: offerId) })
         } catch {
-            Issue.record(error)
+            handled.resume(throwing: error)
         }
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32) async {
-        defer { handled.resume(returning: ()) }
-        #expect(answer.type == .answer)
-        #expect(answer.sdp == "answer")
-        #expect(offerId == 17)
         do {
             try await signalClient.sendCandidate(candidate: Self.candidate, target: .publisher)
+            handled.resume(returning: .with { $0.answer = answer.toPBType(offerId: offerId) })
         } catch {
-            Issue.record(error)
+            handled.resume(throwing: error)
         }
     }
 
     func signalClient(_ signalClient: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {
-        defer { handled.resume(returning: ()) }
-        #expect(requirement.numAudios == 1)
         do {
             try await signalClient.send(offer: RTC.createSessionDescription(type: .offer, sdp: "offer"), offerId: 18)
+            handled.resume(returning: .with { $0.mediaSectionsRequirement = requirement })
         } catch {
-            Issue.record(error)
+            handled.resume(throwing: error)
         }
     }
 
