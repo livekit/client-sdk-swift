@@ -38,11 +38,24 @@ extension WebSocket {
 
     /// The upgrade request with `headers`, the ``upgradeHeaders(url:headers:bundleInfo:)``, `Host` included.
     static func upgradeRequest(url: URL, key: String, headers: [(name: String, value: String)]) throws -> Data {
-        // The request target as URLSession sent it: escaped, as `URL.path` would not give it.
+        // Keep the escaped path and query, as `URL.path` would not give them.
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         var target = components?.percentEncodedPath ?? ""
         if target.isEmpty { target = "/" }
         if let query = components?.percentEncodedQuery { target += "?\(query)" }
+        // A URL endpoint can route raw TCP to an HTTP forward proxy without rewriting our request.
+        // Origins accept absolute-form (RFC 9112 section 3.2.2); WebSocket upgrades use HTTP URIs (RFC 6455 section 4.1).
+        if ["ws", "http"].contains(url.scheme?.lowercased() ?? ""), var absolute = components {
+            absolute.scheme = "http"
+            absolute.user = nil
+            absolute.password = nil
+            absolute.fragment = nil
+            if let host = absolute.percentEncodedHost, host.contains(":"), let zone = host.firstIndex(of: "%") {
+                absolute.percentEncodedHost = String(host[..<zone]) + (host.hasSuffix("]") ? "]" : "")
+            }
+            if absolute.percentEncodedPath.isEmpty { absolute.percentEncodedPath = "/" }
+            target = absolute.url?.absoluteString ?? target
+        }
         var request = "GET \(target) HTTP/1.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
             + "Sec-WebSocket-Key: \(key)\r\nSec-WebSocket-Version: 13\r\n"
         for (name, value) in headers {

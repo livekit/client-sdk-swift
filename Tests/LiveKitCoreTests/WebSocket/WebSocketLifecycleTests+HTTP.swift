@@ -28,6 +28,7 @@ extension WebSocketLifecycleTests {
         components.path = "/next"
         components.percentEncodedQuery = "value=one%20two"
         let destination = try #require(components.url)
+        let port = try #require(destination.port)
         let server = try FakeWebSocketServer(.upgradeResponse(head: "HTTP/1.1 \(status) Redirect\r\nLocation: \(destination.absoluteString)\r\n\r\n"))
         defer { server.cancel() }
         let socket = try await LiveKit.WebSocket(url: server.url(), headers: [(authorization, "Bearer probe"), ("Cookie", "caller=explicit"),
@@ -42,8 +43,8 @@ extension WebSocketLifecycleTests {
         #expect(headers.contains("Accept: application/cbor"))
         #expect(headers.contains("Accept-Encoding: identity"))
         #expect(headers.contains("X-Probe: custom"))
-        #expect(try headers.contains("Host: 127.0.0.1:\(#require(destination.port))"))
-        #expect(target.requests.copy().first?.line == "GET /next?value=one%20two HTTP/1.1")
+        #expect(headers.contains("Host: 127.0.0.1:\(port)"))
+        #expect(target.requests.copy().first?.line == "GET http://127.0.0.1:\(port)/next?value=one%20two HTTP/1.1")
     }
 
     @Test func relativeRedirectUsesResponseCookies() async throws {
@@ -58,11 +59,13 @@ extension WebSocketLifecycleTests {
                 HTTPCookieStorage.shared.deleteCookie(cookie)
             }
         }
-        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+        let url = try await server.url()
+        let port = try #require(url.port)
+        let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
         defer { socket.close() }
         let requests = server.requests.copy()
         #expect(requests.count == 2)
-        #expect(requests.last?.line == "GET /next?escaped=one%20two HTTP/1.1")
+        #expect(requests.last?.line == "GET http://127.0.0.1:\(port)/next?escaped=one%20two HTTP/1.1")
         #expect(requests.last?.headers.contains { $0.hasPrefix("Cookie:") && $0.contains("\(name)=stored") } == true)
     }
 
@@ -82,16 +85,17 @@ extension WebSocketLifecycleTests {
     }
 
     @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
-        ("../next", "/next"),
-        ("a/./b/../c", "/a/c"),
-        ("/..", "/"),
-        ("a/b/..", "/a/"),
-        ("../next?escaped=one%20two&path=../kept", "/next?escaped=one%20two&path=../kept"),
-        ("ws://example.invalid/a/../next", "/a/../next"),
-        ("//example.invalid/a/./b/../c", "/a/./b/../c"),
+        ("ws", "../next", "http://example.invalid/next"),
+        ("ws", "a/./b/../c", "http://example.invalid/a/c"),
+        ("ws", "/..", "http://example.invalid/"),
+        ("ws", "a/b/..", "http://example.invalid/a/"),
+        ("ws", "../next?escaped=one%20two&path=../kept", "http://example.invalid/next?escaped=one%20two&path=../kept"),
+        ("ws", "ws://example.invalid/a/../next", "http://example.invalid/a/../next"),
+        ("ws", "//example.invalid/a/./b/../c", "http://example.invalid/a/./b/../c"),
+        ("wss", "../next?escaped=one%20two&path=../kept", "/next?escaped=one%20two&path=../kept"),
     ])
-    func redirectDotSegmentsPreserveTheRequestQuery(location: String, target: String) throws {
-        let base = try #require(URL(string: "ws://example.invalid/rtc"))
+    func redirectDotSegmentsPreserveTheRequestQuery(scheme: String, location: String, target: String) throws {
+        let base = try #require(URL(string: "\(scheme)://example.invalid/rtc"))
         let response = WebSocketUpgradeFailure(statusCode: 302, headers: [("location", location)])
         let resolved = try #require(try WebSocket.redirectedURL(response, from: base))
         let request = try WebSocket.upgradeRequest(url: resolved, key: "test", headers: [])

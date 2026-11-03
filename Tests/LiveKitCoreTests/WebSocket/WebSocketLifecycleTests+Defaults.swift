@@ -61,6 +61,37 @@ extension WebSocketLifecycleTests {
         #expect(headers.filter { $0.name.lowercased() == "user-agent" }.map(\.value) == ["LiveKitSwift/\(LiveKitSDK.version)"])
     }
 
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
+        ("ws://example.invalid/rtc?token=one%20two&path=%2F", "http://example.invalid/rtc?token=one%20two&path=%2F"),
+        ("ws://example.invalid:80", "http://example.invalid:80/"),
+        ("ws://example.invalid?", "http://example.invalid/?"),
+        ("ws://user:secret@example.invalid:9080/a%2Fb?token=%23#fragment", "http://example.invalid:9080/a%2Fb?token=%23"),
+        ("ws://[::1]:9080/rtc", "http://[::1]:9080/rtc"),
+        ("ws://[fe80::1%25en0]:9080/rtc", "http://[fe80::1]:9080/rtc"),
+        ("http://example.invalid/redirected?x=1", "http://example.invalid/redirected?x=1"),
+        ("wss://user:secret@example.invalid:443/a%2Fb?token=%23#fragment", "/a%2Fb?token=%23"),
+        ("https://example.invalid", "/"),
+    ])
+    func upgradeRequestTargetWorksThroughForwardProxies(address: String, target: String) throws {
+        let url = try #require(URL(string: address))
+        let request = try WebSocket.upgradeRequest(url: url, key: "test", headers: WebSocket.upgradeHeaders(url: url, headers: []))
+        let head = try #require(String(data: request, encoding: .utf8))
+        #expect(head.hasPrefix("GET \(target) HTTP/1.1\r\n"))
+        #expect(!head.contains("secret"))
+        #expect(!head.contains("#fragment"))
+    }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func directUpgradeSendsAbsoluteFormTarget() async throws {
+        let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
+        let url = try await server.url()
+        let port = try #require(url.port)
+        let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
+        defer { socket.close() }
+        #expect(server.requests.copy().first?.line == "GET http://127.0.0.1:\(port)/rtc HTTP/1.1")
+    }
+
     @Test func cleartextUpgradeSendsOnlyPlainCookies() throws {
         let host = "lk-defaults-\(UUID().uuidString).invalid"
         let secureURL = try #require(URL(string: "https://\(host)/rtc"))
