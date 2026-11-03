@@ -41,7 +41,7 @@ extension WebSocketLifecycleTests {
         let requests = server.requests.copy()
         #expect(requests.count == 2)
         #expect(Self.authorization(requests.first?.headers) == (afterBearer ? "Bearer probe" : nil))
-        #expect(Self.authorization(requests.last?.headers) == "Basic cHJvYmU6c2VjcmV0")
+        #expect(Self.authorization(requests.last?.headers) == Self.basicHeader())
         #expect(requests.last?.headers.contains { $0.hasPrefix("Cookie:") && $0.contains("\(cookie)=stored") } == true)
     }
 
@@ -59,7 +59,7 @@ extension WebSocketLifecycleTests {
         let requests = server.requests.copy()
         #expect(requests.count == 2)
         #expect(Self.authorization(requests.first?.headers) == "Bearer probe")
-        #expect(Self.authorization(requests.last?.headers) == "Basic cHJvYmU6c2VjcmV0")
+        #expect(Self.authorization(requests.last?.headers) == Self.basicHeader())
     }
 
     @Test(arguments: ["none", "realm", "scheme", "port", "host"])
@@ -118,7 +118,7 @@ extension WebSocketLifecycleTests {
             let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
             defer { socket.close() }
             #expect(server.requests.copy().count == 2)
-            #expect(Self.authorization(server.requestHeaders.copy()) == "Basic cHJvYmU6c2VjcmV0")
+            #expect(Self.authorization(server.requestHeaders.copy()) == Self.basicHeader())
         }
     }
 
@@ -129,7 +129,7 @@ extension WebSocketLifecycleTests {
         let stored = try Self.storeBasicCredential(url: url, realm: realm)
         defer { URLCredentialStorage.shared.remove(stored.credential, for: stored.space) }
         let response = WebSocketUpgradeFailure(statusCode: 401, headers: [("www-authenticate", "Basic realm=\"\(realm)\"")])
-        #expect(WebSocket.basicAuthorization(response, url: url) == "Basic cHJvYmU6c2VjcmV0")
+        #expect(WebSocket.basicAuthorization(response, url: url) == Self.basicHeader())
     }
 
     @Test func redirectAfterBasicDropsCredential() async throws {
@@ -148,7 +148,7 @@ extension WebSocketLifecycleTests {
         let socket = try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer probe")], timeoutInterval: 10)
         defer { socket.close() }
         #expect(server.requests.copy().count == 2)
-        #expect(Self.authorization(server.requestHeaders.copy()) == "Basic cHJvYmU6c2VjcmV0")
+        #expect(Self.authorization(server.requestHeaders.copy()) == Self.basicHeader())
         #expect(Self.authorization(target.requestHeaders.copy()) == nil)
     }
 
@@ -168,7 +168,7 @@ extension WebSocketLifecycleTests {
         let requests = target.requests.copy()
         #expect(requests.count == 2)
         #expect(Self.authorization(requests.first?.headers) == nil)
-        #expect(Self.authorization(requests.last?.headers) == "Basic cHJvYmU6c2VjcmV0")
+        #expect(Self.authorization(requests.last?.headers) == Self.basicHeader())
     }
 
     @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
@@ -179,7 +179,7 @@ extension WebSocketLifecycleTests {
         ]))
         defer { target.cancel() }
         let destination = try await target.url(host: "localhost")
-        let targetCredential = try Self.storeBasicCredential(url: destination, realm: realm + "-target", password: "target-secret")
+        let targetCredential = try Self.storeBasicCredential(url: destination, realm: realm + "-target", password: "mock-target-password")
         defer { URLCredentialStorage.shared.remove(targetCredential.credential, for: targetCredential.space) }
         let server = try FakeWebSocketServer(.upgradeResponses([
             "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"\(realm)\"\r\n\r\n",
@@ -191,14 +191,18 @@ extension WebSocketLifecycleTests {
         defer { URLCredentialStorage.shared.remove(stored.credential, for: stored.space) }
         let socket = try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer probe")], timeoutInterval: 10)
         defer { socket.close() }
-        let basic = "Basic cHJvYmU6c2VjcmV0"
+        let basic = Self.basicHeader()
         #expect(server.requests.copy().map { Self.authorization($0.headers) } == ["Bearer probe", basic])
-        #expect(target.requests.copy().map { Self.authorization($0.headers) } == [nil, "Basic cHJvYmU6dGFyZ2V0LXNlY3JldA=="])
+        #expect(target.requests.copy().map { Self.authorization($0.headers) } == [nil, Self.basicHeader(password: "mock-target-password")])
     }
 }
 
 extension WebSocketLifecycleTests {
-    static func storeBasicCredential(url: URL, realm: String, scope: String = "matching", password: String = "secret") throws -> (space: URLProtectionSpace, credential: URLCredential) {
+    static func basicHeader(user: String = "mock-user", password: String = "mock-password") -> String {
+        "Basic " + Data("\(user):\(password)".utf8).base64EncodedString()
+    }
+
+    static func storeBasicCredential(url: URL, realm: String, scope: String = "matching", user: String = "mock-user", password: String = "mock-password") throws -> (space: URLProtectionSpace, credential: URLCredential) {
         let host = try #require(url.host)
         let secure = ["wss", "https"].contains(url.scheme ?? "")
         let port = url.port ?? (secure ? 443 : 80)
@@ -207,7 +211,7 @@ extension WebSocketLifecycleTests {
                                        protocol: scope == "scheme" ? (secure ? "http" : "https") : (secure ? "https" : "http"),
                                        realm: scope == "realm" ? realm + "-other" : realm,
                                        authenticationMethod: NSURLAuthenticationMethodHTTPBasic)
-        let credential = URLCredential(user: "probe", password: password, persistence: .forSession)
+        let credential = URLCredential(user: user, password: password, persistence: .forSession)
         URLCredentialStorage.shared.setDefaultCredential(credential, for: space)
         return (space, credential)
     }
