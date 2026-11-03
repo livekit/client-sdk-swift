@@ -42,7 +42,7 @@ extension WebSocketLifecycleTests {
             let socket = try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer probe")], timeoutInterval: 10)
             defer { socket.close() }
             #expect(server.requests.copy().count == 2)
-            #expect(Self.authorization(server.requestHeaders.copy()) == "Basic cHJvYmU6c2VjcmV0")
+            #expect(Self.authorization(server.requestHeaders.copy()) == Self.basicHeader())
         } else {
             let error = await #expect(throws: LiveKitError.self) {
                 try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer probe")], timeoutInterval: 10)
@@ -92,7 +92,7 @@ extension WebSocketLifecycleTests {
             }
             #expect((error?.internalError as? WebSocketUpgradeFailure)?.statusCode == 401)
         }
-        let basic = "Basic cHJvYmU6c2VjcmV0"
+        let basic = Self.basicHeader()
         let expected: [String?] = ["Bearer probe", basic] + sendsBasic.map { $0 ? basic : nil }
         #expect(server.requests.copy().map { Self.authorization($0.headers) } == expected)
     }
