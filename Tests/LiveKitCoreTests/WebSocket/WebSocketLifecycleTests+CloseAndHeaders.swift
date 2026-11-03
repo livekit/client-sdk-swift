@@ -67,6 +67,21 @@ extension WebSocketLifecycleTests {
             // ALPN extension 0x0010, length 11: a length-prefixed list containing only "http/1.1".
             let alpn = Data([0x00, 0x10, 0x00, 0x0B, 0x00, 0x09, 0x08]) + Data("http/1.1".utf8)
             #expect(hello.range(of: alpn) != nil)
+            // ClientHello: record header (5), handshake header (4), version (2), random (32), session ID.
+            let sessionIDLength = try #require(hello.dropFirst(43).first)
+            let cipherBytes = Array(hello.dropFirst(44 + Int(sessionIDLength)))
+            try #require(cipherBytes.count >= 2)
+            let length = Int(cipherBytes[0]) << 8 | Int(cipherBytes[1])
+            try #require(length > 0 && length.isMultiple(of: 2) && cipherBytes.count >= 2 + length)
+            let offered = Set(stride(from: 2, to: 2 + length, by: 2).map { UInt16(cipherBytes[$0]) << 8 | UInt16(cipherBytes[$0 + 1]) })
+                .filter { $0 != 0x00FF && !($0 & 0x0F0F == 0x0A0A && $0 >> 8 == $0 & 0xFF) } // SCSV and GREASE are not ciphers.
+            let forwardSecret: Set<UInt16> = [
+                0x1301, 0x1302, 0x1303, // TLS 1.3.
+                0xC009, 0xC00A, 0xC013, 0xC014, 0xC023, 0xC024, 0xC027, 0xC028, // ECDHE + AES CBC.
+                0xC02B, 0xC02C, 0xC02F, 0xC030, 0xCCA8, 0xCCA9, // ECDHE + AES GCM or ChaCha20.
+            ]
+            #expect(!offered.isEmpty)
+            #expect(offered.isSubset(of: forwardSecret))
             group.cancelAll()
         }
     }

@@ -67,6 +67,7 @@ actor WebSocket: Loggable, AsyncSequence {
         tcp.noDelay = true
         let tls = secure ? NWProtocolTLS.Options() : nil
         if let tls {
+            sec_protocol_options_append_tls_ciphersuite_group(tls.securityProtocolOptions, .ats)
             sec_protocol_options_add_tls_application_protocol(tls.securityProtocolOptions, "http/1.1")
         }
         let parameters = NWParameters(tls: tls, tcp: tcp)
