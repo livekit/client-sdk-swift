@@ -19,6 +19,61 @@ import Foundation
 import Testing
 
 extension WebSocketLifecycleTests {
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
+        (["CFBundleName": "Probe App/é (test);?@:", "CFBundleExecutable": "Ignored", "CFBundleVersion": "42"],
+         "Probe%20App%2F%C3%A9%20%28test%29%3B%3F%40%3A/42"),
+        (["CFBundleExecutable": "Probe Executable", "CFBundleVersion": "7"], "Probe%20Executable/7"),
+        (["CFBundleName": "Probe App"], "Probe%20App (unknown version)"),
+        (["CFBundleName": "Q&A $1+", "CFBundleVersion": "1.0 (beta)é/;\n"], "Q&A%20$1+/1.0%20%28beta%29%C3%A9%2F%3B%0A"),
+        (["CFBundleName": "App", "CFBundleVersion": "1"], "App/1"),
+        (["CFBundleName": "App", "CFBundleVersion": "1\nX-Evil: 1"], "App/1%0AX-Evil%3A%201"),
+        (["CFBundleName": "", "CFBundleExecutable": "Probe Executable", "CFBundleVersion": "7"], "Probe%20Executable/7"),
+        (["CFBundleName": "App", "CFBundleVersion": ""], "App (unknown version)"),
+    ])
+    func upgradeSendsDefaultUserAgent(bundleInfo: [String: String], app: String) throws {
+        let url = try #require(URL(string: "wss://user-agent.invalid/rtc"))
+        let headers = WebSocket.upgradeHeaders(url: url, headers: [], bundleInfo: bundleInfo)
+        #expect(headers.filter { $0.name.lowercased() == "user-agent" }.map(\.value) == ["\(app) LiveKitSwift/\(LiveKitSDK.version)"])
+        _ = try WebSocket.upgradeRequest(url: url, key: "test", headers: headers)
+    }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: ["User-Agent", "user-agent", "uSeR-aGeNt"])
+    func callerUserAgentOverridesDefault(name: String) throws {
+        let url = try #require(URL(string: "wss://user-agent.invalid/rtc"))
+        let bundleInfo = ["CFBundleName": "Probe App", "CFBundleVersion": "42"]
+        let defaults = WebSocket.upgradeHeaders(url: url, headers: [], bundleInfo: bundleInfo)
+        #expect(defaults.filter { $0.name.lowercased() == "user-agent" }.map(\.value) == ["Probe%20App/42 LiveKitSwift/\(LiveKitSDK.version)"])
+        let headers = WebSocket.upgradeHeaders(url: url, headers: [(name, "Custom/1")], bundleInfo: bundleInfo)
+        #expect(headers.filter { $0.name.lowercased() == "user-agent" }.map(\.value) == ["Custom/1"])
+    }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
+        ["CFBundleVersion": "42"],
+        ["CFBundleName": "", "CFBundleVersion": "3"],
+        ["CFBundleExecutable": "", "CFBundleVersion": "3"],
+        ["CFBundleName": "", "CFBundleExecutable": "", "CFBundleVersion": "3"],
+    ])
+    func defaultUserAgentOmitsMissingAppName(bundleInfo: [String: String]) throws {
+        let url = try #require(URL(string: "wss://user-agent.invalid/rtc"))
+        let headers = WebSocket.upgradeHeaders(url: url, headers: [], bundleInfo: bundleInfo)
+        #expect(headers.filter { $0.name.lowercased() == "user-agent" }.map(\.value) == ["LiveKitSwift/\(LiveKitSDK.version)"])
+    }
+
+    @Test func cleartextUpgradeSendsOnlyPlainCookies() throws {
+        let host = "lk-defaults-\(UUID().uuidString).invalid"
+        let secureURL = try #require(URL(string: "https://\(host)/rtc"))
+        let cleartextURL = try #require(URL(string: "ws://\(host)/rtc"))
+        let cookies = HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": "secure=secret; Secure; Path=/"], for: secureURL)
+            + HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": "plain=mock; Path=/"], for: secureURL)
+        try #require(cookies.count == 2)
+        let storage = HTTPCookieStorage.shared
+        defer { cookies.forEach(storage.deleteCookie) }
+        storage.setCookies(cookies, for: secureURL, mainDocumentURL: secureURL)
+        try #require(storage.cookies(for: secureURL)?.count == 2)
+        let headers = WebSocket.upgradeHeaders(url: cleartextURL, headers: [])
+        #expect(headers.filter { $0.name.lowercased() == "cookie" }.map(\.value) == ["plain=mock"])
+    }
+
     @Test func upgradeSendsDefaultAcceptHeaders() async throws {
         let server = try FakeWebSocketServer(.idle)
         defer { server.cancel() }

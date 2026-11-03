@@ -36,7 +36,7 @@ extension WebSocket {
         Data((0 ..< 16).map { _ in UInt8.random(in: .min ... .max) }).base64EncodedString()
     }
 
-    /// The upgrade request with `headers`, the ``upgradeHeaders(url:headers:)``, `Host` included.
+    /// The upgrade request with `headers`, the ``upgradeHeaders(url:headers:bundleInfo:)``, `Host` included.
     static func upgradeRequest(url: URL, key: String, headers: [(name: String, value: String)]) throws -> Data {
         // The request target as URLSession sent it: escaped, as `URL.path` would not give it.
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
@@ -195,11 +195,25 @@ extension WebSocket {
         HTTPCookieStorage.shared.setCookies(cookies, for: url, mainDocumentURL: url)
     }
 
+    /// The app token uses CFNetwork's escaping, followed by the SDK product token.
+    static func userAgent(bundleInfo: [String: Any]) -> String {
+        let sdk = "LiveKitSwift/\(LiveKitSDK.version)"
+        let name = [bundleInfo["CFBundleName"], bundleInfo["CFBundleExecutable"]].compactMap { $0 as? String }.first { !$0.isEmpty }
+        guard let name else { return sdk }
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~!$&'*+")
+        let app = name.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+        let version = (bundleInfo["CFBundleVersion"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            .map { "/" + ($0.addingPercentEncoding(withAllowedCharacters: allowed) ?? "") } ?? " (unknown version)"
+        return "\(app)\(version) \(sdk)"
+    }
+
     /// The upgrade headers as URLSession sent them. A repeated name is joined with commas, as `URLRequest.addValue`
     /// did. Unless the caller supplies `Cookie`, stored cookies go along, matched on the URL's `https` form so that
     /// secure ones count. `Host` carries the port and IPv6 brackets; it comes last, after the join, so it replaces any
-    /// that the caller passed.
-    static func upgradeHeaders(url: URL, headers: [(name: String, value: String)]) -> [(name: String, value: String)] {
+    /// that the caller passed. The default `User-Agent` names the app and SDK; a caller value replaces it.
+    static func upgradeHeaders(url: URL, headers: [(name: String, value: String)],
+                               bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:]) -> [(name: String, value: String)]
+    {
         let callerCookie = headers.contains { $0.name.caseInsensitiveCompare("Cookie") == .orderedSame }
         let cookies = callerCookie ? [] : httpURL(url).flatMap { HTTPCookieStorage.shared.cookies(for: $0) } ?? []
         let stored = HTTPCookie.requestHeaderFields(with: cookies).map { (name: $0.key, value: $0.value) }
@@ -212,7 +226,8 @@ extension WebSocket {
                 joined.append((name, value))
             }
         }
-        for (name, value) in [("Accept", "*/*"), ("Accept-Encoding", "gzip, deflate"), ("Sec-WebSocket-Extensions", "permessage-deflate")]
+        for (name, value) in [("Accept", "*/*"), ("Accept-Encoding", "gzip, deflate"), ("Sec-WebSocket-Extensions", "permessage-deflate"),
+                              ("User-Agent", userAgent(bundleInfo: bundleInfo))]
             where !joined.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame })
         {
             joined.append((name, value))
