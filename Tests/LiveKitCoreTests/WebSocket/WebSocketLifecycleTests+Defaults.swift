@@ -167,6 +167,10 @@ extension WebSocketLifecycleTests {
             }
             let expected = (0 ..< senders).flatMap { sender in (0 ..< perSender).map { Self.compressedPayload(sender, $0) } }
             #expect(decoded.sorted { $0.lexicographicallyPrecedes($1) } == expected.sorted { $0.lexicographicallyPrecedes($1) }, "Round \(round)")
+            for sender in 0 ..< senders {
+                #expect(decoded.filter { $0.starts(with: Data("signal request from sender \(sender),".utf8)) }
+                    == (0 ..< perSender).map { Self.compressedPayload(sender, $0) }, "Round \(round), sender \(sender)")
+            }
         }
     }
 

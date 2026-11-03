@@ -179,7 +179,7 @@ extension WebSocketLifecycleTests {
         ]))
         defer { target.cancel() }
         let destination = try await target.url(host: "localhost")
-        let targetCredential = try Self.storeBasicCredential(url: destination, realm: realm + "-target")
+        let targetCredential = try Self.storeBasicCredential(url: destination, realm: realm + "-target", password: "target-secret")
         defer { URLCredentialStorage.shared.remove(targetCredential.credential, for: targetCredential.space) }
         let server = try FakeWebSocketServer(.upgradeResponses([
             "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"\(realm)\"\r\n\r\n",
@@ -193,12 +193,12 @@ extension WebSocketLifecycleTests {
         defer { socket.close() }
         let basic = "Basic cHJvYmU6c2VjcmV0"
         #expect(server.requests.copy().map { Self.authorization($0.headers) } == ["Bearer probe", basic])
-        #expect(target.requests.copy().map { Self.authorization($0.headers) } == [nil, basic])
+        #expect(target.requests.copy().map { Self.authorization($0.headers) } == [nil, "Basic cHJvYmU6dGFyZ2V0LXNlY3JldA=="])
     }
 }
 
 extension WebSocketLifecycleTests {
-    static func storeBasicCredential(url: URL, realm: String, scope: String = "matching") throws -> (space: URLProtectionSpace, credential: URLCredential) {
+    static func storeBasicCredential(url: URL, realm: String, scope: String = "matching", password: String = "secret") throws -> (space: URLProtectionSpace, credential: URLCredential) {
         let host = try #require(url.host)
         let secure = ["wss", "https"].contains(url.scheme ?? "")
         let port = url.port ?? (secure ? 443 : 80)
@@ -207,7 +207,7 @@ extension WebSocketLifecycleTests {
                                        protocol: scope == "scheme" ? (secure ? "http" : "https") : (secure ? "https" : "http"),
                                        realm: scope == "realm" ? realm + "-other" : realm,
                                        authenticationMethod: NSURLAuthenticationMethodHTTPBasic)
-        let credential = URLCredential(user: "probe", password: "secret", persistence: .forSession)
+        let credential = URLCredential(user: "probe", password: password, persistence: .forSession)
         URLCredentialStorage.shared.setDefaultCredential(credential, for: space)
         return (space, credential)
     }
