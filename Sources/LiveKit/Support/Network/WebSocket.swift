@@ -51,8 +51,7 @@ actor WebSocket: Loggable, AsyncSequence {
     }
 
     private let core: Core
-    /// Network.framework delivers on a queue it is given; a shared one, not one of our own: every callback here only
-    /// parses what arrived, or resumes an `AsyncCompleter` or a continuation.
+    /// Network.framework callbacks, including preferred-identity keychain reads, use this shared queue outside the cooperative pool.
     fileprivate static var queue: DispatchQueue { .global(qos: .default) }
     /// URLSessionWebSocketTask's limit on a received message.
     static let maximumMessageSize = 1 << 20
@@ -60,15 +59,20 @@ actor WebSocket: Loggable, AsyncSequence {
     static let readAhead = 16
     static let closeWait: TimeInterval = 0.25
 
-    static func makeParameters(secure: Bool, timeoutInterval: TimeInterval) -> NWParameters {
+    static func makeParameters(url: URL, timeoutInterval: TimeInterval) -> NWParameters {
         let tcp = NWProtocolTCP.Options()
         tcp.connectionTimeout = Swift.max(1, Int(timeoutInterval.rounded(.up)))
         // URLSession turned Nagle off; signal messages are small.
         tcp.noDelay = true
-        let tls = secure ? NWProtocolTLS.Options() : nil
+        let tls = ["wss", "https"].contains(url.scheme?.lowercased() ?? "") ? NWProtocolTLS.Options() : nil
         if let tls {
             sec_protocol_options_append_tls_ciphersuite_group(tls.securityProtocolOptions, .ats)
             sec_protocol_options_add_tls_application_protocol(tls.securityProtocolOptions, "http/1.1")
+            #if os(macOS)
+            sec_protocol_options_set_challenge_block(tls.securityProtocolOptions, { @Sendable [name = url.absoluteString] _, complete in
+                complete(SecIdentityCopyPreferred(name as CFString, nil, nil).flatMap(sec_identity_create))
+            }, queue)
+            #endif
         }
         let parameters = NWParameters(tls: tls, tcp: tcp)
         // As `.callSignaling` on the URLSession configuration this replaces.
@@ -131,8 +135,7 @@ actor WebSocket: Loggable, AsyncSequence {
         guard !Task.isCancelled else { throw LiveKitError(.cancelled) }
         let key = Self.upgradeKey()
         _ = try Self.upgradeRequest(url: url, key: key, headers: headers)
-        let connection = NWConnection(to: .url(url), using: Self.makeParameters(secure: ["wss", "https"].contains(url.scheme?.lowercased() ?? ""),
-                                                                                timeoutInterval: timeoutInterval))
+        let connection = NWConnection(to: .url(url), using: Self.makeParameters(url: url, timeoutInterval: timeoutInterval))
         let core = Core(connection: connection, closeWait: closing.wait, onEvent: closing.onEvent)
 
         let opening = AsyncCompleter<UpgradeResponse>(label: "WebSocket.open", defaultTimeout: timeoutInterval)
