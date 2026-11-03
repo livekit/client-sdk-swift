@@ -44,11 +44,12 @@ struct RpcClientTests {
 
             await room.rpcClient.setAfterPublish { [weak room] requestId in
                 guard let room else { return }
-                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingAck(requestId: requestId, senderIdentity: Self.destination)
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
                     payload: "response-payload",
                     error: nil,
+                    senderIdentity: Self.destination,
                 )
             }
 
@@ -80,11 +81,12 @@ struct RpcClientTests {
 
             await room.rpcClient.setAfterPublish { [weak room] requestId in
                 guard let room else { return }
-                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingAck(requestId: requestId, senderIdentity: Self.destination)
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
                     payload: "fast-response",
                     error: nil,
+                    senderIdentity: Self.destination,
                 )
             }
 
@@ -121,6 +123,7 @@ struct RpcClientTests {
                     requestId: requestId,
                     payload: "real-response",
                     error: nil,
+                    senderIdentity: Self.destination,
                 )
                 // Step 2: force the ack-timeout watchdog. `pendingAcks` still contains
                 // `requestId` (handleIncomingResponse intentionally leaves it set), so the
@@ -215,11 +218,12 @@ struct RpcClientTests {
             await room.rpcClient.setAfterPublish { [weak room] requestId in
                 guard let room else { return }
                 await collector.append(requestId)
-                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingAck(requestId: requestId, senderIdentity: destination)
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
                     payload: "response-\(requestId)",
                     error: nil,
+                    senderIdentity: destination,
                 )
             }
 
@@ -270,7 +274,7 @@ struct RpcClientTests {
         room.publisherDataChannel = MockDataChannelPair { _ in }
         let published = AsyncCompleter<String>(label: "RPC published", defaultTimeout: 5)
         await room.rpcClient.setAfterPublish { requestId in
-            if acked { await room.rpcClient.handleIncomingAck(requestId: requestId) }
+            if acked { await room.rpcClient.handleIncomingAck(requestId: requestId, senderIdentity: Self.destination) }
             published.resume(returning: requestId)
         }
 
@@ -294,7 +298,7 @@ struct RpcClientTests {
         await completer.waitForRegistration(timeout: 5)
         // The hook captures the room, which holds the hook.
         await room.rpcClient.setAfterPublish(nil)
-        #expect(await room.rpcClient.pendingAcks.contains(requestId) == !acked)
+        #expect(await (room.rpcClient.pendingAcks[requestId] != nil) == !acked)
         return WaitingCall(requestId: requestId, completer: completer, task: task, result: result)
     }
 
@@ -326,8 +330,8 @@ struct RpcClientTests {
             call.task.cancel()
             await #expect(throws: CancellationError.self) { try await call.result.wait().get() }
 
-            await room.rpcClient.handleIncomingAck(requestId: call.requestId)
-            await room.rpcClient.handleIncomingResponse(requestId: call.requestId, payload: "late", error: nil)
+            await room.rpcClient.handleIncomingAck(requestId: call.requestId, senderIdentity: Self.destination)
+            await room.rpcClient.handleIncomingResponse(requestId: call.requestId, payload: "late", error: nil, senderIdentity: Self.destination)
             await room.rpcClient.handleIncomingResponseStream(
                 reader: RpcTestSupport.makeResponseReader(requestId: call.requestId, payload: "late"),
                 senderIdentity: Self.destination,
@@ -445,7 +449,7 @@ struct RpcClientTests {
     @Test func performRpcReturnsResponseAfterWaiting() async throws {
         try await TestEnvironment.withRoom { room in
             let call = try await startWaitingCall(in: room, acked: true)
-            await room.rpcClient.handleIncomingResponse(requestId: call.requestId, payload: "response", error: nil)
+            await room.rpcClient.handleIncomingResponse(requestId: call.requestId, payload: "response", error: nil, senderIdentity: Self.destination)
 
             #expect(try await call.result.wait().get() == "response")
             await expectNothingPending(in: room)
@@ -466,7 +470,7 @@ struct RpcClientTests {
             await room.rpcClient.setAfterPublish { [weak room] requestId in
                 guard let room else { return }
                 await requestIds.append(requestId)
-                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingAck(requestId: requestId, senderIdentity: destination)
                 let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "response-\(requestId)")
                 await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
             }
@@ -494,7 +498,7 @@ struct RpcClientTests {
             room.publisherDataChannel = AwaitingDataChannelPair { [weak room] packet in
                 guard let room, case let .streamHeader(header) = packet.value, header.topic == RpcStreamTopic.request,
                       let requestId = header.attributes[RpcStreamAttribute.requestId] else { return }
-                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingAck(requestId: requestId, senderIdentity: destination)
                 let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "during")
                 await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
                 responded.mutate { $0 = true }
@@ -533,7 +537,7 @@ struct RpcClientTests {
             #expect(error.code == RpcError.BuiltInError.connectionTimeout.code)
 
             let requestId = try #require(await requestIds.values.first)
-            await room.rpcClient.handleIncomingAck(requestId: requestId)
+            await room.rpcClient.handleIncomingAck(requestId: requestId, senderIdentity: destination)
             let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "too-late")
             await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
             #expect(await room.rpcClient.pendingCount == 0)
@@ -566,7 +570,7 @@ struct RpcClientTests {
             await room.rpcClient.setAfterPublish { [weak room] requestId in
                 guard let room else { return }
                 let payload = payloadsByRequest.copy()[requestId] ?? ""
-                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingAck(requestId: requestId, senderIdentity: destination)
                 let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "response-\(payload)")
                 await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
             }
@@ -662,11 +666,12 @@ struct RpcClientTests {
 
             await room.rpcClient.setAfterPublish { [weak room] requestId in
                 guard let room else { return }
-                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingAck(requestId: requestId, senderIdentity: destination)
                 await room.rpcClient.handleIncomingResponse(
                     requestId: requestId,
                     payload: nil,
                     error: RpcError(code: 101, message: "Test error message", data: ""),
+                    senderIdentity: destination,
                 )
             }
 
@@ -694,6 +699,7 @@ struct RpcClientTests {
                 requestId: "no-such-request",
                 payload: "ignored",
                 error: nil,
+                senderIdentity: Self.destination,
             )
             #expect(await room.rpcClient.pendingCount == 0)
         }
@@ -726,7 +732,7 @@ struct RpcClientTests {
 
             await room.rpcClient.setAfterPublish { [weak room] requestId in
                 guard let room else { return }
-                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingAck(requestId: requestId, senderIdentity: destination)
                 let reader = RpcTestSupport.makeResponseReader(requestId: requestId, error: StreamError.terminated)
                 await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: destination)
             }
@@ -761,7 +767,7 @@ struct RpcClientTests {
 
             await room.rpcClient.setAfterPublish { [weak room] requestId in
                 guard let room else { return }
-                await room.rpcClient.handleIncomingAck(requestId: requestId)
+                await room.rpcClient.handleIncomingAck(requestId: requestId, senderIdentity: destination)
                 // Inject a response stream from the imposter — must be ignored.
                 let reader = RpcTestSupport.makeResponseReader(requestId: requestId, payload: "spoofed")
                 await room.rpcClient.handleIncomingResponseStream(reader: reader, senderIdentity: imposter)

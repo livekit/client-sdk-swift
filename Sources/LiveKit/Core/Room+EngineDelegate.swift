@@ -260,7 +260,7 @@ extension Room {
         }
     }
 
-    func room(didReceiveRpcResponse response: Livekit_RpcResponse) {
+    func room(didReceiveRpcResponse response: Livekit_RpcResponse, from participantIdentity: String) {
         let (payload, error): (String?, RpcError?) = switch response.value {
         case let .payload(v): (v, nil)
         case let .error(e): (nil, RpcError.fromProto(e))
@@ -270,13 +270,14 @@ extension Room {
         Task.discarding { [rpcClient] in
             await rpcClient.handleIncomingResponse(requestId: response.requestID,
                                                    payload: payload,
-                                                   error: error)
+                                                   error: error,
+                                                   senderIdentity: Participant.Identity(from: participantIdentity))
         }
     }
 
-    func room(didReceiveRpcAck ack: Livekit_RpcAck) {
+    func room(didReceiveRpcAck ack: Livekit_RpcAck, from participantIdentity: String) {
         Task.discarding { [rpcClient] in
-            await rpcClient.handleIncomingAck(requestId: ack.requestID)
+            await rpcClient.handleIncomingAck(requestId: ack.requestID, senderIdentity: Participant.Identity(from: participantIdentity))
         }
     }
 

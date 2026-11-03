@@ -32,7 +32,7 @@ actor RpcClientManager: Loggable {
 
     private weak var room: Room?
 
-    private(set) var pendingAcks: Set<String> = Set()
+    private(set) var pendingAcks: [String: Participant.Identity] = [:]
     private(set) var pendingResponses: [String: PendingRpcResponse] = [:]
     private(set) var ackWatchdogs: [String: AnyTaskCancellable] = [:]
 
@@ -77,7 +77,7 @@ actor RpcClientManager: Loggable {
         // completes — the response would otherwise log "received for unexpected request" and
         // the call would hang to the outer responseTimeout.
         let completer = AsyncCompleter<String>(label: "rpc-\(requestId)", defaultTimeout: responseTimeout)
-        pendingAcks.insert(requestId)
+        pendingAcks[requestId] = destinationIdentity
         pendingResponses[requestId] = PendingRpcResponse(
             participantIdentity: destinationIdentity,
             completer: completer,
@@ -151,8 +151,8 @@ actor RpcClientManager: Loggable {
     /// makes this safe even if a real response has already resolved the completer between
     /// the watchdog scheduling and this call running.
     func fireAckTimeoutIfPending(requestId: String) {
-        guard pendingAcks.contains(requestId) else { return }
-        pendingAcks.remove(requestId)
+        guard pendingAcks[requestId] != nil else { return }
+        pendingAcks.removeValue(forKey: requestId)
         let pending = pendingResponses.removeValue(forKey: requestId)
         pending?.completer.resume(throwing: RpcError.builtIn(.connectionTimeout))
     }
@@ -165,12 +165,18 @@ actor RpcClientManager: Loggable {
     /// because the completer is idempotent.
     func handleIncomingResponse(requestId: String,
                                 payload: String?,
-                                error: RpcError?)
+                                error: RpcError?,
+                                senderIdentity: Participant.Identity)
     {
-        guard let pending = pendingResponses.removeValue(forKey: requestId) else {
+        guard let pending = pendingResponses[requestId] else {
             log("[Rpc] Response received for unexpected RPC request, id = \(requestId)")
             return
         }
+        guard pending.participantIdentity == senderIdentity else {
+            log("[Rpc] Response for \(requestId) from wrong sender (expected \(pending.participantIdentity), got \(senderIdentity)); ignoring")
+            return
+        }
+        pendingResponses.removeValue(forKey: requestId)
         if let error {
             pending.completer.resume(throwing: error)
         } else {
@@ -227,8 +233,13 @@ actor RpcClientManager: Loggable {
     }
 
     /// Clear the pending-ack flag for a request when an `RpcAck` arrives.
-    func handleIncomingAck(requestId: String) {
-        pendingAcks.remove(requestId)
+    func handleIncomingAck(requestId: String, senderIdentity: Participant.Identity) {
+        guard let expected = pendingAcks[requestId] else { return }
+        guard expected == senderIdentity else {
+            log("[Rpc] Ack for \(requestId) from wrong sender (expected \(expected), got \(senderIdentity)); ignoring")
+            return
+        }
+        pendingAcks.removeValue(forKey: requestId)
     }
 
     /// Reject every in-flight RPC targeting `identity` with `recipientDisconnected`
@@ -240,7 +251,7 @@ actor RpcClientManager: Loggable {
         let toReap = pendingResponses.filter { $0.value.participantIdentity == identity }
         for (requestId, pending) in toReap {
             pendingResponses.removeValue(forKey: requestId)
-            pendingAcks.remove(requestId)
+            pendingAcks.removeValue(forKey: requestId)
             ackWatchdogs.removeValue(forKey: requestId)
             pending.completer.resume(throwing: RpcError.builtIn(.recipientDisconnected))
         }
@@ -266,7 +277,7 @@ actor RpcClientManager: Loggable {
     }
 
     func removeAllPending(_ requestId: String) {
-        pendingAcks.remove(requestId)
+        pendingAcks.removeValue(forKey: requestId)
         pendingResponses.removeValue(forKey: requestId)
         ackWatchdogs.removeValue(forKey: requestId)
     }

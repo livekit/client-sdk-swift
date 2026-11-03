@@ -828,8 +828,8 @@ extension Room: DataChannelDelegate {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
         case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: encryptionType)
         case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
-        case let .rpcResponse(response): room(didReceiveRpcResponse: response)
-        case let .rpcAck(ack): room(didReceiveRpcAck: ack)
+        case let .rpcResponse(response): room(didReceiveRpcResponse: response, from: dataPacket.participantIdentity)
+        case let .rpcAck(ack): room(didReceiveRpcAck: ack, from: dataPacket.participantIdentity)
         case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
         case .streamHeader, .streamChunk, .streamTrailer:
             // Forward the whole (already-decrypted, deduped) packet; the UniFFI incoming manager
