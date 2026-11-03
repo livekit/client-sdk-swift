@@ -214,6 +214,183 @@ struct TransportMungeFallbackTests {
             #expect(await transport.connectionSetupTime == 0.8)
         }
     }
+}
+
+// MARK: - Bundled codec fmtp
+
+/// The conform pass against a real peer connection: what libwebrtc actually reports,
+/// and what the SDK actually sends, rather than what a fixture says.
+extension TransportMungeFallbackTests {
+    /// Adds the single PC publisher shape — receive sections preallocated for subscribed media
+    /// alongside a sending one — and returns the sender id of the sending section.
+    private func addSinglePCVideoLayout(to transport: Transport) async throws -> String {
+        try await RTC.run {
+            let receive = LKRTCRtpTransceiverInit()
+            receive.direction = .recvOnly
+            for _ in 0 ..< 3 {
+                _ = try transport.addTransceiver(ofType: .video, transceiverInit: receive)
+            }
+            let send = LKRTCRtpTransceiverInit()
+            send.direction = .sendOnly
+            return try transport.addTransceiver(ofType: .video, transceiverInit: send).sender.senderId
+        }
+    }
+
+    /// Two receive-only sections can disagree even though no munge ever writes to one. A
+    /// section that *stops sending* keeps the fmtp it was last munged with, and any receive
+    /// section negotiated afterwards is offered bare — so an unpublish followed by the server
+    /// asking for another receive section leaves them disagreeing with no sending section left
+    /// to conform either to.
+    ///
+    /// Nothing unusual is required: the offer below is munged and answered normally. This drives
+    /// the sequence rather than asserting it on a fixture.
+    @Test func unpublishedSectionCanDivergeFromAReceiveSection() async throws {
+        let transport = try await Transport(config: .liveKitDefault(), target: .publisher,
+                                            primary: true, singlePCMode: true,
+                                            delegate: StubTransportDelegate())
+        let answerer = try await Transport(config: .liveKitDefault(), target: .subscriber,
+                                           primary: false, delegate: StubTransportDelegate())
+        do {
+            let sender = try await RTC.run { () -> RTCSender in
+                let recv = LKRTCRtpTransceiverInit()
+                recv.direction = .recvOnly
+                _ = try transport.addTransceiver(ofType: .video, transceiverInit: recv)
+                let send = LKRTCRtpTransceiverInit()
+                send.direction = .sendOnly
+                let track = RTC.createVideoTrack(source: RTC.createVideoSource(forScreenShare: false))
+                return try RTCSender(transport.addTransceiver(with: track,
+                                                              transceiverInit: send,
+                                                              startBitrateKbps: 1000).sender)
+            }
+
+            // A normal accepted offer: the start bitrate is written and the receive section is
+            // conformed to it, so at this point nothing disagrees.
+            let first = try await transport.createOffer()
+            let munged = try await transport.set(localDescription: first, munging: [
+                { Transport.mungeVideoStartBitrate($0, kbpsBySenderId: [sender.senderId: 1000]) },
+                Transport.conformBundledCodecFmtp,
+            ])
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(munged.sdp).allSatisfy { $0.value.count == 1 })
+
+            try await answerer.set(remoteDescription: munged)
+            let answer = try await answerer.createAnswer()
+            try await answerer.set(localDescription: answer)
+            try await transport.set(remoteDescription: answer)
+
+            // The publisher unpublishes, and the server then asks for another receive section,
+            // as `MediaSectionsRequirement` does.
+            try await RTC.run { try transport.remove(track: sender) }
+            try await RTC.run {
+                let recv = LKRTCRtpTransceiverInit()
+                recv.direction = .recvOnly
+                _ = try transport.addTransceiver(ofType: .video, transceiverInit: recv)
+            }
+
+            let next = try await transport.createOffer().sdp
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(next).contains { $0.value.count > 1 },
+                    "the retired sending section must still carry the hint the new one lacks")
+
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(Transport.conformBundledCodecFmtp(next))
+                .allSatisfy { $0.value.count == 1 },
+                "with no sending section left, the receive sections must still converge")
+        } catch {
+            await transport.close()
+            await answerer.close()
+            throw error
+        }
+        await transport.close()
+        await answerer.close()
+    }
+
+    /// The wiring, not the munge: `createAndSendOffer` on a single PC transport must put the
+    /// conform pass in the chain, so deleting that call fails here rather than only showing up
+    /// as a collision log in a benchmark run.
+    @Test func singlePCOfferIsBundleConsistentEndToEnd() async throws {
+        let transport = try await Transport(config: .liveKitDefault(),
+                                            target: .publisher,
+                                            primary: true,
+                                            singlePCMode: true,
+                                            delegate: StubTransportDelegate())
+        do {
+            // The sender is added with a start-bitrate hint, so the offer genuinely diverges:
+            // without one there is nothing for the conform pass to repair and this would pass
+            // with the call deleted.
+            try await RTC.run {
+                let receive = LKRTCRtpTransceiverInit()
+                receive.direction = .recvOnly
+                for _ in 0 ..< 3 {
+                    _ = try transport.addTransceiver(ofType: .video, transceiverInit: receive)
+                }
+                let send = LKRTCRtpTransceiverInit()
+                send.direction = .sendOnly
+                let track = RTC.createVideoTrack(source: RTC.createVideoSource(forScreenShare: false))
+                _ = try transport.addTransceiver(with: track, transceiverInit: send, startBitrateKbps: 1000)
+            }
+
+            let offers = OfferBox()
+            await transport.set(onOfferBlock: { offer, _ in await offers.append(offer) })
+            try await transport.createAndSendOffer()
+
+            let signalled = try #require(await offers.all.last)
+            let applied = try #require(await transport.localDescription)
+
+            #expect(Transport.carriesVideoStartBitrate(signalled.sdp),
+                    "the start bitrate must still reach the offer")
+            for sdp in [signalled.sdp, applied.sdp] {
+                #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(sdp).allSatisfy { $0.value.count == 1 },
+                        "the offer the SDK sends must carry one fmtp config per payload type")
+            }
+        } catch {
+            await transport.close()
+            throw error
+        }
+        await transport.close()
+    }
+
+    /// What the conform pass exists for, on the shipped libwebrtc: with receive sections sharing
+    /// the sending section's payload types, writing `x-google-start-bitrate` on the sending
+    /// section alone leaves a payload type with two different configs inside one BUNDLE group —
+    /// which libwebrtc reports as "a BUNDLE group contains a codec collision".
+    ///
+    /// Note what it does *not* do: `setLocalDescription` still succeeds, the munge is not
+    /// dropped, and the hint survives. The collision is logged, not enforced, on this path.
+    @Test func startBitrateAloneLeavesTheBundleInconsistent() async throws {
+        try await withTransport { transport in
+            let senderId = try await addSinglePCVideoLayout(to: transport)
+            let offer = try await transport.createOffer()
+
+            let applied = try await transport.set(localDescription: offer, munging: [
+                { Transport.mungeVideoStartBitrate($0, kbpsBySenderId: [senderId: 1000]) },
+            ])
+
+            #expect(applied !== offer)
+            #expect(Transport.carriesVideoStartBitrate(applied.sdp))
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(applied.sdp).contains { $0.value.count > 1 })
+        }
+    }
+
+    /// And the fix: conforming the receive sections to the sending one leaves every shared
+    /// payload type with one config, with the hint still on the description that is applied.
+    @Test func conformedStartBitrateIsAcceptedWithReceiveSections() async throws {
+        try await withTransport { transport in
+            let senderId = try await addSinglePCVideoLayout(to: transport)
+            let offer = try await transport.createOffer()
+
+            let applied = try await transport.set(localDescription: offer, munging: [
+                { Transport.mungeVideoStartBitrate($0, kbpsBySenderId: [senderId: 1000]) },
+                Transport.conformBundledCodecFmtp,
+            ])
+
+            #expect(applied !== offer)
+            #expect(Transport.carriesVideoStartBitrate(applied.sdp))
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(applied.sdp).allSatisfy { $0.value.count == 1 })
+            let sending = try #require(SDP(parsing: applied.sdp).mediaSections.first { $0.msidTrackId == senderId })
+            for rtpmap in sending.rtpmaps where Transport.startBitrateCodecs.contains(rtpmap.codec.uppercased()) {
+                #expect(sending.fmtp(forPayload: rtpmap.payload)?.parameters.contains("x-google-start-bitrate=1000") == true,
+                        "payload \(rtpmap.payload) (\(rtpmap.codec))")
+            }
+        }
+    }
 
     private actor OfferBox {
         private(set) var all: [LKRTCSessionDescription] = []
