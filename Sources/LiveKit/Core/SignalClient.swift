@@ -65,7 +65,7 @@ actor SignalClient: Loggable {
     private let _queue = DispatchQueue(label: "LiveKitSDK.signalClient", qos: .default)
 
     // Queue to store requests while reconnecting
-    lazy var _requestQueue = QueueActor<Livekit_SignalRequest>(onProcess: { [weak self] request in
+    private lazy var _requestQueue = QueueActor<Livekit_SignalRequest>(onProcess: { [weak self] request in
         guard let self else { return }
 
         do {
@@ -87,7 +87,7 @@ actor SignalClient: Loggable {
     // wire format themselves (the data track managers) need the original encoding, and
     // re-encoding our decoded copy would drop every field this client's protocol pin doesn't
     // know — nanopb discards unknown fields on decode.
-    lazy var _responseQueue = QueueActor<(response: Livekit_SignalResponse, encoded: Data)>(onProcess: { [weak self] element in
+    private lazy var _responseQueue = QueueActor<(response: Livekit_SignalResponse, encoded: Data)>(onProcess: { [weak self] element in
         guard let self else { return }
 
         await _process(element.response, encoded: element.encoded)
@@ -141,6 +141,21 @@ actor SignalClient: Loggable {
                 _delegate.notifyDetached { await $0.signalClient(self, didUpdateConnectionState: newState.connectionState, oldState: oldState.connectionState, disconnectError: self.disconnectError) }
             }
         }
+    }
+
+    init(testingResponse: Livekit_SignalResponse,
+         requestProcessor: @escaping QueueActor<Livekit_SignalRequest>.OnProcess,
+         responseProcessed: @escaping @Sendable () async -> Void) async throws
+    {
+        self.init()
+        _requestQueue = QueueActor(onProcess: requestProcessor)
+        _responseQueue = QueueActor { [weak self] element in
+            guard let self else { return }
+            await _process(element.response, encoded: element.encoded)
+            await responseProcessed()
+        }
+        let encoded = try testingResponse.serializedData()
+        await _responseQueue.processIfResumed((response: testingResponse, encoded: encoded))
     }
 
     @discardableResult
