@@ -39,7 +39,7 @@ extension WebSocket {
 
     /// The parsed frames that no iterator has read yet, and the reads that wait for one. At most one TCP read is in flight,
     /// and none starts while ``WebSocket/readAhead`` frames wait: unread frames stay below that plus what one read of up to
-    /// 64 KB holds.
+    /// 256 KiB holds.
     struct Inbox {
         var parser = WebSocketFrame.Parser(maximumMessageSize: WebSocket.maximumMessageSize)
         private var frames: [Frame] = []
@@ -108,14 +108,20 @@ extension WebSocket {
             var reply = Reply()
             guard !done else { return reply }
             if let content { parser.append(content) }
-            while !done, let item = parser.next() {
-                apply(item, to: &reply)
-            }
+            let input = parser.input
+            // ponytail: Data.span measured a 3.3% higher 1 MiB plain burst mean.
+            input.withUnsafeBytes { parse($0, reply: &reply) }
             guard !done, error != nil || isComplete else { return reply }
             // The stream ends with no close frame, between frames or inside one: the sequence fails.
             reply.failed = true
             end(LiveKitError(.network, internalError: error.map(WebSocket.bridged) ?? URLError(.networkConnectionLost)))
             return reply
+        }
+
+        private mutating func parse(_ input: UnsafeRawBufferPointer, reply: inout Reply) {
+            while !done, let item = parser.next(in: input) {
+                apply(item, to: &reply)
+            }
         }
 
         private mutating func apply(_ item: WebSocketFrame.Item, to reply: inout Reply) {

@@ -153,6 +153,32 @@ struct WebSocketFrameTests {
         #expect(inbox.retainedBytes <= (2 * WebSocket.readAhead + 1) * size)
     }
 
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func largePlainMessageAcrossReads() throws {
+        let payload = Data((0 ..< WebSocket.maximumMessageSize).map { UInt8(truncatingIfNeeded: $0) })
+        let wire = FakeWebSocketServer.frame(0x2, payload)
+        var inbox = WebSocket.Inbox()
+        let chunkSize = 1 << 16
+        for offset in stride(from: 0, to: wire.count, by: chunkSize) {
+            let chunk = wire.subdata(in: offset ..< min(offset + chunkSize, wire.count))
+            let granted = inbox.startReceive()
+            #expect(granted)
+            inbox.receiving = false
+            let reply = inbox.ingest(chunk, isComplete: false, error: nil)
+            #expect(!reply.failed)
+            #expect(reply.closeCode == nil)
+            #expect(inbox.unread == (offset + chunk.count == wire.count ? 1 : 0))
+        }
+        let next = inbox.take()
+        let frame = try #require(next)
+        guard case let .message(.data(delivered)) = frame else {
+            Issue.record("No data message")
+            return
+        }
+        #expect(delivered == payload)
+        #expect(inbox.take() == nil)
+    }
+
     // MARK: - Upgrade response (RFC 6455 §4.1)
 
     /// The key and accept value of RFC 6455 §1.3.
@@ -238,5 +264,67 @@ private extension WebSocketFrameTests {
 
     static func response(_ head: String) -> Data {
         Data((head.replacingOccurrences(of: "{accept}", with: accept) + "\r\n\r\n").utf8)
+    }
+}
+
+extension WebSocketFrameTests {
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func continuationOverTheMessageLimitFails() {
+        var parser = Self.parser()
+        parser.append(FakeWebSocketServer.frame(0x2, Data(repeating: 7, count: WebSocket.maximumMessageSize), final: false))
+        #expect(parser.next() == nil)
+        parser.append(FakeWebSocketServer.frame(0x0, Data([7])))
+        guard case let .failure(error, closeCode)? = parser.next() else {
+            Issue.record("No failure for the continuation")
+            return
+        }
+        #expect(closeCode == 1009)
+        #expect((error.internalError as NSError?)?.code == Int(EMSGSIZE))
+        #expect(parser.next() == nil)
+    }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [1, 126, 65536])
+    func splitHeaderAtEveryByte(length: Int) {
+        let payload = Data((0 ..< length).map { UInt8(truncatingIfNeeded: $0) })
+        let wire = FakeWebSocketServer.frame(0x2, payload)
+        let headerSize = length < 126 ? 2 : length <= 0xFFFF ? 4 : 10
+        for split in 1 ..< headerSize {
+            var parser = Self.parser()
+            parser.append(wire.prefix(split))
+            #expect(parser.next() == nil)
+            parser.append(wire.dropFirst(split))
+            guard case let .message(.data(delivered))? = parser.next() else {
+                Issue.record("No message at header split \(split)")
+                continue
+            }
+            #expect(delivered == payload)
+            #expect(parser.next() == nil)
+        }
+    }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func splitControlFrameAtEveryByte() {
+        let payload = Data((0 ..< 125).map { UInt8($0) })
+        let wire = FakeWebSocketServer.frame(0x9, payload)
+        for split in 1 ..< wire.count {
+            var parser = Self.parser()
+            parser.append(wire.prefix(split))
+            #expect(parser.next() == nil)
+            parser.append(wire.dropFirst(split))
+            guard case let .ping(delivered)? = parser.next() else {
+                Issue.record("No ping at split \(split)")
+                continue
+            }
+            #expect(delivered == payload)
+            #expect(parser.next() == nil)
+        }
+    }
+}
+
+extension WebSocketFrame.Parser {
+    /// The next item, or nil until more bytes arrive.
+    mutating func next() -> WebSocketFrame.Item? {
+        let input = input
+        return input.withUnsafeBytes { next(in: $0) }
     }
 }
