@@ -29,6 +29,15 @@ struct KeySizeTests {
         #expect(KeyProviderOptions().keySize == .bits128)
     }
 
+    @Test
+    func optionsEqualityIncludesKeySize() {
+        let options = KeyProviderOptions(keySize: .bits256)
+        let equalOptions = KeyProviderOptions(keySize: .bits256)
+        #expect(options != KeyProviderOptions())
+        #expect(options == equalOptions)
+        #expect(options.hash == equalOptions.hash)
+    }
+
     @Test(arguments: [(KeySize.bits128, KeySize.bits256), (.bits256, .bits128)])
     func nativeDerivedKeyLength(keySize: KeySize, mismatchedKeySize: KeySize) throws {
         let material = Data("key-size-probe".utf8)
