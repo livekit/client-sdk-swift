@@ -657,10 +657,11 @@ extension Transport {
             // bare — and the rewrite below, which only touches receive sections, could never
             // resolve it.
             //
-            // First writer wins. Two sending sections can disagree — libwebrtc offers that
-            // after a second video publish — and neither can be rewritten, so the collision
-            // between them stands either way; picking the first at least makes what the receive
-            // sections are conformed to independent of section order.
+            // The first sending section in SDP order wins. Two of them can disagree — libwebrtc
+            // offers that after a second video publish — and neither is rewritten, so the
+            // collision between them stands either way. Which one the receive sections follow
+            // therefore does depend on the order of the sending sections; what it does not
+            // depend on is where the receive sections sit among them.
             for rtpmap in section.rtpmaps where canonicalByPayload[rtpmap.payload] == nil {
                 canonicalByPayload[rtpmap.payload] = section.fmtp(forPayload: rtpmap.payload)?.config ?? ""
             }
