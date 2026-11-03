@@ -109,8 +109,13 @@ struct VideoViewRendererMemoryTests {
         let drawable = metalView.drawableSize
         print("[drawable] before first layout: video=\(resolution.label) scale=\(scale) " +
             "bounds=\(metalView.bounds.size) drawableSize=\(Int(drawable.width))x\(Int(drawable.height))")
-        #expect(drawable.width <= videoPixels.width + 1)
-        #expect(drawable.height <= videoPixels.height + 1)
+
+        // The case under test: a renderer with no bounds, the one state where it skips the clamp.
+        try #require(metalView.bounds.size == .zero, "the renderer still has bounds; this is not the pre-layout case")
+
+        // Exactly the video's pixels: larger means the size was scaled again, and a size that was
+        // never forwarded leaves the drawable at the empty bounds, 0x0.
+        #expect(drawable == videoPixels)
     }
 
     // MARK: - Is the drawable pool real memory?
