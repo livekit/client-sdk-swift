@@ -65,7 +65,7 @@ actor SignalClient: Loggable {
     private let _queue = DispatchQueue(label: "LiveKitSDK.signalClient", qos: .default)
 
     // Queue to store requests while reconnecting
-    private lazy var _requestQueue = QueueActor<Livekit_SignalRequest>(onProcess: { [weak self] request in
+    lazy var _requestQueue = QueueActor<Livekit_SignalRequest>(onProcess: { [weak self] request in
         guard let self else { return }
 
         do {
@@ -87,7 +87,7 @@ actor SignalClient: Loggable {
     // wire format themselves (the data track managers) need the original encoding, and
     // re-encoding our decoded copy would drop every field this client's protocol pin doesn't
     // know — nanopb discards unknown fields on decode.
-    private lazy var _responseQueue = QueueActor<(response: Livekit_SignalResponse, encoded: Data)>(onProcess: { [weak self] element in
+    lazy var _responseQueue = QueueActor<(response: Livekit_SignalResponse, encoded: Data)>(onProcess: { [weak self] element in
         guard let self else { return }
 
         await _process(element.response, encoded: element.encoded)
@@ -529,8 +529,8 @@ private extension SignalClient {
 
 extension SignalClient {
     func resumeQueues() async {
-        await _responseQueue.resume()
         await _requestQueue.resume()
+        await _responseQueue.resume()
     }
 
     /// Whether `response` passes the gate armed by `cleanUp()`; a Join/ReconnectResponse opens it.

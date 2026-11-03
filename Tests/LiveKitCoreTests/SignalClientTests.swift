@@ -40,8 +40,49 @@ struct SignalClientTests {
         #expect(await client.passesConnectResponseGate(update))
     }
 
+    @Test(arguments: [
+        Livekit_SignalRequest.with { $0.answer = .with { $0.type = "answer" } },
+        .with { $0.trickle = .with { $0.target = .subscriber } },
+        .with { $0.trickle = .with { $0.target = .publisher } },
+        .with { $0.offer = .with { $0.type = "offer" } },
+        .with { $0.syncState = .with { _ in } },
+        .with { $0.leave = .with { _ in } },
+        .with { $0.simulate = .with { _ in } },
+    ])
+    func responseCanSendNonQueueableRequest(request: Livekit_SignalRequest) async throws {
+        try #require(!request.canBeQueued())
+        let sent = StateSync<[Livekit_SignalRequest]>([])
+        let client = SignalClient()
+        await client.prepareQueueOrderingTest(request: request) { request in
+            sent.mutate { $0.append(request) }
+        }
+
+        await client.resumeQueues()
+
+        #expect(sent.copy() == [request])
+        await client.cleanUp()
+    }
+
     @Test func messageNameOmitsPayload() {
         let response = Livekit_SignalResponse.with { $0.refreshToken = "secret.jwt" }
         #expect(response.messageName == "refreshToken")
+    }
+}
+
+private extension SignalClient {
+    func prepareQueueOrderingTest(request: Livekit_SignalRequest,
+                                  onSend: @escaping @Sendable (Livekit_SignalRequest) -> Void) async
+    {
+        _state.mutate { $0.connectionState = .connecting }
+        _requestQueue = QueueActor { onSend($0) }
+        _responseQueue = QueueActor { [weak self] _ in
+            // Await the handler so the request runs before the response queue finishes draining.
+            do {
+                try await self?.sendRequest(request)
+            } catch {
+                Issue.record(error)
+            }
+        }
+        await _responseQueue.processIfResumed((response: .with { $0.offer = .with { _ in } }, encoded: Data()))
     }
 }
