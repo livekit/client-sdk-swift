@@ -192,19 +192,6 @@ final class MeasurementBuffer {
     }
 }
 
-/// Reports a failed iteration, naming the milestone that never arrived.
-///
-/// Printed rather than only recorded as a metric: the milestone is the useful part and the
-/// results table has no column for it. One line per failure — the framework invokes a benchmark
-/// body once per iteration, so there is no point in the body at which a per-variant total could
-/// be known. Count the lines to get the rate.
-func reportFailure(_ reason: String?, variant: String) {
-    guard let reason else { return }
-    // `BenchmarkTimeout.description` already names the milestone it never reached, so one
-    // message covers a timeout and any other error without claiming a milestone for the latter.
-    print("[\(variant)] iteration failed: \(reason)")
-}
-
 /// Marks the moment a remote participant becomes visible to an already-connected peer.
 final class PeerVisibleObserver: NSObject, RoomDelegate, @unchecked Sendable {
     let visible = EventLatch("peer_visible")

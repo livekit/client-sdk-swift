@@ -37,11 +37,31 @@ func runIterations(_ benchmark: Benchmark,
                    _ body: (MeasurementBuffer) async throws -> Void) async throws
 {
     for _ in benchmark.scaledIterations {
+        // The framework discards warmup samples, so a failure there is not part of the failure
+        // rate these lines would otherwise be counted as.
+        let isWarmup = benchmark.currentIteration < benchmark.configuration.warmupIterations
         let samples = MeasurementBuffer()
         let failure = try await runTolerantly { try await body(samples) }
         if failure == nil { samples.commit(to: benchmark) }
-        reportFailure(failure, variant: variant)
+        reportFailure(failure, variant: variant, isWarmup: isWarmup)
         benchmark.measurement(mFailed, failure == nil ? 0 : 1)
         try await Task.sleep(nanoseconds: settle)
     }
+}
+
+/// Reports a failed iteration, naming the milestone that never arrived.
+///
+/// Printed rather than only recorded as a metric: the milestone is the useful part and the
+/// results table has no column for it. One line per failure — the framework invokes a benchmark
+/// body once per iteration, so there is no point in the body at which a per-variant total could
+/// be known. Count the lines to get the rate.
+func reportFailure(_ reason: String?, variant: String, isWarmup: Bool = false) {
+    guard let reason else { return }
+    guard !isWarmup else {
+        print("[\(variant)] warmup iteration failed (not counted): \(reason)")
+        return
+    }
+    // `BenchmarkTimeout.description` already names the milestone it never reached, so one
+    // message covers a timeout and any other error without claiming a milestone for the latter.
+    print("[\(variant)] iteration failed: \(reason)")
 }
