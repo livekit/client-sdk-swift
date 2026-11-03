@@ -19,7 +19,7 @@ import Foundation
 import Testing
 
 extension WebSocketLifecycleTests {
-    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
+    private static let userAgentCases: [([String: String], String)] = [
         (["CFBundleName": "Probe App/é (test);?@:", "CFBundleExecutable": "Ignored", "CFBundleVersion": "42"],
          "Probe%20App%2F%C3%A9%20%28test%29%3B%3F%40%3A/42"),
         (["CFBundleExecutable": "Probe Executable", "CFBundleVersion": "7"], "Probe%20Executable/7"),
@@ -29,7 +29,9 @@ extension WebSocketLifecycleTests {
         (["CFBundleName": "App", "CFBundleVersion": "1\nX-Evil: 1"], "App/1%0AX-Evil%3A%201"),
         (["CFBundleName": "", "CFBundleExecutable": "Probe Executable", "CFBundleVersion": "7"], "Probe%20Executable/7"),
         (["CFBundleName": "App", "CFBundleVersion": ""], "App (unknown version)"),
-    ])
+    ]
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: userAgentCases)
     func upgradeSendsDefaultUserAgent(bundleInfo: [String: String], app: String) throws {
         let url = try #require(URL(string: "wss://user-agent.invalid/rtc"))
         let headers = WebSocket.upgradeHeaders(url: url, headers: [], bundleInfo: bundleInfo)

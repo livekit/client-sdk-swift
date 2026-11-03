@@ -73,7 +73,12 @@ extension WebSocketLifecycleTests {
             try #require(cipherBytes.count >= 2)
             let length = Int(cipherBytes[0]) << 8 | Int(cipherBytes[1])
             try #require(length > 0 && length.isMultiple(of: 2) && cipherBytes.count >= 2 + length)
-            let offered = Set(stride(from: 2, to: 2 + length, by: 2).map { UInt16(cipherBytes[$0]) << 8 | UInt16(cipherBytes[$0 + 1]) })
+            let cipherSuites: [UInt16] = stride(from: 2, to: 2 + length, by: 2).map { offset in
+                let high = UInt16(cipherBytes[offset]) << 8
+                let low = UInt16(cipherBytes[offset + 1])
+                return high | low
+            }
+            let offered = Set(cipherSuites)
                 .filter { $0 != 0x00FF && !($0 & 0x0F0F == 0x0A0A && $0 >> 8 == $0 & 0xFF) } // SCSV and GREASE are not ciphers.
             let forwardSecret: Set<UInt16> = [
                 0x1301, 0x1302, 0x1303, // TLS 1.3.
