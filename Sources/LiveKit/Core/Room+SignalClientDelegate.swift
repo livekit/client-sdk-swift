@@ -139,8 +139,8 @@ extension Room: SignalClientDelegate {
         _updateState(for: response)
 
         // Before the teardown, so no answer racing it can attach to a publication that is about
-        // to be discarded. The move rebuilds every publication on the same peer connection, so a
-        // section the server carries over unchanged would otherwise still read as dispatched.
+        // to be discarded. The move rebuilds every publication on the same peer connection, and
+        // the mids the old server named mean nothing to the new one.
         if let publisher = _state.transport?.publisher, publisher.singlePCMode {
             await publisher.forgetReceivedMedia()
         }
@@ -391,13 +391,18 @@ extension Room: SignalClientDelegate {
 
     /// Attaches media the server has bound to the publisher's receive sections.
     ///
-    /// In single PC mode this is the only path that identifies received media. The `didAddTrack`
-    /// callback cannot: native libwebrtc fires it when a transceiver is created, never when an
-    /// already-negotiated `recvonly` section has a track bound to it — which is what the SFU does
-    /// to a section the client offered before there was media for it.
-    /// ``Transport/receivedMedia(applying:)`` recovers those by scanning the transceivers after
-    /// each description, the same diff browsers run natively and rust-sdks reimplements in
-    /// `process_remote_track_addition`.
+    /// In single PC mode this is the only path that identifies received media — `didAddTrack` is
+    /// skipped there (see ``Room/transport(_:didAddTrack:rtpReceiver:streamIds:)``). Native
+    /// libwebrtc fires it when a transceiver is created, never when an already-negotiated
+    /// `recvonly` section has a track bound to it, which is what the SFU does to a section the
+    /// client offered before there was media for it. ``Transport/receivedMedia(applying:)``
+    /// recovers those by scanning the transceivers, the same diff browsers run natively and
+    /// rust-sdks reimplements in `process_remote_track_addition`.
+    ///
+    /// The scan reports every bound section, so this decides what still needs attaching: a
+    /// publication that already holds its track is left alone. That makes an unsubscribe
+    /// recoverable — it clears the publication's track, and the next scan reattaches — and means
+    /// a binding whose publication has not arrived yet costs nothing but a later retry.
     private func attachReceivedMedia(on publisher: Transport, midToTrackSid: [String: Track.Sid]) async {
         let received = await publisher.receivedMedia(applying: midToTrackSid)
         guard !received.isEmpty else { return }
@@ -406,12 +411,14 @@ extension Room: SignalClientDelegate {
             guard let participant = _state.read({ state in
                 state.remoteParticipants.values.first { $0._state.trackPublications[media.trackSid] != nil }
             }) else {
-                // The publication announcement can trail the description that binds it. Undoing
-                // the dispatch is what lets a later scan pick the section up again.
+                // The publication announcement can trail the description that binds it; a later
+                // scan picks it up.
                 log("No publication yet for \(media.trackSid), deferring attach", .debug)
-                await publisher.undispatch(mid: media.mid, trackSid: media.trackSid)
                 continue
             }
+            guard let publication = participant._state.trackPublications[media.trackSid] as? RemoteTrackPublication,
+                  publication.track == nil
+            else { continue }
 
             do {
                 try await participant.addSubscribedMediaTrack(mediaTrack: media.track,
@@ -419,7 +426,6 @@ extension Room: SignalClientDelegate {
                                                               trackSid: media.trackSid)
             } catch {
                 log("Failed to attach \(media.trackSid) resolved by mid: \(error)", .error)
-                await publisher.undispatch(mid: media.mid, trackSid: media.trackSid)
             }
         }
     }
