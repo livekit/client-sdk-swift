@@ -298,9 +298,8 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
             }
             $0.frameCryptors.removeAll()
             $0.trackPublications.removeAll()
-            // The data cryptor is key-provider-scoped (not bound to a transport), and its users —
-            // encrypted data payloads and the data-track subsystem — survive a full reconnect, so
-            // keep it: nothing re-runs setup() until the next explicit connect.
+            // The data cryptor and encrypted-participant record are connection-scoped and survive
+            // a full reconnect. Keep both: setup() only runs on the next explicit connect.
             if !isFullReconnect {
                 $0.dataCryptor = nil
                 $0.encryptedParticipantIdentities.removeAll()

@@ -25,26 +25,28 @@ struct E2EEEncryptionDowngradeTests {
         let manager: E2EEManager
         let identity = Participant.Identity(from: "remote")
 
-        init() throws {
+        init(tracks: [Livekit_TrackInfo]) async throws {
             room = Room()
             let options = RoomOptions(encryptionOptions: EncryptionOptions(keyProvider: BaseKeyProvider()))
             let dependencies = ConnectionDependencies(idle: room._state.stage.idle, room: room, roomOptions: options)
             try room._state.mutate { try $0.stage.begin(dependencies) }
             manager = try #require(room.e2eeManager)
+            let join = Livekit_JoinResponse.with {
+                $0.otherParticipants = [info(tracks: tracks)]
+            }
+            await room.signalClient(room.signalClient, didReceiveConnectResponse: .join(join))
         }
 
-        @discardableResult
-        func update(tracks: [Livekit_TrackInfo]) -> RemoteParticipant {
-            let info = Livekit_ParticipantInfo.with {
+        func info(tracks: [Livekit_TrackInfo]) -> Livekit_ParticipantInfo {
+            Livekit_ParticipantInfo.with {
                 $0.sid = "PA_remote"
                 $0.identity = identity.stringValue
                 $0.tracks = tracks
             }
-            return room._state.mutate {
-                let participant = $0.updateRemoteParticipant(info: info, room: room)
-                participant.set(info: info, connectionState: $0.connectionState)
-                return participant
-            }
+        }
+
+        func participant() throws -> RemoteParticipant {
+            try #require(room.remoteParticipants[identity])
         }
 
         func publication(_ sid: String, of participant: RemoteParticipant) throws -> RemoteTrackPublication {
@@ -52,10 +54,10 @@ struct E2EEEncryptionDowngradeTests {
         }
 
         @RTC
-        func attachedCryptorEnabled(for publication: RemoteTrackPublication) async throws -> Bool? {
+        func attachedCryptorState(for publication: RemoteTrackPublication) async throws -> (enabled: Bool?, publication: TrackPublication?) {
             let pc = try #require(RTC.createPeerConnection(.liveKitDefault(), constraints: .defaultPCConstraints))
             defer {
-                manager.cleanUp()
+                manager.cleanUp(isFullReconnect: true)
                 nonisolated(unsafe) let pc = pc
                 RTC.park { pc.close() }
             }
@@ -70,8 +72,7 @@ struct E2EEEncryptionDowngradeTests {
             await manager.addRtpReceiver(publication: publication, participantIdentity: identity)
             return manager._state.read { state in
                 let cryptor = state.frameCryptors[[identity: publication.sid]]
-                #expect(cryptor.map { state.trackPublications[$0] === publication } ?? true)
-                return cryptor?.enabled
+                return (cryptor?.enabled, cryptor.flatMap { state.trackPublications[$0] })
             }
         }
     }
@@ -87,77 +88,106 @@ struct E2EEEncryptionDowngradeTests {
 
     @Test(arguments: [true, false])
     func republishedNoneUsesCryptor(enabled: Bool) async throws {
-        let context = try Context()
+        let context = try await Context(tracks: [Self.track("TR_encrypted", encryption: .gcm)])
         context.manager.enableE2EE(enabled: enabled)
-        let participant = context.update(tracks: [Self.track("TR_encrypted", encryption: .gcm)])
+        let participant = try context.participant()
         let original = try context.publication("TR_encrypted", of: participant)
         try await participant.unpublish(publication: original, notify: false)
-        context.update(tracks: [Self.track("TR_republished", encryption: .none)])
+        await context.room.signalClient(context.room.signalClient, didUpdateParticipants: [
+            context.info(tracks: [Self.track("TR_republished", encryption: .none)]),
+        ])
         let republished = try context.publication("TR_republished", of: participant)
+        let cryptor = try await context.attachedCryptorState(for: republished)
 
         #expect(republished.encryptionType == .none)
-        #expect(try await context.attachedCryptorEnabled(for: republished) == enabled)
+        #expect(cryptor.enabled == enabled)
+        #expect(cryptor.publication === republished)
     }
 
     @Test
     func extraNoneTrackUsesCryptor() async throws {
-        let context = try Context()
-        let participant = context.update(tracks: [
-            Self.track("TR_encrypted", encryption: .gcm),
-            Self.track("TR_extra", encryption: .none),
+        let context = try await Context(tracks: [Self.track("TR_encrypted", encryption: .gcm)])
+        let participant = try context.participant()
+        await context.room.signalClient(context.room.signalClient, didUpdateParticipants: [
+            context.info(tracks: [
+                Self.track("TR_encrypted", encryption: .gcm),
+                Self.track("TR_extra", encryption: .none),
+            ]),
         ])
         let extra = try context.publication("TR_extra", of: participant)
+        let cryptor = try await context.attachedCryptorState(for: extra)
 
-        #expect(try await context.attachedCryptorEnabled(for: extra) == true)
+        #expect(cryptor.enabled == true)
+        #expect(cryptor.publication === extra)
     }
 
     @Test
     func neverEncryptedParticipantHasNoCryptor() async throws {
-        let context = try Context()
-        let participant = context.update(tracks: [Self.track("TR_plaintext", encryption: .none)])
+        let context = try await Context(tracks: [Self.track("TR_plaintext", encryption: .none)])
+        let participant = try context.participant()
         let plaintext = try context.publication("TR_plaintext", of: participant)
+        let cryptor = try await context.attachedCryptorState(for: plaintext)
 
-        #expect(try await context.attachedCryptorEnabled(for: plaintext) == nil)
+        #expect(cryptor.enabled == nil)
+        #expect(cryptor.publication == nil)
     }
 
     @Test
     func latchSurvivesUnpublish() async throws {
-        let context = try Context()
-        let participant = context.update(tracks: [Self.track("TR_encrypted", encryption: .gcm)])
+        let context = try await Context(tracks: [Self.track("TR_encrypted", encryption: .gcm)])
+        let participant = try context.participant()
         await participant.unpublishAll(notify: false)
         #expect(participant.trackPublications.isEmpty)
-        context.update(tracks: [Self.track("TR_plaintext", encryption: .none)])
+        await context.room.signalClient(context.room.signalClient, didUpdateParticipants: [
+            context.info(tracks: [Self.track("TR_plaintext", encryption: .none)]),
+        ])
         let plaintext = try context.publication("TR_plaintext", of: participant)
+        let cryptor = try await context.attachedCryptorState(for: plaintext)
 
-        #expect(try await context.attachedCryptorEnabled(for: plaintext) == true)
+        #expect(cryptor.enabled == true)
+        #expect(cryptor.publication === plaintext)
     }
 
     @Test
     func latchSurvivesFullReconnectAndParticipantDeparture() async throws {
-        let context = try Context()
-        let participant = context.update(tracks: [Self.track("TR_encrypted", encryption: .gcm)])
-        await participant.unpublishAll(notify: false)
-        context.room._state.mutate { $0.remoteParticipants.removeAll() }
+        let context = try await Context(tracks: [Self.track("TR_encrypted", encryption: .gcm)])
+        let participant = try context.participant()
+        let departed = Livekit_ParticipantInfo.with {
+            $0.sid = "PA_remote"
+            $0.identity = context.identity.stringValue
+            $0.state = .disconnected
+        }
+        await context.room.signalClient(context.room.signalClient, didUpdateParticipants: [departed])
+        #expect(context.room.remoteParticipants.isEmpty)
         context.manager.cleanUp(isFullReconnect: true)
-        let rejoined = context.update(tracks: [Self.track("TR_plaintext", encryption: .none)])
+        await context.room.signalClient(context.room.signalClient, didUpdateParticipants: [
+            context.info(tracks: [Self.track("TR_plaintext", encryption: .none)]),
+        ])
+        let rejoined = try context.participant()
         let plaintext = try context.publication("TR_plaintext", of: rejoined)
+        let cryptor = try await context.attachedCryptorState(for: plaintext)
 
         #expect(rejoined !== participant)
-        #expect(try await context.attachedCryptorEnabled(for: plaintext) == true)
+        #expect(cryptor.enabled == true)
+        #expect(cryptor.publication === plaintext)
     }
 
     @Test
     func laterUnsubscribedEncryptedTrackLatchesParticipant() async throws {
-        let context = try Context()
-        let participant = context.update(tracks: [Self.track("TR_plaintext", encryption: .none)])
-        context.update(tracks: [
-            Self.track("TR_plaintext", encryption: .none),
-            Self.track("TR_encrypted", encryption: .gcm),
+        let context = try await Context(tracks: [Self.track("TR_plaintext", encryption: .none)])
+        let participant = try context.participant()
+        await context.room.signalClient(context.room.signalClient, didUpdateParticipants: [
+            context.info(tracks: [
+                Self.track("TR_plaintext", encryption: .none),
+                Self.track("TR_encrypted", encryption: .gcm),
+            ]),
         ])
         let encrypted = try context.publication("TR_encrypted", of: participant)
         let plaintext = try context.publication("TR_plaintext", of: participant)
+        let cryptor = try await context.attachedCryptorState(for: plaintext)
 
         #expect(encrypted.track == nil)
-        #expect(try await context.attachedCryptorEnabled(for: plaintext) == true)
+        #expect(cryptor.enabled == true)
+        #expect(cryptor.publication === plaintext)
     }
 }
