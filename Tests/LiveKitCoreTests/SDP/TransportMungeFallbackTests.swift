@@ -236,14 +236,14 @@ extension TransportMungeFallbackTests {
         }
     }
 
-    /// Two receive-only sections can disagree without any munge writing to one: a section that
-    /// stops sending keeps the fmtp it was last munged with, so an unpublish leaves one carrying
-    /// `x-google-start-bitrate` beside a receive section that never had it — and with the sender
-    /// gone, nothing is left to conform them to.
+    /// Two receive-only sections can disagree even though no munge ever writes to one. A
+    /// section that *stops sending* keeps the fmtp it was last munged with, and any receive
+    /// section negotiated afterwards is offered bare — so an unpublish followed by the server
+    /// asking for another receive section leaves them disagreeing with no sending section left
+    /// to conform either to.
     ///
-    /// Reachable because conform runs last and is therefore the first munge dropped when
-    /// libwebrtc rejects a set, so an offer can carry the start bitrate unconformed. This drives
-    /// that sequence rather than asserting it on a fixture.
+    /// Nothing unusual is required: the offer below is munged and answered normally. This drives
+    /// the sequence rather than asserting it on a fixture.
     @Test func unpublishedSectionCanDivergeFromAReceiveSection() async throws {
         let transport = try await Transport(config: .liveKitDefault(), target: .publisher,
                                             primary: true, singlePCMode: true,
@@ -263,22 +263,34 @@ extension TransportMungeFallbackTests {
                                                               startBitrateKbps: 1000).sender)
             }
 
-            // Start bitrate applied, conform not — the state a dropped conform leaves behind.
+            // A normal accepted offer: the start bitrate is written and the receive section is
+            // conformed to it, so at this point nothing disagrees.
             let first = try await transport.createOffer()
             let munged = try await transport.set(localDescription: first, munging: [
                 { Transport.mungeVideoStartBitrate($0, kbpsBySenderId: [sender.senderId: 1000]) },
+                Transport.conformBundledCodecFmtp,
             ])
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(munged.sdp).allSatisfy { $0.value.count == 1 })
+
             try await answerer.set(remoteDescription: munged)
             let answer = try await answerer.createAnswer()
             try await answerer.set(localDescription: answer)
             try await transport.set(remoteDescription: answer)
 
+            // The publisher unpublishes, and the server then asks for another receive section,
+            // as `MediaSectionsRequirement` does.
             try await RTC.run { try transport.remove(track: sender) }
-            let unpublished = try await transport.createOffer().sdp
+            try await RTC.run {
+                let recv = LKRTCRtpTransceiverInit()
+                recv.direction = .recvOnly
+                _ = try transport.addTransceiver(ofType: .video, transceiverInit: recv)
+            }
 
-            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(unpublished).contains { $0.value.count > 1 },
-                    "the unpublish must leave a divergence for the conform pass to resolve")
-            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(Transport.conformBundledCodecFmtp(unpublished))
+            let next = try await transport.createOffer().sdp
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(next).contains { $0.value.count > 1 },
+                    "the retired sending section must still carry the hint the new one lacks")
+
+            #expect(BundledCodecFmtpTests.fmtpConfigsByPayload(Transport.conformBundledCodecFmtp(next))
                 .allSatisfy { $0.value.count == 1 },
                 "with no sending section left, the receive sections must still converge")
         } catch {
