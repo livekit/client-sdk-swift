@@ -317,6 +317,14 @@ extension Room: SignalClientDelegate {
                 }
             }
         }
+
+        // A binding can arrive before the publication it names, and the answer carrying it is
+        // the only other thing that scans. Without this, such a section waits for an answer that
+        // nothing guarantees will come. The mapping is kept, so re-scanning here is all it takes;
+        // sections already handed over stay dispatched, so this cannot attach one twice.
+        if let publisher = _state.transport?.publisher, publisher.singlePCMode {
+            await attachReceivedMedia(on: publisher, midToTrackSid: [:])
+        }
     }
 
     func signalClient(_: SignalClient, didUnpublishLocalTrack localTrack: Livekit_TrackUnpublishedResponse) async {
