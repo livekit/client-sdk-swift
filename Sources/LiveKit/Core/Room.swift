@@ -830,7 +830,7 @@ extension Room: DataChannelDelegate {
         case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)
-        case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity)
+        case let .rpcRequest(request): room(didReceiveRpcRequest: request, from: dataPacket.participantIdentity, encryptionType: encryptionType)
         case .streamHeader, .streamChunk, .streamTrailer:
             // Forward the whole (already-decrypted, deduped) packet; the UniFFI incoming manager
             // decodes the stream header/chunk/trailer itself. The encryption type travels beside it

@@ -1,0 +1,1 @@
+minor type="added" "Add encryptionType to RpcInvocationData so an RPC handler can check whether the request arrived encrypted"

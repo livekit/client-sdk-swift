@@ -24,7 +24,12 @@ public extension Room {
     ///
     /// Example:
     /// ```swift
+    /// enum AppError: Error { case encryptionRequired }
+    ///
     /// try await room.localParticipant.registerRpcMethod("greet") { data in
+    ///     guard data.encryptionType != .none else {
+    ///         throw AppError.encryptionRequired
+    ///     }
     ///     print("Received greeting from \(data.callerIdentity): \(data.payload)")
     ///     return "Hello, \(data.callerIdentity)!"
     /// }
@@ -35,6 +40,7 @@ public extension Room {
     /// - `callerIdentity`: The identity of the RemoteParticipant who initiated the RPC call
     /// - `payload`: The data sent by the caller (as a string)
     /// - `responseTimeout`: The maximum time available to return a response
+    /// - `encryptionType`: Whether the request arrived encrypted
     ///
     /// The handler should return a string.
     /// If unable to respond within responseTimeout, the request will result in an error on the caller's side.

@@ -280,7 +280,7 @@ extension Room {
         }
     }
 
-    func room(didReceiveRpcRequest request: Livekit_RpcRequest, from participantIdentity: String) {
+    func room(didReceiveRpcRequest request: Livekit_RpcRequest, from participantIdentity: String, encryptionType: EncryptionType) {
         let callerIdentity = Participant.Identity(from: participantIdentity)
         let requestId = request.id
         let method = request.method
@@ -294,7 +294,8 @@ extension Room {
                                                   method: method,
                                                   payload: payload,
                                                   responseTimeout: responseTimeout,
-                                                  version: version)
+                                                  version: version,
+                                                  encryptionType: encryptionType)
         }
     }
 }

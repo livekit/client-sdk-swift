@@ -149,6 +149,10 @@ public struct RpcInvocationData {
 
     /// The maximum time available to return a response
     public let responseTimeout: TimeInterval
+
+    /// Whether the request arrived encrypted.
+    /// With E2EE enabled, `.none` means the request was not encrypted.
+    public let encryptionType: EncryptionType
 }
 
 struct PendingRpcResponse {

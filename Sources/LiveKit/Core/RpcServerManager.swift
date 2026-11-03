@@ -64,7 +64,8 @@ actor RpcServerManager: Loggable {
                                method: String,
                                payload: String,
                                responseTimeout: TimeInterval,
-                               version: Int) async
+                               version: Int,
+                               encryptionType: EncryptionType) async
     {
         guard let room = try? requireRoom() else { return }
 
@@ -87,11 +88,12 @@ actor RpcServerManager: Loggable {
             return
         }
 
-        let result = await dispatchToHandler(callerIdentity: callerIdentity,
-                                             requestId: requestId,
-                                             method: method,
-                                             payload: payload,
-                                             responseTimeout: responseTimeout)
+        let result = await dispatchToHandler(method: method,
+                                             data: RpcInvocationData(requestId: requestId,
+                                                                     callerIdentity: callerIdentity,
+                                                                     payload: payload,
+                                                                     responseTimeout: responseTimeout,
+                                                                     encryptionType: encryptionType))
         do {
             try await publishResult(result,
                                     in: room,
@@ -179,11 +181,12 @@ actor RpcServerManager: Loggable {
             return
         }
 
-        let result = await dispatchToHandler(callerIdentity: callerIdentity,
-                                             requestId: requestId,
-                                             method: method,
-                                             payload: payload,
-                                             responseTimeout: responseTimeout)
+        let result = await dispatchToHandler(method: method,
+                                             data: RpcInvocationData(requestId: requestId,
+                                                                     callerIdentity: callerIdentity,
+                                                                     payload: payload,
+                                                                     responseTimeout: responseTimeout,
+                                                                     encryptionType: reader.info.encryptionType))
         do {
             try await publishResult(result,
                                     in: room,
@@ -206,21 +209,13 @@ actor RpcServerManager: Loggable {
     /// Look up the handler for `method`, invoke it, and produce a payload-or-error result.
     /// Size-checking the response is the responsibility of the publisher: the v1 wire has
     /// a 15 KB cap (enforced in `publishResponse`), the v2 stream wire is unbounded.
-    private func dispatchToHandler(callerIdentity: Participant.Identity,
-                                   requestId: String,
-                                   method: String,
-                                   payload: String,
-                                   responseTimeout: TimeInterval) async -> DispatchResult
-    {
+    private func dispatchToHandler(method: String, data: sending RpcInvocationData) async -> DispatchResult {
         guard let handler = handlers[method] else {
             return .failure(RpcError.builtIn(.unsupportedMethod))
         }
 
         do {
-            let response = try await handler(RpcInvocationData(requestId: requestId,
-                                                               callerIdentity: callerIdentity,
-                                                               payload: payload,
-                                                               responseTimeout: responseTimeout))
+            let response = try await handler(data)
             return .success(response)
         } catch let error as RpcError {
             return .failure(error)

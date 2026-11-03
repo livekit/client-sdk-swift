@@ -825,6 +825,7 @@ struct RpcServerTests {
                     payload: "Hi there!",
                     responseTimeout: 8,
                     version: 1,
+                    encryptionType: .none,
                 )
             }
         }
@@ -856,6 +857,7 @@ struct RpcServerTests {
                     payload: "test",
                     responseTimeout: 8,
                     version: 1,
+                    encryptionType: .none,
                 )
             }
         }
@@ -890,6 +892,7 @@ struct RpcServerTests {
                     payload: "",
                     responseTimeout: 8,
                     version: 1,
+                    encryptionType: .none,
                 )
             }
         }
@@ -919,6 +922,7 @@ struct RpcServerTests {
                     payload: "test",
                     responseTimeout: 10,
                     version: 1,
+                    encryptionType: .none,
                 )
             }
         }
@@ -951,6 +955,7 @@ struct RpcServerTests {
                     payload: "",
                     responseTimeout: 8,
                     version: 1,
+                    encryptionType: .none,
                 )
             }
         }
@@ -992,6 +997,7 @@ struct RpcServerTests {
                     payload: "",
                     responseTimeout: 8,
                     version: 1,
+                    encryptionType: .none,
                 )
             }
         }
@@ -1019,6 +1025,7 @@ struct RpcServerTests {
                     payload: "",
                     responseTimeout: 8,
                     version: 2,
+                    encryptionType: .none,
                 )
             }
         }
@@ -1269,14 +1276,14 @@ struct StubTextStreamReader: TextStreamReading {
     /// How many times `readAll()` ran.
     let reads = StateSync(0)
 
-    init(topic: String, attributes: [String: String], result: Result<String, Error>) {
+    init(topic: String, attributes: [String: String], result: Result<String, Error>, encryptionType: EncryptionType = .none) {
         info = TextStreamInfo(
             id: UUID().uuidString,
             topic: topic,
             timestamp: Date(),
             totalLength: nil,
             attributes: attributes,
-            encryptionType: .none,
+            encryptionType: encryptionType,
             mimeType: "text/plain",
             operationType: .create,
             version: 0,
