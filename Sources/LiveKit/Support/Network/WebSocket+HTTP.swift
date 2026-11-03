@@ -78,7 +78,7 @@ extension WebSocket {
     }
 
     /// The default credential is scoped to this endpoint and Basic realm. CFNetwork builds the header, as it did for
-    /// URLSession; every CFHTTPMessage here is local to this call. The caller permits only one challenge retry.
+    /// URLSession; every CFHTTPMessage here is local to this call. The caller permits one challenge retry per protection space.
     static func basicAuthorization(_ response: WebSocketUpgradeFailure, url: URL) -> String? {
         guard response.statusCode == 401, let url = httpURL(url), let host = url.host else { return nil }
         let challenges = response.headers.filter { $0.name == "www-authenticate" }.map(\.value)

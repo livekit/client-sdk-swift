@@ -170,6 +170,31 @@ extension WebSocketLifecycleTests {
         #expect(Self.authorization(requests.first?.headers) == nil)
         #expect(Self.authorization(requests.last?.headers) == "Basic cHJvYmU6c2VjcmV0")
     }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func basicChallengeAfterBasicRedirectUsesTargetCredential() async throws {
+        let realm = "lk-auth-\(UUID().uuidString)"
+        let target = try FakeWebSocketServer(.upgradeResponses([
+            "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"\(realm)-target\"\r\n\r\n", Self.successfulHTTPUpgrade,
+        ]))
+        defer { target.cancel() }
+        let destination = try await target.url(host: "localhost")
+        let targetCredential = try Self.storeBasicCredential(url: destination, realm: realm + "-target")
+        defer { URLCredentialStorage.shared.remove(targetCredential.credential, for: targetCredential.space) }
+        let server = try FakeWebSocketServer(.upgradeResponses([
+            "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"\(realm)\"\r\n\r\n",
+            "HTTP/1.1 302 Redirect\r\nLocation: \(destination)\r\n\r\n",
+        ]))
+        defer { server.cancel() }
+        let url = try await server.url()
+        let stored = try Self.storeBasicCredential(url: url, realm: realm)
+        defer { URLCredentialStorage.shared.remove(stored.credential, for: stored.space) }
+        let socket = try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer probe")], timeoutInterval: 10)
+        defer { socket.close() }
+        let basic = "Basic cHJvYmU6c2VjcmV0"
+        #expect(server.requests.copy().map { Self.authorization($0.headers) } == ["Bearer probe", basic])
+        #expect(target.requests.copy().map { Self.authorization($0.headers) } == [nil, basic])
+    }
 }
 
 extension WebSocketLifecycleTests {
