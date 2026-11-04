@@ -165,7 +165,7 @@ jobs:
           echo "simulator settled at ${cpu:-?}% CPU"
 
       - name: Build & Test
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: |
           # A hung job's log goes quiet; capture where the test host is stuck before the timeout kills it.
           .github/stall-dump/stall-dump.sh "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/stall-dump" &
