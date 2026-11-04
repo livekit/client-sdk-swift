@@ -170,7 +170,7 @@ jobs:
           # A hung job's log goes quiet; capture where the test host is stuck before the timeout kills it.
           .github/stall-dump/stall-dump.sh "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/stall-dump" &
           set -o pipefail && xcodebuild test \
-            -scheme LiveKit \
+            -scheme LiveKitCI \
             -destination '${{ steps.boot.outputs.udid && format('id={0}', steps.boot.outputs.udid) || format('platform={0}', matrix.platform) }}' \
             -collect-test-diagnostics never \
             -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
