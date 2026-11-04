@@ -56,35 +56,50 @@ extension DataTrackStream {
 
     /// ``firstFrame(within:)``, but re-pushing until a frame arrives.
     ///
-    /// `subscribe()` returning does not mean the server will deliver yet: livekit-server
-    /// reconciles a data track subscription asynchronously, so a frame pushed into that window
-    /// is dropped. A test that pushes exactly once has nothing left to deliver, and the read
-    /// times out with no frame — which reads as "data tracks are broken" rather than "the push
-    /// was early". ``DataTrackTests/resubscribe()`` buys the same guarantee by sleeping past the
-    /// window; this pays for it only when it is needed.
+    /// Data track delivery is best effort in both directions: a full send queue drops the frame
+    /// by default (``LocalDataTrack/FrameDropPolicy/drop``), and the subscription buffer drops
+    /// the oldest frame at capacity. A test that pushes exactly once is therefore asserting
+    /// something the API does not promise — one lost frame and the read times out with nothing,
+    /// which reads as "data tracks are broken" rather than "that frame did not make it".
+    ///
+    /// - Important: This tolerates loss; it does not explain it. The visionOS failure that
+    ///   prompted it was never reproduced or traced, so if frames are being lost for a reason
+    ///   worth fixing, re-pushing will hide it. Use this only where the test is about what a
+    ///   frame carries, not about whether delivery happened.
     ///
     /// The frame asserted on is whichever push first lands, so a per-frame payload or timestamp
     /// stays meaningful. Not for tests that depend on how many frames were sent — the buffer's
     /// drop-oldest behaviour, for one.
     ///
-    /// - Parameter push: Sends one frame. Called once up front, so a genuine push failure still
-    ///   throws, then repeated until a frame arrives.
+    /// - Parameter push: Sends one frame. Called once up front, then repeated until a frame
+    ///   arrives. A throw from any push surfaces here rather than being left to read as a
+    ///   timeout.
     /// - Warning: Inherits ``firstFrame(within:)``'s one-read-per-stream limit.
     func firstFrame(within timeout: TimeInterval = 15,
                     pushing push: @Sendable @escaping () throws -> Void) async throws -> DataTrackFrame?
     {
         try push()
 
+        // A push that throws stops the retries, so without this the read just times out and the
+        // real error — a full send queue, an ended publication — is never reported.
+        let pushError = PushFailure()
         let repeater = Task {
             while !Task.isCancelled {
-                try await Task.sleep(nanoseconds: 250_000_000)
+                try? await Task.sleep(nanoseconds: 250_000_000)
                 guard !Task.isCancelled else { return }
-                try push()
+                do {
+                    try push()
+                } catch {
+                    pushError.set(error)
+                    return
+                }
             }
-        }
-        defer { repeater.cancel() }
+        }.cancellable()
 
-        return await firstFrame(within: timeout)
+        let frame = await firstFrame(within: timeout)
+        _ = repeater
+        if let error = pushError.take() { throw error }
+        return frame
     }
 
     /// A reader that owns this stream's one and only `next()` caller.
@@ -146,4 +161,11 @@ final class DataTrackReader: Sendable {
         }
         return frames
     }
+}
+
+/// Carries a push failure out of the retry task, which nothing awaits.
+private final class PushFailure: @unchecked Sendable {
+    private let state = StateSync<Error?>(nil)
+    func set(_ error: Error) { state.mutate { $0 = $0 ?? error } }
+    func take() -> Error? { state.read { $0 } }
 }
