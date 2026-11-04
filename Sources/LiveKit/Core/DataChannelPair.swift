@@ -200,7 +200,7 @@ class DataChannelPair: NSObject, @unchecked Sendable, Loggable {
 
     // MARK: - Receive
 
-    private func handle(received data: Data, isReliable: Bool) {
+    func handle(received data: Data, isReliable: Bool) {
         guard let dataPacket = try? Livekit_DataPacket(serializedBytes: data) else {
             log("Could not decode data message", .error)
             return
