@@ -470,6 +470,12 @@
     XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendFile:options:onProgress:completionHandler:)]);
     XCTAssertTrue([TextStreamReader instancesRespondToSelector:@selector(readProgressOnProgress:)]);
     XCTAssertTrue([ByteStreamReader instancesRespondToSelector:@selector(readProgressOnProgress:)]);
+    XCTAssertTrue([TextStreamReader instancesRespondToSelector:@selector(stopReadingProgress)]);
+    XCTAssertTrue([ByteStreamReader instancesRespondToSelector:@selector(stopReadingProgress)]);
+    TextStreamReader *textReader = nil;
+    ByteStreamReader *byteReader = nil;
+    [textReader stopReadingProgress];
+    [byteReader stopReadingProgress];
     XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(bytesProcessed)]);
     XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(bytesTotalNumber)]);
     XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(fractionNumber)]);

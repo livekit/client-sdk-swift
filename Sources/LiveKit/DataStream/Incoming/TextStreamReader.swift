@@ -42,12 +42,14 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
 
     /// The core's reader, by its protocol so a test can stand in for it.
     private let reader: any LiveKitFFI.TextStreamReaderProtocol
+    private let progressTask = StateSync<AnyTaskCancellable?>(nil)
 
     init(_ reader: any LiveKitFFI.TextStreamReaderProtocol) {
         self.reader = reader
     }
 
     deinit {
+        progressTask.copy()?.cancel()
         // The core ends the stream when it releases its reader, which it cannot do while a
         // cancelled `progress` wait still holds it. Closing ends that wait too.
         reader.close()
@@ -133,13 +135,37 @@ public extension TextStreamReader {
     }
 
     /// Calls `onProgress` with each update of ``progress``, for Objective-C callers.
+    ///
+    /// The observation ends when the stream ends, the reader is released, or
+    /// ``stopReadingProgress()`` is called. Calling this again replaces the previous observation.
+    /// Keep the reader alive while observing; the callback should not retain it.
     @objc
     @available(*, deprecated, message: "Use for/await on TextStreamReader progress instead.")
     func readProgress(onProgress: @Sendable @escaping (StreamProgress) -> Void) {
-        Task {
-            for await progress in self.progress {
-                onProgress(progress)
-            }
+        progressTask.mutate { task in
+            task?.cancel()
+            task = Task { [reader] in
+                while !Task.isCancelled,
+                      let progress = try? await abandoningOnCancel({ [reader] in await reader.nextProgress() })
+                {
+                    guard !Task.isCancelled else { return }
+                    onProgress(StreamProgress(progress))
+                }
+            }.cancellable()
+        }
+    }
+
+    /// Cancels the observation started by ``readProgress(onProgress:)`` without closing the stream.
+    ///
+    /// The callback and observation are released even if the core's progress wait is still pending.
+    /// A callback already in flight may finish. The core wait may remain until another update or
+    /// stream closure, and a later observation may wait behind it. Releasing the reader closes
+    /// the stream and pending wait. Ordinary Swift ``progress`` iteration is unaffected.
+    @objc
+    func stopReadingProgress() {
+        progressTask.mutate {
+            $0?.cancel()
+            $0 = nil
         }
     }
 }
