@@ -22,8 +22,9 @@ env:
 jobs:
   build-and-publish:
     name: Build & publish XCFramework
-    # Stays on macos-26: Xcode 27 rejects the iOS 13 / macOS 10.15 deployment targets of the
-    # generated framework project, and the script then ships only the tvOS and visionOS slices.
+    # Stays on macos-26: the iOS 13 / macOS 10.15 deployment floor is inside Xcode 26's supported
+    # range but below Xcode 27's (iOS 15 / macOS 12), and building there would need a private
+    # diagnostic override.
     runs-on: macos-26
     timeout-minutes: 60
     steps:
