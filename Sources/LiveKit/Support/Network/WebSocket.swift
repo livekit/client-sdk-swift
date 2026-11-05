@@ -109,6 +109,7 @@ actor WebSocket: Loggable, AsyncSequence {
     {
         guard !Task.isCancelled else { throw LiveKitError(.cancelled) }
         let key = Self.upgradeKey()
+        // Rejects a header with a line break before any socket opens.
         _ = try Self.upgradeRequest(url: url, key: key, headers: headers)
         let connection = NWConnection(to: .url(url), using: Self.makeParameters(url: url, timeoutInterval: timeoutInterval))
         let core = Core(connection: connection, closeWait: closing.wait, onEvent: closing.onEvent)
