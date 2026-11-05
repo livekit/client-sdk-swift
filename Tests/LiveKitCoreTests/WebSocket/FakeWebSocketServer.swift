@@ -90,7 +90,7 @@ final class FakeWebSocketServer: Sendable {
     /// Network.framework delivers on a queue it is given; a shared one, as the transport under test uses.
     private static var queue: DispatchQueue { .global(qos: .default) }
     private let ready = AsyncCompleter<UInt16>(label: "FakeWebSocketServer.ready", defaultTimeout: 5)
-    private let connections = StateSync<[NWConnection]>([])
+    let connections = StateSync<[NWConnection]>([])
 
     init(_ behavior: Behavior) throws {
         self.behavior = behavior

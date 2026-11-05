@@ -81,8 +81,7 @@ actor WebSocket: Loggable, AsyncSequence {
                                                  closing: (closeWait, onEvent))
                 connection = opened.connection
                 core = opened.core
-                // The server can send frames in the same segment as its upgrade response.
-                core.received(opened.rest, isComplete: false, error: nil)
+                core.start(after: opened.rest)
                 return
             } catch let error as LiveKitError {
                 guard let response = error.internalError as? WebSocketUpgradeFailure else { throw error }
@@ -315,6 +314,23 @@ private struct Core: Sendable {
             // As the URLSession task's `cancel(with: .normalClosure)`: `SignalClient.cleanUp` cancels the
             // read before it calls `close()`.
             close()
+        }
+    }
+
+    /// Takes the frames that came in the same segment as the upgrade response, and from then on watches the connection
+    /// only for a failure: the upgrade's state handler, and what it holds, goes.
+    func start(after rest: Data) {
+        received(rest, isComplete: false, error: nil)
+        connection.stateUpdateHandler = { [self] state in
+            if case let .failed(error) = state { failed(error) }
+        }
+        if case let .failed(error) = connection.state { failed(error) }
+    }
+
+    /// The connection failed with no read in flight to say so: reads throw `error` after the messages already read.
+    private func failed(_ error: NWError) {
+        step { inbox in
+            inbox.receiving ? WebSocket.Reply() : inbox.ingest(nil, isComplete: false, error: error)
         }
     }
 
