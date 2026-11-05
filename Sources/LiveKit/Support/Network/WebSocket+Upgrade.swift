@@ -36,6 +36,7 @@ extension WebSocket {
         tcp.noDelay = true
         let tls = ["wss", "https"].contains(url.scheme?.lowercased() ?? "") ? NWProtocolTLS.Options() : nil
         if let tls {
+            sec_protocol_options_set_min_tls_protocol_version(tls.securityProtocolOptions, .TLSv12)
             sec_protocol_options_append_tls_ciphersuite_group(tls.securityProtocolOptions, .ats)
             sec_protocol_options_add_tls_application_protocol(tls.securityProtocolOptions, "http/1.1")
             #if os(macOS)
