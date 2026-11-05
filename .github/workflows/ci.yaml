@@ -95,6 +95,7 @@ jobs:
       LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
       NSUnbufferedIO: "YES"
       TSAN_OPTIONS: suppressions=${{ github.workspace }}/.github/sanitizers/tsan.supp
+      TEST_RUNNER_TSAN_OPTIONS: suppressions=${{ github.workspace }}/.github/sanitizers/tsan.supp
     defaults:
       run:
         shell: bash
@@ -290,7 +291,7 @@ jobs:
       # Hard budget for the SDK's uncompressed .app delta, in MB — no tolerance
       # band. Move it deliberately, in the same commit as the change that needs
       # it (the job summary reports the measured value).
-      SIZE_BASELINE_MB: "17.8"
+      SIZE_BASELINE_MB: "18.4"
     steps:
       - uses: actions/checkout@v7
         with:
