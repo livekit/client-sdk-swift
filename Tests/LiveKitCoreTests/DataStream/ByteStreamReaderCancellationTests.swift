@@ -262,9 +262,9 @@ extension ByteStreamReaderTests {
 
         /// Takes the reader, so this capture no longer holds it.
         func take() -> AnyReader? {
-            reader.mutate {
-                defer { $0 = nil }
-                return $0
+            reader.mutate { value in
+                defer { value = nil }
+                return value
             }
         }
 
