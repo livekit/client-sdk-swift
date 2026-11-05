@@ -144,8 +144,9 @@ Three layers:
 
    Three constraints the shape has to respect:
 
-   - `NanopbBuilder._pointer` is *stored*: as a computed property off `_box` it
-     crashes the Swift 6.1 SIL verifier, and 6.1 is the floor.
+   - `NanopbBuilder._pointer` is *stored*: a computed property off `_box`
+     crashed the Swift 6.1 SIL verifier. Swift 6.2 is now the floor; keep the
+     storage workaround pending separate analysis.
    - **Nested types are flattened** to file scope (`Livekit_DataPacket_Kind`),
      because constrained extensions of one generic cannot each declare a member
      of the same name — six `OneOf_Value` declarations would collide. A message
@@ -251,15 +252,13 @@ Each site that carries an invariant the code cannot show for itself has a
 unsafe operation; state the invariant, not what the line does.
 
 Swift 6.2's strict memory safety (`.strictMemorySafety()`, `unsafe` expression
-markers, `@safe`) is **not** adopted: the markers are 6.2 syntax, a 6.1
-compiler rejects them, and they cannot be `#if`-guarded per expression, so
-adopting them means moving the floor off Swift 6.1. Compiling `LiveKitNanopb` with
-`-strict-memory-safety` today reports ~11,200 warnings, ~5,400 of them in
-generated code (the generator would have to emit the markers). Revisit when the
-minimum toolchain reaches 6.2.
+markers, `@safe`) is **not** adopted, even with Swift 6.2 as the floor. A prior
+`-strict-memory-safety` check of `LiveKitNanopb` reported ~11,200 warnings,
+~5,400 of them in generated code. Adoption requires a separate audit of the
+unsafe operations, migration work, and generator changes to emit the markers.
 
-Already adopted from that port, within the 6.1 floor: typed throws on the wire
-API and the scoped borrows (a non-throwing body specialises to `throws(Never)`,
+Already adopted from that port while Swift 6.1 was the floor: typed throws on
+the wire API and the scoped borrows (a non-throwing body specialises to `throws(Never)`,
 so it needs no `try` and emits no error path), and a shared `_empty` per
 message instead of allocating a throwaway value for an absent submessage —
 their zone-sentinel trick, sound here only because messages are immutable.

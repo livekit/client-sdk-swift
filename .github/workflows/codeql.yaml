@@ -28,9 +28,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # The standard runner is too slow under CodeQL's Swift extractor. Stays on macos-26:
-          # on xcode-27-xlarge the traced build fails to spawn SwiftPM's manifest sandbox with
-          # "Bad CPU type in executable", with or without Rosetta.
+          # The standard runner is too slow under CodeQL's Swift extractor.
+          # Manual Swift extraction is unsupported on macOS 27 or macOS 26 with Xcode 27:
+          # https://codeql.github.com/docs/codeql-overview/system-requirements/
           - language: swift
             os: macos-26-xlarge
             build-mode: manual
