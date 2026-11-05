@@ -28,9 +28,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # The standard runner is too slow under CodeQL's Swift extractor.
+          # The standard runner is too slow under CodeQL's Swift extractor. Stays on macos-26:
+          # on xcode-27-xlarge the traced build fails to spawn SwiftPM's manifest sandbox with
+          # "Bad CPU type in executable", with or without Rosetta.
           - language: swift
-            os: xcode-27-xlarge
+            os: macos-26-xlarge
             build-mode: manual
           - language: actions
             os: ubuntu-latest
@@ -47,12 +49,6 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-
-      # The xcode-27 image ships without Rosetta, and CodeQL's Swift tracer needs it: SwiftPM then
-      # fails to spawn the manifest sandbox with "Bad CPU type in executable".
-      - name: Install Rosetta
-        if: matrix.language == 'swift'
-        run: sudo softwareupdate --install-rosetta --agree-to-license
 
       - name: Install swiftly
         if: matrix.language == 'swift'
