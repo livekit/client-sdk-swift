@@ -54,19 +54,16 @@ extension IncomingStreamManagerTests {
         #expect(try await read.wait() == text)
     }
 
-    /// The core opens a chunked stream on a topic nobody handles, and releases it once it notices
-    /// that nobody reads it, which it does when it hands over a later chunk.
-    @Test func unhandledChunkedStreamIsReleased() async {
-        let streamID = UUID().uuidString
-        feedHeader(streamID: streamID, byte: false, totalLength: 100, topic: "unhandled")
-        let opened = await coordinator.openStreamCount()
-        #expect(opened == 1)
+    /// An unhandled reader is released as soon as its open callback returns. A later handled
+    /// inline stream proves that callback returned before checking that no stream remains open.
+    @Test(arguments: [false, true])
+    func unhandledChunkedStreamIsReleased(byte: Bool) async throws {
+        let barrier = try readingTextStreams()
+        feedHeader(streamID: UUID().uuidString, byte: byte, totalLength: 100, topic: "unhandled")
+        feedHeader(streamID: UUID().uuidString, byte: false, inlineContent: Data("barrier".utf8))
 
-        var index: UInt64 = 0
-        while index < 10, await coordinator.openStreamCount() != 0 {
-            feedChunk(streamID: streamID, index: index, content: Data("x".utf8))
-            index += 1
-        }
+        let received = try await barrier.wait()
+        try #require(received == "barrier")
         let remaining = await coordinator.openStreamCount()
         #expect(remaining == 0)
     }
