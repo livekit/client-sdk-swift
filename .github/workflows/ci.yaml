@@ -22,11 +22,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Older supported toolchain: plain platform coverage only.
+          # Older supported toolchain: plain platform coverage, plus the extension-API switch,
+          # which Xcode 27 rejects for the test scheme ("unknown argument: '-fapplication-extension'").
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
           - os: macos-26
             xcode: 26.6
             platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.5"
+          - os: macos-26
+            xcode: 26.6
+            platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.5"
+            extension-api-only: true
           - os: macos-26
             xcode: 26.6
             platform: "macOS"
@@ -40,16 +45,12 @@ jobs:
             xcode: 26.6
             platform: "tvOS Simulator,name=Apple TV,OS=26.5"
 
-          # Primary toolchain: carries the sanitizer, API, symbol-graph, and language-mode switches.
+          # Primary toolchain: carries the sanitizer, symbol-graph, and language-mode switches.
           # https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md
           - os: xcode-27
             xcode: latest
             platform: "iOS Simulator,name=iPhone 18 Pro,OS=27.0"
             symbol-graph: true
-          - os: xcode-27
-            xcode: latest
-            platform: "iOS Simulator,name=iPhone 18 Pro,OS=27.0"
-            extension-api-only: true
           - os: xcode-27
             xcode: latest
             platform: "macOS"
