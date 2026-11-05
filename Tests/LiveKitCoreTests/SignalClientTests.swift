@@ -104,6 +104,45 @@ struct SignalClientTests {
         #expect(recorder.events.copy() == [.leave(awaited: true), .disconnected(.participantRemoved)])
     }
 
+    /// A leave with an action this client does not know is ignored, as `Room` ignores it: a publication in flight
+    /// still completes when the server publishes the track.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), .tags(.networking))
+    func unknownLeaveActionKeepsAPendingPublication() async throws {
+        let (server, url) = try await FakeWebSocketServer.started(.idle)
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
+        defer { socket.close() }
+        let requested = AsyncCompleter<Void>(label: "addTrack request", defaultTimeout: 5)
+        let client = try await SignalClient(testingResponse: .with { $0.refreshToken = "token" }, requestProcessor: { request in
+            if case .addTrack = request.message { requested.resume(returning: ()) }
+        }, responseProcessed: {})
+        let delegate = IgnoringDelegate()
+        await client._delegate.set(delegate: delegate)
+        await client._state.mutate {
+            $0.socket = socket
+            $0.connectionState = .connected
+        }
+        await client.resumeQueues()
+
+        async let published = client.sendAddTrack(cid: "TR_pending", name: "camera", type: .video) { _ in }
+        try await requested.wait()
+        let responses: [Livekit_SignalResponse] = [
+            .with { $0.leave = .with {
+                $0.action = Livekit_LeaveRequest_Action(rawValue: 99)
+                $0.reason = .participantRemoved
+            } },
+            .with { $0.trackPublished = .with {
+                $0.cid = "TR_pending"
+                $0.track = .with { $0.sid = "TR_server" }
+            } },
+        ]
+        for response in responses {
+            try await client.onWebSocketMessage(.data(response.serializedData()), from: socket)
+        }
+        #expect(try await published.sid == "TR_server")
+        withExtendedLifetime(delegate) {}
+    }
+
     enum QueuedResponse: CaseIterable {
         case offer
         case answer
@@ -279,6 +318,8 @@ private final class QueueResumeDelegate: SignalClientTestDelegate {
         }
     }
 }
+
+private final class IgnoringDelegate: SignalClientTestDelegate {}
 
 private protocol SignalClientTestDelegate: SignalClientDelegate {}
 
