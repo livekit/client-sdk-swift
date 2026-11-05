@@ -1,0 +1,1 @@
+patch type="fixed" "Fix capturers permanently reporting started after a failed startCapture: the start/stop counter is now balanced on failure so a subsequent start attempt can retry"
