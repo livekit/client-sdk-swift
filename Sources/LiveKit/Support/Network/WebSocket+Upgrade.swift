@@ -25,7 +25,7 @@ struct WebSocketUpgradeFailure: Error, Sendable {
     let statusCode: Int
     /// Retry metadata, removed before the failure leaves WebSocket.init.
     var headers: [(name: String, value: String)] = []
-    var basicAuthorization: String?
+    var basicAuthorization: (realm: String, value: String)?
 }
 
 extension WebSocket {
@@ -111,7 +111,7 @@ extension WebSocket {
     /// Reads the answer to the upgrade request, at most ``upgradeResponseLimit`` bytes for all the heads together, and
     /// resumes `opening` once ``upgradeOutcome(_:key:url:compressionOffered:)`` settles it.
     static func readUpgradeResponse(_ connection: NWConnection, url: URL, key: String,
-                                    options: (compressionOffered: Bool, answerBasic: Bool), into opening: AsyncCompleter<UpgradeResponse>, read: Data = Data())
+                                    options: (compressionOffered: Bool, triedRealms: Set<String>), into opening: AsyncCompleter<UpgradeResponse>, read: Data = Data())
     {
         connection.receive(minimumIncompleteLength: 1, maximumLength: upgradeResponseLimit - read.count) { content, _, isComplete, error in
             let read = read + (content ?? Data())
@@ -119,8 +119,8 @@ extension WebSocket {
             case let .opened(rest):
                 opening.resume(returning: rest)
             case let .failed(failure):
-                if options.answerBasic, var response = failure.internalError as? WebSocketUpgradeFailure {
-                    response.basicAuthorization = basicAuthorization(response, url: url)
+                if var response = failure.internalError as? WebSocketUpgradeFailure {
+                    response.basicAuthorization = basicAuthorization(response, url: url, excluding: options.triedRealms)
                     opening.resume(with: .failure(LiveKitError(.network, internalError: response)))
                 } else {
                     opening.resume(with: .failure(failure))

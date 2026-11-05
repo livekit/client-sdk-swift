@@ -73,11 +73,11 @@ actor WebSocket: Loggable, AsyncSequence {
         var requestURL = url
         var requestHeaders = headers
         var redirects = 0
-        var basicCredentials: [(url: URL, authorization: String)] = []
+        var basicCredentials: [(url: URL, basic: (realm: String, value: String))] = []
         while true {
             do {
                 let opened = try await Self.open(url: requestURL, headers: requestHeaders, timeoutInterval: timeoutInterval,
-                                                 answerBasic: !basicCredentials.contains { Self.isInBasicProtectionSpace(requestURL, challengedURL: $0.url) },
+                                                 triedRealms: Set(basicCredentials.filter { Self.isInBasicProtectionSpace(requestURL, challengedURL: $0.url) }.map(\.basic.realm)),
                                                  closing: (closeWait, onEvent))
                 connection = opened.connection
                 core = opened.core
@@ -90,13 +90,13 @@ actor WebSocket: Loggable, AsyncSequence {
                     redirects += 1
                     requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
                     if let credential = basicCredentials.last(where: { Self.isInBasicProtectionSpace(target, challengedURL: $0.url) }) {
-                        requestHeaders.append(("Authorization", credential.authorization))
+                        requestHeaders.append(("Authorization", credential.basic.value))
                     }
                     requestURL = target
-                } else if let authorization = response.basicAuthorization {
-                    basicCredentials.append((requestURL, authorization))
+                } else if basicCredentials.count < 20, let basic = response.basicAuthorization {
+                    basicCredentials.append((requestURL, basic))
                     requestHeaders.removeAll { $0.name.caseInsensitiveCompare("Authorization") == .orderedSame }
-                    requestHeaders.append(("Authorization", authorization))
+                    requestHeaders.append(("Authorization", basic.value))
                 } else {
                     throw LiveKitError(.network, internalError: WebSocketUpgradeFailure(statusCode: response.statusCode))
                 }
@@ -105,7 +105,7 @@ actor WebSocket: Loggable, AsyncSequence {
     }
 
     private static func open(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval,
-                             answerBasic: Bool, closing: (wait: TimeInterval, onEvent: EventHandler?)) async throws -> Opened
+                             triedRealms: Set<String>, closing: (wait: TimeInterval, onEvent: EventHandler?)) async throws -> Opened
     {
         guard !Task.isCancelled else { throw LiveKitError(.cancelled) }
         let key = Self.upgradeKey()
@@ -122,7 +122,7 @@ actor WebSocket: Loggable, AsyncSequence {
                     let request = try Self.upgradeRequest(url: url, key: key, headers: headers)
                     let compressionOffered = headers.contains { $0.name.caseInsensitiveCompare("Sec-WebSocket-Extensions") == .orderedSame && $0.value == "permessage-deflate" }
                     connection.send(content: request, completion: .contentProcessed { _ in })
-                    Self.readUpgradeResponse(connection, url: url, key: key, options: (compressionOffered, answerBasic), into: opening)
+                    Self.readUpgradeResponse(connection, url: url, key: key, options: (compressionOffered, triedRealms), into: opening)
                 } catch {
                     opening.resume(with: .failure(error))
                 }

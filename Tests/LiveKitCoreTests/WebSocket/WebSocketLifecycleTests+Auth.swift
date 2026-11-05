@@ -129,7 +129,7 @@ extension WebSocketLifecycleTests {
         let stored = try Self.storeBasicCredential(url: url, realm: realm)
         defer { URLCredentialStorage.shared.remove(stored.credential, for: stored.space) }
         let response = WebSocketUpgradeFailure(statusCode: 401, headers: [("www-authenticate", "Basic realm=\"\(realm)\"")])
-        #expect(WebSocket.basicAuthorization(response, url: url) == Self.basicHeader())
+        #expect(WebSocket.basicAuthorization(response, url: url)?.value == Self.basicHeader())
     }
 
     @Test func redirectAfterBasicDropsCredential() async throws {

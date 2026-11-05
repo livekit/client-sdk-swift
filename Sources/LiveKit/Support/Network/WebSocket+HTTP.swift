@@ -83,14 +83,17 @@ extension WebSocket {
     }
 
     /// The default credential is scoped to this endpoint and Basic realm. CFNetwork builds the header, as it did for
-    /// URLSession; every CFHTTPMessage here is local to this call. The caller permits one challenge retry per protection space.
-    static func basicAuthorization(_ response: WebSocketUpgradeFailure, url: URL) -> String? {
+    /// URLSession; every CFHTTPMessage here is local to this call. The caller permits one challenge retry per protection
+    /// space, which is the endpoint and the realm (RFC 7235 §2.2): `excluding` names the realms already tried.
+    static func basicAuthorization(_ response: WebSocketUpgradeFailure, url: URL,
+                                   excluding tried: Set<String> = []) -> (realm: String, value: String)?
+    {
         guard response.statusCode == 401, let url = httpURL(url), let host = url.host else { return nil }
         let challenges = response.headers.filter { $0.name == "www-authenticate" }.map(\.value)
         guard challengeSchemes(challenges).isDisjoint(with: ["digest", "ntlm", "negotiate"]) else { return nil }
         let port = url.port ?? (url.scheme == "https" ? 443 : 80)
         for header in challenges {
-            for realm in basicRealms(header) {
+            for realm in basicRealms(header) where !tried.contains(realm) {
                 let space = URLProtectionSpace(host: host, port: port, protocol: url.scheme, realm: realm,
                                                authenticationMethod: NSURLAuthenticationMethodHTTPBasic)
                 guard let credential = URLCredentialStorage.shared.defaultCredential(for: space),
@@ -101,7 +104,7 @@ extension WebSocket {
                 guard CFHTTPMessageAddAuthentication(request, challenge, user as CFString, password as CFString,
                                                      kCFHTTPAuthenticationSchemeBasic, false),
                     let value = CFHTTPMessageCopyHeaderFieldValue(request, "Authorization" as CFString)?.takeRetainedValue() else { continue }
-                return value as String
+                return (realm, value as String)
             }
         }
         return nil
