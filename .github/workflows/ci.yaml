@@ -165,20 +165,17 @@ jobs:
           echo "simulator settled at ${cpu:-?}% CPU"
 
       - name: Build & Test
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: |
           # A hung job's log goes quiet; capture where the test host is stuck before the timeout kills it.
           .github/stall-dump/stall-dump.sh "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/stall-dump" &
           set -o pipefail && xcodebuild test \
-            -scheme LiveKit \
+            -scheme LiveKitCI \
             -destination '${{ steps.boot.outputs.udid && format('id={0}', steps.boot.outputs.udid) || format('platform={0}', matrix.platform) }}' \
             -collect-test-diagnostics never \
             -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
             -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
             APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
-            -only-testing:LiveKitCoreTests \
-            -only-testing:LiveKitNanopbTests \
-            -only-testing:LiveKitObjCTests \
             -parallel-testing-enabled NO \
             | tee "$RUNNER_TEMP/xcodebuild.log" \
             | xcbeautify --renderer github-actions
