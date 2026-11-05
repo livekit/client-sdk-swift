@@ -722,13 +722,18 @@ extension Room {
     }
 
     func _onParticipantDidDisconnect(identity: Participant.Identity) async throws {
+        let participant = _state.mutate { $0.remoteParticipants.removeValue(forKey: identity) }
+        try await _onParticipantDidDisconnect(identity: identity, removed: participant)
+    }
+
+    func _onParticipantDidDisconnect(identity: Participant.Identity, removed participant: RemoteParticipant?) async throws {
         // Reap any in-flight RPCs targeting this participant before tearing them down,
         // so the caller sees `recipientDisconnected` (1503) immediately instead of
         // hanging until the user-supplied `responseTimeout`.
         await rpcClient.handleParticipantDisconnected(identity)
         dataStreams.closeStreams(from: identity)
 
-        guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
+        guard let participant else {
             throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")
         }
 
