@@ -24,6 +24,15 @@ struct WebSocketCompression: Sendable {
     var serverNoContextTakeover = false
     var clientNoContextTakeover = false
 
+    /// Whether the request offers permessage-deflate, with parameters or not, alone or among other extensions.
+    static func isOffered(in headers: [(name: String, value: String)]) -> Bool {
+        headers.contains { header in
+            header.name.caseInsensitiveCompare("Sec-WebSocket-Extensions") == .orderedSame && header.value.split(separator: ",").contains {
+                $0.split(separator: ";", maxSplits: 1).first?.trimmingCharacters(in: .whitespaces).lowercased() == "permessage-deflate"
+            }
+        }
+    }
+
     static func negotiate(_ headers: [String]) throws -> Self? {
         guard !headers.isEmpty else { return nil }
         guard headers.count == 1 else { throw failure() }

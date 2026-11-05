@@ -120,7 +120,7 @@ actor WebSocket: Loggable, AsyncSequence {
                 do {
                     let headers = Self.upgradeHeaders(url: url, headers: headers)
                     let request = try Self.upgradeRequest(url: url, key: key, headers: headers)
-                    let compressionOffered = headers.contains { $0.name.caseInsensitiveCompare("Sec-WebSocket-Extensions") == .orderedSame && $0.value == "permessage-deflate" }
+                    let compressionOffered = WebSocketCompression.isOffered(in: headers)
                     connection.send(content: request, completion: .contentProcessed { _ in })
                     Self.readUpgradeResponse(connection, url: url, key: key, options: (compressionOffered, triedRealms), into: opening)
                 } catch {
