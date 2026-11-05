@@ -26,7 +26,8 @@ enum WebSocketFrame {
 
     /// A client frame, whole and masked with a fresh key, as RFC 6455 §5.3 requires.
     static func client(opcode: UInt8, _ payload: Data, compressed: Bool = false) -> Data {
-        var frame = Data([0x80 | opcode | (compressed ? 0x40 : 0)])
+        var frame = Data(capacity: 14 + payload.count)
+        frame.append(0x80 | opcode | (compressed ? 0x40 : 0))
         switch payload.count {
         case ..<126:
             frame.append(0x80 | UInt8(payload.count))
@@ -38,11 +39,13 @@ enum WebSocketFrame {
         }
         let mask = (0 ..< 4).map { _ in UInt8.random(in: .min ... .max) }
         frame.append(contentsOf: mask)
-        var masked = [UInt8](payload)
-        for index in masked.indices {
-            masked[index] ^= mask[index & 3]
+        let start = frame.count
+        frame.append(payload)
+        frame.withUnsafeMutableBytes { bytes in
+            for index in start ..< bytes.count {
+                bytes[index] ^= mask[(index - start) & 3]
+            }
         }
-        frame.append(contentsOf: masked)
         return frame
     }
 
