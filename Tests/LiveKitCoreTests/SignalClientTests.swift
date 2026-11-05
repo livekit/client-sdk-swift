@@ -16,6 +16,7 @@
 
 import Foundation
 @testable import LiveKit
+import LiveKitWebRTC
 import Testing
 
 struct SignalClientTests {
@@ -40,8 +41,144 @@ struct SignalClientTests {
         #expect(await client.passesConnectResponseGate(update))
     }
 
+    enum QueuedResponse: CaseIterable {
+        case offer
+        case answer
+        case mediaSectionsRequirement
+
+        var response: Livekit_SignalResponse {
+            switch self {
+            case .offer:
+                .with { $0.offer = .with {
+                    $0.type = "offer"
+                    $0.sdp = "offer"
+                    $0.id = 17
+                } }
+            case .answer:
+                .with { $0.answer = .with {
+                    $0.type = "answer"
+                    $0.sdp = "answer"
+                    $0.id = 17
+                } }
+            case .mediaSectionsRequirement:
+                .with { $0.mediaSectionsRequirement = .with { $0.numAudios = 1 } }
+            }
+        }
+    }
+
+    @Test(arguments: QueuedResponse.allCases)
+    func detachedResponseHandlerCanSendRequests(response: QueuedResponse) async throws {
+        let sent = StateSync<[Livekit_SignalRequest]>([])
+        let delegate = QueueResumeDelegate()
+        let client = try await SignalClient(testingResponse: response.response, requestProcessor: { request in
+            sent.mutate { $0.append(request) }
+        }, responseProcessed: {
+            _ = try? await delegate.handled.wait()
+        })
+        await client._state.mutate { $0.connectionState = .connecting }
+        await client._delegate.set(delegate: delegate)
+
+        await client.resumeQueues()
+        await client.cleanUp()
+
+        let received = try await delegate.handled.wait()
+        #expect(received == response.response)
+
+        let requests = sent.copy()
+        try #require(requests.count == (response == .offer ? 2 : 1))
+        #expect(requests.allSatisfy { !$0.canBeQueued() })
+        let first = try #require(requests.first)
+        switch response {
+        case .offer:
+            #expect(first == Livekit_SignalRequest.with {
+                $0.answer = .with {
+                    $0.type = "answer"
+                    $0.sdp = "answer"
+                    $0.id = 17
+                }
+            })
+            try expectCandidate(#require(requests.last), target: .subscriber)
+        case .answer:
+            try expectCandidate(first, target: .publisher)
+        case .mediaSectionsRequirement:
+            #expect(first == Livekit_SignalRequest.with {
+                $0.offer = .with {
+                    $0.type = "offer"
+                    $0.sdp = "offer"
+                    $0.id = 18
+                }
+            })
+        }
+    }
+
+    private func expectCandidate(_ request: Livekit_SignalRequest, target: Livekit_SignalTarget) throws {
+        let payload: Livekit_TrickleRequest? = if case let .trickle(trickle)? = request.message {
+            trickle
+        } else {
+            nil
+        }
+        let trickle = try #require(payload)
+        #expect(trickle.target == target)
+        let candidate = try JSONDecoder().decode(IceCandidate.self, from: Data(trickle.candidateInit.utf8))
+        #expect(candidate.sdp == QueueResumeDelegate.candidate.sdp)
+        #expect(candidate.sdpMid == QueueResumeDelegate.candidate.sdpMid)
+        #expect(candidate.sdpMLineIndex == QueueResumeDelegate.candidate.sdpMLineIndex)
+    }
+
     @Test func messageNameOmitsPayload() {
         let response = Livekit_SignalResponse.with { $0.refreshToken = "secret.jwt" }
         #expect(response.messageName == "refreshToken")
     }
+}
+
+private final class QueueResumeDelegate: SignalClientDelegate {
+    static let candidate = IceCandidate(sdp: "candidate:1 1 udp 1 127.0.0.1 12345 typ host", sdpMLineIndex: 0, sdpMid: "0")
+    let handled = AsyncCompleter<Livekit_SignalResponse>(label: "Response handler finished sending", defaultTimeout: 5)
+
+    func signalClient(_ signalClient: SignalClient, didReceiveOffer offer: LKRTCSessionDescription, offerId: UInt32) async {
+        do {
+            try await signalClient.send(answer: RTC.createSessionDescription(type: .answer, sdp: "answer"), offerId: offerId)
+            try await signalClient.sendCandidate(candidate: Self.candidate, target: .subscriber)
+            handled.resume(returning: .with { $0.offer = offer.toPBType(offerId: offerId) })
+        } catch {
+            handled.resume(throwing: error)
+        }
+    }
+
+    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32) async {
+        do {
+            try await signalClient.sendCandidate(candidate: Self.candidate, target: .publisher)
+            handled.resume(returning: .with { $0.answer = answer.toPBType(offerId: offerId) })
+        } catch {
+            handled.resume(throwing: error)
+        }
+    }
+
+    func signalClient(_ signalClient: SignalClient, didReceiveMediaSectionsRequirement requirement: Livekit_MediaSectionsRequirement) async {
+        do {
+            try await signalClient.send(offer: RTC.createSessionDescription(type: .offer, sdp: "offer"), offerId: 18)
+            handled.resume(returning: .with { $0.mediaSectionsRequirement = requirement })
+        } catch {
+            handled.resume(throwing: error)
+        }
+    }
+
+    func signalClient(_: SignalClient, didUpdateConnectionState _: ConnectionState, oldState _: ConnectionState, disconnectError _: LiveKitError?) async {}
+    func signalClient(_: SignalClient, didReceiveConnectResponse _: SignalClient.ConnectResponse) async {}
+    func signalClient(_: SignalClient, didReceiveIceCandidate _: IceCandidate, target _: Livekit_SignalTarget) async {}
+    func signalClient(_: SignalClient, didUnpublishLocalTrack _: Livekit_TrackUnpublishedResponse) async {}
+    func signalClient(_: SignalClient, didUpdateParticipants _: [Livekit_ParticipantInfo]) async {}
+    func signalClient(_: SignalClient, didReceiveEncodedResponse _: SignalClient.EncodedResponse) async {}
+    func signalClient(_: SignalClient, didUpdateRoom _: Livekit_Room) async {}
+    func signalClient(_: SignalClient, didUpdateSpeakers _: [Livekit_SpeakerInfo]) async {}
+    func signalClient(_: SignalClient, didUpdateConnectionQuality _: [Livekit_ConnectionQualityInfo]) async {}
+    func signalClient(_: SignalClient, didUpdateRemoteMute _: Track.Sid, muted _: Bool) async {}
+    func signalClient(_: SignalClient, didUpdateTrackStreamStates _: [Livekit_StreamStateInfo]) async {}
+    func signalClient(_: SignalClient, didUpdateSubscribedCodecs _: [Livekit_SubscribedCodec], qualities _: [Livekit_SubscribedQuality], forTrackSid _: String) async {}
+    func signalClient(_: SignalClient, didReceiveRoomMoved _: Livekit_RoomMovedResponse) async {}
+    func signalClient(_: SignalClient, didUpdateSubscriptionPermission _: Livekit_SubscriptionPermissionUpdate) async {}
+    func signalClient(_: SignalClient, didUpdateToken _: String) async {}
+    func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason _: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?) async {}
+    func signalClient(_: SignalClient, didSubscribeTrack _: Track.Sid) async {}
+    func signalClient(_: SignalClient, didReceiveDataTrackResponse _: Data) async {}
 }
