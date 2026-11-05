@@ -111,6 +111,28 @@ extension WebSocketFrameTests {
         guard case .failed? = frame else { return #expect(Bool(false), "No end of stream") }
     }
 
+    /// Our close while the read-ahead holds back a compressed burst, in the inbox steps of `Core.close()`: the parse after
+    /// the unread messages go drops the rest instead of queuing it, so the next TCP read starts and brings the answer.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191#discussion_r4478505194"))
+    func closeParsesPastACompressedBacklog() throws {
+        var inbox = try Self.compressedInbox()
+        _ = try inbox.ingest(CompressedBacklog.frames(CompressedBacklog.payloads()), isComplete: false, error: nil)
+        try #require(inbox.unread == WebSocket.readAhead)
+
+        inbox.ended = true
+        inbox.dropUnread()
+        let reply = inbox.parse()
+        #expect(reply.closeCode == nil)
+        #expect(inbox.unread == 0)
+        let granted = inbox.startReceive()
+        #expect(granted)
+
+        let answer = inbox.ingest(FakeWebSocketServer.close(1000), isComplete: false, error: nil)
+        #expect(answer.closeCode == 1000)
+        #expect(!answer.failed)
+        #expect(inbox.done)
+    }
+
     /// Registers `count` reads, applies `change` and hands out as the socket does; returns the frames handed out, in
     /// order, and the inbox. Reads left waiting end with `.closed`.
     private static func handOut(to count: Int, _ change: @escaping @Sendable (inout WebSocket.Inbox) -> WebSocket.Reply) async throws
