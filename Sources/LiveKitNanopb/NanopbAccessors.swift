@@ -328,7 +328,6 @@ package func lkViews<S: NanopbStorage>(
 //
 //   - `withLkData(_:_:)` / `withLkBytes(_:_:)`, closure-scoped borrows handing
 //     the body an `UnsafeRawBufferPointer` into nanopb's allocation.
-//   - `withLkSpan(_:_:)` behind `#if compiler(>=6.2)`, the same borrow but
-//     bounds-checked; `Span`/`RawSpan` back-deploy to iOS 12.2, so only the
-//     compiler floor gates them. Returning a span rather than scoping it to
-//     the call additionally needs `@_lifetime`, still experimental.
+//   - `withLkSpan(_:_:)`, the same borrow but bounds-checked; `Span`/`RawSpan`
+//     back-deploy to iOS 12.2. Returning a span rather than scoping it to the
+//     call additionally needs `@_lifetime`, still experimental.

@@ -97,8 +97,7 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
         onFailure: (@MainActor (O, Error) async -> Void)? = nil,
     ) -> AnyTaskCancellable {
         // Swift 6.2 emits `#IsolatedConformances` when `for try await` runs on `@MainActor` (SE-0470);
-        // iterate on `@concurrent` and hop per element. Older toolchains keep the `@MainActor` body.
-        #if compiler(>=6.2)
+        // iterate on `@concurrent` and hop per element.
         Task(priority: priority) { @concurrent [weak observer] in
             do {
                 for try await element in self {
@@ -112,21 +111,6 @@ extension AsyncSequence where Element: Sendable, Self: Sendable {
                 }
             }
         }.cancellable()
-        #else
-        Task(priority: priority) { @MainActor [weak observer] in
-            do {
-                for try await element in self {
-                    guard let observer else { break }
-                    await onElement(observer, element)
-                }
-            } catch {
-                if error is CancellationError || Task.isCancelled { return }
-                if let observer, let onFailure {
-                    await onFailure(observer, error)
-                }
-            }
-        }.cancellable()
-        #endif
     }
 }
 
