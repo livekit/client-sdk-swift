@@ -350,8 +350,8 @@ private struct Core: Sendable {
     /// Runs `change` on the inbox, then does what it asks: answers, hands frames to the reads that wait, and reads on.
     private func step(_ change: (inout WebSocket.Inbox) -> WebSocket.Reply) {
         let (reply, handed, readOn, paused) = inbox.mutateWithoutObservation { inbox in
-            let reply = change(&inbox)
-            let handed = inbox.handOut()
+            var reply = change(&inbox)
+            let handed = inbox.handOut(into: &reply)
             let readOn = inbox.startReceive()
             let paused = !readOn && !inbox.receiving && !inbox.done && inbox.unread >= WebSocket.readAhead
             return (reply, handed, readOn, paused ? inbox.unread : nil)

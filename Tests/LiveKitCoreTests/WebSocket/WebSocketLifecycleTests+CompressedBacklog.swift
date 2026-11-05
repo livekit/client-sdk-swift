@@ -74,6 +74,86 @@ extension WebSocketFrameTests {
     }
 }
 
+extension WebSocketFrameTests {
+    /// A read that waits gets a message from a read that the read-ahead stopped: the inbox parses on to refill, so no
+    /// TCP read starts while compressed bytes wait in the parser.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func handingOutRefillsBeforeTheNextRead() async throws {
+        let wire = try CompressedBacklog.frames(CompressedBacklog.payloads())
+        let (handed, inbox) = try await Self.handOut(to: 1) { $0.ingest(wire, isComplete: false, error: nil) }
+        #expect(handed.count == 1)
+        #expect(inbox.unread == WebSocket.readAhead)
+        var probe = inbox
+        let granted = probe.startReceive()
+        #expect(!granted)
+    }
+
+    /// More reads wait than the read-ahead holds, behind a whole burst and the end of the stream: every read gets its
+    /// message, and the rest come out in order before the end.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func waitingReadsBeyondTheReadAheadAreServed() async throws {
+        let payloads = CompressedBacklog.payloads()
+        let wire = try CompressedBacklog.frames(payloads)
+        let readers = 2 * WebSocket.readAhead
+        var (handed, inbox) = try await Self.handOut(to: readers) { $0.ingest(wire, isComplete: true, error: nil) }
+        var received = handed.compactMap { frame -> Data? in
+            guard case let .message(.data(data)) = frame else { return nil }
+            return data
+        }
+        #expect(received.count == readers)
+        var frame = inbox.take()
+        while case let .message(.data(data))? = frame {
+            received.append(data)
+            _ = inbox.parse()
+            frame = inbox.take()
+        }
+        #expect(received == payloads)
+        guard case .failed? = frame else { return #expect(Bool(false), "No end of stream") }
+    }
+
+    /// Registers `count` reads, applies `change` and hands out as the socket does; returns the frames handed out, in
+    /// order, and the inbox. Reads left waiting end with `.closed`.
+    private static func handOut(to count: Int, _ change: @escaping @Sendable (inout WebSocket.Inbox) -> WebSocket.Reply) async throws
+        -> (handed: [WebSocket.Frame], inbox: WebSocket.Inbox)
+    {
+        let inbox = try StateSync(Self.compressedInbox())
+        let handed = StateSync<[WebSocket.Frame]>([])
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 0 ..< count {
+                group.addTask {
+                    _ = await withCheckedContinuation { continuation in
+                        inbox.mutateWithoutObservation { $0.readers.append(continuation) }
+                    }
+                }
+            }
+            while inbox.read({ $0.readers.count }) < count {
+                await Task.yield()
+            }
+            let (frames, waiting) = inbox.mutateWithoutObservation { inbox in
+                var reply = change(&inbox)
+                let frames = inbox.handOut(into: &reply)
+                defer { inbox.readers.removeAll() }
+                return (frames, inbox.readers)
+            }
+            handed.mutate { $0 = frames.map(\.frame) }
+            for (reader, frame) in frames {
+                reader.resume(returning: frame)
+            }
+            for reader in waiting {
+                reader.resume(returning: .closed)
+            }
+        }
+        return (handed.copy(), inbox.copy())
+    }
+
+    private static func compressedInbox() throws -> WebSocket.Inbox {
+        var inbox = WebSocket.Inbox()
+        inbox.parser = try WebSocketFrame.Parser(maximumMessageSize: WebSocket.maximumMessageSize,
+                                                 inflater: WebSocketCompression.Codec(compressing: false, windowBits: 15, noContextTakeover: false))
+        return inbox
+    }
+}
+
 extension WebSocketLifecycleTests {
     /// A burst that one read holds, and that inflates to 64 MiB: the socket stops at the read-ahead, then hands out
     /// every message in order and the close frame after them as they are read.

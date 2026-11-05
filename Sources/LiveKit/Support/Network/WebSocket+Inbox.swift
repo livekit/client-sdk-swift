@@ -91,10 +91,13 @@ extension WebSocket {
             return frame
         }
 
-        mutating func handOut() -> [(reader: CheckedContinuation<Frame, Never>, frame: Frame)] {
+        /// Hands frames to the reads that wait, parsing on after each one as a read does, so that the read-ahead refills
+        /// and no TCP read starts while bytes wait unparsed.
+        mutating func handOut(into reply: inout Reply) -> [(reader: CheckedContinuation<Frame, Never>, frame: Frame)] {
             var handed: [(reader: CheckedContinuation<Frame, Never>, frame: Frame)] = []
             while !readers.isEmpty, let frame = take() {
                 handed.append((readers.removeFirst(), frame))
+                parse(into: &reply)
             }
             return handed
         }
