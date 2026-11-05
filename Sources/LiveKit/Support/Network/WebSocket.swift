@@ -16,7 +16,6 @@
 
 import Foundation
 import Network
-import Security
 
 /// The peer's close frame, carried as the `internalError` of the thrown ``LiveKitError``: the stream fails with it, so
 /// the signal client reconnects at once, as the JS, Android, Flutter and Rust SDKs do on a server close.
@@ -52,37 +51,12 @@ actor WebSocket: Loggable, AsyncSequence {
 
     private let core: Core
     /// Network.framework callbacks, including preferred-identity keychain reads, use this shared queue outside the cooperative pool.
-    fileprivate static var queue: DispatchQueue { .global(qos: .default) }
+    static var queue: DispatchQueue { .global(qos: .default) }
     /// URLSessionWebSocketTask's limit on a received message.
     static let maximumMessageSize = 1 << 20
     /// How many frames may wait unread before the socket stops reading. Nothing is dropped past it: TCP pushes back.
     static let readAhead = 16
     static let closeWait: TimeInterval = 0.25
-
-    static func makeParameters(url: URL, timeoutInterval: TimeInterval) -> NWParameters {
-        let tcp = NWProtocolTCP.Options()
-        tcp.connectionTimeout = Swift.max(1, Int(timeoutInterval.rounded(.up)))
-        // URLSession turned Nagle off; signal messages are small.
-        tcp.noDelay = true
-        let tls = ["wss", "https"].contains(url.scheme?.lowercased() ?? "") ? NWProtocolTLS.Options() : nil
-        if let tls {
-            sec_protocol_options_append_tls_ciphersuite_group(tls.securityProtocolOptions, .ats)
-            sec_protocol_options_add_tls_application_protocol(tls.securityProtocolOptions, "http/1.1")
-            #if os(macOS)
-            sec_protocol_options_set_challenge_block(tls.securityProtocolOptions, { @Sendable [name = url.absoluteString] _, complete in
-                complete(SecIdentityCopyPreferred(name as CFString, nil, nil).flatMap(sec_identity_create))
-            }, queue)
-            #endif
-        }
-        let parameters = NWParameters(tls: tls, tcp: tcp)
-        // As `.callSignaling` on the URLSession configuration this replaces.
-        parameters.serviceClass = .signaling
-        #if os(iOS) || os(visionOS)
-        // https://developer.apple.com/documentation/foundation/urlsessionconfiguration/improving_network_reliability_using_multipath_tcp
-        parameters.multipathServiceType = .handover
-        #endif
-        return parameters
-    }
 
     init(url: URL, headers: [(name: String, value: String)], timeoutInterval: TimeInterval,
          closeWait: TimeInterval = WebSocket.closeWait, onEvent: EventHandler? = nil) async throws

@@ -17,6 +17,7 @@
 internal import CryptoKit
 import Foundation
 import Network
+import Security
 
 /// The server answered the upgrade request with an HTTP response instead of switching
 /// protocols. Carried as the `internalError` of the thrown ``LiveKitError``.
@@ -28,6 +29,31 @@ struct WebSocketUpgradeFailure: Error, Sendable {
 }
 
 extension WebSocket {
+    static func makeParameters(url: URL, timeoutInterval: TimeInterval) -> NWParameters {
+        let tcp = NWProtocolTCP.Options()
+        tcp.connectionTimeout = Swift.max(1, Int(timeoutInterval.rounded(.up)))
+        // URLSession turned Nagle off; signal messages are small.
+        tcp.noDelay = true
+        let tls = ["wss", "https"].contains(url.scheme?.lowercased() ?? "") ? NWProtocolTLS.Options() : nil
+        if let tls {
+            sec_protocol_options_append_tls_ciphersuite_group(tls.securityProtocolOptions, .ats)
+            sec_protocol_options_add_tls_application_protocol(tls.securityProtocolOptions, "http/1.1")
+            #if os(macOS)
+            sec_protocol_options_set_challenge_block(tls.securityProtocolOptions, { @Sendable [name = url.absoluteString] _, complete in
+                complete(SecIdentityCopyPreferred(name as CFString, nil, nil).flatMap(sec_identity_create))
+            }, queue)
+            #endif
+        }
+        let parameters = NWParameters(tls: tls, tcp: tcp)
+        // As `.callSignaling` on the URLSession configuration this replaces.
+        parameters.serviceClass = .signaling
+        #if os(iOS) || os(visionOS)
+        // https://developer.apple.com/documentation/foundation/urlsessionconfiguration/improving_network_reliability_using_multipath_tcp
+        parameters.multipathServiceType = .handover
+        #endif
+        return parameters
+    }
+
     /// The most the head of the upgrade response may take.
     static let upgradeResponseLimit = 1 << 14
 
