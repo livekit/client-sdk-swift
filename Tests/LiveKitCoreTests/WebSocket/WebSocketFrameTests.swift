@@ -70,13 +70,14 @@ struct WebSocketFrameTests {
         #expect(parser.retainedBytes == frame.count)
     }
 
-    /// A declared length over the limit fails at once, before any payload is held, with close code 1009.
-    @Test(arguments: [UInt64(WebSocket.maximumMessageSize) + 1, UInt64.max])
-    func declaredLengthOverTheLimit(length: UInt64) {
+    /// A declared length over the limit fails at once, before any payload is held, with close code 1009; a 64-bit length
+    /// with its most significant bit set breaks the protocol (RFC 6455 §5.2), with 1002.
+    @Test(arguments: [(UInt64(WebSocket.maximumMessageSize) + 1, 1009), (UInt64.max, 1002)] as [(UInt64, UInt16)])
+    func declaredLengthOverTheLimit(length: UInt64, expected: UInt16) {
         let item = Self.parse([0x82, 127] + (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: length >> ($0 * 8)) })
         guard case let .failure(error, closeCode)? = item else { return #expect(Bool(false), "No failure") }
-        #expect((error.internalError as NSError?)?.code == Int(EMSGSIZE))
-        #expect(closeCode == 1009)
+        #expect((error.internalError as NSError?)?.code == Int(expected == 1009 ? EMSGSIZE : EPROTO))
+        #expect(closeCode == expected)
     }
 
     /// What the header alone breaks fails before its payload arrives: an unknown opcode, a continuation without a

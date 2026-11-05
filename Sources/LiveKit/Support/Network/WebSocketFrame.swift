@@ -207,7 +207,7 @@ enum WebSocketFrame {
         /// uncompressed lengths are checked here, compressed messages against their incremental inflated output.
         private func check(_ header: Header) -> Item? {
             let compressed = header.opcode == 0 ? fragments?.compressed == true : header.compressed
-            if header.reserved || header.masked || (header.invalidLength && compressed) {
+            if header.reserved || header.masked || header.invalidLength {
                 return Self.violation("a reserved, mask or invalid length bit is set")
             }
             switch header.opcode {
