@@ -38,17 +38,21 @@ extension WebSocket {
     }
 
     /// The parsed frames that no iterator has read yet, and the reads that wait for one. At most one TCP read is in flight,
-    /// and none starts while ``WebSocket/readAhead`` frames wait: unread frames stay below that plus what one read of up to
-    /// 256 KiB holds.
+    /// and none starts while ``WebSocket/readAhead`` messages wait. Past that many, parsing stops once the unread messages
+    /// hold ``WebSocket/readSize`` bytes, however far a compressed read inflates: unread messages stay below the read-ahead,
+    /// plus one read's worth of bytes and the message that crosses it.
     struct Inbox {
         var parser = WebSocketFrame.Parser(maximumMessageSize: WebSocket.maximumMessageSize)
         private var frames: [Frame] = []
         private var taken = 0
+        private var unreadBytes = 0
         /// Reads that wait for a frame, first come, first served.
         var readers: [CheckedContinuation<Frame, Never>] = []
         var receiving = false
         /// A close frame, a failure or the end of the stream arrived: nothing more is read.
         private(set) var done = false
+        /// The end of the stream, which a read throws once the bytes before it are parsed.
+        private var streamEnd: LiveKitError?
         /// Our own close, or the frame that ended the stream, was read: every later read ends the sequence.
         var ended = false
 
@@ -59,13 +63,15 @@ extension WebSocket {
 
         /// The message bytes that the held frames carry.
         var retainedBytes: Int {
-            frames.reduce(0) { total, frame in
-                guard case let .message(message) = frame else { return total }
-                return switch message {
-                case let .data(data): total + data.count
-                case let .string(text): total + text.utf8.count
-                @unknown default: total
-                }
+            frames.reduce(0) { $0 + Self.size(of: $1) }
+        }
+
+        private static func size(of frame: Frame) -> Int {
+            guard case let .message(message) = frame else { return 0 }
+            return switch message {
+            case let .data(data): data.count
+            case let .string(text): text.utf8.count
+            @unknown default: 0
             }
         }
 
@@ -74,6 +80,7 @@ extension WebSocket {
             guard taken < frames.count else { return nil }
             let frame = frames[taken]
             taken += 1
+            unreadBytes -= Self.size(of: frame)
             // Drops the read ones once they are as many as the unread: the order stays, and the cost spreads over reads.
             if taken * 2 >= frames.count {
                 frames.removeFirst(taken)
@@ -94,11 +101,12 @@ extension WebSocket {
         mutating func dropUnread() {
             frames.removeAll(keepingCapacity: true)
             taken = 0
+            unreadBytes = 0
         }
 
         /// Whether a TCP read may start now; if so, it counts as started.
         mutating func startReceive() -> Bool {
-            guard !receiving, !done, unread < WebSocket.readAhead else { return false }
+            guard !receiving, !done, streamEnd == nil, unread < WebSocket.readAhead else { return false }
             receiving = true
             return true
         }
@@ -106,28 +114,46 @@ extension WebSocket {
         /// Parses what a read brought, its content before its error or end of stream.
         mutating func ingest(_ content: Data?, isComplete: Bool, error: NWError?) -> Reply {
             var reply = Reply()
-            guard !done else { return reply }
+            guard !done, streamEnd == nil else { return reply }
             if let content { parser.append(content) }
-            let input = parser.input
-            // ponytail: Data.span measured a 3.3% higher 1 MiB plain burst mean.
-            input.withUnsafeBytes { parse($0, reply: &reply) }
-            guard !done, error != nil || isComplete else { return reply }
-            // The stream ends with no close frame, between frames or inside one: the sequence fails.
-            reply.failed = true
-            end(LiveKitError(.network, internalError: error.map(WebSocket.bridged) ?? URLError(.networkConnectionLost)))
+            if error != nil || isComplete {
+                // The stream ends with no close frame, between frames or inside one: the sequence fails.
+                reply.failed = true
+                streamEnd = LiveKitError(.network, internalError: error.map(WebSocket.bridged) ?? URLError(.networkConnectionLost))
+            }
+            parse(into: &reply)
             return reply
         }
 
-        private mutating func parse(_ input: UnsafeRawBufferPointer, reply: inout Reply) {
-            while !done, let item = parser.next(in: input) {
-                apply(item, to: &reply)
+        /// Parses on from where the read-ahead stopped it, once reads took messages.
+        mutating func parse() -> Reply {
+            var reply = Reply()
+            parse(into: &reply)
+            return reply
+        }
+
+        private mutating func parse(into reply: inout Reply) {
+            guard !done else { return }
+            let input = parser.input
+            // ponytail: Data.span measured a 3.3% higher 1 MiB plain burst mean.
+            input.withUnsafeBytes { input in
+                while !done, !isFull, let item = parser.next(in: input) {
+                    apply(item, to: &reply)
+                }
             }
+            if !done, !isFull, let streamEnd { end(streamEnd) }
+        }
+
+        private var isFull: Bool {
+            unread >= WebSocket.readAhead && unreadBytes >= WebSocket.readSize
         }
 
         private mutating func apply(_ item: WebSocketFrame.Item, to reply: inout Reply) {
             switch item {
             case let .message(message):
-                if !ended { frames.append(.message(message)) }
+                guard !ended else { break }
+                frames.append(.message(message))
+                unreadBytes += Self.size(of: .message(message))
             case let .ping(payload):
                 reply.pongs.append(payload)
             case .pong:
