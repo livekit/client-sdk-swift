@@ -1,0 +1,1 @@
+minor type="added" "AudioSessionEngineObserver.isAutomaticActivationEnabled: set it to false to let the SDK keep configuring the audio session category, mode and options while the app, CallKit or LiveCommunicationKit activates the session"

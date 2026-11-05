@@ -2,7 +2,7 @@
 
 ## Disabling automatic `AVAudioSession` configuration
 
-By default, the SDK automatically configures the `AVAudioSession`. However, this can interfere with your own configuration or with frameworks like CallKit that configure the AVAudioSession automatically. In such cases, you can disable automatic configuration by the SDK.
+By default, the SDK automatically configures the `AVAudioSession`. However, this can interfere with your own configuration or with frameworks like CallKit or LiveCommunicationKit that activate the AVAudioSession automatically. If you only need to take over activation and deactivation, see [Disabling automatic `AVAudioSession` activation](#disabling-automatic-avaudiosession-activation) below. To configure the session entirely yourself, you can disable automatic configuration by the SDK.
 
 ```swift
 AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
@@ -30,6 +30,19 @@ Set a custom observer chain only if you need custom lifecycle hooks or audio gra
 Setting `AudioManager.shared.set(engineObservers: [])` disables all observers, including
 session handling and mixer setup. Configure the chain once early in app startup, and avoid
 changing it while the engine is in use.
+
+## Disabling automatic `AVAudioSession` activation
+
+> Note: If `isAutomaticConfigurationEnabled` is `false`, the SDK does not touch the audio
+> session, so this setting has no effect.
+
+By default, the SDK activates the `AVAudioSession` when the audio engine needs it. If the system or your app owns activation instead (e.g., CallKit activates the session in `provider(_:didActivate:)`, LiveCommunicationKit in `conversationManager(_:didActivate:)`), you can disable automatic activation:
+
+```swift
+AudioManager.shared.audioSession.isAutomaticActivationEnabled = false
+```
+
+When set to `false`, the SDK still configures the category, mode and options, but never activates the session. Combine it with `isAutomaticDeactivationEnabled = false` for CallKit or LiveCommunicationKit, so you don't need to set the category yourself. See [Integration with CallKit](../README.md#integration-with-callkit).
 
 ## Disabling automatic `AVAudioSession` deactivation
 
