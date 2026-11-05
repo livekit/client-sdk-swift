@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 @objc
 public enum EncryptionType: Int, Sendable {
@@ -99,6 +98,17 @@ public final class E2EEOptions: NSObject, Sendable {
     }
 }
 
+/// Options for end-to-end encryption of media and data packets.
+///
+/// To use AES-256 keys, configure the key provider with `.bits256`.
+/// Every participant must use the same key size (the default is `.bits128`).
+///
+/// ```swift
+/// let provider = BaseKeyProvider(options: KeyProviderOptions(keySize: .bits256))
+/// provider.setKey(key: "shared-passphrase")
+/// let options = RoomOptions(encryptionOptions: EncryptionOptions(keyProvider: provider))
+/// let room = Room(roomOptions: options)
+/// ```
 @objcMembers
 public final class EncryptionOptions: NSObject, Sendable {
     public let keyProvider: BaseKeyProvider

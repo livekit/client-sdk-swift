@@ -219,8 +219,8 @@ extension LKRTCAudioProcessingOptionsResult {
     /// Partitions the upstream result: successes are returned, rejections are thrown.
     func toLKType() throws -> AudioProcessingOptionsResult {
         switch code {
-        case .applied: return .applied
-        case .stored: return .stored
+        case .applied: .applied
+        case .stored: .stored
         case .rejectedRemoteTrack: throw AudioProcessingOptionsError(code: .invalidState, message: message)
         case .rejectedInvalidCombination: throw AudioProcessingOptionsError(code: .invalidCombination, message: message)
         case .rejectedPlatformUnavailable: throw AudioProcessingOptionsError(code: .platformUnavailable, message: message)

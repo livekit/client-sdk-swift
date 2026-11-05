@@ -16,11 +16,10 @@
 
 // swiftlint:disable file_length
 
-import Combine
-import Foundation
-
 internal import LiveKitFFI
 internal import LiveKitWebRTC
+import Combine
+import Foundation
 
 #if canImport(Network)
 import Network
@@ -443,16 +442,14 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var nextRegion: RegionInfo?
         let regionManager = await regionManager(for: providedUrl)
 
-        if providedUrl.isCloud {
-            if let regionManager {
-                await regionManager.resetAttempts(onlyIfExhausted: true)
+        if providedUrl.isCloud, let regionManager {
+            await regionManager.resetAttempts(onlyIfExhausted: true)
 
-                if let preparedRegion {
-                    nextUrl = preparedRegion.url
-                    nextRegion = preparedRegion
-                } else if await regionManager.shouldRequestSettings() {
-                    await regionManager.prepareSettingsFetch(token: token)
-                }
+            if let preparedRegion {
+                nextUrl = preparedRegion.url
+                nextRegion = preparedRegion
+            } else if await regionManager.shouldRequestSettings() {
+                await regionManager.prepareSettingsFetch(token: token)
             }
         }
 
@@ -813,9 +810,9 @@ extension Room: AppStateDelegate {
 
 // MARK: - Devices
 
+@available(*, deprecated, renamed: "AudioManager.shared.isVoiceProcessingBypassed")
 public extension Room {
     /// Set this to true to bypass initialization of voice processing.
-    @available(*, deprecated, renamed: "AudioManager.shared.isVoiceProcessingBypassed")
     @objc
     static var bypassVoiceProcessing: Bool {
         get { AudioManager.shared.isVoiceProcessingBypassed }
@@ -829,7 +826,7 @@ extension Room: DataChannelDelegate {
     func dataChannel(_: DataChannelPair, didReceiveDataPacket dataPacket: Livekit_DataPacket, serialized: Data?, encryptionType: EncryptionType) {
         switch dataPacket.value {
         case let .speaker(update): engine(self, didUpdateSpeakers: update.speakers)
-        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, encryptionType: encryptionType)
+        case let .user(userPacket): engine(self, didReceiveUserPacket: userPacket, participantIdentity: dataPacket.participantIdentity, encryptionType: encryptionType)
         case let .transcription(packet): room(didReceiveTranscriptionPacket: packet)
         case let .rpcResponse(response): room(didReceiveRpcResponse: response)
         case let .rpcAck(ack): room(didReceiveRpcAck: ack)

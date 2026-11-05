@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 public enum StreamError: Error, Equatable {
     /// Unable to open a stream with the same ID more than once.

@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// A single unit of application data sent or received over a data track.
 public final class DataTrackFrame: NSObject, Sendable {

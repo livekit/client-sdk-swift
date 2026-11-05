@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// Identifies the schema describing a data track's frames.
 @objc(DataTrackSchemaId)

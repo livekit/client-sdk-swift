@@ -51,7 +51,7 @@ private let mPubToFrame: BenchmarkMetric = .custom("publish_to_first_frame_ms", 
 private let mDataRtt: BenchmarkMetric = .custom("data_rtt_ms", polarity: .prefersSmaller, useScalingFactor: false)
 private let mDisconnect: BenchmarkMetric = .custom("disconnect_ms", polarity: .prefersSmaller, useScalingFactor: false)
 
-private let sessionMetrics = [mConnect, mPeerVisible, mPubToSub, mFirstFrame, mPubToFrame, mDataRtt, mDisconnect]
+private let sessionMetrics = [mConnect, mPeerVisible, mPubToSub, mFirstFrame, mPubToFrame, mDataRtt, mDisconnect, mFailed]
 
 let sessionLifecycleBenchmarks: @Sendable () -> Void = {
     for (name, singlePC) in [("BM-SESSION-001-DualPC", false), ("BM-SESSION-002-SinglePC", true)] {
@@ -73,20 +73,18 @@ let sessionLifecycleBenchmarks: @Sendable () -> Void = {
             let config = BenchmarkConfig.fromEnvironment()
             let tokenGen = TokenGenerator(apiKey: config.apiKey, apiSecret: config.apiSecret)
 
-            for _ in benchmark.scaledIterations {
-                try await runSession(benchmark: benchmark,
+            try await runIterations(benchmark, variant: name) { samples in
+                try await runSession(samples: samples,
                                      config: config,
                                      tokenGen: tokenGen,
                                      singlePC: singlePC)
-                // Rooms are torn down; give the SFU a beat before the next identity joins.
-                try await Task.sleep(nanoseconds: 2_000_000_000)
             }
         }
     }
 }
 
 /// One publisher/subscriber session, emitting every lifecycle metric from a single connection.
-private func runSession(benchmark: Benchmark,
+private func runSession(samples: MeasurementBuffer,
                         config: BenchmarkConfig,
                         tokenGen: TokenGenerator,
                         singlePC: Bool) async throws
@@ -121,40 +119,32 @@ private func runSession(benchmark: Benchmark,
         let connectStart = nowMs()
         try await publisher.connect(url: config.url,
                                     token: tokenGen.generate(roomName: roomName, identity: "bench-pub"))
-        benchmark.measurement(mConnect, Int(nowMs() - connectStart))
+        samples.record(mConnect, Int(nowMs() - connectStart))
 
         // peer_visible_ms — from the subscriber starting its connect to the publisher seeing it.
         let peerStart = nowMs()
         try await subscriber.connect(url: config.url,
                                      token: tokenGen.generate(roomName: roomName, identity: "bench-sub"))
         let visibleAt = try await peerVisible.visible.wait()
-        benchmark.measurement(mPeerVisible, Int(visibleAt - peerStart))
+        samples.record(mPeerVisible, Int(visibleAt - peerStart))
 
         // pub_to_sub_ms / first_frame_ms / publish_to_first_frame_ms
-        let track = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions())
-        let frameFeeder = startFeedingFrames(into: track)
+        let frameFeeder = try await measurePublishToFirstFrame(samples: samples,
+                                                               publisher: publisher,
+                                                               observer: subscriberObserver)
         defer { frameFeeder.cancel() }
-
-        let publishStart = nowMs()
-        try await publisher.localParticipant.publish(videoTrack: track)
-        let subscribedAt = try await subscriberObserver.subscribed.wait()
-        let firstFrameAt = try await subscriberObserver.firstFrame.wait()
-
-        benchmark.measurement(mPubToSub, Int(subscribedAt - publishStart))
-        benchmark.measurement(mFirstFrame, Int(firstFrameAt - subscribedAt))
-        benchmark.measurement(mPubToFrame, Int(firstFrameAt - publishStart))
 
         // data_rtt_ms — publisher → subscriber → publisher.
         let rttStart = nowMs()
         try await publisher.localParticipant.publish(data: Data("ping".utf8),
                                                      options: DataPublishOptions(topic: dataTopic))
         let echoedAt = try await dataEcho.received.wait()
-        benchmark.measurement(mDataRtt, Int(echoedAt - rttStart))
+        samples.record(mDataRtt, Int(echoedAt - rttStart))
 
         // disconnect_ms — publisher teardown only; the subscriber is closed outside the measurement.
         let disconnectStart = nowMs()
         await publisher.disconnect()
-        benchmark.measurement(mDisconnect, Int(nowMs() - disconnectStart))
+        samples.record(mDisconnect, Int(nowMs() - disconnectStart))
 
         await subscriber.disconnect()
     } catch {
@@ -168,16 +158,37 @@ private func runSession(benchmark: Benchmark,
     }
 }
 
-/// Drives the buffer track at ~15fps until cancelled, so the subscriber has frames to render.
-private func startFeedingFrames(into track: LocalVideoTrack) -> Task<Void, Never> {
-    Task.detached {
-        guard let capturer = track.capturer as? BufferCapturer else { return }
-        while !Task.isCancelled {
-            if let pixelBuffer = SyntheticVideo.makePixelBuffer() {
-                capturer.capture(pixelBuffer)
-            }
-            try? await Task.sleep(nanoseconds: 66_000_000)
-        }
+/// Publishes a video track into the established session and records the three milestones that
+/// follow, returning the feeder task so the caller can stop it with the rest of the session.
+///
+/// Extracted to keep ``runSession(samples:config:tokenGen:singlePC:)`` inside
+/// `function_body_length`, not for reuse.
+private func measurePublishToFirstFrame(samples: MeasurementBuffer,
+                                        publisher: Room,
+                                        observer: SubscriberObserver) async throws -> Task<Void, Never>
+{
+    // Camera source explicitly: `createBufferTrack` defaults to `.screenShareVideo`, which
+    // selects screen-share encoder presets and an uncapped start bitrate — not what a call
+    // publishes, and not what the rust and JS harnesses use.
+    let track = await LocalVideoTrack.createBufferTrack(name: "camera",
+                                                        source: .camera,
+                                                        options: BufferCaptureOptions())
+    let frameFeeder = startFeedingFrames(into: track)
+
+    do {
+        let publishStart = nowMs()
+        try await publisher.localParticipant.publish(videoTrack: track)
+        let subscribedAt = try await observer.subscribed.wait()
+        let firstFrameAt = try await observer.firstFrame.wait()
+
+        samples.record(mPubToSub, Int(subscribedAt - publishStart))
+        samples.record(mFirstFrame, Int(firstFrameAt - subscribedAt))
+        samples.record(mPubToFrame, Int(firstFrameAt - publishStart))
+
+        return frameFeeder
+    } catch {
+        frameFeeder.cancel()
+        throw error
     }
 }
 

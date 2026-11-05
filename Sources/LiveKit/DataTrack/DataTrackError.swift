@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// An error raised while publishing a ``LocalDataTrack``.
 public enum DataTrackPublishError: Error, Sendable {

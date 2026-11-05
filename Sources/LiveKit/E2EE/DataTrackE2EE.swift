@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
 internal import LiveKitWebRTC
+import Foundation
 
 // MARK: - Data Track Cryptor
 

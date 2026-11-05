@@ -22,8 +22,13 @@ public class RegionInfo: NSObject, @unchecked Sendable {
     let url: URL
     let distance: Int64
 
+    /// Fails when `url` does not parse or names somewhere the SDK must not fail over to.
+    ///
+    /// The check lives here, at the single point every region is constructed, so that both
+    /// ingestion paths — the `/settings/regions` fetch and server-reported settings — are covered,
+    /// and so a future third path cannot miss it. See ``Foundation/URL/isTrustedRegionURL``.
     init?(region: String, url: String, distance: Int64) {
-        guard let url = URL(string: url) else { return nil }
+        guard let url = URL(string: url), url.isTrustedRegionURL else { return nil }
         regionId = region
         self.url = url
         self.distance = distance

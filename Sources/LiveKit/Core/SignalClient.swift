@@ -16,9 +16,8 @@
 
 // swiftlint:disable file_length
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 actor SignalClient: Loggable {
     // MARK: - Types
@@ -142,6 +141,22 @@ actor SignalClient: Loggable {
                 _delegate.notifyDetached { await $0.signalClient(self, didUpdateConnectionState: newState.connectionState, oldState: oldState.connectionState, disconnectError: self.disconnectError) }
             }
         }
+    }
+
+    /// Creates a signaling client with injected request capture and response synchronization for tests.
+    init(testingResponse: Livekit_SignalResponse,
+         requestProcessor: @escaping QueueActor<Livekit_SignalRequest>.OnProcess,
+         responseProcessed: @escaping @Sendable () async -> Void) async throws
+    {
+        self.init()
+        _requestQueue = QueueActor(onProcess: requestProcessor)
+        _responseQueue = QueueActor { [weak self] element in
+            guard let self else { return }
+            await _process(element.response, encoded: element.encoded)
+            await responseProcessed()
+        }
+        let encoded = try testingResponse.serializedData()
+        await _responseQueue.processIfResumed((response: testingResponse, encoded: encoded))
     }
 
     @discardableResult
@@ -530,8 +545,8 @@ private extension SignalClient {
 
 extension SignalClient {
     func resumeQueues() async {
-        await _responseQueue.resume()
         await _requestQueue.resume()
+        await _responseQueue.resume()
     }
 
     /// Whether `response` passes the gate armed by `cleanUp()`; a Join/ReconnectResponse opens it.

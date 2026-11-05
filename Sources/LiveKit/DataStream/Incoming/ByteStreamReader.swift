@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
+import Foundation
 
 /// An asynchronous sequence of chunks read from a byte data stream.
 ///
@@ -114,13 +113,27 @@ extension ByteStreamReader {
     ///   - directory: The directory to write the file in. The system temporary directory is used if not specified.
     ///   - nameOverride: The name to use for the written file. If not specified, file name and extension will be automatically
     ///                   inferred from the stream information.
+    /// The destination is created exclusively: if anything already exists at that path the write
+    /// fails and the existing file is left untouched, rather than being replaced. A symlink at the
+    /// path is not followed. The sender chooses the name, so replacing whatever happens to sit
+    /// there is not a safe default; pass `nameOverride`, or a directory you control, to write to a
+    /// specific destination.
+    ///
+    /// A transfer that fails or is cancelled part-way leaves the partial file behind. Because the
+    /// destination is created exclusively, retrying with the same name then fails with
+    /// ``StreamError/io(reason:)`` — remove the partial file, or retry under a different name.
+    ///
     /// - Returns: The URL of the written file on disk.
-    /// - Throws: ``StreamError/notDirectory`` if `directory` is not a directory.
+    /// - Throws: ``StreamError/notDirectory`` if `directory` is not a directory. Note this checks
+    ///   the URL's shape, not that the directory exists.
     ///   ``StreamError/invalidFileName`` if the file name is not a single plain path component,
     ///   for example one that contains `/`, `\` or NUL, or is `..`. The sender chooses the name in
-    ///   the stream information, so this check keeps the file inside `directory`. Another
-    ///   ``StreamError`` if reading the stream fails. `CancellationError` at once if the calling task
-    ///   is cancelled; the file then holds what was written so far.
+    ///   the stream information, so this check keeps the file inside `directory`.
+    ///   ``StreamError/io(reason:)`` if the destination cannot be created — because something is
+    ///   already there, or because `directory` does not exist, or for any other `open` failure.
+    ///   Another ``StreamError`` if reading the stream fails. `CancellationError` if the calling
+    ///   task is cancelled while reading. Cancelling the read closes the stream, so a later read
+    ///   throws ``StreamError/alreadyClosed``. The file holds what was written so far.
     ///
     public func writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
@@ -140,12 +153,31 @@ extension ByteStreamReader {
         }
         let fileURL = directory.appendingPathComponent(fileName)
 
-        let writer = try AsyncFileStream(writingTo: fileURL)
+        // Created exclusively: the sender chooses the name, so an existing file must not be
+        // truncated and a symlink at that path must not be followed out of `directory`.
+        let writer: AsyncFileStream<WriteMode>
+        do {
+            writer = try AsyncFileStream(creatingNewAt: fileURL)
+        } catch let AsyncFileStream<WriteMode>.Error.openFailed(code) {
+            // Every open failure becomes `.io`, not just `EEXIST`. `AsyncFileStream.Error` is
+            // internal, so letting it out of this public API hands the caller an error they
+            // cannot name or match — `directory` only has to *look* like a directory to reach
+            // here, so a path that does not exist arrives as `ENOENT`.
+            throw StreamError.io(reason: Self.openFailureReason(code, at: fileURL))
+        }
         defer { writer.close() }
         for try await chunk in self {
             try await writer.write(chunk)
         }
         return fileURL
+    }
+
+    /// Describes a failed `open` for ``StreamError/io(reason:)``.
+    private static func openFailureReason(_ code: Int32, at url: URL) -> String {
+        if code == EEXIST {
+            return "A file already exists at \(url.path)"
+        }
+        return "Could not open \(url.path): \(String(cString: strerror(code)))"
     }
 
     /// Resolves the filename used when writing the stream to disk.
@@ -184,9 +216,9 @@ extension ByteStreamReader {
 
 // MARK: - Objective-C compatibility
 
+@available(*, deprecated, message: "Use for/await on ByteStreamReader reader instead.")
 public extension ByteStreamReader {
     @objc
-    @available(*, deprecated, message: "Use for/await on ByteStreamReader reader instead.")
     func readChunks(onChunk: @Sendable @escaping (Data) -> Void, onCompletion: (@Sendable (Error?) -> Void)?) {
         Task {
             do {

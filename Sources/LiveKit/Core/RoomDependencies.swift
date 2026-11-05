@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitFFI
 internal import LiveKitWebRTC
+import Foundation
 
 // MARK: - Idle dependencies
 
@@ -345,7 +344,9 @@ extension DependencyStage {
     var join: JoinDependencies? {
         if case let .connected(join) = self {
             join
-        } else { nil }
+        } else {
+            nil
+        }
     }
 
     // MARK: - Transitions (the only paths on which stage payloads are staged or retired)

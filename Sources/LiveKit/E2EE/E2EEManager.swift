@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 import Combine
 import Foundation
-
-internal import LiveKitWebRTC
 
 @objcMembers
 public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Loggable {
@@ -276,7 +275,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         }
     }
 
-    private func addDataChannelCryptor() {
+    func addDataChannelCryptor() {
         _state.mutate {
             $0.dataCryptor = LKRTCDataPacketCryptor(algorithm: .aesGcm, keyProvider: keyProvider.rtcKeyProvider)
         }
