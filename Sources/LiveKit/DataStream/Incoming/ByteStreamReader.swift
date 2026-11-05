@@ -52,7 +52,7 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     ///
     /// - Returns: The data consisting of all concatenated chunks.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream, or
-    ///   `CancellationError` at once if the calling task is cancelled. The cancel ends the stream,
+    ///   `CancellationError` after closing the stream if the calling task is cancelled,
     ///   so a later read throws ``StreamError/alreadyClosed``.
     ///
     public func readAll() async throws -> Data {

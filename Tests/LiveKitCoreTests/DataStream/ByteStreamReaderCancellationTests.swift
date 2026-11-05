@@ -22,13 +22,12 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-/// Cancelling a read, a file write or a progress observation. A cancelled read returns at once with
-/// `CancellationError` and closes the core reader, which ends the stream. The stand-in core readers
-/// report when a read or a progress wait is pending in them, so a cancel can hit one that is really
-/// waiting there.
+/// Cancelling a read, a file write or a progress observation. A cancelled read closes the core reader
+/// before throwing `CancellationError`. The stand-ins signal entry into reads/progress waits; native
+/// polling can still race with cancellation.
 extension ByteStreamReaderTests {
     /// A cancelled read ends the stream, as a v1 reader's cancel did: the read throws
-    /// `CancellationError` at once, the stream is no longer open although the sender sent nothing
+    /// `CancellationError`, the stream is no longer open although the sender sent nothing
     /// more, and a later read throws `.alreadyClosed`. The cancel hits a read that waits in the core,
     /// or a task that was cancelled before its read started.
     @Test(arguments: Kind.allCases, CancelledRead.all)
@@ -46,7 +45,7 @@ extension ByteStreamReaderTests {
         }
         if cancelled.whileWaiting {
             try await capture.signals.readEntered.wait()
-            read.cancel()
+            try await within("Read cancel returned") { read.cancel() }
         }
         let error = try await within("Cancelled read") { await read.result.failure }
         #expect(error is CancellationError)
@@ -56,7 +55,7 @@ extension ByteStreamReaderTests {
         await #expect(throws: StreamError.alreadyClosed) { try await reader.readAll() }
     }
 
-    /// The copy runs in the caller's task, so a cancel ends `writeToFile` at once and the file stops
+    /// The copy runs in the caller's task, so cancellation ends `writeToFile` and the file stops
     /// growing, rather than an unstructured task finishing the file in the background.
     @Test func cancellingWriteToFileStops() async throws {
         let (reader, manager) = try await openReader(chunks: [testChunks[0]], trailerReason: nil)
@@ -77,7 +76,7 @@ extension ByteStreamReaderTests {
         try await poll(for: "the first chunk on disk") {
             (try? Data(contentsOf: fileURL))?.count == testChunks[0].count
         }
-        write.cancel()
+        try await within("File write cancel returned") { write.cancel() }
 
         #expect(try await returned.wait() is CancellationError)
         #expect(try Data(contentsOf: fileURL) == testChunks[0])
@@ -379,7 +378,7 @@ extension ByteStreamReaderTests {
     }
 
     /// Runs `body` in its own task and waits at most 5 s for it, however `body` treats cancellation.
-    private func within<T: Sendable>(_ label: String, _ body: @escaping @Sendable () async throws -> T) async throws -> T {
+    func within<T: Sendable>(_ label: String, _ body: @escaping @Sendable () async throws -> T) async throws -> T {
         let result = AsyncCompleter<T>(label: label, defaultTimeout: 5)
         Task {
             do {
