@@ -264,14 +264,13 @@ so it needs no `try` and emits no error path), and a shared `_empty` per
 message instead of allocating a throwaway value for an absent submessage —
 their zone-sentinel trick, sound here only because messages are immutable.
 
-Reachable improvements once the floor moves:
+Reachable improvements:
 
 - `Span`/`RawSpan` borrows hand a closure a bounds-checked view instead of a
-  raw pointer, and back-deploy to iOS 12.2, so only the compiler floor gates
-  them. A `withLkSpan` was built behind `#if compiler(>=6.2)` and removed once
-  measured to be dead — the shape is recorded in the *Borrowing primitives*
-  comment at the end of `NanopbAccessors.swift`, to re-add if a hot path ever
-  needs one.
+  raw pointer, and back-deploy to iOS 12.2. A `withLkSpan` was built and
+  removed once measured to be dead — the shape is recorded in the *Borrowing
+  primitives* comment at the end of `NanopbAccessors.swift`, to re-add if a
+  hot path ever needs one.
 - Making views `~Escapable` with `@_lifetime` would turn "stored a view and
   pinned the parent allocation" from a memory-growth bug into a compile error.
   Apple's port does exactly this for its `Zone` projection, but it needs

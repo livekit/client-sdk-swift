@@ -22,20 +22,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
-          - os: macos-15
-            xcode: 16.4
-            platform: "iOS Simulator,name=iPhone 16 Pro,OS=18.5"
-          - os: macos-15
-            xcode: 16.4
-            platform: "macOS"
-          - os: macos-15
-            xcode: 16.4
-            platform: "macOS,variant=Mac Catalyst"
-          - os: macos-15
-            xcode: 16.4
-            platform: "tvOS Simulator,name=Apple TV,OS=18.5"
-
           # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
           - os: macos-26
             xcode: 26.6
@@ -71,7 +57,7 @@ jobs:
             xcode: 26.6
             platform: "tvOS Simulator,name=Apple TV,OS=26.5"
 
-          # https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-Readme.md
+          # https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md
           - os: xcode-27
             xcode: latest
             platform: "macOS"
@@ -225,6 +211,33 @@ jobs:
           name: symbol-graph-${{ matrix.platform }}
           path: symbol-graph
           retention-days: 1
+  # The package lists both language modes and xcodebuild compiles the newest, so no other job
+  # builds the SDK in Swift 5 mode. Restricting the manifest to Swift 5 keeps the dependencies
+  # in their own language modes, which a global SWIFT_VERSION override would not.
+  build-swift5:
+    name: Build (Swift 5 mode)
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+
+      - name: Build
+        run: |
+          sed -i '' 's/swiftLanguageModes: \[.v5, .v6\]/swiftLanguageModes: [.v5]/' Package.swift
+          grep -q 'swiftLanguageModes: \[.v5\]' Package.swift
+          set -o pipefail && xcodebuild build \
+            -scheme LiveKit \
+            -destination 'platform=macOS' \
+            | tee "$RUNNER_TEMP/xcodebuild.log" \
+            | xcbeautify --renderer github-actions
+          for module in LiveKit LiveKitNanopb; do
+            grep -- '-swift-version 5 ' "$RUNNER_TEMP/xcodebuild.log" | grep -q -E -- "-module-name $module( |$)" || { echo "::error::$module was not compiled in Swift 5 mode"; exit 1; }
+          done
+
   lint:
     name: Lint
     runs-on: macos-26
