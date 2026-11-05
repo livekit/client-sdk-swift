@@ -72,7 +72,7 @@ jobs:
           - os: xcode-27
             xcode: latest
             platform: "macOS"
-            swift-language-mode: "5.0"
+            swift-language-mode: "5"
           - os: xcode-27
             xcode: latest
             platform: "macOS,variant=Mac Catalyst"
@@ -179,14 +179,16 @@ jobs:
             | tee "$RUNNER_TEMP/xcodebuild.log" \
             | xcbeautify --renderer github-actions
 
-      # Xcode passes the major version to the compiler. grep -c reads to the end, so a closed
-      # pipe cannot fail the check the way grep -q would.
-      - name: Check Swift 5 Mode
-        if: matrix.swift-language-mode == '5.0'
+      # The SDK modules must carry the expected -swift-version on their driver lines: the override
+      # on the Swift 5 row, the package's newest mode everywhere else. grep -c reads to the end, so
+      # a closed pipe cannot fail the check the way grep -q would.
+      - name: Check Swift Language Mode
+        env:
+          EXPECTED: ${{ matrix.swift-language-mode || '6' }}
         run: |
           for module in LiveKit LiveKitNanopb; do
-            grep -- '-swift-version 5 ' "$RUNNER_TEMP/xcodebuild.log" | grep -c -E -- "-module-name $module( |$)" > /dev/null \
-              || { echo "::error::$module was not compiled in Swift 5 mode"; exit 1; }
+            grep -- "-swift-version $EXPECTED " "$RUNNER_TEMP/xcodebuild.log" | grep -c -E -- "-module-name $module( |$)" > /dev/null \
+              || { echo "::error::$module was not compiled in Swift $EXPECTED mode"; exit 1; }
           done
 
       # xcbeautify's github-actions renderer collapses a parameterized Swift Testing

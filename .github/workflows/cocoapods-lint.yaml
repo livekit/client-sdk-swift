@@ -17,7 +17,7 @@ jobs:
       matrix:
         include:
           - os: macos-26
-            xcode: 26.5
+            xcode: 26.6
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
