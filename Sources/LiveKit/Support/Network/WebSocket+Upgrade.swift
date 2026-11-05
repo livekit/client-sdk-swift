@@ -213,6 +213,21 @@ extension WebSocket {
         return nil
     }
 
+    /// Network.framework's errors in the shapes the SDK reads elsewhere (`isNetworkError`, `asTransportError`):
+    /// cancellation and timeouts as `URLError`, any other POSIX code as an `NSPOSIXErrorDomain` error.
+    static func bridged(_ error: NWError) -> Error {
+        switch error {
+        case .posix(.ECANCELED):
+            URLError(.cancelled)
+        case .posix(.ETIMEDOUT):
+            URLError(.timedOut)
+        case let .posix(code):
+            NSError(domain: NSPOSIXErrorDomain, code: Int(code.rawValue))
+        default:
+            error
+        }
+    }
+
     private static func badUpgradeResponse(_ reason: String) -> LiveKitError {
         LiveKitError(.network, message: "WebSocket upgrade response: \(reason)", internalError: URLError(.badServerResponse))
     }
