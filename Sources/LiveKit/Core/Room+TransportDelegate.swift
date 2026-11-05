@@ -86,6 +86,14 @@ extension Room: TransportDelegate {
 
         guard transport.target == _state.transport?.subscriber.target else { return }
 
+        // Single PC mode resolves received media by `mid` instead; see `attachReceivedMedia`.
+        // Both paths end in `addSubscribedMediaTrack`, which is not idempotent — it builds a new
+        // track, replaces the publication's, and announces the subscription again — so a section
+        // the server binds in the same negotiation that creates it would attach twice: once here
+        // and once from the scan. `TransportMode.subscriber` is the publisher in single PC mode,
+        // so the target check above does not exclude it.
+        guard !transport.singlePCMode else { return }
+
         // execute block when connected
         execute(when: { state, _ in state.connectionState == .connected },
                 // always remove this block when disconnected
