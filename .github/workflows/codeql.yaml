@@ -48,6 +48,12 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      # The xcode-27 image ships without Rosetta, and CodeQL's Swift tracer needs it: SwiftPM then
+      # fails to spawn the manifest sandbox with "Bad CPU type in executable".
+      - name: Install Rosetta
+        if: matrix.language == 'swift'
+        run: sudo softwareupdate --install-rosetta --agree-to-license
+
       - name: Install swiftly
         if: matrix.language == 'swift'
         run: brew install swiftly && swiftly init --quiet-shell-followup --skip-install -y
