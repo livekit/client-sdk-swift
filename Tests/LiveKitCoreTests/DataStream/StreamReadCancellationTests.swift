@@ -58,6 +58,7 @@ extension ByteStreamReaderTests {
 
     /// A manager wake can compete with the reader's close notification on the UniFFI scheduler.
     /// Bound cancellation itself independently, before joining either synchronous native call.
+    /// Abort may finish the read before cancellation, with its exact mapped connection error.
     @Test(arguments: Kind.allCases, [false, true])
     func managerWakeRacesReadCancellation(_ kind: Kind, readAll: Bool) async throws {
         for _ in 0 ..< 100 {
@@ -79,10 +80,16 @@ extension ByteStreamReaderTests {
                 }
             }
             let result = try await within("Racing cancelled read returned") { await read.result }
-            #expect(throws: CancellationError.self) { try result.get() }
+            #expect {
+                try result.get()
+            } throws: {
+                $0 is CancellationError || ($0 as? StreamError) == .abnormalEnd(reason: "Data stream connection closed")
+            }
             let open = await manager.openStreamCount()
             #expect(open == 0)
-            await #expect(throws: StreamError.alreadyClosed) { try await reader.readAll() }
+            if case let .failure(error) = result, error is CancellationError {
+                await #expect(throws: StreamError.alreadyClosed) { try await reader.readAll() }
+            }
         }
     }
 }
