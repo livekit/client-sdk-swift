@@ -239,6 +239,9 @@ private struct Core: Sendable {
         lifecycle.mutate { $0.compressor = deflater }
     }
 
+    /// Compresses and writes `data` while the socket is open, under the lock that our close frame is written under, so
+    /// that frames keep the deflate context's order and none follows our close frame. Holding the lock is safe:
+    /// `connection.send` only queues, and its completion runs later on the connection's queue. False once closing.
     func send(_ data: Data, completion: @escaping @Sendable (NWError?) -> Void) throws -> Bool {
         try lifecycle.mutate { state in
             guard state.phase == .open else { return false }
