@@ -29,7 +29,8 @@ extension WebSocket {
 
     /// What the connection does after a read, besides handing out frames.
     struct Reply {
-        var pongs: [Data] = []
+        /// The payload of the latest ping, which alone needs an answer (RFC 6455 §5.5.3).
+        var pong: Data?
         /// The code of our close frame: the server's own, to answer its close frame, or ours for a stream that broke the
         /// protocol. The connection goes once it is written.
         var closeCode: UInt16?
@@ -155,7 +156,7 @@ extension WebSocket {
                 frames.append(.message(message))
                 unreadBytes += Self.size(of: .message(message))
             case let .ping(payload):
-                reply.pongs.append(payload)
+                reply.pong = payload
             case .pong:
                 break
             case let .close(code):

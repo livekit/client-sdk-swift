@@ -232,6 +232,8 @@ private struct Lifecycle {
     enum Phase { case open, closing, closed }
     var phase: Phase = .open
     var compressor: WebSocketCompression.Codec?
+    var pongInFlight = false
+    var nextPong: Data?
 }
 
 /// The connection, and what reads, writes and ends it: shared by the socket, its iterators and the callbacks.
@@ -310,17 +312,6 @@ private struct Core: Sendable {
         onEvent?(.teardown(cause))
     }
 
-    /// Writes `frame` while the socket is open, under the lock that our close frame is written under, so that no
-    /// frame follows it. False once the socket is closing.
-    @discardableResult
-    func write(_ frame: Data, completion: @escaping @Sendable (NWError?) -> Void = { _ in }) -> Bool {
-        lifecycle.read { state in
-            guard state.phase == .open else { return false }
-            connection.send(content: frame, completion: .contentProcessed(completion))
-            return true
-        }
-    }
-
     func read() async -> WebSocket.Frame {
         await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<WebSocket.Frame, Never>) in
@@ -360,14 +351,26 @@ private struct Core: Sendable {
             let paused = !readOn && !inbox.receiving && !inbox.done && inbox.unread >= WebSocket.readAhead
             return (reply, handed, readOn, paused ? inbox.unread : nil)
         }
-        for payload in reply.pongs {
-            write(WebSocketFrame.client(opcode: WebSocketFrame.pong, payload))
-        }
+        if let payload = reply.pong { pong(payload) }
         if let code = reply.closeCode { answer(code) } else if reply.failed { finish() }
         for (reader, frame) in handed {
             reader.resume(returning: frame)
         }
         if readOn { receiveNext() } else if let paused { onEvent?(.readAheadFull(unread: paused)) }
+    }
+
+    /// Answers the latest ping with one pong in flight at most: pings that arrive meanwhile leave only the latest to answer.
+    /// Written under the lock that our close frame is written under, so that no pong follows it.
+    private func pong(_ payload: Data? = nil, written: Bool = false) {
+        lifecycle.mutate { state in
+            if written { state.pongInFlight = false }
+            if let payload { state.nextPong = payload }
+            guard state.phase == .open, !state.pongInFlight, let next = state.nextPong else { return }
+            state.nextPong = nil
+            state.pongInFlight = true
+            connection.send(content: WebSocketFrame.client(opcode: WebSocketFrame.pong, next),
+                            completion: .contentProcessed { _ in pong(written: true) })
+        }
     }
 
     /// The stream ended with a close frame from the server, or broke the protocol. The server's close frame ends the
