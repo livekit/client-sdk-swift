@@ -483,6 +483,7 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
+            await _addTrackCompleters.reset(throwing: LiveKitError.from(reason: leave.reason))
             try? await _delegate.notifyAsync {
                 await $0.signalClient(self,
                                       didReceiveLeave: leave.action,

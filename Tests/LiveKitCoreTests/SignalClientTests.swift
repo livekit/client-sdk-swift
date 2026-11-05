@@ -67,6 +67,43 @@ struct SignalClientTests {
         #expect(recorder.events.copy() == [.leave(awaited: true), .disconnected(.participantRemoved)])
     }
 
+    /// A delegate callback holds the serial runner while it waits for a track the server will not publish, as a dynacast
+    /// codec publish does: the leave behind it fails that wait at once, rather than at the publish timeout, so the
+    /// participant leaves without delay and with the server's reason.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), .tags(.networking))
+    func leaveFailsAPublicationThatHoldsTheDelegate() async throws {
+        let leave = try Livekit_SignalResponse.with {
+            $0.leave = .with {
+                $0.action = .disconnect
+                $0.reason = .participantRemoved
+            }
+        }.serializedData()
+        let server = try FakeWebSocketServer(.frames(FakeWebSocketServer.binary([leave]) + FakeWebSocketServer.close(1000)))
+        defer { server.cancel() }
+        let client = SignalClient()
+        let recorder = LeaveRecorder(client: client)
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10,
+                                                 onEvent: recorder.socketEvents.record)
+        await client._delegate.set(delegate: recorder)
+        await client.installMessageLoopForTest(socket, recorder: recorder)
+        await client.resumeQueues()
+
+        let published = AsyncCompleter<Void>(label: "addTrack", defaultTimeout: 5)
+        await client._delegate.notifyDetached { _ in
+            do {
+                _ = try await client.sendAddTrack(cid: "TR_pending", name: "camera", type: .video) { _ in }
+                published.resume(returning: ())
+            } catch {
+                published.resume(throwing: error)
+            }
+        }
+
+        let error = await #expect(throws: LiveKitError.self) { try await published.wait() }
+        #expect(error?.type == .participantRemoved)
+        try await recorder.disconnected.wait()
+        #expect(recorder.events.copy() == [.leave(awaited: true), .disconnected(.participantRemoved)])
+    }
+
     enum QueuedResponse: CaseIterable {
         case offer
         case answer
