@@ -19,7 +19,7 @@ permissions:
 jobs:
   symbol-graph:
     name: Symbol Graph (${{ matrix.artifact_name }})
-    runs-on: macos-26
+    runs-on: xcode-27
     strategy:
       matrix:
         include:
@@ -60,7 +60,7 @@ jobs:
   publish:
     name: Publish Docs
     needs: symbol-graph
-    runs-on: macos-26
+    runs-on: xcode-27
     steps:
       - name: Checkout
         uses: actions/checkout@v7

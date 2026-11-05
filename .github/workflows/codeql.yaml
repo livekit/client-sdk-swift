@@ -28,9 +28,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Standard macos-26 is too slow under CodeQL's Swift extractor.
+          # The standard runner is too slow under CodeQL's Swift extractor.
           - language: swift
-            os: macos-26-xlarge
+            os: xcode-27-xlarge
             build-mode: manual
           - language: actions
             os: ubuntu-latest
