@@ -40,32 +40,25 @@ public final class SoundPlayer: Loggable {
 
     let engine = AVAudioEngine()
     let playerNodePool: AVAudioPlayerNodePool
-    let notificationCenter: NotificationCenter
-    var engineConfigurationObserver: NSObjectProtocol?
+    private var engineConfigurationObserver: EngineConfigurationObserver?
 
     var sounds: [UUID: PreparedSound] = [:]
     var soundIdsByName: [String: UUID] = [:]
     var localEngineState = LocalEngineState()
 
     init(poolSize: Int = 10, notificationCenter: NotificationCenter = .default) {
-        self.notificationCenter = notificationCenter
         playerNodePool = AVAudioPlayerNodePool(poolSize: poolSize)
         engine.attach(playerNodePool)
-        engineConfigurationObserver = notificationCenter.addObserver(forName: .AVAudioEngineConfigurationChange,
-                                                                     object: engine,
-                                                                     queue: nil)
+        let token = notificationCenter.addObserver(forName: .AVAudioEngineConfigurationChange,
+                                                   object: engine,
+                                                   queue: nil)
         { [weak self] _ in
             guard let self else { return }
             Task {
                 await self.handleEngineConfigurationChange()
             }
         }
-    }
-
-    deinit {
-        if let engineConfigurationObserver {
-            notificationCenter.removeObserver(engineConfigurationObserver)
-        }
+        engineConfigurationObserver = EngineConfigurationObserver(notificationCenter: notificationCenter, token: token)
     }
 
     /// Decodes and caches audio, returning a handle for playback and release.
@@ -125,6 +118,20 @@ public final class SoundPlayer: Loggable {
         for sound in sounds.values {
             await sound.stop(destination: destination)
         }
+    }
+}
+
+private final class EngineConfigurationObserver {
+    let notificationCenter: NotificationCenter
+    let token: NSObjectProtocol
+
+    init(notificationCenter: NotificationCenter, token: NSObjectProtocol) {
+        self.notificationCenter = notificationCenter
+        self.token = token
+    }
+
+    deinit {
+        notificationCenter.removeObserver(token)
     }
 }
 

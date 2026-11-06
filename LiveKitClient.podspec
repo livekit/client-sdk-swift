@@ -9,7 +9,7 @@ Pod::Spec.new do |spec|
   spec.ios.deployment_target = "13.0"
   spec.osx.deployment_target = "10.15"
 
-  spec.swift_versions = ["5.9"]
+  spec.swift_versions = ["6.0"]
   spec.source = {:git => "https://github.com/livekit/client-sdk-swift.git", :tag => spec.version.to_s}
 
   spec.source_files = "Sources/**/*"
@@ -19,7 +19,7 @@ Pod::Spec.new do |spec|
   spec.pod_target_xcconfig = {"SWIFT_PACKAGE_NAME" => "livekit_client_sdk_swift"}
 
   spec.dependency("LiveKitWebRTC", "= 150.7871.05")
-  spec.dependency("LiveKitFFI", "= 0.13.1")
+  spec.dependency("LiveKitFFI", "= 0.13.5")
 
   spec.resource_bundles = {"Privacy" => ["Sources/LiveKit/PrivacyInfo.xcprivacy"]}
 end
