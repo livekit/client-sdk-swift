@@ -19,7 +19,7 @@ import Foundation
 
 private final class DefaultVideoEncoderFactory: LKRTCDefaultVideoEncoderFactory, @unchecked Sendable {}
 
-private final class VideoDecoderFactory: LKRTCDefaultVideoDecoderFactory, @unchecked Sendable {}
+private final class DefaultVideoDecoderFactory: LKRTCDefaultVideoDecoderFactory, @unchecked Sendable {}
 
 private final class VideoEncoderFactorySimulcast: LKRTCVideoEncoderFactorySimulcast, @unchecked Sendable {}
 
@@ -146,6 +146,9 @@ extension RTC {
         // Kept separate from `isInitialized`, which audio configuration guards read
         // to mean the peer connection factory and its audio module exist.
         var isEncoderFactoryInitialized: Bool = false
+        var isDecoderFactoryInitialized: Bool = false
+        var customVideoDecoderFactory: (any VideoDecoderFactory)?
+        var customVideoDecoderCodecs: [VideoCodecInfo] = []
         var admType: AudioDeviceModuleType = .audioEngine
         var bypassVoiceProcessing: Bool = false
         var customVideoEncoderFactory: (any VideoEncoderFactory)?
@@ -182,7 +185,17 @@ extension RTC {
         return VideoEncoderFactorySimulcast(primary: adapter, fallback: DefaultVideoEncoderFactory())
     }()
 
-    static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = VideoDecoderFactory()
+    static let decoderFactory: LKRTCVideoDecoderFactory & Sendable = {
+        let (customFactory, customCodecs) = pcFactoryState.mutate {
+            $0.isDecoderFactoryInitialized = true
+            return ($0.customVideoDecoderFactory, $0.customVideoDecoderCodecs)
+        }
+        let defaultFactory = DefaultVideoDecoderFactory()
+        guard let customFactory else { return defaultFactory }
+        return VideoDecoderFactoryAdapter(factory: customFactory,
+                                          supportedCodecs: customCodecs,
+                                          fallback: defaultFactory)
+    }()
 
     static let audioProcessingModule: LKRTCDefaultAudioProcessingModule = .init()
 
