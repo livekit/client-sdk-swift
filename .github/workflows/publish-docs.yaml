@@ -19,11 +19,11 @@ permissions:
 jobs:
   symbol-graph:
     name: Symbol Graph (${{ matrix.artifact_name }})
-    runs-on: macos-26
+    runs-on: xcode-27
     strategy:
       matrix:
         include:
-          - platform: "iOS Simulator,name=iPhone 17 Pro,OS=26.5"
+          - platform: "iOS Simulator,name=iPhone 18 Pro,OS=27.0"
             artifact_name: symbol-graph-ios
           - platform: "macOS"
             artifact_name: symbol-graph-macos
@@ -60,7 +60,7 @@ jobs:
   publish:
     name: Publish Docs
     needs: symbol-graph
-    runs-on: macos-26
+    runs-on: xcode-27
     steps:
       - name: Checkout
         uses: actions/checkout@v7

@@ -33,7 +33,7 @@ struct RpcTests {
         _ block: @escaping (
             _ responder: Room,
             _ caller: Room,
-            _ responderIdentity: Participant.Identity
+            _ responderIdentity: Participant.Identity,
         ) async throws -> Void,
     ) async throws {
         try await TestEnvironment.withRooms([responderOptions, callerOptions]) { rooms in

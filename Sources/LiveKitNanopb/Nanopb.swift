@@ -130,7 +130,8 @@ package final class NanopbBox<Storage>: NanopbAnyBox, @unchecked Sendable {
 /// the builder so nothing can write to storage after it is published.
 ///
 /// `_pointer` is *stored*, not computed off `_box`: as a computed property it
-/// crashes the Swift 6.1 SIL verifier (fine from 6.2), and 6.1 is the floor.
+/// crashed the Swift 6.1 SIL verifier (fine from 6.2). Swift 6.2 is now the
+/// floor; keep the storage workaround pending separate analysis.
 package struct NanopbBuilder<S: NanopbStorage>: ~Copyable {
     package let _box: NanopbBox<S>
     package let _pointer: UnsafeMutablePointer<S>
