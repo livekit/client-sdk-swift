@@ -238,15 +238,14 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     }
 
     func sendFile(_ fileURL: URL, options: StreamByteOptions, onProgress: (@Sendable (StreamProgress) -> Void)? = nil) async throws -> ByteStreamInfo {
-        // The FFI reads the file's bytes but doesn't infer its metadata, so resolve name/MIME/size
-        // from disk here (matching the previous implementation) unless the caller set them.
+        // Supply the name/MIME defaults from disk unless the caller set them. The core derives
+        // the file's size itself.
         guard let fileInfo = FileInfo(for: fileURL) else {
             throw StreamError.fileInfoUnavailable
         }
         var ffiOptions = options.ffi
         ffiOptions.mimeType = options.mimeType ?? fileInfo.mimeType
         ffiOptions.name = options.name ?? fileInfo.name
-        ffiOptions.totalLength = UInt64(fileInfo.size)
         ffiOptions.progress = onProgress.map(ProgressDelegate.init)
         return try await ByteStreamInfo(calling { [ffiOptions] in try await $0.sendFile(path: fileURL.path, options: ffiOptions) }, encryptionType: currentEncryptionType)
     }

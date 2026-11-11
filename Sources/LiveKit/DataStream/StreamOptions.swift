@@ -139,7 +139,7 @@ public final class StreamTextOptions: NSObject, StreamOptions {
     /// ObjC-compatible initializer that accepts `NSNumber?` for `totalSize`.
     ///
     /// Required because `Int?` does not auto-bridge to ObjC.
-    @available(*, deprecated, message: "Use init(topic:attributes:destinationIdentities:id:operationType:version:attachedStreamIDs:replyToStreamID:generated:compress:senderIdentity:totalSize:) instead.")
+    @available(swift, deprecated: 1, message: "Use init(topic:attributes:destinationIdentities:id:operationType:version:attachedStreamIDs:replyToStreamID:generated:compress:senderIdentity:totalSize:) instead.")
     public convenience init(
         topic: String,
         attributes: [String: String],
@@ -244,7 +244,8 @@ public final class StreamByteOptions: NSObject, StreamOptions {
     /// The name of the file being sent.
     public let name: String?
 
-    /// Total expected size in bytes, if known.
+    /// Total expected size in bytes for an incremental `streamBytes` stream, if known.
+    /// One-shot `sendBytes` and `sendFile` ignore this value and derive their payload sizes.
     ///
     /// - Note: A negative value is treated as `nil` — the size is simply not declared, rather than
     ///   trapping on the conversion to the wire's unsigned length.

@@ -59,6 +59,7 @@ public final class TextStreamWriter: NSObject, Sendable {
     ///   ``StreamError`` if the end of the stream cannot be delivered. `CancellationError` at once
     ///   if the calling task is cancelled, but the stream can still close.
     ///
+    /// Retains the existing Swift symbol and Objective-C selector for binary compatibility.
     public func close(reason: String? = nil) async throws {
         try await close(reason: reason, attributes: [:])
     }

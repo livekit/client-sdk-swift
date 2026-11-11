@@ -42,6 +42,7 @@ public extension LocalParticipant {
     /// - SeeAlso: ``sendText(_:for:)``
     ///
     @discardableResult
+    // Retain the existing Swift symbol and Objective-C selector for binary compatibility.
     final func sendText(_ text: String, options: StreamTextOptions) async throws -> TextStreamInfo {
         try await sendText(text, options: options, onProgress: nil)
     }
@@ -121,6 +122,7 @@ public extension LocalParticipant {
     /// - SeeAlso: ``sendBytes(_:for:)``
     ///
     @discardableResult
+    // Retain the existing Swift symbol and Objective-C selector for binary compatibility.
     final func sendBytes(_ data: Data, options: StreamByteOptions) async throws -> ByteStreamInfo {
         try await sendBytes(data, options: options, onProgress: nil)
     }
@@ -170,6 +172,7 @@ public extension LocalParticipant {
     /// - SeeAlso: ``sendFile(_:for:)``
     ///
     @discardableResult
+    // Retain the existing Swift symbol and Objective-C selector for binary compatibility.
     final func sendFile(_ fileURL: URL, options: StreamByteOptions) async throws -> ByteStreamInfo {
         try await sendFile(fileURL, options: options, onProgress: nil)
     }
@@ -177,7 +180,10 @@ public extension LocalParticipant {
     /// Send a file on disk to participants in the room with custom options, and report the progress
     /// of the send.
     ///
-    /// `onProgress` is called as the file goes out, and last with the whole file.
+    /// For compressed files, `onProgress` counts input bytes consumed by the encoder, so
+    /// intermediate counts can lead output handed to the transport. The whole file is reported
+    /// only after any encoder flush and the final payload chunk is handed to the transport.
+    /// It does not mean the peer has received the file; the stream trailer is sent afterwards.
     ///
     /// ```swift
     /// try await room.localParticipant.sendFile(videoURL, options: StreamByteOptions(topic: "files")) { progress in

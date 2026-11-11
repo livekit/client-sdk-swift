@@ -94,7 +94,8 @@ struct TextStreamReaderTests {
     /// the trailer's, which replace header attributes with the same key.
     @Test func infoShowsTrailerAttributesAfterTheEnd() async throws {
         let (reader, manager) = try await openReader(trailerReason: nil, headerAttributes: ["kept": "header", "replaced": "header"])
-        #expect(reader.info.attributes == ["kept": "header", "replaced": "header"])
+        let snapshot = reader.info
+        #expect(snapshot.attributes == ["kept": "header", "replaced": "header"])
 
         feed(manager) {
             $0.streamTrailer = Livekit_DataStream.Trailer.with {
@@ -104,6 +105,7 @@ struct TextStreamReaderTests {
         }
         _ = try await reader.readAll()
         #expect(reader.info.attributes == ["kept": "header", "replaced": "trailer", "added": "trailer"])
+        #expect(snapshot.attributes == ["kept": "header", "replaced": "header"])
         _ = manager
     }
 

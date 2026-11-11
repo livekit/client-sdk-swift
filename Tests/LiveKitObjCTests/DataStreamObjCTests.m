@@ -474,8 +474,26 @@
     XCTAssertTrue([ByteStreamReader instancesRespondToSelector:@selector(stopReadingProgress)]);
     TextStreamReader *textReader = nil;
     ByteStreamReader *byteReader = nil;
+#pragma clang diagnostic push
+#pragma clang diagnostic error "-Wdeprecated-declarations"
+    StreamTextOptions *options = [[StreamTextOptions alloc] initWithTopic:@"progress"
+                                                             attributes:@{}
+                                                  destinationIdentities:@[]
+                                                                     id:nil
+                                                          operationType:TextStreamInfoOperationTypeCreate
+                                                                version:0
+                                                      attachedStreamIDs:@[]
+                                                        replyToStreamID:nil
+                                                              generated:NO
+                                                               compress:YES
+                                                         senderIdentity:nil
+                                                        totalSizeNumber:@5];
+    XCTAssertNotNil(options);
+    [textReader readProgressOnProgress:^(StreamProgress *progress) {}];
+    [byteReader readProgressOnProgress:^(StreamProgress *progress) {}];
     [textReader stopReadingProgress];
     [byteReader stopReadingProgress];
+#pragma clang diagnostic pop
     XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(bytesProcessed)]);
     XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(bytesTotalNumber)]);
     XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(fractionNumber)]);

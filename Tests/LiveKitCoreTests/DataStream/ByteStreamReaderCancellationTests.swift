@@ -230,27 +230,19 @@ extension ByteStreamReaderTests {
     /// reader, so releasing it releases the reader.
     struct AnyReader: Sendable {
         let readAll: @Sendable () async throws -> Void
+        let readPayload: @Sendable () async throws -> Data
         let iterate: @Sendable () async throws -> Void
         let progress: @Sendable () -> AsyncStream<LiveKit.StreamProgress>
         let readProgress: @Sendable (@escaping @Sendable (LiveKit.StreamProgress) -> Void) -> Void
         let stopReadingProgress: @Sendable () -> Void
     }
 
-    final class CallbackLifetime: Sendable {
-        let released: AsyncCompleter<Void>
-
-        init(released: AsyncCompleter<Void>) {
-            self.released = released
-        }
-
-        deinit {
-            released.resume(returning: ())
-        }
-    }
-
     /// What a stand-in core reader reports: a read that entered it, and a progress wait pending in
     /// it after the first update.
     struct Signals: Sendable {
+        var beforeNext: (@Sendable () async -> Void)?
+        var progressOverride: (@Sendable () async -> LiveKitFFI.StreamProgress?)?
+
         let readEntered = AsyncCompleter<Void>(label: "Read entered the core", defaultTimeout: 5)
         let progressWaiting = AsyncCompleter<Void>(label: "Progress wait pending in the core", defaultTimeout: 5)
         let readerClosed = AsyncCompleter<Void>(label: "Reader closed", defaultTimeout: 5)
@@ -280,11 +272,13 @@ extension ByteStreamReaderTests {
 
         func nextProgress() async -> LiveKitFFI.StreamProgress? {
             signals.progressCalled(progressCalls)
+            if let progress = signals.progressOverride { return await progress() }
             return await inner.nextProgress()
         }
 
         func next() async throws -> Data? {
             signals.readEntered.resume(returning: ())
+            if let beforeNext = signals.beforeNext { await beforeNext() }
             return try await inner.next()
         }
 
@@ -314,11 +308,13 @@ extension ByteStreamReaderTests {
 
         func nextProgress() async -> LiveKitFFI.StreamProgress? {
             signals.progressCalled(progressCalls)
+            if let progress = signals.progressOverride { return await progress() }
             return await inner.nextProgress()
         }
 
         func next() async throws -> String? {
             signals.readEntered.resume(returning: ())
+            if let beforeNext = signals.beforeNext { await beforeNext() }
             return try await inner.next()
         }
 
@@ -331,18 +327,23 @@ extension ByteStreamReaderTests {
     /// Builds the public reader around a signalling core reader, and hands it over once, so the
     /// capture keeps no reference to it.
     final class ReaderCapture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
-        let signals = Signals()
+        let signals: Signals
+
+        init(signals: Signals = Signals()) {
+            self.signals = signals
+        }
+
         let opened = AsyncCompleter<Void>(label: "Stream opened", defaultTimeout: 10)
         private let reader = StateSync<AnyReader?>(nil)
 
         func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
             let stream = LiveKit.ByteStreamReader(SignallingByteReader(reader, signals: signals))
-            hand(AnyReader(readAll: { _ = try await stream.readAll() }, iterate: { for try await _ in stream {} }, progress: { stream.progress }, readProgress: { stream.readProgress(onProgress: $0) }, stopReadingProgress: { stream.stopReadingProgress() }))
+            hand(AnyReader(readAll: { _ = try await stream.readAll() }, readPayload: { try await stream.readAll() }, iterate: { for try await _ in stream {} }, progress: { stream.progress }, readProgress: { stream.readProgress(onProgress: $0) }, stopReadingProgress: { stream.stopReadingProgress() }))
         }
 
         func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
             let stream = LiveKit.TextStreamReader(SignallingTextReader(reader, signals: signals))
-            hand(AnyReader(readAll: { _ = try await stream.readAll() }, iterate: { for try await _ in stream {} }, progress: { stream.progress }, readProgress: { stream.readProgress(onProgress: $0) }, stopReadingProgress: { stream.stopReadingProgress() }))
+            hand(AnyReader(readAll: { _ = try await stream.readAll() }, readPayload: { try await Data(stream.readAll().utf8) }, iterate: { for try await _ in stream {} }, progress: { stream.progress }, readProgress: { stream.readProgress(onProgress: $0) }, stopReadingProgress: { stream.stopReadingProgress() }))
         }
 
         func onStreamClosed(streamId _: String, identity _: String) {}
@@ -363,8 +364,8 @@ extension ByteStreamReaderTests {
 
     /// Opens a stream of `kind` that has only its header, so reads and progress wait in the core.
     /// Returns the capture that holds the reader, and the manager, which the caller must keep alive.
-    func openStalledReader(_ kind: Kind, streamID: String = UUID().uuidString) async throws -> (ReaderCapture, IncomingDataStreamManager) {
-        let capture = ReaderCapture()
+    func openStalledReader(_ kind: Kind, streamID: String = UUID().uuidString, signals: Signals = Signals()) async throws -> (ReaderCapture, IncomingDataStreamManager) {
+        let capture = ReaderCapture(signals: signals)
         let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
         feed(manager) {
             $0.streamHeader = Livekit_DataStream.Header.with {
