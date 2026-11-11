@@ -22,6 +22,10 @@ env:
 jobs:
   build-and-publish:
     name: Build & publish XCFramework
+    # Stays on macos-26: the iOS 13 / macOS 10.15 deployment floor is below Xcode 27's supported
+    # range (iOS 15 / macOS 12). Xcode 27 can still archive all slices with the private setting
+    # __DIAGNOSE_INVALID_DEPLOYMENT_TARGET_AS_ERROR=NO (via XCODE_XCCONFIG_FILE) plus explicit
+    # deployment-target overrides, which Apple does not support; it is deliberately not applied.
     runs-on: macos-26
     timeout-minutes: 60
     steps:

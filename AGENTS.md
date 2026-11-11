@@ -116,8 +116,7 @@ Threading:
 - Do not enable the `NonisolatedNonsendingByDefault` upcoming feature (SE-0461) without auditing the
   `@RTC` callers first: under it a `nonisolated async` function runs on its caller's executor, so
   the `Room` methods `@RTC Transport` awaits — negotiation, signal sends — would start running on
-  the WebRTC queue. Those would each need `@concurrent`, which is Swift 6.2 and so needs a
-  `#if compiler(>=6.2)` guard at the current floor
+  the WebRTC queue. Those would each need `@concurrent`
 - Completion handlers written inside `@RTC` code must be `@Sendable`: a non-Sendable closure
   inherits `@RTC` isolation, and WebRTC invokes it on its own threads — Swift 6.1-built binaries
   enforce that in the closure prologue and trap (Xcode 16.4 CI caught exactly this)
@@ -137,17 +136,18 @@ Threading:
 
 ### Language Version
 
-- Minimum supported Xcode is Xcode 16.3 (Swift 6.1); see Apple's [App Store submission requirements](https://developer.apple.com/news/upcoming-requirements/?id=02212025a)
-- `Package.swift` (`swift-tools-version:6.1`) declares the **oldest** supported version
-- Keep `Package.swift`, `LiveKitClient.podspec`, and `.swiftformat`'s `--swiftversion` in sync when changing the minimum
+- Minimum supported Xcode is Xcode 26.0 (Swift 6.2); see Apple's [App Store submission requirements](https://developer.apple.com/news/upcoming-requirements/)
+- `Package.swift` (`swift-tools-version:6.2`) declares the **oldest** supported version
+- Keep `Package.swift`, `.swiftformat`'s `--swiftversion`, and `.github/tuist-check/Tuist/Package.swift` in sync when changing the minimum; `LiveKitClient.podspec` and `scripts/LiveKitClient-XCFramework.podspec.stencil` keep `swift_versions = ["5.9"]`, which is the language mode CocoaPods compiles in, not the toolchain floor
+- Both language modes stay supported (`swiftLanguageModes: [.v5, .v6]`): `#if swift(...)` tests the language mode, `#if compiler(...)` tests the toolchain — do not confuse the two when guarding
 - New code should use the latest stable Swift version
-- Some constructs require `#if swift` or `#if compiler` directives to support newer-than-minimum toolchains:
+- Some constructs require `#if compiler` directives to support newer-than-minimum toolchains:
 
 ```swift
-#if swift(>=6.2)
-private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay]
+#if compiler(>=6.3)
+// API that only a newer toolchain provides
 #else
-private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
+// fallback for the minimum toolchain
 #endif
 ```
 

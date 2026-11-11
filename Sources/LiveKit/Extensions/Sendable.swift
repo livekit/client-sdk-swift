@@ -44,12 +44,6 @@ extension LKRTCPeerConnectionFactory: @unchecked Swift.Sendable {} // process-wi
 extension LKRTCDefaultAudioProcessingModule: @unchecked Swift.Sendable {} // singleton; calls are marshalled to the worker thread in webrtc-sdk
 extension LKRTCCallbackLogger: @unchecked Swift.Sendable {} // logging singleton
 
-// MARK: Collections
-
-#if swift(<6.2)
-extension Dictionary: Swift.Sendable where Key: Sendable, Value: Sendable {}
-#endif
-
 // MARK: AV
 
 extension AVCaptureDevice: @unchecked Swift.Sendable {}

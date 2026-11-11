@@ -243,7 +243,7 @@ import LiveKitTestSupport
 extension RealiableDataChannelTests: RoomDelegate {
     func room(_: Room, participant _: RemoteParticipant?, didReceiveData data: Data, forTopic _: String, encryptionType _: EncryptionType) {
         guard data.count >= 4 else { return }
-        let seq = data.prefix(4).withUnsafeBytes { $0.load(as: UInt32.self) }
+        let seq = data.prefix(4).withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
         _receivedIndices.mutate { $0.append(seq) }
         onDataReceived?()
     }
