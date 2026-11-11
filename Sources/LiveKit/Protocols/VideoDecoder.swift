@@ -107,5 +107,8 @@ public protocol VideoDecoder: Sendable {
     /// Releases decoder resources. No callbacks can remain in flight or be
     /// delivered after this returns. Cancel pending asynchronous output and drain
     /// in-flight deliveries before returning, without holding a lock those deliveries need.
+    ///
+    /// WebRTC can call `startDecode` and `setCallback` again on the same instance
+    /// after a payload type change. The decoder must not treat release as final.
     func releaseDecoder() -> VideoDecoderStatus
 }

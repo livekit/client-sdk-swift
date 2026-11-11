@@ -24,6 +24,7 @@ import Foundation
 public protocol VideoDecoderFactory: Sendable {
     /// The codecs this factory advertises in addition to the SDK's built in codecs.
     /// The built in codecs remain advertised even when this list is empty.
+    /// Codec names must use SDP casing, for example `VP8` or `H264`.
     var supportedCodecs: [VideoCodecInfo] { get }
 
     /// Creates a decoder for the given codec, or returns `nil` to keep the built in decoder.

@@ -197,10 +197,14 @@ struct VideoDecoderFactoryTests {
         struct UnsupportedBuffer: VideoBuffer {}
         let decoder = FakeDecoder()
         let adapter = VideoDecoderAdapter(decoder: decoder)
-        adapter.setCallback { _ in Issue.record("Unsupported buffer delivered") }
+        let deliveries = StateSync(0)
+        adapter.setCallback { _ in deliveries.mutate { $0 += 1 } }
         let callback = try #require(decoder.state.callback)
-        callback(VideoFrame(dimensions: Dimensions(width: 16, height: 16), rotation: ._0,
-                            timeStampNs: 0, buffer: UnsupportedBuffer()))
+        let frame = VideoFrame(dimensions: Dimensions(width: 16, height: 16), rotation: ._0,
+                               timeStampNs: 0, buffer: UnsupportedBuffer())
+        callback(frame)
+        callback(frame)
+        #expect(deliveries.read { $0 } == 0)
     }
 
     @Test func releaseClearsDecoderCallback() {
@@ -226,6 +230,28 @@ struct VideoDecoderFactoryTests {
         #expect(adapter.decode(makeImage(), missingFrames: false, codecSpecificInfo: nil, renderTimeMs: -1) == rawValue)
         #expect(adapter.release() == rawValue)
         #expect(adapter.implementationName() == "FakeDecoder")
+    }
+
+    @Test func registrationStoresFactoryAndCodecs() throws {
+        var state = RTC.PeerConnectionFactoryState()
+        let codecs = [VideoCodecInfo(name: "VP8")]
+        let decoder = FakeDecoder()
+        let factory = FakeFactory(supportedCodecs: codecs, decoder: decoder)
+        try state.set(videoDecoderFactory: factory, codecs: codecs)
+        let stored = try #require(state.customVideoDecoderFactory as? FakeFactory)
+        #expect(stored.decoder === decoder)
+        #expect(stored.supportedCodecs == codecs)
+        #expect(state.customVideoDecoderCodecs == codecs)
+    }
+
+    @Test func lowercaseCustomCodecPreservesNativeCasing() {
+        let custom = VideoCodecInfo(name: "vp8")
+        let adapter = VideoDecoderFactoryAdapter(factory: FakeFactory(supportedCodecs: [custom]),
+                                                 supportedCodecs: [custom],
+                                                 fallback: LKRTCDefaultVideoDecoderFactory())
+        let names = adapter.supportedCodecs().map(\.name)
+        #expect(names.contains("vp8"))
+        #expect(names.contains("VP8"))
     }
 
     @Test(arguments: [false, true])

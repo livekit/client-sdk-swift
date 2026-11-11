@@ -31,7 +31,7 @@ final class VideoDecoderFactoryAdapter: NSObject, LKRTCVideoDecoderFactory, @unc
         self.factory = factory
         self.fallback = fallback
         var codecs = supportedCodecs
-        for codec in fallback.supportedCodecs().map({ VideoCodecInfo(fromRTCType: $0) }) where !supportedCodecs.contains(where: { $0.isSameCodec(as: codec) }) {
+        for codec in fallback.supportedCodecs().map({ VideoCodecInfo(fromRTCType: $0) }) where !supportedCodecs.contains(where: { $0.name == codec.name && $0.isSameCodec(as: codec) }) {
             codecs.append(codec)
         }
         supportedRTCCodecs = codecs.map { $0.toRTCType() }
@@ -58,7 +58,7 @@ final class VideoDecoderAdapter: NSObject, LKRTCVideoDecoder, Sendable, Loggable
         var didWarnUnsupportedBuffer = false
     }
 
-    private let callback = StateSync(State())
+    private let state = StateSync(State())
 
     init(decoder: any VideoDecoder) {
         self.decoder = decoder
@@ -66,8 +66,8 @@ final class VideoDecoderAdapter: NSObject, LKRTCVideoDecoder, Sendable, Loggable
     }
 
     func setCallback(_ callback: @escaping RTCVideoDecoderCallback) {
-        self.callback.mutate { $0.callback = callback }
-        let box = self.callback
+        state.mutate { $0.callback = callback }
+        let box = state
         decoder.setCallback { frame in
             guard frame.buffer is RTCCompatibleVideoBuffer else {
                 let shouldWarn = box.mutate {
@@ -103,7 +103,7 @@ final class VideoDecoderAdapter: NSObject, LKRTCVideoDecoder, Sendable, Loggable
     }
 
     func release() -> Int {
-        callback.mutate { $0.callback = nil }
+        state.mutate { $0.callback = nil }
         decoder.setCallback(nil)
         return decoder.releaseDecoder().rawValue
     }
