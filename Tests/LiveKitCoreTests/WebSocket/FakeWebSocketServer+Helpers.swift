@@ -15,8 +15,24 @@
  */
 
 import Foundation
+import Network
 
 extension FakeWebSocketServer {
+    /// A ready server, replacing listeners that lose their port to a transient collision.
+    static func started(_ behavior: Behavior) async throws -> (server: FakeWebSocketServer, url: URL) {
+        var retries = 3
+        while true {
+            let server = try FakeWebSocketServer(behavior)
+            do {
+                return try await (server, server.url())
+            } catch {
+                server.cancel()
+                guard case .posix(.EADDRINUSE) = error as? NWError, retries > 0 else { throw error }
+                retries -= 1
+            }
+        }
+    }
+
     /// A server frame with an unmasked payload and the shortest length encoding.
     static func frame(_ opcode: UInt8, _ payload: Data, final: Bool = true) -> Data {
         let length: [UInt8] = switch payload.count {

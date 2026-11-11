@@ -91,13 +91,19 @@ private extension WebSocketLifecycleTests {
         let server = try FakeWebSocketServer(.upgradeOnly)
         defer { server.cancel() }
         let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10, closeWait: 10)
-        let messages = 250, written = StateSync(0)
+        let messages = 250, started = StateSync(0), written = StateSync(0)
         try await withThrowingTaskGroup(of: Void.self) { group in
             for _ in 0 ..< messages {
                 group.addTask {
-                    try await socket.send(data: Data(count: 60000))
+                    started.mutate { $0 += 1 }
+                    // A write that our close or teardown cuts off fails; the frames the server read tell the outcome.
+                    guard await (try? socket.send(data: Data(count: 60000))) != nil else { return }
                     written.mutate { $0 += 1 }
                 }
+            }
+            while started.copy() < messages {
+                try Task.checkCancellation()
+                await Task.yield()
             }
             try await body(server, socket) { written.copy() < messages }
             try await group.waitForAll()

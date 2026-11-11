@@ -16,6 +16,7 @@
 
 import Foundation
 @testable import LiveKit
+import Network
 import Testing
 
 /// A URL without a port, as every LiveKit Cloud URL is, reaches the scheme's default port. These bind 80 and 443 on
@@ -24,9 +25,8 @@ import Testing
        .bug("https://github.com/livekit/client-sdk-swift/pull/1191#pullrequestreview-5779686770"))
 struct WebSocketDefaultPortTests {
     @Test func portlessWSReachesPort80() async throws {
-        let server = try FakeWebSocketServer(.idle, port: 80)
+        let server = try await Self.listening(.idle, on: 80)
         defer { server.cancel() }
-        _ = try await server.url()
         let socket = try await LiveKit.WebSocket(url: #require(URL(string: "ws://127.0.0.1/rtc")), headers: [], timeoutInterval: 10)
         socket.close()
         _ = try await server.clientGone.wait()
@@ -35,9 +35,8 @@ struct WebSocketDefaultPortTests {
     }
 
     @Test func portlessWSSReachesPort443() async throws {
-        let server = try FakeWebSocketServer(.tlsClientHello, port: 443)
+        let server = try await Self.listening(.tlsClientHello, on: 443)
         defer { server.cancel() }
-        _ = try await server.url()
         let url = try #require(URL(string: "wss://127.0.0.1/rtc"))
         try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask {
@@ -49,5 +48,23 @@ struct WebSocketDefaultPortTests {
             group.cancelAll()
         }
         #expect(server.acceptCount.copy() == 1)
+    }
+
+    /// A listener on `port`. A cancelled listener, such as an earlier repetition's, frees its port only once the
+    /// cancellation settles: a busy port is tried again for up to 2 s. A port that another process holds still fails.
+    private static func listening(_ behavior: FakeWebSocketServer.Behavior, on port: NWEndpoint.Port) async throws -> FakeWebSocketServer {
+        var attempts = 40
+        while true {
+            let server = try FakeWebSocketServer(behavior, port: port)
+            do {
+                _ = try await server.url()
+                return server
+            } catch {
+                server.cancel()
+                attempts -= 1
+                guard case .posix(.EADDRINUSE) = error as? NWError, attempts > 0 else { throw error }
+                try await Task.sleep(for: .milliseconds(50))
+            }
+        }
     }
 }
