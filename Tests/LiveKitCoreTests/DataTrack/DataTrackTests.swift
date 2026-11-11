@@ -120,9 +120,11 @@ struct DataTrackTests {
             let stream = try await fixture.remoteTrack.subscribe()
 
             let payload = Data([1, 2, 3])
-            try fixture.track.tryPush(frame: .now(payload: payload))
-
-            let frame = try #require(await stream.firstFrame(within: 15))
+            // Bound outside the closure: the fixture is not Sendable, the track is.
+            let track = fixture.track
+            let frame = try #require(await stream.firstFrame(within: 15) {
+                try track.tryPush(frame: .now(payload: payload))
+            })
             let ts = try #require(frame.userTimestamp)
             let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
             let elapsedMs = nowMs > ts ? nowMs - ts : 0
@@ -143,8 +145,9 @@ struct DataTrackTests {
             // First subscription.
             do {
                 let stream = try await remoteTrack.subscribe()
-                try track.tryPush(frame: DataTrackFrame(payload: payload))
-                let frame = try #require(await stream.firstFrame(within: 15), "No frame on first subscription")
+                let frame = try #require(await stream.firstFrame(within: 15) {
+                    try track.tryPush(frame: DataTrackFrame(payload: payload))
+                }, "No frame on first subscription")
                 #expect(frame.payload == payload)
             }
             // Stream dropped — unsubscribes.
@@ -162,8 +165,9 @@ struct DataTrackTests {
             // Second subscription.
             do {
                 let stream = try await remoteTrack.subscribe()
-                try track.tryPush(frame: DataTrackFrame(payload: payload))
-                let frame = try #require(await stream.firstFrame(within: 15), "No frame on second subscription")
+                let frame = try #require(await stream.firstFrame(within: 15) {
+                    try track.tryPush(frame: DataTrackFrame(payload: payload))
+                }, "No frame on second subscription")
                 #expect(frame.payload == payload)
             }
         }
