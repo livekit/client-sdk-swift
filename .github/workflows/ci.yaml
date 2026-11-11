@@ -79,10 +79,10 @@ jobs:
           - os: xcode-27
             xcode: latest
             platform: "visionOS Simulator,name=Apple Vision Pro,OS=27.0"
-          # This image has no plain "Apple TV" device, unlike macos-26.
+          # tvOS 27.0 can be unmounted mid-test by duplicate-runtime cleanup on this image.
           - os: xcode-27
             xcode: latest
-            platform: "tvOS Simulator,name=Apple TV 4K (3rd generation),OS=27.0"
+            platform: "tvOS Simulator,name=Apple TV 4K (4th generation),OS=27.2"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -149,6 +149,7 @@ jobs:
             . as $inventory
             | [.runtimes[]
                | select(.isAvailable == true and (.identifier | startswith($prefix)) and (.version | split(".")[0]) == $major)
+               | select(.identifier != "com.apple.CoreSimulator.SimRuntime.tvOS-27-0")
                | . as $runtime
                | $inventory.devices[$runtime.identifier][]?
                | select(.isAvailable == true)
