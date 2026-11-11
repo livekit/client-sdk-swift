@@ -65,6 +65,7 @@ extension DataStreamTests {
 
     /// A send reports its progress in payload bytes before compression, rising to the whole
     /// payload: a one-shot text or byte send once, when it completes, and a file as it goes out.
+    /// One-shot bytes and files ignore an incorrect incremental-stream totalSize.
     @Test(arguments: [Send.text, .bytes, .file])
     func sendReportsProgress(via send: Send) async throws {
         let payload = send == .file ? Self.noisy(200_000) : Data("Hello world!".utf8)
@@ -77,12 +78,12 @@ extension DataStreamTests {
             case .text:
                 try await sender.sendText(String(bytes: payload, encoding: .utf8) ?? "", options: StreamTextOptions(topic: "progress"), onProgress: onProgress)
             case .bytes:
-                try await sender.sendBytes(payload, options: StreamByteOptions(topic: "progress"), onProgress: onProgress)
+                try await sender.sendBytes(payload, options: StreamByteOptions(topic: "progress", totalSize: 1), onProgress: onProgress)
             default:
                 let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).bin")
                 try payload.write(to: fileURL)
                 defer { try? FileManager.default.removeItem(at: fileURL) }
-                try await sender.sendFile(fileURL, options: StreamByteOptions(topic: "progress"), onProgress: onProgress)
+                try await sender.sendFile(fileURL, options: StreamByteOptions(topic: "progress", totalSize: 1), onProgress: onProgress)
             }
         }
 

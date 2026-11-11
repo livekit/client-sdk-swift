@@ -51,6 +51,7 @@ public final class ByteStreamWriter: NSObject, Sendable {
         }
     }
 
+    // Retains the existing Swift symbol and Objective-C selector for binary compatibility.
     /// Close the stream.
     ///
     /// - Parameter reason: A textual description of why the stream is being closed. Absense
@@ -58,8 +59,6 @@ public final class ByteStreamWriter: NSObject, Sendable {
     /// - Throws: ``StreamError/alreadyClosed`` if the stream is already closed, or another
     ///   ``StreamError`` if the end of the stream cannot be delivered. `CancellationError` at once
     ///   if the calling task is cancelled, but the stream can still close.
-    ///
-    /// Retains the existing Swift symbol and Objective-C selector for binary compatibility.
     public func close(reason: String? = nil) async throws {
         try await close(reason: reason, attributes: [:])
     }

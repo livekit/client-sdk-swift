@@ -148,6 +148,7 @@ extension ByteStreamReaderTests {
 
     @Test func serialReadsDoNotRetainCompletedPayload() async throws {
         let serial = StreamReadSerialiser()
+        defer { withExtendedLifetime(serial) {} }
         let released = AsyncCompleter<Void>(label: "Read payload released", defaultTimeout: 5)
         func readAndRelease() async throws {
             let result = try await serial.run { CallbackLifetime(released: released) }

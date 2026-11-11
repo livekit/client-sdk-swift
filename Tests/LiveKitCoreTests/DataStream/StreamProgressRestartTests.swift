@@ -74,6 +74,40 @@ extension ByteStreamReaderTests {
     }
 
     @Test(arguments: Kind.allCases)
+    func simultaneousObserversShareNativeProgress(_ kind: Kind) async throws {
+        let source = ControlledProgress()
+        let signals = Signals(progressOverride: { await source.next() })
+        let (capture, manager) = try await openStalledReader(kind, signals: signals)
+        defer { manager.abortAllStreams() }
+        let reader = try #require(capture.take())
+        let observations = (0 ..< 2).map { index in
+            let started = AsyncCompleter<Void>(label: "Observer \(index) started", defaultTimeout: 5)
+            let task = Task {
+                var values: [Int] = []
+                for await progress in reader.progress() {
+                    values.append(progress.bytesProcessed)
+                    if progress.bytesProcessed == 0 { started.resume(returning: ()) }
+                }
+                return values
+            }
+            return (started, task)
+        }
+        defer { observations.forEach { $0.1.cancel() } }
+        // Both observers must receive the same initial value while the native final wait is pending.
+        for (started, _) in observations {
+            try await started.wait()
+        }
+        try await source.waiting.wait()
+        source.final.resume(returning: LiveKitFFI.StreamProgress(bytesProcessed: 5, bytesTotal: 5))
+        for (_, task) in observations {
+            let values = try await within("Concurrent observer ended") { await task.value }
+            #expect(values == [0, 5])
+        }
+        #expect(source.state.copy().calls == 3)
+        #expect(source.state.copy().maximum == 1)
+    }
+
+    @Test(arguments: Kind.allCases)
     func objcProgressCallbackCanStopAndReplaceItself(_ kind: Kind) async throws {
         let source = ControlledProgress()
         let signals = Signals(progressOverride: { await source.next() })

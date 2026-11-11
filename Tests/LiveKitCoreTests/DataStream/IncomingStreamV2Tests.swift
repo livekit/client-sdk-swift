@@ -34,6 +34,30 @@ extension IncomingStreamManagerTests {
         #expect(try await read.wait() == payload)
     }
 
+    /// Exercise core-owned inline length validation and its public Swift error mapping.
+    @Test(arguments: [3, 5, 8], [false, true])
+    func inlineLengthIsChecked(carried: Int, byte: Bool) async throws {
+        let expected: StreamError? = carried < 5 ? .incomplete : carried > 5 ? .lengthExceeded : nil
+        let payload = Data(repeating: 0x61, count: carried)
+        if byte {
+            let read = try readingByteStreams()
+            feedHeader(streamID: UUID().uuidString, byte: true, totalLength: 5, inlineContent: payload)
+            if let expected {
+                await #expect(throws: expected) { try await read.wait() }
+            } else {
+                #expect(try await read.wait() == payload)
+            }
+        } else {
+            let read = try readingTextStreams()
+            feedHeader(streamID: UUID().uuidString, byte: false, totalLength: 5, inlineContent: payload)
+            if let expected {
+                await #expect(throws: expected) { try await read.wait() }
+            } else {
+                #expect(try await read.wait() == String(repeating: "a", count: carried))
+            }
+        }
+    }
+
     /// Text crosses the FFI as strings, so characters of more than one byte must survive, inline
     /// and split over chunks.
     @Test(arguments: [false, true])
