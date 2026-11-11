@@ -159,6 +159,19 @@ jobs:
           done
           echo "simulator settled at ${cpu:-?}% CPU"
 
+      - name: Test Local Recording
+        if: matrix.platform == 'macOS'
+        run: |
+          set -o pipefail && xcodebuild test \
+            -scheme LiveKit \
+            -destination 'platform=macOS' \
+            -only-testing LiveKitCoreTests/LocalRecordingTests \
+            -collect-test-diagnostics never \
+            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+            -parallel-testing-enabled NO \
+            | xcbeautify --renderer github-actions
+
       # Xcode 27 hands swiftc the Clang-only -fapplication-extension when it links the test bundles
       # under APPLICATION_EXTENSION_API_ONLY; linking through clang keeps that row on the primary toolchain.
       - name: Build & Test
@@ -168,6 +181,7 @@ jobs:
           .github/stall-dump/stall-dump.sh "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/stall-dump" &
           set -o pipefail && xcodebuild test \
             -scheme LiveKitCI \
+            ${{ matrix.platform == 'macOS' && '-skip-testing LiveKitCoreTests/LocalRecordingTests' || '' }} \
             -destination '${{ steps.boot.outputs.udid && format('id={0}', steps.boot.outputs.udid) || format('platform={0}', matrix.platform) }}' \
             -collect-test-diagnostics never \
             -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
