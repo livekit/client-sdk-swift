@@ -159,19 +159,6 @@ jobs:
           done
           echo "simulator settled at ${cpu:-?}% CPU"
 
-      - name: Test Local Recording
-        if: matrix.platform == 'macOS'
-        run: |
-          set -o pipefail && xcodebuild test \
-            -scheme LiveKit \
-            -destination 'platform=macOS' \
-            -only-testing LiveKitCoreTests/LocalRecordingTests \
-            -collect-test-diagnostics never \
-            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
-            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
-            -parallel-testing-enabled NO \
-            | xcbeautify --renderer github-actions
-
       # Xcode 27 hands swiftc the Clang-only -fapplication-extension when it links the test bundles
       # under APPLICATION_EXTENSION_API_ONLY; linking through clang keeps that row on the primary toolchain.
       - name: Build & Test
@@ -204,6 +191,20 @@ jobs:
             grep -- "-swift-version $EXPECTED " "$RUNNER_TEMP/xcodebuild.log" | grep -c -E -- "-module-name $module( |$)" > /dev/null \
               || { echo "::error::$module was not compiled in Swift $EXPECTED mode"; exit 1; }
           done
+
+      - name: Test Local Recording
+        timeout-minutes: 10
+        if: ${{ !cancelled() && matrix.platform == 'macOS' }}
+        run: |
+          set -o pipefail && xcodebuild test \
+            -scheme LiveKitCI \
+            -destination 'platform=macOS' \
+            -only-testing LiveKitCoreTests/LocalRecordingTests \
+            -collect-test-diagnostics never \
+            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+            -parallel-testing-enabled NO \
+            | xcbeautify --renderer github-actions
 
       # xcbeautify's github-actions renderer collapses a parameterized Swift Testing
       # failure to "Recorded an issue (1) argument(s)" — no message, no failing

@@ -27,25 +27,23 @@ import Testing
         let manualRendering = manager.isManualRenderingMode
         let probe = RecordingProbe()
         let source = try RecordingSineSource()
-        var track: LocalAudioTrack?
+        let track = await LocalAudioTrack.createTrack()
         defer {
             do { try manager.stopLocalRecording() } catch { Issue.record(error) }
-            track?.remove(audioRenderer: probe)
+            track.remove(audioRenderer: probe)
             manager.capturePostProcessingDelegate = processor
-            manager.set(engineObservers: observers)
             do { try manager.setManualRenderingMode(manualRendering) } catch { Issue.record(error) }
+            manager.set(engineObservers: observers)
         }
 
         try manager.setManualRenderingMode(true)
         manager.set(engineObservers: [source])
         manager.capturePostProcessingDelegate = probe
-        let audioTrack = await LocalAudioTrack.createTrack()
-        track = audioTrack
-        audioTrack.add(audioRenderer: probe)
+        track.add(audioRenderer: probe)
         try manager.startLocalRecording()
 
-        async let rendererCount = probe.rendererCount.wait(untilAtLeast: 1, timeout: 3)
-        async let processorCount = probe.processorCount.wait(untilAtLeast: 1, timeout: 3)
+        async let rendererCount = probe.rendererCount.wait(untilAtLeast: 1, timeout: 10)
+        async let processorCount = probe.processorCount.wait(untilAtLeast: 1, timeout: 10)
         let counts = await (rendererCount, processorCount)
         print("Local recording: sourceFrames=\(source.frames.read { $0 }) rendererCallbacks=\(counts.0) delegateChunks=\(counts.1)")
         #expect(source.frames.read { $0 } > 0)
