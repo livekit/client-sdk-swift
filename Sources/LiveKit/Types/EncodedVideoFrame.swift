@@ -17,12 +17,11 @@
 internal import LiveKitWebRTC
 import Foundation
 
-/// An encoded frame produced by a custom ``VideoEncoder`` and delivered
-/// to the SDK via ``VideoEncoderCallback``.
+/// An encoded frame produced by a custom ``VideoEncoder`` or received by a ``VideoDecoder``.
 ///
-/// Only fields WebRTC actually reads from the encoder are exposed. Capture time,
-/// rotation, content type, NTP time and encode timing are filled in by WebRTC
-/// from its own record of the source frame, matched by ``rtpTimestamp``.
+/// Incoming bytes are copied and remain valid after the decoder call returns.
+/// On the encoder path, WebRTC restores timing and rotation from its record of
+/// the source frame, matched by ``rtpTimestamp``.
 public struct EncodedVideoFrame: Sendable {
     /// The role of a frame within the encoded stream.
     public enum FrameType: Sendable {
@@ -45,12 +44,24 @@ public struct EncodedVideoFrame: Sendable {
     /// The encoded bitstream.
     public let data: Data
 
-    /// Resolution of the encoded frame.
+    /// Resolution of the encoded frame. Can be zero for incoming delta frames.
     public let dimensions: Dimensions
 
     /// RTP timestamp in the 90kHz clock, which must be copied from the source
     /// ``VideoFrame/rtpTimestamp`` and not derived from `timeStampNs`.
     public let rtpTimestamp: UInt32
+
+    /// Capture time in milliseconds, supplied by WebRTC on incoming frames.
+    /// Decoder input only; the encoder path ignores this value.
+    public let captureTimeMs: Int64
+
+    /// Capture time on the NTP clock in milliseconds, when available from WebRTC.
+    /// Decoder input only; the encoder path ignores this value.
+    public let ntpTimeMs: Int64
+
+    /// Rotation to apply when rendering an incoming frame.
+    /// Decoder input only; the encoder path ignores this value.
+    public let rotation: VideoRotation
 
     /// Whether this is a key or delta frame.
     public let frameType: FrameType
@@ -74,12 +85,35 @@ public struct EncodedVideoFrame: Sendable {
                 qp: Int? = nil,
                 packetizationMode: PacketizationMode? = nil)
     {
+        self.init(data: data, dimensions: dimensions, rtpTimestamp: rtpTimestamp,
+                  frameType: frameType, qp: qp, packetizationMode: packetizationMode,
+                  captureTimeMs: 0)
+    }
+
+    /// Creates an encoded frame with decoder input metadata.
+    /// - Parameters:
+    ///   - captureTimeMs: Capture time in milliseconds. Decoder input only; ignored by the encoder path.
+    ///   - ntpTimeMs: NTP capture time in milliseconds. Decoder input only; ignored by the encoder path.
+    ///   - rotation: Render rotation. Decoder input only; ignored by the encoder path.
+    public init(data: Data,
+                dimensions: Dimensions,
+                rtpTimestamp: UInt32,
+                frameType: FrameType,
+                qp: Int? = nil,
+                packetizationMode: PacketizationMode? = nil,
+                captureTimeMs: Int64,
+                ntpTimeMs: Int64 = 0,
+                rotation: VideoRotation = ._0)
+    {
         self.data = data
         self.dimensions = dimensions
         self.rtpTimestamp = rtpTimestamp
         self.frameType = frameType
         self.qp = qp
         self.packetizationMode = packetizationMode
+        self.captureTimeMs = captureTimeMs
+        self.ntpTimeMs = ntpTimeMs
+        self.rotation = rotation
     }
 }
 
@@ -114,6 +148,19 @@ extension EncodedVideoFrame.PacketizationMode {
 }
 
 extension EncodedVideoFrame {
+    init(fromRTCType image: LKRTCEncodedImage) {
+        let data = image.buffer.withUnsafeBytes { Data($0) }
+        let qp = image.qp.intValue
+        self.init(data: data,
+                  dimensions: Dimensions(width: image.encodedWidth, height: image.encodedHeight),
+                  rtpTimestamp: image.timeStamp,
+                  frameType: FrameType(fromRTCType: image.frameType) ?? .delta,
+                  qp: qp >= 0 ? qp : nil,
+                  captureTimeMs: image.captureTimeMs,
+                  ntpTimeMs: image.ntpTimeMs,
+                  rotation: image.rotation.toLKType())
+    }
+
     private final class GenericCodecSpecificInfo: NSObject, LKRTCCodecSpecificInfo, @unchecked Sendable {}
 
     // Stateless, so one instance is shared instead of allocating one per frame.
