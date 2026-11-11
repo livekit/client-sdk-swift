@@ -1,0 +1,292 @@
+/*
+ * Copyright 2026 LiveKit
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import Foundation
+@testable import LiveKit
+import Testing
+
+extension WebSocketLifecycleTests {
+    private static let userAgentCases: [([String: String], String)] = [
+        (["CFBundleName": "Probe App/é (test);?@:", "CFBundleExecutable": "Ignored", "CFBundleVersion": "42"],
+         "Probe%20App%2F%C3%A9%20%28test%29%3B%3F%40%3A/42"),
+        (["CFBundleExecutable": "Probe Executable", "CFBundleVersion": "7"], "Probe%20Executable/7"),
+        (["CFBundleName": "Probe App"], "Probe%20App (unknown version)"),
+        (["CFBundleName": "Q&A $1+", "CFBundleVersion": "1.0 (beta)é/;\n"], "Q&A%20$1+/1.0%20%28beta%29%C3%A9%2F%3B%0A"),
+        (["CFBundleName": "App", "CFBundleVersion": "1"], "App/1"),
+        (["CFBundleName": "App", "CFBundleVersion": "1\nX-Evil: 1"], "App/1%0AX-Evil%3A%201"),
+        (["CFBundleName": "", "CFBundleExecutable": "Probe Executable", "CFBundleVersion": "7"], "Probe%20Executable/7"),
+        (["CFBundleName": "App", "CFBundleVersion": ""], "App (unknown version)"),
+    ]
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: userAgentCases)
+    func upgradeSendsDefaultUserAgent(bundleInfo: [String: String], app: String) throws {
+        let url = try #require(URL(string: "wss://user-agent.invalid/rtc"))
+        let headers = WebSocket.upgradeHeaders(url: url, headers: [], bundleInfo: bundleInfo)
+        #expect(headers.filter { $0.name.lowercased() == "user-agent" }.map(\.value) == ["\(app) LiveKitSwift/\(LiveKitSDK.version)"])
+        _ = try WebSocket.upgradeRequest(url: url, key: "test", headers: headers)
+    }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: ["User-Agent", "user-agent", "uSeR-aGeNt"])
+    func callerUserAgentOverridesDefault(name: String) throws {
+        let url = try #require(URL(string: "wss://user-agent.invalid/rtc"))
+        let bundleInfo = ["CFBundleName": "Probe App", "CFBundleVersion": "42"]
+        let defaults = WebSocket.upgradeHeaders(url: url, headers: [], bundleInfo: bundleInfo)
+        #expect(defaults.filter { $0.name.lowercased() == "user-agent" }.map(\.value) == ["Probe%20App/42 LiveKitSwift/\(LiveKitSDK.version)"])
+        let headers = WebSocket.upgradeHeaders(url: url, headers: [(name, "Custom/1")], bundleInfo: bundleInfo)
+        #expect(headers.filter { $0.name.lowercased() == "user-agent" }.map(\.value) == ["Custom/1"])
+    }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
+        ["CFBundleVersion": "42"],
+        ["CFBundleName": "", "CFBundleVersion": "3"],
+        ["CFBundleExecutable": "", "CFBundleVersion": "3"],
+        ["CFBundleName": "", "CFBundleExecutable": "", "CFBundleVersion": "3"],
+    ])
+    func defaultUserAgentOmitsMissingAppName(bundleInfo: [String: String]) throws {
+        let url = try #require(URL(string: "wss://user-agent.invalid/rtc"))
+        let headers = WebSocket.upgradeHeaders(url: url, headers: [], bundleInfo: bundleInfo)
+        #expect(headers.filter { $0.name.lowercased() == "user-agent" }.map(\.value) == ["LiveKitSwift/\(LiveKitSDK.version)"])
+    }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
+        ("ws://example.invalid/rtc?token=one%20two&path=%2F", "http://example.invalid/rtc?token=one%20two&path=%2F"),
+        ("ws://example.invalid:80", "http://example.invalid:80/"),
+        ("ws://example.invalid?", "http://example.invalid/?"),
+        ("ws://user:secret@example.invalid:9080/a%2Fb?token=%23#fragment", "http://example.invalid:9080/a%2Fb?token=%23"),
+        ("ws://[::1]:9080/rtc", "http://[::1]:9080/rtc"),
+        ("ws://[fe80::1%25en0]:9080/rtc", "http://[fe80::1]:9080/rtc"),
+        ("http://example.invalid/redirected?x=1", "http://example.invalid/redirected?x=1"),
+        ("wss://user:secret@example.invalid:443/a%2Fb?token=%23#fragment", "/a%2Fb?token=%23"),
+        ("https://example.invalid", "/"),
+    ])
+    func upgradeRequestTargetWorksThroughForwardProxies(address: String, target: String) throws {
+        let url = try #require(URL(string: address))
+        let request = try WebSocket.upgradeRequest(url: url, key: "test", headers: WebSocket.upgradeHeaders(url: url, headers: []))
+        let head = try #require(String(data: request, encoding: .utf8))
+        #expect(head.hasPrefix("GET \(target) HTTP/1.1\r\n"))
+        #expect(!head.contains("secret"))
+        #expect(!head.contains("#fragment"))
+    }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func directUpgradeSendsAbsoluteFormTarget() async throws {
+        let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
+        let url = try await server.url()
+        let port = try #require(url.port)
+        let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
+        defer { socket.close() }
+        #expect(server.requests.copy().first?.line == "GET http://127.0.0.1:\(port)/rtc HTTP/1.1")
+    }
+
+    @Test func cleartextUpgradeSendsOnlyPlainCookies() throws {
+        let host = "lk-defaults-\(UUID().uuidString).invalid"
+        let secureURL = try #require(URL(string: "https://\(host)/rtc"))
+        let cleartextURL = try #require(URL(string: "ws://\(host)/rtc"))
+        let cookies = HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": "secure=secret; Secure; Path=/"], for: secureURL)
+            + HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": "plain=mock; Path=/"], for: secureURL)
+        try #require(cookies.count == 2)
+        let storage = HTTPCookieStorage.shared
+        defer { cookies.forEach(storage.deleteCookie) }
+        storage.setCookies(cookies, for: secureURL, mainDocumentURL: secureURL)
+        try #require(storage.cookies(for: secureURL)?.count == 2)
+        let headers = WebSocket.upgradeHeaders(url: cleartextURL, headers: [])
+        #expect(headers.filter { $0.name.lowercased() == "cookie" }.map(\.value) == ["plain=mock"])
+    }
+
+    @Test func upgradeSendsDefaultAcceptHeaders() async throws {
+        let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+        defer { socket.close() }
+        let headers = server.requestHeaders.copy()
+        #expect(headers.filter { $0.lowercased().hasPrefix("accept:") } == ["Accept: */*"])
+        #expect(headers.filter { $0.lowercased().hasPrefix("accept-encoding:") } == ["Accept-Encoding: gzip, deflate"])
+    }
+
+    @Test(arguments: [("Accept", "Accept-Encoding"), ("aCcEpT", "aCcEpT-eNcOdInG")])
+    func callerAcceptHeadersOverrideDefaults(accept: String, encoding: String) async throws {
+        let server = try FakeWebSocketServer(.idle)
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [(accept, "application/octet-stream"), (encoding, "identity")],
+                                                 timeoutInterval: 10)
+        defer { socket.close() }
+        let headers = server.requestHeaders.copy()
+        #expect(headers.filter { $0.lowercased().hasPrefix("accept:") } == ["\(accept): application/octet-stream"])
+        #expect(headers.filter { $0.lowercased().hasPrefix("accept-encoding:") } == ["\(encoding): identity"])
+    }
+
+    @Test(arguments: [101, 401, 403])
+    func responseCookiesAreStoredBeforeOpenCompletes(status: Int) async throws {
+        let prefix = "lk-defaults-\(UUID().uuidString)"
+        var head = "HTTP/1.1 \(status) Response\r\n"
+        if status == 101 {
+            head += "Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n"
+        }
+        head += "Set-Cookie: \(prefix)-a=one; Path=/\r\n"
+            + "sEt-CoOkIe: \(prefix)-b=two; Path=/; Expires=Wed, 09 Jun 2038 10:18:14 GMT\r\n\r\n"
+        let server = try FakeWebSocketServer(.upgradeResponse(head: head))
+        defer { server.cancel() }
+        let url = try await server.url()
+        let storage = HTTPCookieStorage.shared
+        defer {
+            for cookie in storage.cookies ?? [] where cookie.name.hasPrefix(prefix) {
+                storage.deleteCookie(cookie)
+            }
+        }
+        if status == 101 {
+            let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
+            socket.close()
+        } else {
+            let error = await #expect(throws: LiveKitError.self) {
+                try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
+            }
+            #expect((error?.internalError as? WebSocketUpgradeFailure)?.statusCode == status)
+        }
+        let cookies = storage.cookies ?? []
+        #expect(cookies.first { $0.name == "\(prefix)-a" }?.value == "one")
+        #expect(cookies.first { $0.name == "\(prefix)-b" }?.value == "two")
+        let outgoing = WebSocket.upgradeHeaders(url: url, headers: []).first { $0.name == "Cookie" }?.value ?? ""
+        #expect(outgoing.contains("\(prefix)-a=one"))
+        #expect(outgoing.contains("\(prefix)-b=two"))
+    }
+
+    @Test func secureResponseCookieUsesHTTPSURL() throws {
+        let name = "lk-defaults-\(UUID().uuidString)"
+        let url = try #require(URL(string: "wss://\(name).invalid/rtc"))
+        let key = "dGhlIHNhbXBsZSBub25jZQ=="
+        let head = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+            + "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\nSet-Cookie: \(name)=secure; Secure; Path=/\r\n\r\n"
+        let storage = HTTPCookieStorage.shared
+        defer {
+            for cookie in storage.cookies ?? [] where cookie.name == name {
+                storage.deleteCookie(cookie)
+            }
+        }
+        guard case .opened = WebSocket.upgradeOutcome(Data(head.utf8), key: key, url: url) else {
+            Issue.record("The valid upgrade failed")
+            return
+        }
+        let cookie = try #require(storage.cookies?.first { $0.name == name })
+        #expect(cookie.isSecure)
+        #expect(WebSocket.upgradeHeaders(url: url, headers: []).contains { $0.name == "Cookie" && $0.value == "\(name)=secure" })
+        let cleartext = try #require(URL(string: "ws://\(name).invalid/rtc"))
+        #expect(!WebSocket.upgradeHeaders(url: cleartext, headers: []).contains { $0.name == "Cookie" })
+    }
+
+    @Test(arguments: [(false, false), (false, true), (true, false), (true, true)])
+    func negotiatedCompressionIsUsedForWrites(clientReset: Bool, serverReset: Bool) async throws {
+        let parameters = "permessage-deflate" + (clientReset ? "; client_no_context_takeover" : "")
+            + (serverReset ? "; server_no_context_takeover" : "")
+        let head = Self.compressedUpgradeHead(parameters)
+        let hello = Data([0xF2, 0x48, 0xCD, 0xC9, 0xC9, 0x07, 0])
+        let second = serverReset ? hello : Data([0xF2, 0, 0x11, 0, 0])
+        let server = try FakeWebSocketServer(.upgradeResponse(head: head, then: FakeWebSocketServer.frame(0x42, hello)
+                + FakeWebSocketServer.frame(0x42, second)))
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+        let iterator = socket.makeAsyncIterator()
+        for _ in 0 ..< 2 {
+            guard case let .data(data)? = try await iterator.next() else {
+                Issue.record("Missing compressed server message")
+                return
+            }
+            #expect(data == Data("Hello".utf8))
+        }
+        let offer = server.requestHeaders.copy().filter { $0.lowercased().hasPrefix("sec-websocket-extensions:") }
+        #expect(offer == ["Sec-WebSocket-Extensions: permessage-deflate"])
+        for data in [Data("Hello".utf8), Data("Hello".utf8), Data(), Data()] {
+            try await socket.send(data: data)
+        }
+        socket.close()
+        try await server.served.wait()
+        let frames = server.frames.copy()
+        #expect(frames.map(\.opcode) == [2, 2, 2, 2, 8])
+        #expect(!frames.contains { !$0.masked })
+        #expect(frames.map(\.compressed) == [true, true, true, true, false])
+        #expect(frames.first?.payload == hello)
+        #expect(frames.dropFirst().first?.payload == (clientReset ? hello : Data([0xF2, 0, 0x11, 0, 0])))
+        #expect(frames.dropFirst(2).prefix(2).allSatisfy { $0.payload == Data([0]) })
+    }
+
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func concurrentCompressedSendsKeepTheDeflateContext() async throws {
+        let senders = 8, perSender = 25
+        for round in 0 ..< 20 {
+            let server = try FakeWebSocketServer(.upgradeResponse(head: Self.compressedUpgradeHead("permessage-deflate")))
+            defer { server.cancel() }
+            let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+            defer { socket.close() }
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for sender in 0 ..< senders {
+                    group.addTask {
+                        for index in 0 ..< perSender {
+                            try await socket.send(data: Self.compressedPayload(sender, index))
+                        }
+                    }
+                }
+                try await group.waitForAll()
+            }
+            socket.close()
+            try await server.served.wait()
+            let frames = server.frames.copy().filter { $0.opcode == 0x2 }
+            #expect(frames.count == senders * perSender, "Round \(round)")
+            let inflater = try WebSocketCompression.Codec(compressing: false, windowBits: 15, noContextTakeover: false)
+            var decoded: [Data] = []
+            for frame in frames {
+                guard let data = try? inflater.process(frame.payload, final: true) else {
+                    Issue.record("Round \(round): frame \(decoded.count) does not inflate")
+                    break
+                }
+                decoded.append(data)
+            }
+            let expected = (0 ..< senders).flatMap { sender in (0 ..< perSender).map { Self.compressedPayload(sender, $0) } }
+            #expect(decoded.sorted { $0.lexicographicallyPrecedes($1) } == expected.sorted { $0.lexicographicallyPrecedes($1) }, "Round \(round)")
+            for sender in 0 ..< senders {
+                #expect(decoded.filter { $0.starts(with: Data("signal request from sender \(sender),".utf8)) }
+                    == (0 ..< perSender).map { Self.compressedPayload(sender, $0) }, "Round \(round), sender \(sender)")
+            }
+        }
+    }
+
+    @Test func compressionIsConfiguredBeforeCoalescedFramesAreRead() async throws {
+        let bytes = FakeWebSocketServer.frame(0x42, Data([0xF2, 0x48, 0xCD, 0xC9, 0xC9, 0x07, 0]))
+            + FakeWebSocketServer.frame(0x2, Data([42])) + FakeWebSocketServer.close(1000)
+        let server = try FakeWebSocketServer(.upgradeResponse(head: Self.compressedUpgradeHead("permessage-deflate"), then: bytes))
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10)
+        let iterator = socket.makeAsyncIterator()
+        guard case let .data(first)? = try await iterator.next(), case let .data(second)? = try await iterator.next() else {
+            Issue.record("The coalesced messages were lost")
+            return
+        }
+        #expect(first == Data("Hello".utf8))
+        #expect(second == Data([42]))
+        let error = await #expect(throws: LiveKitError.self) { try await iterator.next() }
+        #expect((error?.internalError as? WebSocketClosedByPeer)?.code == 1000)
+        try await server.served.wait()
+    }
+
+    private static func compressedPayload(_ sender: Int, _ index: Int) -> Data {
+        Data("signal request from sender \(sender), number \(index): ".utf8)
+            + Data(String(repeating: "subscription update track TR_abcdef ", count: 1 + (sender + index) % 7).utf8)
+    }
+
+    private static func compressedUpgradeHead(_ parameters: String) -> String {
+        "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+            + "Sec-WebSocket-Accept: {accept}\r\nSec-WebSocket-Extensions: \(parameters)\r\n\r\n"
+    }
+}

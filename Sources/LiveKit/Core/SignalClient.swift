@@ -389,9 +389,16 @@ extension SignalClient {
         default: break
         }
 
+        // Handled before the next message is read: the server's close frame follows its leave, and that failure must
+        // not reconnect a participant the server removed.
+        if case .leave = response.message {
+            await _process(response, encoded: rawData)
+            return
+        }
+
         Task.detached {
             let alwaysProcess = switch response.message {
-            case .join, .reconnect, .leave: true
+            case .join, .reconnect: true
             default: false
             }
             // Always process join or reconnect messages even if suspended...
@@ -476,7 +483,10 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
-            _delegate.notifyDetached {
+            if [.disconnect, .resume, .reconnect].contains(leave.action) {
+                await _addTrackCompleters.reset(throwing: LiveKitError.from(reason: leave.reason))
+            }
+            try? await _delegate.notifyAsync {
                 await $0.signalClient(self,
                                       didReceiveLeave: leave.action,
                                       reason: leave.reason,

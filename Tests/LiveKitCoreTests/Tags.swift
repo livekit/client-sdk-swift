@@ -63,4 +63,14 @@ enum TestLimits {
         let none: Tag.List = .tags()
         return none
     }
+
+    /// As ``e2e``, for a suite that talks to a local fake server at most: a minute is ample for loopback.
+    static var unit: any SuiteTrait {
+        if #available(iOS 16, macOS 13, tvOS 16, visionOS 1, *) {
+            let limit: TimeLimitTrait = .timeLimit(.minutes(1))
+            return limit
+        }
+        let none: Tag.List = .tags()
+        return none
+    }
 }

@@ -19,6 +19,7 @@ import Foundation
 import LiveKitWebRTC
 import Testing
 
+@Suite(TestLimits.unit)
 struct SignalClientTests {
     /// Matches rust-sdks `get_join_response`/`get_reconnect_response`: from `cleanUp()` until the
     /// next Join/ReconnectResponse, only `join`, `reconnect` and `leave` get through.
@@ -39,6 +40,107 @@ struct SignalClientTests {
 
         #expect(await client.passesConnectResponseGate(.with { $0.reconnect = .with { _ in } }))
         #expect(await client.passesConnectResponseGate(update))
+    }
+
+    /// The server's leave and its close frame arrive together: the leave reaches the delegate before the close frame
+    /// fails the stream, so a removal cannot turn into a reconnect. The same message loop as `connect` runs it, and the
+    /// delegate cleans the client up from inside its leave callback, as `Room` does.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1179"), .tags(.networking))
+    func leaveIsHandledBeforeTheCloseThatFollows() async throws {
+        let leave = try Livekit_SignalResponse.with {
+            $0.leave = .with {
+                $0.action = .disconnect
+                $0.reason = .participantRemoved
+            }
+        }.serializedData()
+        let frames = FakeWebSocketServer.binary([leave]) + FakeWebSocketServer.close(1000)
+        let server = try FakeWebSocketServer(.frames(frames, withUpgrade: true))
+        defer { server.cancel() }
+        let client = SignalClient()
+        let recorder = LeaveRecorder(client: client)
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10,
+                                                 onEvent: recorder.socketEvents.record)
+        await client._delegate.set(delegate: recorder)
+        await client.installMessageLoopForTest(socket, recorder: recorder)
+
+        try await recorder.disconnected.wait()
+        #expect(recorder.events.copy() == [.leave(awaited: true), .disconnected(.participantRemoved)])
+    }
+
+    /// A delegate callback holds the serial runner while it waits for a track the server will not publish, as a dynacast
+    /// codec publish does: the leave behind it fails that wait at once, rather than at the publish timeout, so the
+    /// participant leaves without delay and with the server's reason.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), .tags(.networking))
+    func leaveFailsAPublicationThatHoldsTheDelegate() async throws {
+        let leave = try Livekit_SignalResponse.with {
+            $0.leave = .with {
+                $0.action = .disconnect
+                $0.reason = .participantRemoved
+            }
+        }.serializedData()
+        let server = try FakeWebSocketServer(.frames(FakeWebSocketServer.binary([leave]) + FakeWebSocketServer.close(1000)))
+        defer { server.cancel() }
+        let client = SignalClient()
+        let recorder = LeaveRecorder(client: client)
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10,
+                                                 onEvent: recorder.socketEvents.record)
+        await client._delegate.set(delegate: recorder)
+        await client.installMessageLoopForTest(socket, recorder: recorder)
+        await client.resumeQueues()
+
+        let published = AsyncCompleter<Void>(label: "addTrack", defaultTimeout: 5)
+        await client._delegate.notifyDetached { _ in
+            do {
+                _ = try await client.sendAddTrack(cid: "TR_pending", name: "camera", type: .video) { _ in }
+                published.resume(returning: ())
+            } catch {
+                published.resume(throwing: error)
+            }
+        }
+
+        let error = await #expect(throws: LiveKitError.self) { try await published.wait() }
+        #expect(error?.type == .participantRemoved)
+        try await recorder.disconnected.wait()
+        #expect(recorder.events.copy() == [.leave(awaited: true), .disconnected(.participantRemoved)])
+    }
+
+    /// A leave with an action this client does not know is ignored, as `Room` ignores it: a publication in flight
+    /// still completes when the server publishes the track.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), .tags(.networking))
+    func unknownLeaveActionKeepsAPendingPublication() async throws {
+        let (server, url) = try await FakeWebSocketServer.started(.idle)
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
+        defer { socket.close() }
+        let requested = AsyncCompleter<Void>(label: "addTrack request", defaultTimeout: 5)
+        let client = try await SignalClient(testingResponse: .with { $0.refreshToken = "token" }, requestProcessor: { request in
+            if case .addTrack = request.message { requested.resume(returning: ()) }
+        }, responseProcessed: {})
+        let delegate = IgnoringDelegate()
+        await client._delegate.set(delegate: delegate)
+        await client._state.mutate {
+            $0.socket = socket
+            $0.connectionState = .connected
+        }
+        await client.resumeQueues()
+
+        async let published = client.sendAddTrack(cid: "TR_pending", name: "camera", type: .video) { _ in }
+        try await requested.wait()
+        let responses: [Livekit_SignalResponse] = [
+            .with { $0.leave = .with {
+                $0.action = Livekit_LeaveRequest_Action(rawValue: 99)
+                $0.reason = .participantRemoved
+            } },
+            .with { $0.trackPublished = .with {
+                $0.cid = "TR_pending"
+                $0.track = .with { $0.sid = "TR_server" }
+            } },
+        ]
+        for response in responses {
+            try await client.onWebSocketMessage(.data(response.serializedData()), from: socket)
+        }
+        #expect(try await published.sid == "TR_server")
+        withExtendedLifetime(delegate) {}
     }
 
     enum QueuedResponse: CaseIterable {
@@ -131,7 +233,60 @@ struct SignalClientTests {
     }
 }
 
-private final class QueueResumeDelegate: SignalClientDelegate {
+private extension SignalClient {
+    func installMessageLoopForTest(_ socket: LiveKit.WebSocket, recorder: LeaveRecorder) {
+        let loop = socket.subscribe(self) { client, message in
+            await client.handleMessageForTest(message, from: socket, recorder: recorder)
+        } onFailure: { client, error in
+            await client.onWebSocketFailure(error, from: socket)
+        }
+        _state.mutate {
+            $0.socket = socket
+            $0.connectionState = .connected
+            $0.messageLoopTask = loop
+        }
+    }
+
+    func handleMessageForTest(_ message: URLSessionWebSocketTask.Message, from socket: LiveKit.WebSocket, recorder: LeaveRecorder) async {
+        await onWebSocketMessage(message, from: socket)
+        // Stay on SignalClient's actor: a detached response processor cannot enter before this marks the return.
+        recorder.messageReturned.mutate { $0 = true }
+    }
+}
+
+private final class LeaveRecorder: SignalClientTestDelegate {
+    enum Event: Equatable { case leave(awaited: Bool), disconnected(LiveKitErrorType?) }
+    let client: SignalClient
+    let socketEvents = SocketEvents()
+    let messageReturned = StateSync(false)
+    let events = StateSync<[Event]>([])
+    let disconnected = AsyncCompleter<Void>(label: "LeaveRecorder.disconnected", defaultTimeout: 5)
+
+    init(client: SignalClient) {
+        self.client = client
+    }
+
+    /// As `Room` handles a leave that disconnects: it cleans the signal client up before it returns.
+    func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?) async {
+        // The socket can finish its close handshake while message delivery still awaits this callback.
+        do {
+            _ = try await socketEvents.teardown.wait()
+        } catch {
+            Issue.record(error)
+        }
+        let awaited = !messageReturned.copy()
+        await client.cleanUp(withError: LiveKitError.from(reason: reason))
+        events.mutate { $0.append(.leave(awaited: awaited)) }
+    }
+
+    func signalClient(_: SignalClient, didUpdateConnectionState newState: ConnectionState, oldState _: ConnectionState, disconnectError: LiveKitError?) async {
+        guard newState == .disconnected else { return }
+        events.mutate { $0.append(.disconnected(disconnectError?.type)) }
+        disconnected.resume(returning: ())
+    }
+}
+
+private final class QueueResumeDelegate: SignalClientTestDelegate {
     static let candidate = IceCandidate(sdp: "candidate:1 1 udp 1 127.0.0.1 12345 typ host", sdpMLineIndex: 0, sdpMid: "0")
     let handled = AsyncCompleter<Livekit_SignalResponse>(label: "Response handler finished sending", defaultTimeout: 5)
 
@@ -162,9 +317,17 @@ private final class QueueResumeDelegate: SignalClientDelegate {
             handled.resume(throwing: error)
         }
     }
+}
 
+private final class IgnoringDelegate: SignalClientTestDelegate {}
+
+private protocol SignalClientTestDelegate: SignalClientDelegate {}
+
+private extension SignalClientTestDelegate {
     func signalClient(_: SignalClient, didUpdateConnectionState _: ConnectionState, oldState _: ConnectionState, disconnectError _: LiveKitError?) async {}
     func signalClient(_: SignalClient, didReceiveConnectResponse _: SignalClient.ConnectResponse) async {}
+    func signalClient(_: SignalClient, didReceiveAnswer _: LKRTCSessionDescription, offerId _: UInt32) async {}
+    func signalClient(_: SignalClient, didReceiveOffer _: LKRTCSessionDescription, offerId _: UInt32) async {}
     func signalClient(_: SignalClient, didReceiveIceCandidate _: IceCandidate, target _: Livekit_SignalTarget) async {}
     func signalClient(_: SignalClient, didUnpublishLocalTrack _: Livekit_TrackUnpublishedResponse) async {}
     func signalClient(_: SignalClient, didUpdateParticipants _: [Livekit_ParticipantInfo]) async {}
@@ -178,7 +341,8 @@ private final class QueueResumeDelegate: SignalClientDelegate {
     func signalClient(_: SignalClient, didReceiveRoomMoved _: Livekit_RoomMovedResponse) async {}
     func signalClient(_: SignalClient, didUpdateSubscriptionPermission _: Livekit_SubscriptionPermissionUpdate) async {}
     func signalClient(_: SignalClient, didUpdateToken _: String) async {}
-    func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason _: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?) async {}
     func signalClient(_: SignalClient, didSubscribeTrack _: Track.Sid) async {}
+    func signalClient(_: SignalClient, didReceiveMediaSectionsRequirement _: Livekit_MediaSectionsRequirement) async {}
     func signalClient(_: SignalClient, didReceiveDataTrackResponse _: Data) async {}
+    func signalClient(_: SignalClient, didReceiveLeave _: Livekit_LeaveRequest_Action, reason _: Livekit_DisconnectReason, regions _: Livekit_RegionSettings?) async {}
 }
