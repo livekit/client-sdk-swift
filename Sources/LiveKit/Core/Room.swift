@@ -810,9 +810,10 @@ extension Room: AppStateDelegate {
 
 // MARK: - Devices
 
-@available(*, deprecated, renamed: "AudioManager.shared.isVoiceProcessingBypassed")
+// swiftformat:disable:next extensionAttributes
 public extension Room {
     /// Set this to true to bypass initialization of voice processing.
+    @available(*, deprecated, renamed: "AudioManager.shared.isVoiceProcessingBypassed")
     @objc
     static var bypassVoiceProcessing: Bool {
         get { AudioManager.shared.isVoiceProcessingBypassed }
