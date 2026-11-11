@@ -165,18 +165,27 @@ jobs:
       - name: Build & Test
         timeout-minutes: 45
         run: |
+          test_platform='${{ matrix.platform }}'
+          if [[ "$test_platform" == *Simulator* ]]; then
+            {
+              printf 'Selected simulator: %s\n' '${{ steps.boot.outputs.udid }}'
+              xcrun simctl list runtimes -j || true
+              xcrun simctl list devices -j || true
+            } > "$RUNNER_TEMP/simulator-metadata.log" 2>&1
+          fi
           # A hung job's log goes quiet; capture where the test host is stuck before the timeout kills it.
           .github/stall-dump/stall-dump.sh "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/stall-dump" &
           set -o pipefail && xcodebuild test \
             -scheme LiveKitCI \
             -destination '${{ steps.boot.outputs.udid && format('id={0}', steps.boot.outputs.udid) || format('platform={0}', matrix.platform) }}' \
-            -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/test-results.xcresult" \
+            -collect-test-diagnostics on-failure \
             -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
             -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
             APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
             ${{ matrix.extension-api-only == true && 'LINKER_DRIVER=clang' || '' }} \
             ${{ matrix.swift-language-mode && format('SWIFT_VERSION={0}', matrix.swift-language-mode) || '' }} \
-            -parallel-testing-enabled NO \
+            -parallel-testing-enabled NO 2>&1 \
             | tee "$RUNNER_TEMP/xcodebuild.log" \
             | xcbeautify --renderer github-actions
 
@@ -203,6 +212,11 @@ jobs:
           path: |
             ${{ runner.temp }}/xcodebuild.log
             ${{ runner.temp }}/stall-dump
+            ${{ runner.temp }}/test-results.xcresult
+            ${{ runner.temp }}/simulator-metadata.log
+            ~/Library/Logs/DiagnosticReports
+            /Library/Logs/DiagnosticReports
+            ~/Library/Developer/CoreSimulator/Devices/${{ steps.boot.outputs.udid }}/data/Library/Logs/CrashReporter
           retention-days: 5
 
       # Client-side logs can't distinguish "we gave up" from "the SFU hung up on
