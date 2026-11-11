@@ -82,7 +82,7 @@ jobs:
           # This image has no plain "Apple TV" device, unlike macos-26.
           - os: xcode-27
             xcode: latest
-            platform: "tvOS Simulator,name=Apple TV 4K (3rd generation),OS=27.0"
+            platform: "tvOS Simulator,name=Apple TV 4K (4th generation),OS=27.2"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
