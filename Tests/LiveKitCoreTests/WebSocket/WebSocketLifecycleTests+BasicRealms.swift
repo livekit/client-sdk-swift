@@ -18,16 +18,16 @@ import Foundation
 @testable import LiveKit
 import Testing
 
-extension WebSocketLifecycleTests {
+extension WebSocketLifecycleTests.StoredCredentials {
     /// A protection space is the root URL and the realm (RFC 7235 §2.2): a second realm on the same origin gets its own
     /// credential, as URLSession answered it.
     @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
     func secondBasicRealmOnTheSameOriginIsAnswered() async throws {
         let realms = ["lk-auth-\(UUID().uuidString)-a", "lk-auth-\(UUID().uuidString)-b"]
-        let server = try FakeWebSocketServer(.upgradeResponses(realms.map(Self.basicChallenge) + [Self.successfulHTTPUpgrade]))
+        let server = try FakeWebSocketServer(.upgradeResponses(realms.map(Self.basicChallenge) + [WebSocketLifecycleTests.successfulHTTPUpgrade]))
         defer { server.cancel() }
         let url = try await server.url()
-        let stored = try realms.map { try Self.storeBasicCredential(url: url, realm: $0, user: $0) }
+        let stored = try realms.map { try WebSocketLifecycleTests.storeBasicCredential(url: url, realm: $0, user: $0) }
         defer { for (space, credential) in stored {
             URLCredentialStorage.shared.remove(credential, for: space)
         } }
@@ -35,7 +35,7 @@ extension WebSocketLifecycleTests {
         let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
         defer { socket.close() }
         let requests = server.requests.copy()
-        #expect(requests.map { Self.authorization($0.headers) } == [nil] + realms.map { Self.basicHeader(user: $0) })
+        #expect(requests.map { WebSocketLifecycleTests.authorization($0.headers) } == [nil] + realms.map { WebSocketLifecycleTests.basicHeader(user: $0) })
     }
 
     /// A server that names a fresh realm on every 401 stops being answered after twenty attempts.
@@ -45,7 +45,7 @@ extension WebSocketLifecycleTests {
         let server = try FakeWebSocketServer(.upgradeResponses(realms.map(Self.basicChallenge)))
         defer { server.cancel() }
         let url = try await server.url()
-        let stored = try realms.map { try Self.storeBasicCredential(url: url, realm: $0) }
+        let stored = try realms.map { try WebSocketLifecycleTests.storeBasicCredential(url: url, realm: $0) }
         defer { for (space, credential) in stored {
             URLCredentialStorage.shared.remove(credential, for: space)
         } }

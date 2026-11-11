@@ -18,7 +18,7 @@ import Foundation
 @testable import LiveKit
 import Testing
 
-extension WebSocketLifecycleTests {
+extension WebSocketLifecycleTests.StoredCredentials {
     @Test(arguments: [
         (["Basic realm=\"{realm}\""], true),
         (["Bearer realm=\"{realm}\"", "Basic realm=\"{realm}\""], true),
@@ -32,24 +32,24 @@ extension WebSocketLifecycleTests {
         let realm = "lk-review-auth-\(UUID().uuidString)"
         let fields = challenges.map { "WWW-Authenticate: \($0.replacingOccurrences(of: "{realm}", with: realm))\r\n" }.joined()
         let server = try FakeWebSocketServer(.upgradeResponses([
-            "HTTP/1.1 401 Unauthorized\r\n\(fields)\r\n", Self.successfulHTTPUpgrade,
+            "HTTP/1.1 401 Unauthorized\r\n\(fields)\r\n", WebSocketLifecycleTests.successfulHTTPUpgrade,
         ]))
         defer { server.cancel() }
         let url = try await server.url()
-        let stored = try Self.storeBasicCredential(url: url, realm: realm)
+        let stored = try WebSocketLifecycleTests.storeBasicCredential(url: url, realm: realm)
         defer { URLCredentialStorage.shared.remove(stored.credential, for: stored.space) }
         if opens {
             let socket = try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer probe")], timeoutInterval: 10)
             defer { socket.close() }
             #expect(server.requests.copy().count == 2)
-            #expect(Self.authorization(server.requestHeaders.copy()) == Self.basicHeader())
+            #expect(WebSocketLifecycleTests.authorization(server.requestHeaders.copy()) == WebSocketLifecycleTests.basicHeader())
         } else {
             let error = await #expect(throws: LiveKitError.self) {
                 try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer probe")], timeoutInterval: 10)
             }
             #expect((error?.internalError as? WebSocketUpgradeFailure)?.statusCode == 401)
             #expect(server.requests.copy().count == 1)
-            #expect(server.requests.copy().allSatisfy { Self.authorization($0.headers) == "Bearer probe" })
+            #expect(server.requests.copy().allSatisfy { WebSocketLifecycleTests.authorization($0.headers) == "Bearer probe" })
         }
     }
 
@@ -57,7 +57,7 @@ extension WebSocketLifecycleTests {
     func strongerChallengeSchemeMatchingIsCaseInsensitive(challenge: String) throws {
         let realm = "lk-review-auth-\(UUID().uuidString)"
         let url = try #require(URL(string: "http://\(realm).invalid/rtc"))
-        let stored = try Self.storeBasicCredential(url: url, realm: realm)
+        let stored = try WebSocketLifecycleTests.storeBasicCredential(url: url, realm: realm)
         defer { URLCredentialStorage.shared.remove(stored.credential, for: stored.space) }
         let response = WebSocketUpgradeFailure(statusCode: 401, headers: [
             ("www-authenticate", "Basic realm=\"\(realm)\""),
@@ -77,11 +77,11 @@ extension WebSocketLifecycleTests {
         let realm = "lk-redirect-scope-\(UUID().uuidString)"
         let redirects = targets.map { "HTTP/1.1 308 Redirect\r\nLocation: \($0)\r\n\r\n" }
         let challenge = "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"\(realm)\"\r\n\r\n"
-        let server = try FakeWebSocketServer(.upgradeResponses([challenge] + redirects + [opens ? Self.successfulHTTPUpgrade : challenge]))
+        let server = try FakeWebSocketServer(.upgradeResponses([challenge] + redirects + [opens ? WebSocketLifecycleTests.successfulHTTPUpgrade : challenge]))
         defer { server.cancel() }
         let origin = try await server.url()
         let url = try #require(URL(string: path, relativeTo: origin)?.absoluteURL)
-        let stored = try Self.storeBasicCredential(url: url, realm: realm)
+        let stored = try WebSocketLifecycleTests.storeBasicCredential(url: url, realm: realm)
         defer { URLCredentialStorage.shared.remove(stored.credential, for: stored.space) }
         if opens {
             let socket = try await LiveKit.WebSocket(url: url, headers: [("Authorization", "Bearer probe")], timeoutInterval: 10)
@@ -92,11 +92,13 @@ extension WebSocketLifecycleTests {
             }
             #expect((error?.internalError as? WebSocketUpgradeFailure)?.statusCode == 401)
         }
-        let basic = Self.basicHeader()
+        let basic = WebSocketLifecycleTests.basicHeader()
         let expected: [String?] = ["Bearer probe", basic] + sendsBasic.map { $0 ? basic : nil }
-        #expect(server.requests.copy().map { Self.authorization($0.headers) } == expected)
+        #expect(server.requests.copy().map { WebSocketLifecycleTests.authorization($0.headers) } == expected)
     }
+}
 
+extension WebSocketLifecycleTests {
     @Test func basicProtectionSpaceUsesLiteralSchemeHostPortAndDirectory() throws {
         let source = try #require(URL(string: "ws://example.invalid/dir/sub/basic"))
         for raw in ["ws://EXAMPLE.invalid:80/dir/sub/next", "ws://example.invalid/dir/sub/deeper/ok?x=1"] {
