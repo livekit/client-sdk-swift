@@ -148,6 +148,10 @@ extension WebSocket {
             if !done, !isFull, let streamEnd { end(streamEnd) }
         }
 
+        /// Both bounds, not either. Reads stop at ``WebSocket/readAhead`` unread messages alone (``startReceive()``), so
+        /// parsing must not stop before that: with `||`, a few large messages would stop it at the byte bound while TCP
+        /// reads went on and unparsed bytes piled up. Parsing on past that many small messages lets a burst reach its
+        /// trailing close frame.
         private var isFull: Bool {
             unread >= WebSocket.readAhead && unreadBytes >= WebSocket.readSize
         }

@@ -28,6 +28,9 @@ final class AsyncSerialDelegate<T: Sendable>: Sendable {
         _state.mutate { $0.delegate = delegate as AnyObject }
     }
 
+    /// Runs `fnc` once every earlier notification finished.
+    /// - Warning: A callback must not await `notifyAsync` on the same delegate: that notification waits behind the
+    ///   callback that awaits it. Use `notifyDetached` there.
     func notifyAsync(_ fnc: sending @escaping (T) async -> Void) async throws {
         guard let delegate = _state.read({ $0.delegate }) as? T else { return }
         try await _serialRunner.run {

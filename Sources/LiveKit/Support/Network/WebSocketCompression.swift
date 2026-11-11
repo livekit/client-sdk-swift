@@ -33,6 +33,9 @@ struct WebSocketCompression: Sendable {
         }
     }
 
+    /// The server's parameters, checked by their own rules. A `client_max_window_bits` that our offer did not carry is
+    /// accepted on purpose, although RFC 7692 §7.1.2.2 forbids the server to send it: a smaller client window is one
+    /// that any server inflates.
     static func negotiate(_ headers: [String]) throws -> Self? {
         guard !headers.isEmpty else { return nil }
         guard headers.count == 1 else { throw failure() }
