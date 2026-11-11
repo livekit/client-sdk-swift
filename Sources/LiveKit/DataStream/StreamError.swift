@@ -140,20 +140,6 @@ extension StreamError: CustomNSError {
     }
 }
 
-// MARK: - Declared length
-
-extension StreamError {
-    /// The error for a stream that ended after `receivedLength` bytes when its header declared
-    /// `declaredLength`, or `nil` when the two agree or nothing was declared.
-    ///
-    /// ponytail: the core checks a chunked stream's length but not an inline one's, so the readers
-    /// call this when a stream ends. Move the check to the core once it validates inline length.
-    init?(receivedLength: Int, declaredLength: Int?) {
-        guard let declaredLength, receivedLength != declaredLength else { return nil }
-        self = receivedLength < declaredLength ? .incomplete : .lengthExceeded
-    }
-}
-
 // MARK: - FFI bridging
 
 extension StreamError {
@@ -179,6 +165,41 @@ extension StreamError {
         case let .Io(reason): .io(reason: reason)
         case .Internal: .internalError
         @unknown default: .terminated
+        }
+    }
+}
+
+extension StreamError {
+    /// Maps core read errors and closes a cancelled stream before throwing `CancellationError`.
+    /// FFI close wakes native futures synchronously, so it must run outside the cancellation
+    /// handler's task status-record lock. The detached task is joined, never cancelled or abandoned.
+    static func reading<T>(closingOnCancel close: @escaping @Sendable () -> Void,
+                           _ read: () async throws -> T) async throws -> T
+    {
+        let closing = StateSync<Task<Void, Never>?>(nil)
+        let scheduleClose: @Sendable () -> Task<Void, Never> = {
+            closing.mutate { task in
+                if let task { return task }
+                let started = Task.detached { close() }
+                task = started
+                return started
+            }
+        }
+        do {
+            let value = try await withTaskCancellationHandler(operation: read, onCancel: {
+                _ = scheduleClose()
+            })
+            try Task.checkCancellation()
+            return value
+        } catch {
+            if Task.isCancelled {
+                await scheduleClose().value
+                throw CancellationError()
+            }
+            if let error = error as? LiveKitFFI.DataStreamError {
+                throw StreamError(error)
+            }
+            throw error
         }
     }
 }

@@ -19,6 +19,19 @@ import Foundation
 public extension Room {
     /// Registers a handler for incoming byte streams matching the given topic.
     ///
+    /// ```swift
+    /// try await room.registerByteStreamHandler(for: "files") { reader, sender in
+    ///     Task {
+    ///         for await progress in reader.progress {
+    ///             print("Received \(Int((progress.fraction ?? 0) * 100))%")
+    ///         }
+    ///     }
+    ///     let fileURL = try await reader.writeToFile()
+    ///     // Once the stream has ended, the info also holds the attributes it closed with.
+    ///     print("\(sender) sent \(fileURL.lastPathComponent), \(reader.info.attributes)")
+    /// }
+    /// ```
+    ///
     /// - Parameters:
     ///   - topic: Topic identifier that filters which streams will be handled.
     ///     Only streams with a matching topic will trigger the handler.

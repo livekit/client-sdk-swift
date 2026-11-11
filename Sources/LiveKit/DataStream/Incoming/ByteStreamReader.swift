@@ -18,46 +18,90 @@ internal import LiveKitFFI
 import Foundation
 
 /// An asynchronous sequence of chunks read from a byte data stream.
+///
+/// Cancelling a task that reads the stream ends the stream: the read throws `CancellationError`,
+/// and a later read throws ``StreamError/alreadyClosed``. Cancellation may discard an in-flight
+/// chunk or a partial `readAll()` result. When observed before a read returns, it takes precedence
+/// over a concurrent core failure; the stream has finished closing before the error is thrown.
 @objcMembers
 public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     /// Information about the incoming byte stream.
-    public let info: ByteStreamInfo
+    ///
+    /// Once the stream has ended, ``StreamInfo/attributes`` also holds the attributes the sender
+    /// set when it closed the stream. They replace header attributes with the same key.
+    /// Each access returns a fresh snapshot. A previously cached info object does not change;
+    /// read this property again after completion to obtain trailer attributes.
+    public var info: ByteStreamInfo {
+        let info = reader.info()
+        return ByteStreamInfo(info, encryptionType: EncryptionType(info.encryptionType))
+    }
 
     /// The core's reader, by its protocol so a test can stand in for it.
     private let reader: any LiveKitFFI.ByteStreamReaderProtocol
+    private let reads = StreamReadSerialiser()
+    private let progressRelay: StreamProgressRelay
+    private let progressTask = StateSync<AnyTaskCancellable?>(nil)
 
-    /// Bytes the core has handed over so far, through any iterator, `readAll()`, or a read that a
-    /// cancel abandoned. One count per stream, so the length check at its end holds however the
-    /// stream was read.
-    private let receivedLength = StateSync(0)
-
-    /// Runs each read of the core's reader together with its count and end check, one at a time.
-    /// A read that a cancel abandoned keeps running here, so a later read waits until it has
-    /// counted its chunk.
-    private let reads = SerialRunnerActor<Data?>()
-
-    init(_ reader: any LiveKitFFI.ByteStreamReaderProtocol, info: ByteStreamInfo) {
+    init(_ reader: any LiveKitFFI.ByteStreamReaderProtocol) {
         self.reader = reader
-        self.info = info
+        progressRelay = StreamProgressRelay { await reader.nextProgress().map(StreamProgress.init) }
+    }
+
+    deinit {
+        progressTask.copy()?.cancel()
+        // The core ends the stream when it releases its reader, which it cannot do while a
+        // cancelled `progress` wait still holds it. Closing ends that wait too.
+        reader.close()
     }
 
     /// Reads incoming chunks from the byte stream, concatenating them into a single data object which is returned
-    /// once the stream closes normally.
+    /// once the stream closes normally. Concurrent chunk reads wait until this operation completes.
     ///
     /// - Returns: The data consisting of all concatenated chunks.
     /// - Throws: ``StreamError`` if an error occurs while reading the stream, or
-    ///   `CancellationError` at once if the calling task is cancelled. The chunk in flight at the
-    ///   cancel is dropped, so a later read of the stream misses it.
+    ///   `CancellationError` after closing the stream if the calling task is cancelled,
+    ///   so a later read throws ``StreamError/alreadyClosed``.
     ///
     public func readAll() async throws -> Data {
-        // ponytail: chunk by chunk, so a cancel stops the collection after at most one chunk, but
-        // the core keeps buffering the rest of the stream until it ends. Releasing it early needs
-        // a per-reader close in the FFI.
-        var result = Data()
-        for try await chunk in self {
-            result.append(chunk)
+        try await StreamError.reading(closingOnCancel: reader.close) {
+            try await reads.run { [reader] in
+                var result = Data()
+                while let chunk = try await reader.next() {
+                    try Task.checkCancellation()
+                    result.append(chunk)
+                }
+                return result
+            }
         }
-        return result
+    }
+
+    /// The progress of the stream as its bytes arrive, until the stream ends.
+    ///
+    /// Progress counts the bytes received from the sender, after decompression, not the bytes read
+    /// so far. ``StreamProgress/bytesTotal`` is the size the sender declared, or `nil` if it
+    /// declared none. Updates that arrive between two iterations merge into the latest one, and the
+    /// last update is the stream's final progress. Iterate it from one task at a time.
+    ///
+    /// The sequence keeps the reader, and so the stream, alive until it finishes or its iteration
+    /// is cancelled, also after you release the reader. Cancelling the iteration does not end the
+    /// stream. A replacement observation receives the latest progress, including the final update
+    /// after completion. Cancellation detaches only the observation from the shared native wait.
+    ///
+    /// ```swift
+    /// Task {
+    ///     for await progress in reader.progress {
+    ///         print("Received \(progress.bytesProcessed) bytes")
+    ///     }
+    /// }
+    /// let data = try await reader.readAll()
+    /// ```
+    public var progress: AsyncStream<StreamProgress> {
+        let version = StateSync(0)
+        return AsyncStream(unfolding: { [self] in
+            guard let update = try? await progressRelay.next(after: version.copy()) else { return nil }
+            version.mutate { $0 = update.version }
+            return update.progress
+        })
     }
 
     /// An asynchronous iterator of incoming chunks.
@@ -74,20 +118,8 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     }
 
     private func nextChunk() async throws -> Data? {
-        do {
-            // Counted inside the operation, so a chunk that an abandoned read takes still counts.
-            return try await abandoningOnCancel { [reader, reads, receivedLength, declaredLength = info.totalLength] in
-                try await reads.run {
-                    guard let chunk = try await reader.next() else {
-                        if let error = StreamError(receivedLength: receivedLength.copy(), declaredLength: declaredLength) { throw error }
-                        return nil
-                    }
-                    receivedLength.mutate { $0 += chunk.count }
-                    return chunk
-                }
-            }
-        } catch let error as LiveKitFFI.DataStreamError {
-            throw StreamError(error)
+        try await StreamError.reading(closingOnCancel: reader.close) {
+            try await reads.run { [reader] in try await reader.next() }
         }
     }
 }
@@ -117,8 +149,9 @@ extension ByteStreamReader {
     ///   the stream information, so this check keeps the file inside `directory`.
     ///   ``StreamError/io(reason:)`` if the destination cannot be created — because something is
     ///   already there, or because `directory` does not exist, or for any other `open` failure.
-    ///   Another ``StreamError`` if reading the stream fails. `CancellationError` at once if the
-    ///   calling task is cancelled; the file then holds what was written so far.
+    ///   Another ``StreamError`` if reading the stream fails. `CancellationError` if the calling
+    ///   task is cancelled while reading. Cancelling the read closes the stream, so a later read
+    ///   throws ``StreamError/alreadyClosed``. The file holds what was written so far.
     ///
     public func writeToFile(
         in directory: URL = FileManager.default.temporaryDirectory,
@@ -127,6 +160,7 @@ extension ByteStreamReader {
         guard directory.hasDirectoryPath else {
             throw StreamError.notDirectory
         }
+        let info = info
         let preferredName = nameOverride ?? info.name
         let fileName = Self.resolveFileName(
             preferredName: preferredName,
@@ -215,5 +249,45 @@ public extension ByteStreamReader {
                 onCompletion?(error)
             }
         }
+    }
+}
+
+public extension ByteStreamReader {
+    /// Calls `onProgress` with each update of ``progress``, for Objective-C callers.
+    ///
+    /// The observation ends when the stream ends, the reader is released, or
+    /// ``stopReadingProgress()`` is called. Calling this again replaces the previous observation.
+    /// Keep the reader alive while observing; the callback should not retain it.
+    @objc
+    @available(swift, deprecated: 1, message: "Use for/await on ByteStreamReader progress instead.")
+    func readProgress(onProgress: @Sendable @escaping (StreamProgress) -> Void) {
+        let previous = progressTask.mutate { current in
+            let previous = current
+            current = Task { [progressRelay] in
+                var version = 0
+                while let update = try? await progressRelay.next(after: version) {
+                    guard !Task.isCancelled else { return }
+                    version = update.version
+                    onProgress(update.progress)
+                }
+            }.cancellable()
+            return previous
+        }
+        previous?.cancel()
+    }
+
+    /// Cancels the observation started by ``readProgress(onProgress:)`` without closing the stream.
+    ///
+    /// The callback and observation are released even if the core's progress wait is still pending.
+    /// A callback already in flight may finish. A replacement observation replays the latest
+    /// update. Releasing the reader closes the stream and pending native wait.
+    /// Ordinary Swift ``progress`` iteration is unaffected.
+    @objc
+    func stopReadingProgress() {
+        let previous = progressTask.mutate { current in
+            defer { current = nil }
+            return current
+        }
+        previous?.cancel()
     }
 }

@@ -204,7 +204,7 @@ struct DataStreamLoopbackTests {
         let read = AsyncCompleter<Data>(label: "Loopback read", defaultTimeout: 10)
 
         func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
-            let reader = LiveKit.TextStreamReader(reader, info: LiveKit.TextStreamInfo(reader.info(), encryptionType: .none))
+            let reader = LiveKit.TextStreamReader(reader)
             info.resume(returning: reader.info)
             Task {
                 do {
@@ -216,7 +216,7 @@ struct DataStreamLoopbackTests {
         }
 
         func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
-            let reader = LiveKit.ByteStreamReader(reader, info: LiveKit.ByteStreamInfo(reader.info(), encryptionType: .none))
+            let reader = LiveKit.ByteStreamReader(reader)
             Task {
                 do {
                     try await read.resume(returning: reader.readAll())

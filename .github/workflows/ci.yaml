@@ -79,10 +79,10 @@ jobs:
           - os: xcode-27
             xcode: latest
             platform: "visionOS Simulator,name=Apple Vision Pro,OS=27.0"
-          # This image has no plain "Apple TV" device, unlike macos-26.
+          # tvOS 27.0 can be unmounted mid-test by duplicate-runtime cleanup on this image.
           - os: xcode-27
             xcode: latest
-            platform: "tvOS Simulator,name=Apple TV 4K (3rd generation),OS=27.0"
+            platform: "tvOS Simulator,name=Apple TV 4K (4th generation),OS=27.2"
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -90,6 +90,7 @@ jobs:
       LIBDISPATCH_COOPERATIVE_POOL_STRICT: ${{ matrix.strict-concurrency-env == true && '1' || '0' }}
       NSUnbufferedIO: "YES"
       TSAN_OPTIONS: suppressions=${{ github.workspace }}/.github/sanitizers/tsan.supp
+      TEST_RUNNER_TSAN_OPTIONS: suppressions=${{ github.workspace }}/.github/sanitizers/tsan.supp
     defaults:
       run:
         shell: bash
@@ -164,18 +165,27 @@ jobs:
       - name: Build & Test
         timeout-minutes: 45
         run: |
+          test_platform='${{ matrix.platform }}'
+          if [[ "$test_platform" == *Simulator* ]]; then
+            {
+              printf 'Selected simulator: %s\n' '${{ steps.boot.outputs.udid }}'
+              xcrun simctl list runtimes -j || true
+              xcrun simctl list devices -j || true
+            } > "$RUNNER_TEMP/simulator-metadata.log" 2>&1
+          fi
           # A hung job's log goes quiet; capture where the test host is stuck before the timeout kills it.
           .github/stall-dump/stall-dump.sh "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/stall-dump" &
           set -o pipefail && xcodebuild test \
             -scheme LiveKitCI \
             -destination '${{ steps.boot.outputs.udid && format('id={0}', steps.boot.outputs.udid) || format('platform={0}', matrix.platform) }}' \
-            -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/test-results.xcresult" \
+            -collect-test-diagnostics on-failure \
             -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
             -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
             APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
             ${{ matrix.extension-api-only == true && 'LINKER_DRIVER=clang' || '' }} \
             ${{ matrix.swift-language-mode && format('SWIFT_VERSION={0}', matrix.swift-language-mode) || '' }} \
-            -parallel-testing-enabled NO \
+            -parallel-testing-enabled NO 2>&1 \
             | tee "$RUNNER_TEMP/xcodebuild.log" \
             | xcbeautify --renderer github-actions
 
@@ -202,6 +212,11 @@ jobs:
           path: |
             ${{ runner.temp }}/xcodebuild.log
             ${{ runner.temp }}/stall-dump
+            ${{ runner.temp }}/test-results.xcresult
+            ${{ runner.temp }}/simulator-metadata.log
+            ~/Library/Logs/DiagnosticReports
+            /Library/Logs/DiagnosticReports
+            ~/Library/Developer/CoreSimulator/Devices/${{ steps.boot.outputs.udid }}/data/Library/Logs/CrashReporter
           retention-days: 5
 
       # Client-side logs can't distinguish "we gave up" from "the SFU hung up on
@@ -301,7 +316,7 @@ jobs:
       # Hard budget for the SDK's uncompressed .app delta, in MB — no tolerance
       # band. Move it deliberately, in the same commit as the change that needs
       # it (the job summary reports the measured value).
-      SIZE_BASELINE_MB: "17.8"
+      SIZE_BASELINE_MB: "18.4"
     steps:
       - uses: actions/checkout@v7
         with:
