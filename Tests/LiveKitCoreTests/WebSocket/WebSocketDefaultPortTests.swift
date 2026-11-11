@@ -63,7 +63,7 @@ struct WebSocketDefaultPortTests {
                 server.cancel()
                 attempts -= 1
                 guard case .posix(.EADDRINUSE) = error as? NWError, attempts > 0 else { throw error }
-                try await Task.sleep(for: .milliseconds(50))
+                try await Task.sleep(nanoseconds: 50_000_000)
             }
         }
     }
