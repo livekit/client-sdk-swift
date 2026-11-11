@@ -18,7 +18,7 @@ internal import LiveKitWebRTC
 import Foundation
 
 /// Returns native decoder objects unchanged so WebRTC can unwrap their native builders.
-/// Stored factories and codec snapshots are immutable; WebRTC sequences factory calls.
+/// The class has no mutable state. Unchecked Sendable covers the non-Sendable LKRTC types.
 final class VideoDecoderFactoryAdapter: NSObject, LKRTCVideoDecoderFactory, @unchecked Sendable {
     private let factory: any VideoDecoderFactory
     private let fallback: any LKRTCVideoDecoderFactory
@@ -31,7 +31,7 @@ final class VideoDecoderFactoryAdapter: NSObject, LKRTCVideoDecoderFactory, @unc
         self.factory = factory
         self.fallback = fallback
         var codecs = supportedCodecs
-        for codec in fallback.supportedCodecs().map({ VideoCodecInfo(fromRTCType: $0) }) where !codecs.contains(codec) {
+        for codec in fallback.supportedCodecs().map({ VideoCodecInfo(fromRTCType: $0) }) where !supportedCodecs.contains(where: { $0.isSameCodec(as: codec) }) {
             codecs.append(codec)
         }
         supportedRTCCodecs = codecs.map { $0.toRTCType() }
@@ -51,9 +51,14 @@ final class VideoDecoderFactoryAdapter: NSObject, LKRTCVideoDecoderFactory, @unc
 }
 
 /// WebRTC sequences decoder calls; callback access is protected by StateSync.
-final class VideoDecoderAdapter: NSObject, LKRTCVideoDecoder, @unchecked Sendable {
+final class VideoDecoderAdapter: NSObject, LKRTCVideoDecoder, Sendable, Loggable {
     private let decoder: any VideoDecoder
-    private let callback = StateSync<RTCVideoDecoderCallback?>(nil)
+    private struct State {
+        var callback: RTCVideoDecoderCallback?
+        var didWarnUnsupportedBuffer = false
+    }
+
+    private let callback = StateSync(State())
 
     init(decoder: any VideoDecoder) {
         self.decoder = decoder
@@ -61,11 +66,21 @@ final class VideoDecoderAdapter: NSObject, LKRTCVideoDecoder, @unchecked Sendabl
     }
 
     func setCallback(_ callback: @escaping RTCVideoDecoderCallback) {
-        self.callback.mutate { $0 = callback }
+        self.callback.mutate { $0.callback = callback }
         let box = self.callback
         decoder.setCallback { frame in
-            guard frame.buffer is RTCCompatibleVideoBuffer,
-                  let callback = box.read({ $0 }) else { return }
+            guard frame.buffer is RTCCompatibleVideoBuffer else {
+                let shouldWarn = box.mutate {
+                    guard !$0.didWarnUnsupportedBuffer else { return false }
+                    $0.didWarnUnsupportedBuffer = true
+                    return true
+                }
+                if shouldWarn {
+                    Self.log("Custom video decoder output has an unsupported VideoBuffer; dropping frame", .warning)
+                }
+                return
+            }
+            guard let callback = box.read({ $0.callback }) else { return }
             let rtcFrame = frame.toRTCType()
             // The ObjC bridge matches decoded output using timeStamp, not timeStampNs.
             rtcFrame.timeStamp = Int32(bitPattern: frame.rtpTimestamp)
@@ -88,7 +103,8 @@ final class VideoDecoderAdapter: NSObject, LKRTCVideoDecoder, @unchecked Sendabl
     }
 
     func release() -> Int {
-        callback.mutate { $0 = nil }
+        callback.mutate { $0.callback = nil }
+        decoder.setCallback(nil)
         return decoder.releaseDecoder().rawValue
     }
 

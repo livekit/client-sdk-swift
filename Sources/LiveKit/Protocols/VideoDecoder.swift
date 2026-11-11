@@ -105,6 +105,7 @@ public protocol VideoDecoder: Sendable {
     func decode(_ frame: EncodedVideoFrame, missingFrames: Bool, renderTimeMs: Int64) -> VideoDecoderStatus
 
     /// Releases decoder resources. No callbacks can remain in flight or be
-    /// delivered after this returns. The decoder can be started again afterwards.
+    /// delivered after this returns. Cancel pending asynchronous output and drain
+    /// in-flight deliveries before returning, without holding a lock those deliveries need.
     func releaseDecoder() -> VideoDecoderStatus
 }

@@ -138,11 +138,12 @@ struct VideoDecoderFactoryTests {
         defer { bytes.deallocate() }
         bytes.initializeMemory(as: UInt8.self, repeating: 0x65, count: 64)
         let image = makeImage()
-        image.buffer = Data(bytesNoCopy: bytes, count: 64, deallocator: .none)
+        image.buffer = NSData(bytesNoCopy: bytes, length: 64, freeWhenDone: false) as Data
         let decoder = FakeDecoder()
         let adapter = VideoDecoderAdapter(decoder: decoder)
         #expect(adapter.decode(image, missingFrames: true, codecSpecificInfo: nil, renderTimeMs: 789) == 0)
         bytes.initializeMemory(as: UInt8.self, repeating: 0, count: 64)
+        #expect(image.buffer == Data(repeating: 0, count: 64))
         let frame = try #require(decoder.state.frame)
         #expect(frame.data == Data(repeating: 0x65, count: 64))
         #expect(frame.dimensions == Dimensions(width: 16, height: 16))
@@ -181,19 +182,34 @@ struct VideoDecoderFactoryTests {
         #expect(decoder.state.releaseCount == 1)
     }
 
-    @Test func callbackReplacementAndUnsupportedBuffer() throws {
-        struct UnsupportedBuffer: VideoBuffer {}
+    @Test func callbackReplacement() throws {
         let decoder = FakeDecoder()
         let adapter = VideoDecoderAdapter(decoder: decoder)
         let deliveries = StateSync(0)
         adapter.setCallback { _ in Issue.record("Replaced callback invoked") }
         let callback = try #require(decoder.state.callback)
         adapter.setCallback { _ in deliveries.mutate { $0 += 1 } }
-        callback(VideoFrame(dimensions: Dimensions(width: 16, height: 16), rotation: ._0,
-                            timeStampNs: 0, buffer: UnsupportedBuffer()))
-        #expect(deliveries.read { $0 } == 0)
         try callback(makeFrame(timestamp: 1))
         #expect(deliveries.read { $0 } == 1)
+    }
+
+    @Test func unsupportedBufferIsDropped() throws {
+        struct UnsupportedBuffer: VideoBuffer {}
+        let decoder = FakeDecoder()
+        let adapter = VideoDecoderAdapter(decoder: decoder)
+        adapter.setCallback { _ in Issue.record("Unsupported buffer delivered") }
+        let callback = try #require(decoder.state.callback)
+        callback(VideoFrame(dimensions: Dimensions(width: 16, height: 16), rotation: ._0,
+                            timeStampNs: 0, buffer: UnsupportedBuffer()))
+    }
+
+    @Test func releaseClearsDecoderCallback() {
+        let decoder = FakeDecoder()
+        let adapter = VideoDecoderAdapter(decoder: decoder)
+        adapter.setCallback { _ in }
+        #expect(decoder.state.callback != nil)
+        #expect(adapter.release() == 0)
+        #expect(decoder.state.callback == nil)
     }
 
     @Test(arguments: [
@@ -212,12 +228,39 @@ struct VideoDecoderFactoryTests {
         #expect(adapter.implementationName() == "FakeDecoder")
     }
 
+    @Test(arguments: [false, true])
+    func registrationGuardsAreIndependent(peerConnectionInitialized: Bool) {
+        var state = RTC.PeerConnectionFactoryState()
+        state.isInitialized = peerConnectionInitialized
+        state.isDecoderFactoryInitialized = !peerConnectionInitialized
+        let error = #expect(throws: LiveKitError.self) {
+            try state.set(videoDecoderFactory: nil, codecs: [])
+        }
+        #expect(error?.type == .invalidState)
+    }
+
+    @Test func codecDeduplicationPreservesPacketizationModes() {
+        let custom = VideoCodecInfo(name: "H264", parameters: ["packetization-mode": "1"])
+        let native = LKRTCDefaultVideoDecoderFactory()
+        let adapter = VideoDecoderFactoryAdapter(factory: FakeFactory(supportedCodecs: [custom]),
+                                                 supportedCodecs: [custom], fallback: native)
+        let advertised = adapter.supportedCodecs().map { VideoCodecInfo(fromRTCType: $0) }
+        #expect(advertised.filter { $0.isSameCodec(as: custom) }.count == 1)
+        let modeZero = VideoCodecInfo(name: "H264")
+        let modeZeroAdapter = VideoDecoderFactoryAdapter(factory: FakeFactory(supportedCodecs: [modeZero]),
+                                                         supportedCodecs: [modeZero], fallback: native)
+        #expect(modeZeroAdapter.supportedCodecs().first?.parameters["packetization-mode"] == nil)
+        #expect(modeZeroAdapter.supportedCodecs().contains { VideoCodecInfo(fromRTCType: $0).isSameCodec(as: custom) })
+    }
+
     @Test func registrationAfterInitializationThrows() async {
-        await RTC.run { _ = RTC.peerConnectionFactory }
+        // Registration is process-global. A successful registration would affect other tests.
+        _ = RTC.decoderFactory
         let error = #expect(throws: LiveKitError.self) {
             try LiveKitSDK.set(videoDecoderFactory: FakeFactory(supportedCodecs: []))
         }
         #expect(error?.type == .invalidState)
+        await RTC.run { _ = RTC.peerConnectionFactory }
         let resetError = #expect(throws: LiveKitError.self) {
             try LiveKitSDK.set(videoDecoderFactory: nil)
         }

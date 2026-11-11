@@ -44,7 +44,7 @@ public struct EncodedVideoFrame: Sendable {
     /// The encoded bitstream.
     public let data: Data
 
-    /// Resolution of the encoded frame.
+    /// Resolution of the encoded frame. Can be zero for incoming delta frames.
     public let dimensions: Dimensions
 
     /// RTP timestamp in the 90kHz clock, which must be copied from the source
@@ -52,12 +52,15 @@ public struct EncodedVideoFrame: Sendable {
     public let rtpTimestamp: UInt32
 
     /// Capture time in milliseconds, supplied by WebRTC on incoming frames.
+    /// Decoder input only; the encoder path ignores this value.
     public let captureTimeMs: Int64
 
     /// Capture time on the NTP clock in milliseconds, when available from WebRTC.
+    /// Decoder input only; the encoder path ignores this value.
     public let ntpTimeMs: Int64
 
     /// Rotation to apply when rendering an incoming frame.
+    /// Decoder input only; the encoder path ignores this value.
     public let rotation: VideoRotation
 
     /// Whether this is a key or delta frame.
@@ -80,8 +83,25 @@ public struct EncodedVideoFrame: Sendable {
                 rtpTimestamp: UInt32,
                 frameType: FrameType,
                 qp: Int? = nil,
+                packetizationMode: PacketizationMode? = nil)
+    {
+        self.init(data: data, dimensions: dimensions, rtpTimestamp: rtpTimestamp,
+                  frameType: frameType, qp: qp, packetizationMode: packetizationMode,
+                  captureTimeMs: 0)
+    }
+
+    /// Creates an encoded frame with decoder input metadata.
+    /// - Parameters:
+    ///   - captureTimeMs: Capture time in milliseconds. Decoder input only; ignored by the encoder path.
+    ///   - ntpTimeMs: NTP capture time in milliseconds. Decoder input only; ignored by the encoder path.
+    ///   - rotation: Render rotation. Decoder input only; ignored by the encoder path.
+    public init(data: Data,
+                dimensions: Dimensions,
+                rtpTimestamp: UInt32,
+                frameType: FrameType,
+                qp: Int? = nil,
                 packetizationMode: PacketizationMode? = nil,
-                captureTimeMs: Int64 = 0,
+                captureTimeMs: Int64,
                 ntpTimeMs: Int64 = 0,
                 rotation: VideoRotation = ._0)
     {

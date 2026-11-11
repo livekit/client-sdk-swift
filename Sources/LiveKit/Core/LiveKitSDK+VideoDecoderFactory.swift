@@ -31,18 +31,26 @@ public extension LiveKitSDK {
     ///
     /// - Note: Selection is by codec, not by track. Per-track selection needs
     ///   receiver identity that WebRTC does not pass to decoder factories today.
+    /// - Note: A codec name without a WebRTC RTP depacketizer can be negotiated,
+    ///   but its video cannot be received.
     /// - Warning: Call this before any other SDK API, for example in `App.init()`.
     ///   Accessing the decoder factory or shared peer connection factory fixes
     ///   the configuration for the process. Later calls throw ``LiveKitError``
     ///   with type `.invalidState`.
     static func set(videoDecoderFactory: (any VideoDecoderFactory)?) throws {
-        let codecs = (videoDecoderFactory?.supportedCodecs ?? []).map { $0.normalizedForAdvertising() }
+        let codecs = videoDecoderFactory?.supportedCodecs ?? []
         try RTC.pcFactoryState.mutate {
-            guard !$0.isInitialized, !$0.isDecoderFactoryInitialized else {
-                throw LiveKitError(.invalidState, message: "Cannot set videoDecoderFactory after the decoder factory or peer connection factory has been initialized")
-            }
-            $0.customVideoDecoderFactory = videoDecoderFactory
-            $0.customVideoDecoderCodecs = codecs
+            try $0.set(videoDecoderFactory: videoDecoderFactory, codecs: codecs)
         }
+    }
+}
+
+extension RTC.PeerConnectionFactoryState {
+    mutating func set(videoDecoderFactory: (any VideoDecoderFactory)?, codecs: [VideoCodecInfo]) throws {
+        guard !isInitialized, !isDecoderFactoryInitialized else {
+            throw LiveKitError(.invalidState, message: "Cannot set videoDecoderFactory after the decoder factory or peer connection factory has been initialized")
+        }
+        customVideoDecoderFactory = videoDecoderFactory
+        customVideoDecoderCodecs = codecs
     }
 }
