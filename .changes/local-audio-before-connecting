@@ -1,1 +1,1 @@
-patch type="fixed" "Restore delivery of local audio captured before connecting through the pre-connect audio buffer, startLocalRecording() without a Room, manual rendering mode, local audio renderers, and capturePostProcessingDelegate, which was dropped since 2.13.0"
+patch type="fixed" "Fix local audio not reaching LocalAudioTrack renderers or capturePostProcessingDelegate when captured without a connected Room (startLocalRecording(), manual rendering mode, pre-connect audio buffer). Regressed in 2.13.0"
