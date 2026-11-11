@@ -129,7 +129,7 @@ jobs:
           exit 1
 
       # Boot ahead of the test step, so a cold runtime's first launch does not spend the test budget.
-      # An optimization only: if it overruns, the test step boots the selected device itself.
+      # An optimization only: if it overruns, the test step targets the platform and boots it itself.
       - name: Boot Simulator
         id: boot
         if: contains(matrix.platform, 'Simulator')
@@ -141,28 +141,11 @@ jobs:
           family=${platform%% Simulator*}; [ "$family" = "visionOS" ] && family=xrOS
           name=${platform#*name=}; name=${name%%,OS=*}; os=${platform##*OS=}
           runtime="com.apple.CoreSimulator.SimRuntime.${family}-${os//./-}"
-          xcrun simctl list -j > "$RUNNER_TEMP/simulator-inventory.json"
-          # Images roll out independently: prefer the configured runtime, then the newest in
-          # the same platform/major; prefer the configured name, then stable device ordering.
-          selected=$(jq -r --arg rt "$runtime" --arg n "$name" --arg major "${os%%.*}" \
-            --arg prefix "com.apple.CoreSimulator.SimRuntime.${family}-" '
-            . as $inventory
-            | [.runtimes[]
-               | select(.isAvailable == true and (.identifier | startswith($prefix)) and (.version | split(".")[0]) == $major)
-               | select(.identifier != "com.apple.CoreSimulator.SimRuntime.tvOS-27-0")
-               | . as $runtime
-               | $inventory.devices[$runtime.identifier][]?
-               | select(.isAvailable == true)
-               | {udid, name, runtime: $runtime.identifier, version: $runtime.version}]
-            | sort_by(.runtime != $rt, (.version | split(".") | map(tonumber) | . + [0, 0] | .[:3] | map(-.)), .name != $n, .name, .udid)
-            | .[0] // empty
-            | [.udid, .name, .runtime] | @tsv' "$RUNNER_TEMP/simulator-inventory.json")
-          [ -n "$selected" ] || { echo "::error::No available $family simulator for runtime major ${os%%.*} (configured: $name, $os)"; exit 1; }
-          IFS=$'\t' read -r udid selected_name selected_runtime <<< "$selected"
-          echo "Selected simulator: $selected_name ($udid) on $selected_runtime; configured: $name on $runtime"
-          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          udid=$(xcrun simctl list devices available -j | jq -r --arg rt "$runtime" --arg n "$name" '.devices[$rt] // [] | map(select(.name==$n)) | .[0].udid // empty')
+          [ -n "$udid" ] || { echo "No available simulator named '$name' on $runtime"; xcrun simctl list devices available; exit 1; }
           xcrun simctl boot "$udid" || true
           xcrun simctl bootstatus "$udid" -b
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
           xcrun simctl spawn "$udid" launchctl print system > /dev/null 2>&1 || true
           # Booted is not idle: the runtime's processes keep several cores busy for a minute or
           # more afterwards. Wait for them to go quiet, for at most two minutes and never past the
@@ -184,13 +167,11 @@ jobs:
         run: |
           test_platform='${{ matrix.platform }}'
           if [[ "$test_platform" == *Simulator* ]]; then
-            simulator_udid='${{ steps.boot.outputs.udid }}'
             {
-              printf 'Selected simulator: %s\n' "$simulator_udid"
+              printf 'Selected simulator: %s\n' '${{ steps.boot.outputs.udid }}'
               xcrun simctl list runtimes -j || true
               xcrun simctl list devices -j || true
             } > "$RUNNER_TEMP/simulator-metadata.log" 2>&1
-            [ -n "$simulator_udid" ] || { echo "::error::No compatible simulator selected; see Boot Simulator and simulator-inventory.json"; exit 1; }
           fi
           # A hung job's log goes quiet; capture where the test host is stuck before the timeout kills it.
           .github/stall-dump/stall-dump.sh "$RUNNER_TEMP/xcodebuild.log" "$RUNNER_TEMP/stall-dump" &
@@ -233,7 +214,6 @@ jobs:
             ${{ runner.temp }}/stall-dump
             ${{ runner.temp }}/test-results.xcresult
             ${{ runner.temp }}/simulator-metadata.log
-            ${{ runner.temp }}/simulator-inventory.json
             ~/Library/Logs/DiagnosticReports
             /Library/Logs/DiagnosticReports
             ~/Library/Developer/CoreSimulator/Devices/${{ steps.boot.outputs.udid }}/data/Library/Logs/CrashReporter
@@ -256,7 +236,7 @@ jobs:
           set -o pipefail && xcodebuild build\
             -scheme LiveKit \
             -configuration Release \
-            -destination '${{ steps.boot.outputs.udid && format('id={0}', steps.boot.outputs.udid) || format('platform={0}', matrix.platform) }}'  \
+            -destination 'platform=${{ matrix.platform }}'  \
             APPLICATION_EXTENSION_API_ONLY=${{ matrix.extension-api-only == true && 'YES' || 'NO' }} \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             OTHER_SWIFT_FLAGS="-Xfrontend -emit-symbol-graph\
