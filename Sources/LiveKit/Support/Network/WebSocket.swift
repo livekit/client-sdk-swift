@@ -122,9 +122,9 @@ actor WebSocket: Loggable, AsyncSequence {
                 do {
                     let headers = Self.upgradeHeaders(url: url, headers: headers)
                     let request = try Self.upgradeRequest(url: url, key: key, headers: headers)
-                    let compressionOffered = WebSocketCompression.isOffered(in: headers)
+                    let compressionOffers = WebSocketCompression.offers(in: headers)
                     connection.send(content: request, completion: .contentProcessed { _ in })
-                    Self.readUpgradeResponse(connection, url: url, key: key, options: (compressionOffered, triedRealms), into: opening)
+                    Self.readUpgradeResponse(connection, url: url, key: key, options: (compressionOffers, triedRealms), into: opening)
                 } catch {
                     opening.resume(with: .failure(error))
                 }

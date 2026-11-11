@@ -110,13 +110,13 @@ extension WebSocket {
     }
 
     /// Reads the answer to the upgrade request, at most ``upgradeResponseLimit`` bytes for all the heads together, and
-    /// resumes `opening` once ``upgradeOutcome(_:key:url:compressionOffered:)`` settles it.
+    /// resumes `opening` once ``upgradeOutcome(_:key:url:compressionOffers:)`` settles it.
     static func readUpgradeResponse(_ connection: NWConnection, url: URL, key: String,
-                                    options: (compressionOffered: Bool, triedRealms: Set<String>), into opening: AsyncCompleter<UpgradeResponse>, read: Data = Data())
+                                    options: (compressionOffers: [WebSocketCompression.Offer], triedRealms: Set<String>), into opening: AsyncCompleter<UpgradeResponse>, read: Data = Data())
     {
         connection.receive(minimumIncompleteLength: 1, maximumLength: upgradeResponseLimit - read.count) { content, _, isComplete, error in
             let read = read + (content ?? Data())
-            switch upgradeOutcome(read, key: key, url: url, compressionOffered: options.compressionOffered) {
+            switch upgradeOutcome(read, key: key, url: url, compressionOffers: options.compressionOffers) {
             case let .opened(rest):
                 opening.resume(returning: rest)
             case let .failed(failure):
@@ -139,7 +139,9 @@ extension WebSocket {
     /// What `read` makes of the upgrade. Interim heads (`100 Continue`) are skipped, as SwiftNIO's HTTP decoder does. A
     /// final status other than 101, in any HTTP/1.x, reaches the caller as a ``WebSocketUpgradeFailure``; a 101 must be
     /// HTTP/1.1 or later and switch protocols as RFC 6455 §4.1 asks.
-    static func upgradeOutcome(_ read: Data, key: String, url: URL? = nil, compressionOffered: Bool = true) -> UpgradeOutcome {
+    static func upgradeOutcome(_ read: Data, key: String, url: URL? = nil,
+                               compressionOffers: [WebSocketCompression.Offer] = [.init()]) -> UpgradeOutcome
+    {
         var rest = read[...]
         while let end = rest.range(of: Data("\r\n\r\n".utf8)) {
             let lines = String(bytes: rest[..<end.lowerBound], encoding: .isoLatin1)?.components(separatedBy: "\r\n") ?? []
@@ -158,7 +160,9 @@ extension WebSocket {
             if let failure = switchingFailure(fields, key: key) { return .failed(failure) }
             do {
                 let compression = try WebSocketCompression.negotiate(fields?.filter { $0.name == "sec-websocket-extensions" }.map(\.value) ?? [])
-                guard compression == nil || compressionOffered else { return .failed(badUpgradeResponse("an unsolicited extension")) }
+                guard compression.map({ compressionOffers.contains(where: $0.accepts) }) ?? true else {
+                    return .failed(badUpgradeResponse(compressionOffers.isEmpty ? "an unsolicited extension" : "compression parameters outside the offer"))
+                }
                 return .opened(UpgradeResponse(rest: Data(rest), compression: compression))
             } catch {
                 return .failed(badUpgradeResponse("invalid compression parameters"))

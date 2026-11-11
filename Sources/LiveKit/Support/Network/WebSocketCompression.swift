@@ -24,13 +24,36 @@ struct WebSocketCompression: Sendable {
     var serverNoContextTakeover = false
     var clientNoContextTakeover = false
 
-    /// Whether the request offers permessage-deflate, with parameters or not, alone or among other extensions.
-    static func isOffered(in headers: [(name: String, value: String)]) -> Bool {
-        headers.contains { header in
-            header.name.caseInsensitiveCompare("Sec-WebSocket-Extensions") == .orderedSame && header.value.split(separator: ",").contains {
-                $0.split(separator: ";", maxSplits: 1).first?.trimmingCharacters(in: .whitespaces).lowercased() == "permessage-deflate"
+    /// What one permessage-deflate offer asks of the server (RFC 7692 §7.1.1.1, §7.1.2.1).
+    struct Offer: Sendable {
+        var serverNoContextTakeover = false
+        var serverMaxWindowBits = 15
+    }
+
+    /// The request's permessage-deflate offers, with parameters or not, alone or among other extensions; empty when it
+    /// offers none.
+    static func offers(in headers: [(name: String, value: String)]) -> [Offer] {
+        headers.filter { $0.name.caseInsensitiveCompare("Sec-WebSocket-Extensions") == .orderedSame }
+            .flatMap { $0.value.split(separator: ",") }
+            .compactMap { offered in
+                let parts = offered.split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+                guard parts.first == "permessage-deflate" else { return nil }
+                var offer = Offer()
+                for part in parts.dropFirst() {
+                    let pair = part.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+                    if pair.first == "server_no_context_takeover" { offer.serverNoContextTakeover = true }
+                    if pair.first == "server_max_window_bits", let bits = pair.last.flatMap({ Int($0.trimmingCharacters(in: ["\""])) }) {
+                        offer.serverMaxWindowBits = bits
+                    }
+                }
+                return offer
             }
-        }
+    }
+
+    /// Whether this response accepts `offer`: a server accepts `server_no_context_takeover` by sending it back, and
+    /// `server_max_window_bits` with the same or a smaller value (RFC 7692 §7.1.1.1, §7.1.2.1).
+    func accepts(_ offer: Offer) -> Bool {
+        (serverNoContextTakeover || !offer.serverNoContextTakeover) && serverWindowBits <= offer.serverMaxWindowBits
     }
 
     /// The server's parameters, checked by their own rules. A `client_max_window_bits` that our offer did not carry is
