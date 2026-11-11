@@ -38,13 +38,15 @@ extension WebSocketLifecycleTests {
     }
 
     /// A response accepts an offer only within what it asks of the server: `server_no_context_takeover` must come back,
-    /// and `server_max_window_bits` no larger (RFC 7692 §7.1.1.1, §7.1.2.1). Any of several offers may be the accepted
+    /// and `server_max_window_bits` too, no larger (RFC 7692 §7.1.1.1, §7.1.2.1). Any of several offers may be the accepted
     /// one, and a server may add both parameters to an offer that did not ask for them.
     @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
         ("permessage-deflate; server_max_window_bits=10", "permessage-deflate; server_max_window_bits=10"),
         ("permessage-deflate; server_max_window_bits=10", "permessage-deflate; server_max_window_bits=9"),
         ("permessage-deflate; server_no_context_takeover", "permessage-deflate; server_no_context_takeover"),
         ("permessage-deflate; server_max_window_bits=10, permessage-deflate", "permessage-deflate"),
+        ("permessage-deflate; server_max_window_bits=15", "permessage-deflate; server_max_window_bits=15"),
+        ("permessage-deflate; server_max_window_bits=15, permessage-deflate", "permessage-deflate"),
         ("permessage-deflate; server_no_context_takeover, permessage-deflate; server_max_window_bits=10",
          "permessage-deflate; server_max_window_bits=10"),
         ("permessage-deflate", "permessage-deflate; server_no_context_takeover; server_max_window_bits=12"),
@@ -60,6 +62,8 @@ extension WebSocketLifecycleTests {
     @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
         ("permessage-deflate; server_max_window_bits=10", "permessage-deflate; server_max_window_bits=15"),
         ("permessage-deflate; server_max_window_bits=10", "permessage-deflate"),
+        // Asked for explicitly, the window must come back, even at the default 15.
+        ("permessage-deflate; server_max_window_bits=15", "permessage-deflate"),
         ("permessage-deflate; server_no_context_takeover", "permessage-deflate"),
         ("permessage-deflate; server_no_context_takeover, permessage-deflate; server_max_window_bits=10",
          "permessage-deflate; server_max_window_bits=12"),

@@ -20,6 +20,8 @@ import Foundation
 /// RFC 7692 parameters. Each connection owns a separate inflater and deflater, under the inbox and write locks.
 struct WebSocketCompression: Sendable {
     var serverWindowBits = 15
+    /// Whether the response named `server_max_window_bits`: 15 is also the window when it does not.
+    var serverWindowBitsSent = false
     var clientWindowBits = 15
     var serverNoContextTakeover = false
     var clientNoContextTakeover = false
@@ -27,7 +29,8 @@ struct WebSocketCompression: Sendable {
     /// What one permessage-deflate offer asks of the server (RFC 7692 §7.1.1.1, §7.1.2.1).
     struct Offer: Sendable {
         var serverNoContextTakeover = false
-        var serverMaxWindowBits = 15
+        /// Nil when the offer does not name `server_max_window_bits`.
+        var serverMaxWindowBits: Int?
     }
 
     /// The request's permessage-deflate offers, with parameters or not, alone or among other extensions; empty when it
@@ -51,9 +54,10 @@ struct WebSocketCompression: Sendable {
     }
 
     /// Whether this response accepts `offer`: a server accepts `server_no_context_takeover` by sending it back, and
-    /// `server_max_window_bits` with the same or a smaller value (RFC 7692 §7.1.1.1, §7.1.2.1).
+    /// `server_max_window_bits` by sending it back with the same or a smaller value (RFC 7692 §7.1.1.1, §7.1.2.1).
     func accepts(_ offer: Offer) -> Bool {
-        (serverNoContextTakeover || !offer.serverNoContextTakeover) && serverWindowBits <= offer.serverMaxWindowBits
+        (serverNoContextTakeover || !offer.serverNoContextTakeover)
+            && offer.serverMaxWindowBits.map { serverWindowBitsSent && serverWindowBits <= $0 } ?? true
     }
 
     /// The server's parameters, checked by their own rules. A `client_max_window_bits` that our offer did not carry is
@@ -91,6 +95,7 @@ struct WebSocketCompression: Sendable {
             guard let bits = Int(unquoted), (8 ... 15).contains(bits), String(bits) == unquoted else { throw Self.failure() }
             if name == "server_max_window_bits" {
                 serverWindowBits = bits
+                serverWindowBitsSent = true
             } else {
                 clientWindowBits = bits
             }
