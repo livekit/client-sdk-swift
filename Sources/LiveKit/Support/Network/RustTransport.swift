@@ -139,6 +139,8 @@ extension Error {
         if let transportError = self as? TransportError { return transportError }
 
         let underlying = (self as? LiveKitError)?.internalError ?? self
+        // The SDK's own explanation, such as a protocol violation, ahead of the code; never the system's localized text.
+        let connection = { (code: String) in TransportError.Connection((self as? LiveKitError)?.message.map { "\($0) (\(code))" } ?? code) }
 
         // livekit-net reads a close as the end of the stream, as it always has.
         if underlying is WebSocketClosedByPeer {
@@ -159,7 +161,7 @@ extension Error {
                 // The numeric code, not `localizedDescription`: this string is what Rust
                 // logs and what gets grepped and grouped, and it must not change with the
                 // device's language.
-                return .Connection("URLError \(urlError.errorCode)")
+                return connection("URLError \(urlError.errorCode)")
             }
         }
         let nsError = underlying as NSError
@@ -175,6 +177,6 @@ extension Error {
             default: break
             }
         }
-        return .Connection("\(nsError.domain) \(nsError.code)")
+        return connection("\(nsError.domain) \(nsError.code)")
     }
 }

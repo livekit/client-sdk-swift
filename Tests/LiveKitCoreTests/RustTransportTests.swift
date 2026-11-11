@@ -283,6 +283,18 @@ struct TransportErrorMappingTests {
         #expect(LiveKitError(.network, internalError: error).asTransportError == .Connection(expected))
     }
 
+    @Test("A connection error keeps the SDK's explanation ahead of the code",
+          .bug("https://github.com/livekit/client-sdk-swift/pull/1191"), arguments: [
+              (LiveKitError(.network, message: "WebSocket protocol violation: the unknown opcode 3",
+                            internalError: NSError(domain: NSPOSIXErrorDomain, code: Int(EPROTO))),
+               "WebSocket protocol violation: the unknown opcode 3 (NSPOSIXErrorDomain 100)"),
+              (LiveKitError(.network, message: "WebSocket upgrade response: no Upgrade header", internalError: URLError(.badServerResponse)),
+               "WebSocket upgrade response: no Upgrade header (URLError -1011)"),
+          ])
+    func connectionErrorKeepsTheExplanation(error: LiveKitError, expected: String) {
+        #expect(error.asTransportError == .Connection(expected))
+    }
+
     @Test("A connection error keeps the URLError code, not a localized string")
     func connectionErrorKeepsTheCode() {
         let mapped = URLError(.secureConnectionFailed).asTransportError
