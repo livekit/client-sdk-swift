@@ -198,8 +198,8 @@ extension WebSocketLifecycleTests.StoredCredentials {
 }
 
 extension WebSocketLifecycleTests {
-    /// The tests that store credentials, one at a time: `URLCredentialStorage.shared` crashes under concurrent writes,
-    /// even to distinct realms. Reading it concurrently, as the SDK does, is safe.
+    /// The tests that store credentials, one at a time: `URLCredentialStorage.shared` crashed under concurrent writes,
+    /// even to distinct realms. The SDK only reads it; no test here reads it concurrently.
     @Suite(.serialized) struct StoredCredentials {}
 
     static func basicHeader(user: String = "mock-user", password: String = "mock-password") -> String {

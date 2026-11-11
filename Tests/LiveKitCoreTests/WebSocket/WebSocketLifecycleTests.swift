@@ -295,7 +295,8 @@ struct WebSocketLifecycleTests {
 
     /// A close frame right behind the upgrade response starts the teardown while the socket still starts, and with no
     /// close wait the teardown can finish first. The failure handler that the start installs must not outlive it: it
-    /// holds the connection, which would then hold itself.
+    /// holds the connection, which would then hold itself. A stress test: nothing forces that order, and the unfixed
+    /// code passed it here. With a 1 ms delay before the install, the unfixed code failed every iteration.
     @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
     func teardownDuringStartReleasesTheConnection() async throws {
         let head = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n"

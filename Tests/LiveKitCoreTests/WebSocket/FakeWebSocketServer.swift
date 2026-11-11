@@ -57,6 +57,9 @@ final class FakeWebSocketServer: Sendable {
         case stalledReadThenClose
         /// Accept TCP and never answer the upgrade.
         case blackhole
+        /// Upgrade, then read nothing until ``readOn()``: the client's writes back up, and the test sends through
+        /// ``connections``.
+        case upgradeOnly
         /// Read the TLS ClientHello record without completing the handshake.
         case tlsClientHello
     }
@@ -92,9 +95,10 @@ final class FakeWebSocketServer: Sendable {
     private let ready = AsyncCompleter<UInt16>(label: "FakeWebSocketServer.ready", defaultTimeout: 5)
     let connections = StateSync<[NWConnection]>([])
 
-    init(_ behavior: Behavior) throws {
+    /// `port` is any free one unless a test needs a fixed one, such as a scheme's default.
+    init(_ behavior: Behavior, port: NWEndpoint.Port = .any) throws {
         self.behavior = behavior
-        listener = try NWListener(using: .tcp, on: .any)
+        listener = try NWListener(using: .tcp, on: port)
         listener.stateUpdateHandler = { [ready, listener] state in
             switch state {
             case .ready: ready.resume(returning: listener.port?.rawValue ?? 0)
@@ -134,6 +138,9 @@ final class FakeWebSocketServer: Sendable {
         let port = try await ready.wait()
         return try #require(URL(string: "ws://\(host):\(port)/rtc"))
     }
+
+    /// Starts reading the client's frames, answers its close frame, and reads on until the client drops TCP.
+    func readOn() { connections.copy().forEach { answerClose($0, buffered: Data()) } }
 
     /// Drops every connection and the listener; safe to call more than once.
     func cancel() {
@@ -206,7 +213,7 @@ final class FakeWebSocketServer: Sendable {
         }
         connection.send(content: Data(response.utf8), completion: .contentProcessed { [self] _ in
             switch behavior {
-            case .blackhole, .tlsClientHello, .reject, .upgradeResponse, .upgradeResponses:
+            case .blackhole, .tlsClientHello, .reject, .upgradeResponse, .upgradeResponses, .upgradeOnly:
                 break
             case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose:
                 answerClose(connection, buffered: Data())
@@ -287,7 +294,7 @@ final class FakeWebSocketServer: Sendable {
     private func goAway(_ connection: NWConnection) {
         switch behavior {
         case .idle, .messageBeforeCloseAnswer, .closeAnswerAtDeadline, .unansweredClose, .blackhole, .tlsClientHello, .reject,
-             .upgradeResponse, .upgradeResponses, .stalledReadThenClose:
+             .upgradeResponse, .upgradeResponses, .stalledReadThenClose, .upgradeOnly:
             break
         case let .frames(bytes, _):
             connection.send(content: bytes, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { [self] _ in
@@ -355,29 +362,6 @@ extension FakeWebSocketServer {
             try #require(errno == EADDRINUSE)
         }
         return try #require(nil as UInt16?, "No unused destination outside automatic source-port ranges")
-    }
-
-    /// A server frame with an unmasked payload and the shortest length encoding.
-    static func frame(_ opcode: UInt8, _ payload: Data, final: Bool = true) -> Data {
-        let length: [UInt8] = switch payload.count {
-        case ..<126:
-            [UInt8(payload.count)]
-        case ...0xFFFF:
-            [126, UInt8(payload.count >> 8), UInt8(payload.count & 0xFF)]
-        default:
-            [127] + (0 ..< 8).reversed().map { UInt8(truncatingIfNeeded: payload.count >> ($0 * 8)) }
-        }
-        let fin: UInt8 = final ? 0x80 : 0
-        return Data([fin | opcode] + length) + payload
-    }
-
-    /// Binary messages, one per payload.
-    static func binary(_ payloads: [Data]) -> Data {
-        payloads.reduce(into: Data()) { $0 += frame(0x2, $1) }
-    }
-
-    static func close(_ code: UInt16, reason: String = "") -> Data {
-        frame(0x8, Data([UInt8(code >> 8), UInt8(code & 0xFF)]) + Data(reason.utf8))
     }
 
     private func customResponse(index: Int, accept: String) -> Data? {

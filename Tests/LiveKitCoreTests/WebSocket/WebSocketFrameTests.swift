@@ -96,6 +96,29 @@ struct WebSocketFrameTests {
         }
     }
 
+    /// A length that is not in its shortest form fails once its header is whole, however the header is split, and on a
+    /// continuation inside a fragmented message too; nothing comes out before, and nothing after.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"),
+          arguments: [[126, 0, 125], [127, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF]] as [[UInt8]])
+    func splitNonminimalLengthBreaksTheProtocol(length: [UInt8]) {
+        let unfinished = FakeWebSocketServer.frame(0x2, Data([0x61]), final: false)
+        for (opener, header) in [(Data(), [0x82] + length), (unfinished, [0x80] + length)] {
+            for split in 1 ..< header.count {
+                var parser = Self.parser()
+                parser.append(opener)
+                parser.append(Data(header.prefix(split)))
+                #expect(parser.next() == nil, "Split at \(split)")
+                parser.append(Data(header.dropFirst(split)))
+                guard case let .failure(_, closeCode)? = parser.next() else {
+                    Issue.record("Split at \(split): no failure")
+                    continue
+                }
+                #expect(closeCode == 1002)
+                #expect(parser.next() == nil)
+            }
+        }
+    }
+
     /// What the header alone breaks fails before its payload arrives: an unknown opcode, a continuation without a
     /// message, and a new message inside a fragmented one, each declaring 4 KB that never comes.
     @Test(arguments: [[0x83, 0x7E, 0x10, 0x00], [0x80, 0x7E, 0x10, 0x00], [0x02, 0x01, 0x00, 0x82, 0x7E, 0x10, 0x00]] as [[UInt8]])

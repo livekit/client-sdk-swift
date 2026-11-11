@@ -16,6 +16,7 @@
 
 import Foundation
 @testable import LiveKit
+import Network
 import Testing
 
 extension WebSocketLifecycleTests {
@@ -40,6 +41,82 @@ extension WebSocketLifecycleTests {
         #expect(pongs.count < pings / 10)
         let indices = pongs.map { Int($0.payload.first ?? 0) << 8 | Int($0.payload.last ?? 0) }
         #expect(indices == indices.sorted())
+    }
+}
+
+extension WebSocketLifecycleTests {
+    /// While a pong waits behind writes that TCP holds up, the pings of later reads leave only the latest to answer, and
+    /// it goes once the first pong is out (RFC 6455 §5.5.3).
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191#discussion_r4476453195"))
+    func pingsOfLaterReadsWaitForThePongInFlight() async throws {
+        let frames = try await Self.withWritesHeldUp { server, socket, heldUp in
+            for index: UInt8 in 0 ..< 3 {
+                try await Self.ping(index, from: server, to: socket)
+            }
+            #expect(heldUp())
+            server.readOn()
+            while server.frames.copy().count(where: { $0.opcode == 0xA }) < 2 {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+            socket.close()
+        }
+        #expect(frames.filter { $0.opcode == 0xA }.map(\.payload) == [Data([0]), Data([2])])
+    }
+
+    /// A pong that waits when our close starts never goes: the close frame is the last frame.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191#discussion_r4476453195"))
+    func noPongFollowsOurClose() async throws {
+        let frames = try await Self.withWritesHeldUp { server, socket, heldUp in
+            for index: UInt8 in 0 ..< 2 {
+                try await Self.ping(index, from: server, to: socket)
+            }
+            #expect(heldUp())
+            socket.close()
+            server.readOn()
+        }
+        let control = frames.filter { $0.opcode != 0x2 }
+        #expect(control.map(\.opcode) == [0xA, 0x8])
+        #expect(control.first?.payload == Data([0]))
+    }
+}
+
+private extension WebSocketLifecycleTests {
+    /// Runs `body` on a socket whose writes TCP holds up: the server reads nothing until ``FakeWebSocketServer/readOn()``,
+    /// and 15 MB of messages wait to go out, more than the loopback buffers take. `heldUp` tells whether some still
+    /// wait. Returns the client's frames once the client dropped TCP.
+    static func withWritesHeldUp(_ body: (FakeWebSocketServer, LiveKit.WebSocket, _ heldUp: @escaping () -> Bool) async throws -> Void)
+        async throws -> [FakeWebSocketServer.ClientFrame]
+    {
+        let server = try FakeWebSocketServer(.upgradeOnly)
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10, closeWait: 10)
+        let messages = 250, written = StateSync(0)
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0 ..< messages {
+                group.addTask {
+                    try await socket.send(data: Data(count: 60000))
+                    written.mutate { $0 += 1 }
+                }
+            }
+            try await body(server, socket) { written.copy() < messages }
+            try await group.waitForAll()
+        }
+        _ = try await server.clientGone.wait()
+        return server.frames.copy()
+    }
+
+    /// The server sends a ping and a message with its index; the message comes out once the client has read the ping,
+    /// so each ping is a read of its own.
+    static func ping(_ index: UInt8, from server: FakeWebSocketServer, to socket: LiveKit.WebSocket) async throws {
+        let connection = try #require(server.connections.copy().first)
+        connection.send(content: FakeWebSocketServer.frame(0x9, Data([index])) + FakeWebSocketServer.binary([Data([index])]),
+                        completion: .contentProcessed { _ in })
+        guard case let .data(data)? = try await socket.makeAsyncIterator().next() else {
+            Issue.record("No message after ping \(index)")
+            return
+        }
+        #expect(data == Data([index]))
     }
 }
 
