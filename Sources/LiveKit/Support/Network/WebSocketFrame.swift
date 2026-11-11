@@ -202,7 +202,9 @@ enum WebSocketFrame {
                 length = Int(clamping: (2 ..< 10).reduce(UInt64(0)) { $0 << 8 | UInt64(byte($1, in: input)) })
             }
             return Header(fin: first & 0x80 != 0, opcode: first & 0x0F, reserved: first & 0x30 != 0, masked: second & 0x80 != 0, compressed: first & 0x40 != 0,
-                          invalidLength: size == 10 && byte(2, in: input) & 0x80 != 0, length: length, size: size)
+                          // RFC 6455 §5.2: a 64-bit length has no most significant bit, and every length is in its shortest form.
+                          invalidLength: size == 10 && byte(2, in: input) & 0x80 != 0 || size == 4 && length < 126 || size == 10 && length <= 0xFFFF,
+                          length: length, size: size)
         }
 
         /// What the header alone says, before the payload is buffered: a server frame is not masked and sets no reserved
@@ -211,7 +213,7 @@ enum WebSocketFrame {
         private func check(_ header: Header) -> Item? {
             let compressed = header.opcode == 0 ? fragments?.compressed == true : header.compressed
             if header.reserved || header.masked || header.invalidLength {
-                return Self.violation("a reserved, mask or invalid length bit is set")
+                return Self.violation("a reserved or mask bit, or an invalid length")
             }
             switch header.opcode {
             case WebSocketFrame.close, WebSocketFrame.ping, WebSocketFrame.pong:

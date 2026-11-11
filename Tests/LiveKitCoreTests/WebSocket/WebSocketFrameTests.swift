@@ -80,6 +80,22 @@ struct WebSocketFrameTests {
         #expect(closeCode == expected)
     }
 
+    /// A length must take its shortest form (RFC 6455 §5.2): the 16-bit form for 126 through 65535 only, the 64-bit form
+    /// from 65536. Each side of both boundaries, with no payload yet: the header alone decides.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"),
+          arguments: [(126, 125), (126, 126), (127, 0xFFFF), (127, 0x10000)] as [(UInt8, UInt64)])
+    func nonminimalLengthBreaksTheProtocol(marker: UInt8, length: UInt64) {
+        let bytes = marker == 126 ? 2 : 8
+        let fails = length < (marker == 126 ? 126 : 0x10000)
+        let item = Self.parse([0x82, marker] + (0 ..< bytes).reversed().map { UInt8(truncatingIfNeeded: length >> ($0 * 8)) })
+        if fails {
+            guard case let .failure(_, closeCode)? = item else { return #expect(Bool(false), "No failure") }
+            #expect(closeCode == 1002)
+        } else {
+            #expect(item == nil)
+        }
+    }
+
     /// What the header alone breaks fails before its payload arrives: an unknown opcode, a continuation without a
     /// message, and a new message inside a fragmented one, each declaring 4 KB that never comes.
     @Test(arguments: [[0x83, 0x7E, 0x10, 0x00], [0x80, 0x7E, 0x10, 0x00], [0x02, 0x01, 0x00, 0x82, 0x7E, 0x10, 0x00]] as [[UInt8]])
