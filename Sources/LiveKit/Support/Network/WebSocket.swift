@@ -66,6 +66,7 @@ actor WebSocket: Loggable, AsyncSequence {
         guard !Task.isCancelled else { throw LiveKitError(.cancelled) }
         #if targetEnvironment(simulator)
         if #available(iOS 26.0, *) {
+            // iOS 26 Simulator TLS crash workaround (#738): https://developer.apple.com/forums/thread/787365?answerId=842938022
             nw_tls_create_options()
         }
         #endif
@@ -271,7 +272,8 @@ private struct Core: Sendable {
     }
 
     /// Moves an open socket to closing and writes our close frame, under the lock that every frame is written under, so
-    /// that no frame follows it. Every way into closing passes here, so the connection always goes: once the frame is
+    /// that no frame follows it. Holding the lock is safe, as for ``send(_:completion:)``: its completion takes the lock
+    /// again later, on the connection's queue. Every way into closing passes here, so the connection always goes: once the frame is
     /// written if `finishOnceWritten`, on the server's answer otherwise, and at the latest 250 ms on (the JS SDK's wait),
     /// even when the frame waits behind a write that TCP holds up. False when the socket is not open.
     private func startClosing(code: UInt16, finishOnceWritten: Bool) -> Bool {
@@ -322,11 +324,15 @@ private struct Core: Sendable {
     }
 
     /// Takes the frames that came in the same segment as the upgrade response, and from then on watches the connection
-    /// only for a failure: the upgrade's state handler, and what it holds, goes.
+    /// only for a failure: the upgrade's state handler, and what it holds, goes. The frames may already have closed the
+    /// socket; then `finish()` cleared the handlers, and a new one would keep the connection alive through itself.
     func start(after rest: Data) {
         received(rest, isComplete: false, error: nil)
-        connection.stateUpdateHandler = { [self] state in
-            if case let .failed(error) = state { failed(error) }
+        lifecycle.mutate { state in
+            guard state.phase != .closed else { return }
+            connection.stateUpdateHandler = { [self] state in
+                if case let .failed(error) = state { failed(error) }
+            }
         }
         if case let .failed(error) = connection.state { failed(error) }
     }
@@ -365,7 +371,8 @@ private struct Core: Sendable {
     }
 
     /// Answers the latest ping with one pong in flight at most: pings that arrive meanwhile leave only the latest to answer.
-    /// Written under the lock that our close frame is written under, so that no pong follows it.
+    /// Written under the lock that our close frame is written under, so that no pong follows it; the completion takes
+    /// that lock again later, on the connection's queue.
     private func pong(_ payload: Data? = nil, written: Bool = false) {
         lifecycle.mutate { state in
             if written { state.pongInFlight = false }

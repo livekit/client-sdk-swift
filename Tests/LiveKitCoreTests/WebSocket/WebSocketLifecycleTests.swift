@@ -293,6 +293,29 @@ struct WebSocketLifecycleTests {
         }
     }
 
+    /// A close frame right behind the upgrade response starts the teardown while the socket still starts, and with no
+    /// close wait the teardown can finish first. The failure handler that the start installs must not outlive it: it
+    /// holds the connection, which would then hold itself.
+    @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191"))
+    func teardownDuringStartReleasesTheConnection() async throws {
+        let head = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n"
+        let server = try FakeWebSocketServer(.upgradeResponse(head: head, then: FakeWebSocketServer.close(1000)))
+        defer { server.cancel() }
+        var transports: [WeakTransport] = []
+        for _ in 0 ..< Self.teardownDuringStartIterations {
+            let events = SocketEvents()
+            let socket = try await Self.open(server, closeWait: 0, events: events)
+            _ = try await events.teardown.wait()
+            #expect(await socket.connection.stateUpdateHandler == nil)
+            await transports.append(WeakTransport(socket: socket, connection: socket.connection))
+        }
+
+        while transports.contains(where: { !$0.isReleased }) {
+            try Task.checkCancellation()
+            await Task.yield()
+        }
+    }
+
     // MARK: - Peer closure
 
     /// Only our own close ends the stream; a close frame, a FIN or a reset fails it, so the signal client reconnects
@@ -307,6 +330,8 @@ struct WebSocketLifecycleTests {
 }
 
 private extension WebSocketLifecycleTests {
+    static let teardownDuringStartIterations = 2000
+
     static func open(_ server: FakeWebSocketServer, timeoutInterval: TimeInterval = 10,
                      closeWait: TimeInterval = LiveKit.WebSocket.closeWait, events: SocketEvents? = nil) async throws -> LiveKit.WebSocket
     {
