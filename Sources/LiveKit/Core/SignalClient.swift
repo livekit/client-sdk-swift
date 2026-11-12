@@ -689,6 +689,9 @@ extension SignalClient {
                 $0.height = UInt32(settings.dimensions.height)
                 $0.quality = settings.videoQuality.toPBType()
                 $0.fps = UInt32(settings.preferredFPS)
+                if let fecProtection = settings.fecProtection {
+                    $0.fec = fecProtection.toPBType()
+                }
             }
         }
 

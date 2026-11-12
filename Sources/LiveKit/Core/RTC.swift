@@ -153,6 +153,7 @@ extension RTC {
         // validated list is the one advertised and enforced.
         var customVideoEncoderCodecs: [VideoCodecInfo] = []
         var customVideoEncoderIsExclusive: Bool = false
+        var isFlexFECEnabled: Bool = false
     }
 
     static let pcFactoryState = StateSync(PeerConnectionFactoryState())
@@ -191,9 +192,9 @@ extension RTC {
 
     static let peerConnectionFactory: LKRTCPeerConnectionFactory = {
         // Update pc init lock
-        let (admType, bypassVoiceProcessing) = pcFactoryState.mutate {
+        let (admType, bypassVoiceProcessing, isFlexFECEnabled) = pcFactoryState.mutate {
             $0.isInitialized = true
-            return ($0.admType, $0.bypassVoiceProcessing)
+            return ($0.admType, $0.bypassVoiceProcessing, $0.isFlexFECEnabled)
         }
 
         Room.log("Initializing SSL...")
@@ -202,7 +203,12 @@ extension RTC {
 
         // WARP SPED (DTLS in STUN); SNAP is on `LKRTCConfiguration.liveKitDefault()`.
         // Both engage only when the server negotiates them.
-        LKRTCPeerConnectionFactory.configureFieldTrials("\(kLKRTCFieldTrialIceHandshakeDtlsKey)/\(kLKRTCFieldTrialEnabledValue)/")
+        var fieldTrials = "\(kLKRTCFieldTrialIceHandshakeDtlsKey)/\(kLKRTCFieldTrialEnabledValue)/"
+        if isFlexFECEnabled {
+            fieldTrials += "\(kLKRTCFieldTrialFlexFec03AdvertisedKey)/\(kLKRTCFieldTrialEnabledValue)/"
+            fieldTrials += "\(kLKRTCFieldTrialFlexFec03Key)/\(kLKRTCFieldTrialEnabledValue)/"
+        }
+        LKRTCPeerConnectionFactory.configureFieldTrials(fieldTrials)
 
         Room.log("Initializing PeerConnectionFactory...")
 

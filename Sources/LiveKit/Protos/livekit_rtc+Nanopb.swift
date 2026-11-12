@@ -2789,6 +2789,41 @@ extension Livekit_GetDataBlobResponse.Builder {
 
 }
 
+extension livekit_FECProtection: NanopbStorage {
+    package static var descriptor: lk_pb_msgdesc_t { livekit_FECProtection_msg }
+    package static let _emptyBox = NanopbBox<livekit_FECProtection>(zero: livekit_FECProtection(), descriptor: livekit_FECProtection_msg)
+}
+typealias Livekit_FECProtection = NanopbMsg<livekit_FECProtection>
+extension Livekit_FECProtection {
+    var mode: Livekit_FECProtectionMode {
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.mode.map { lkEnum($0.pointee) } ?? Livekit_FECProtectionMode()
+        }
+    }
+    var hasMode: Bool { withExtendedLifetime(_owner) { _pointer.pointee.mode != nil } }
+
+    var level: Livekit_FECProtectionLevel {
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.level.map { lkEnum($0.pointee) } ?? Livekit_FECProtectionLevel()
+        }
+    }
+    var hasLevel: Bool { withExtendedLifetime(_owner) { _pointer.pointee.level != nil } }
+
+}
+
+extension Livekit_FECProtection.Builder {
+    var mode: Livekit_FECProtectionMode {
+        get { _pointer.pointee.mode.map { lkEnum($0.pointee) } ?? Livekit_FECProtectionMode() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.mode, newValue) }
+    }
+
+    var level: Livekit_FECProtectionLevel {
+        get { _pointer.pointee.level.map { lkEnum($0.pointee) } ?? Livekit_FECProtectionLevel() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.level, newValue) }
+    }
+
+}
+
 extension livekit_UpdateTrackSettings: NanopbStorage {
     package static var descriptor: lk_pb_msgdesc_t { livekit_UpdateTrackSettings_msg }
     package static let _emptyBox = NanopbBox<livekit_UpdateTrackSettings>(zero: livekit_UpdateTrackSettings(), descriptor: livekit_UpdateTrackSettings_msg)
@@ -2843,6 +2878,13 @@ extension Livekit_UpdateTrackSettings {
     }
     var hasPriority: Bool { withExtendedLifetime(_owner) { _pointer.pointee.priority != nil } }
 
+    var fec: Livekit_FECProtection {
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.fec.map { Livekit_FECProtection(_sharing: $0, owner: _owner) } ?? Livekit_FECProtection._empty
+        }
+    }
+    var hasFec: Bool { withExtendedLifetime(_owner) { _pointer.pointee.fec != nil } }
+
 }
 
 extension Livekit_UpdateTrackSettings.Builder {
@@ -2883,6 +2925,11 @@ extension Livekit_UpdateTrackSettings.Builder {
     var priority: UInt32 {
         get { _pointer.pointee.priority?.pointee ?? 0 }
         nonmutating set { lkSetValue(&_pointer.pointee.priority, newValue) }
+    }
+
+    var fec: Livekit_FECProtection {
+        get { _pointer.pointee.fec.map { Livekit_FECProtection(_sharing: $0, owner: _box) } ?? Livekit_FECProtection._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.fec, newValue) }
     }
 
 }
@@ -5111,6 +5158,28 @@ struct Livekit_SignalTarget: NanopbEnum {
 
     static let publisher = Self(rawValue: 0)
     static let subscriber = Self(rawValue: 1)
+}
+
+struct Livekit_FECProtectionMode: NanopbEnum {
+    let rawValue: Int
+    init(rawValue: Int) { self.rawValue = rawValue }
+    init() { self.init(rawValue: 0) }
+
+    static let fecModeDisabled = Self(rawValue: 0)
+    static let fecModeAdaptive = Self(rawValue: 1)
+    static let fecModeFixed = Self(rawValue: 2)
+    static let fecModeMinimum = Self(rawValue: 3)
+}
+
+struct Livekit_FECProtectionLevel: NanopbEnum {
+    let rawValue: Int
+    init(rawValue: Int) { self.rawValue = rawValue }
+    init() { self.init(rawValue: 0) }
+
+    static let fecLevelUnspecified = Self(rawValue: 0)
+    static let fecLevelLow = Self(rawValue: 1)
+    static let fecLevelMedium = Self(rawValue: 2)
+    static let fecLevelHigh = Self(rawValue: 3)
 }
 
 struct Livekit_StreamState: NanopbEnum {
