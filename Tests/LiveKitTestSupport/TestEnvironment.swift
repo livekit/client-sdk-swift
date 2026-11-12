@@ -128,6 +128,37 @@ public enum TestEnvironment {
 
     // Set up variable number of Rooms, connect them, wait for participants to discover each other,
     // execute the block, then disconnect. Framework-agnostic (no XCTest/Testing dependency).
+    /// A room that asked for single PC but negotiated dual has silently fallen back — against a
+    /// server with no `/rtc/v1`, or because the mode was not carried across a reconnect. Every
+    /// assertion in the suite would still pass, measuring the wrong transport, so this fails the
+    /// case instead.
+    private static func assertNegotiatedTransportMode(_ rooms: [RoomFixture]) throws {
+        for fixture in rooms where fixture.room._state.roomOptions.singlePeerConnection {
+            guard case .publisherOnly = fixture.room._state.transport else {
+                throw TransportModeMismatch(identity: fixture.identity)
+            }
+        }
+    }
+
+    /// A room asked for single peer connection and got two.
+    public struct TransportModeMismatch: Error, CustomStringConvertible {
+        public let identity: String
+        public var description: String {
+            "\(identity) asked for a single peer connection but negotiated dual — it fell back"
+        }
+    }
+
+    /// Forces a transport mode for a whole run, so CI can exercise the shared suites both ways:
+    /// `LK_TEST_SINGLE_PC=1` or `=0`. Unset leaves each case to its own choice, which is the
+    /// SDK default unless the case asked for something else.
+    private static func resolvedSinglePeerConnection(_ requested: Bool?) -> Bool? {
+        switch ProcessInfo.processInfo.environment["LK_TEST_SINGLE_PC"] {
+        case "1": true
+        case "0": false
+        default: requested
+        }
+    }
+
     public static func withRooms(_ options: [RoomTestingOptions] = [],
                                  _ block: @escaping ([Room]) async throws -> Void) async throws
     {
@@ -144,8 +175,15 @@ public enum TestEnvironment {
             let encryptionOptions = $0.element.isE2eeEnabled
                 ? $0.element.encryptionOptions ?? EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: sharedKey))
                 : nil
-            let roomOptions = RoomOptions(dataStreamOptions: $0.element.dataStreamOptions, encryptionOptions: encryptionOptions,
-                                          reportRemoteTrackStatistics: true, singlePeerConnection: $0.element.singlePeerConnection)
+            // Only specified when the case or the environment asks for a mode; otherwise the
+            // SDK default stands, so flipping it is actually exercised by the shared suites.
+            let roomOptions = if let singlePC = resolvedSinglePeerConnection($0.element.singlePeerConnection) {
+                RoomOptions(dataStreamOptions: $0.element.dataStreamOptions, encryptionOptions: encryptionOptions,
+                            reportRemoteTrackStatistics: true, singlePeerConnection: singlePC)
+            } else {
+                RoomOptions(dataStreamOptions: $0.element.dataStreamOptions, encryptionOptions: encryptionOptions,
+                            reportRemoteTrackStatistics: true)
+            }
 
             let room = Room(delegate: $0.element.delegate, connectOptions: connectOptions, roomOptions: roomOptions)
             let roomName = $0.element.roomName ?? sharedRoomName
@@ -179,6 +217,7 @@ public enum TestEnvironment {
         }
         do {
             try await connectAndDiscover(rooms, sharedRoomName: sharedRoomName)
+            try assertNegotiatedTransportMode(rooms)
             try await block(allRooms)
         } catch {
             await teardown(allRooms)
