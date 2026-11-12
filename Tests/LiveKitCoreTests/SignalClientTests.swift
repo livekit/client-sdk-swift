@@ -145,7 +145,7 @@ private final class QueueResumeDelegate: SignalClientDelegate {
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32) async {
+    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32, midToTrackSid _: [String: Track.Sid]) async {
         do {
             try await signalClient.sendCandidate(candidate: Self.candidate, target: .publisher)
             handled.resume(returning: .with { $0.answer = answer.toPBType(offerId: offerId) })
