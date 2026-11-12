@@ -1,0 +1,1 @@
+patch type="fixed" "Keep decrypting the tracks of a participant that published encrypted media, even if the server later marks a track as unencrypted"
