@@ -44,7 +44,8 @@ struct SignalClientTests {
 
     /// The server's leave and its close frame arrive together: the leave reaches the delegate before the close frame
     /// fails the stream, so a removal cannot turn into a reconnect. The same message loop as `connect` runs it, and the
-    /// delegate cleans the client up from inside its leave callback, as `Room` does.
+    /// delegate cleans the client up from inside its leave callback, as `Room` does. That cleanup cancels the message
+    /// loop, but the rest of the callback must not run cancelled.
     @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1179"), .tags(.networking))
     func leaveIsHandledBeforeTheCloseThatFollows() async throws {
         let leave = try Livekit_SignalResponse.with {
@@ -64,7 +65,7 @@ struct SignalClientTests {
         await client.installMessageLoopForTest(socket, recorder: recorder)
 
         try await recorder.disconnected.wait()
-        #expect(recorder.events.copy() == [.leave(awaited: true), .disconnected(.participantRemoved)])
+        #expect(recorder.events.copy() == [.leave(awaited: true, cancelled: false), .disconnected(.participantRemoved)])
     }
 
     /// A delegate callback holds the serial runner while it waits for a track the server will not publish, as a dynacast
@@ -101,7 +102,7 @@ struct SignalClientTests {
         let error = await #expect(throws: LiveKitError.self) { try await published.wait() }
         #expect(error?.type == .participantRemoved)
         try await recorder.disconnected.wait()
-        #expect(recorder.events.copy() == [.leave(awaited: true), .disconnected(.participantRemoved)])
+        #expect(recorder.events.copy() == [.leave(awaited: true, cancelled: false), .disconnected(.participantRemoved)])
     }
 
     /// A leave with an action this client does not know is ignored, as `Room` ignores it: a publication in flight
@@ -255,7 +256,7 @@ private extension SignalClient {
 }
 
 private final class LeaveRecorder: SignalClientTestDelegate {
-    enum Event: Equatable { case leave(awaited: Bool), disconnected(LiveKitErrorType?) }
+    enum Event: Equatable { case leave(awaited: Bool, cancelled: Bool), disconnected(LiveKitErrorType?) }
     let client: SignalClient
     let socketEvents = SocketEvents()
     let messageReturned = StateSync(false)
@@ -276,7 +277,7 @@ private final class LeaveRecorder: SignalClientTestDelegate {
         }
         let awaited = !messageReturned.copy()
         await client.cleanUp(withError: LiveKitError.from(reason: reason))
-        events.mutate { $0.append(.leave(awaited: awaited)) }
+        events.mutate { $0.append(.leave(awaited: awaited, cancelled: Task.isCancelled)) }
     }
 
     func signalClient(_: SignalClient, didUpdateConnectionState newState: ConnectionState, oldState _: ConnectionState, disconnectError: LiveKitError?) async {

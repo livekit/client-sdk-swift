@@ -391,8 +391,10 @@ extension SignalClient {
 
         // Handled before the next message is read: the server's close frame follows its leave, and that failure must
         // not reconnect a participant the server removed.
+        // In its own task: the delegate's cleanup cancels this message loop, which must not cancel the cleanup.
+        // Awaiting `.value` keeps the ordering and does not forward that cancellation.
         if case .leave = response.message {
-            await _process(response, encoded: rawData)
+            await Task { await self._process(response, encoded: rawData) }.value
             return
         }
 
