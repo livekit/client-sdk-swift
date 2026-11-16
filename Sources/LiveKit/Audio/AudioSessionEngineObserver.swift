@@ -193,7 +193,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
         log("configure isRecordingEnabled: \(newState.isRecordingEnabled), isPlayoutEnabled: \(newState.isPlayoutEnabled)")
 
-        if (!newState.isPlayoutEnabled && !newState.isRecordingEnabled) && (oldState.isPlayoutEnabled || oldState.isRecordingEnabled) {
+        if !newState.isPlayoutEnabled, !newState.isRecordingEnabled, oldState.isPlayoutEnabled || oldState.isRecordingEnabled {
             if newState.isAutomaticDeactivationEnabled {
                 do {
                     log("AudioSession deactivating...")
