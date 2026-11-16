@@ -303,6 +303,37 @@ struct CompleterMapActorTests {
         try await task.value
     }
 
+    /// A completer handed out before the rejecting reset fails with its error, whether its wait came first or comes later.
+    @Test func resetRejectingNewSettlesCompletersAlreadyHandedOut() async throws {
+        let map = CompleterMapActor<Void>(label: "reject-handed-out", defaultTimeout: 5)
+        let handedOut = await map.completer(for: "handed-out")
+        let waiting = await map.completer(for: "waiting")
+        let task = Task { try await waiting.wait() }
+        await waiting.waitForRegistration()
+
+        await map.reset(throwing: LiveKitError(.participantRemoved), rejectingNew: true)
+
+        await #expect {
+            try await task.value
+        } throws: { ($0 as? LiveKitError)?.type == .participantRemoved }
+        await #expect {
+            try await handedOut.wait()
+        } throws: { ($0 as? LiveKitError)?.type == .participantRemoved }
+    }
+
+    /// The default reset leaves a completer handed out before it open: a later resume still reaches its wait.
+    @Test func resetKeepsCompletersAlreadyHandedOutOpen() async throws {
+        let map = CompleterMapActor<Void>(label: "reset-handed-out", defaultTimeout: 5)
+        let handedOut = await map.completer(for: "handed-out")
+
+        await map.reset(throwing: LiveKitError(.participantRemoved))
+
+        let task = Task { try await handedOut.wait() }
+        await handedOut.waitForRegistration()
+        handedOut.resume(returning: ())
+        try await task.value
+    }
+
     @Test func resumeThrowingReachesExistingWaiter() async {
         let map = CompleterMapActor<Void>(label: "existing-waiter", defaultTimeout: 30)
 

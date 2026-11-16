@@ -58,15 +58,21 @@ actor CompleterMapActor<T: Sendable> {
         completer.resume(throwing: error)
     }
 
-    /// Fails every completer with `error`. With `rejectingNew`, the completers made until the next reset fail with it too.
+    /// Fails the waits on every completer with `error`. With `rejectingNew`, every completer fails with it for good: those
+    /// already handed out, whose waits may come later, and those made until the next reset.
     func reset(throwing error: Error? = nil, rejectingNew: Bool = false) {
+        let rejection = rejectingNew ? error ?? LiveKitError(.cancelled) : nil
         // Reset call completers...
         for (_, value) in _completerMap {
-            value.reset(throwing: error)
+            if let rejection {
+                value.resume(with: .failure(rejection))
+            } else {
+                value.reset(throwing: error)
+            }
         }
         // Clear all completers...
         _completerMap.removeAll()
-        _rejection = rejectingNew ? error ?? LiveKitError(.cancelled) : nil
+        _rejection = rejection
     }
 }
 
