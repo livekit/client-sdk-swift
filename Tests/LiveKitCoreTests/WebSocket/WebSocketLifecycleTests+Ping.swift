@@ -68,7 +68,8 @@ extension WebSocketLifecycleTests {
     @Test(.bug("https://github.com/livekit/client-sdk-swift/pull/1191#discussion_r4476453195"))
     func noPongFollowsOurClose() async throws {
         let frames = try await Self.withWritesHeldUp { server, socket, heldUp in
-            for index: UInt8 in 0 ..< 2 {
+            // Message 2 comes in a read that starts after the pong call for ping 1, so the close cannot overtake that call.
+            for index: UInt8 in 0 ..< 3 {
                 try await Self.ping(index, from: server, to: socket)
             }
             #expect(heldUp())
@@ -83,9 +84,9 @@ extension WebSocketLifecycleTests {
 
 private extension WebSocketLifecycleTests {
     /// Runs `body` on a socket whose writes TCP holds up: the server reads nothing until ``FakeWebSocketServer/readOn()``,
-    /// and 2.4 MB of messages wait to go out, more than the loopback buffers take. `heldUp` tells whether some still
-    /// wait. Returns the client's frames once the client dropped TCP. A backlog too small to hold up the first pong
-    /// fails the pong order; a backlog too large to drain within `closeWait` loses our close frame, and `clientGone` throws.
+    /// and 2.4 MB of messages wait to go out. `heldUp` tells whether some still wait. Returns the client's frames once the
+    /// client dropped TCP. A backlog too small to hold up the first pong fails the pong order; a backlog too large to
+    /// drain within `closeWait` loses our close frame, and `clientGone` throws.
     static func withWritesHeldUp(_ body: (FakeWebSocketServer, LiveKit.WebSocket, _ heldUp: @escaping () -> Bool) async throws -> Void)
         async throws -> [FakeWebSocketServer.ClientFrame]
     {
