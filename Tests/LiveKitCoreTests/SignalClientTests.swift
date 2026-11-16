@@ -322,9 +322,9 @@ private final class QueueResumeDelegate: SignalClientTestDelegate {
 
 private final class IgnoringDelegate: SignalClientTestDelegate {}
 
-private protocol SignalClientTestDelegate: SignalClientDelegate {}
+protocol SignalClientTestDelegate: SignalClientDelegate {}
 
-private extension SignalClientTestDelegate {
+extension SignalClientTestDelegate {
     func signalClient(_: SignalClient, didUpdateConnectionState _: ConnectionState, oldState _: ConnectionState, disconnectError _: LiveKitError?) async {}
     func signalClient(_: SignalClient, didReceiveConnectResponse _: SignalClient.ConnectResponse) async {}
     func signalClient(_: SignalClient, didReceiveAnswer _: LKRTCSessionDescription, offerId _: UInt32) async {}

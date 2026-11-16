@@ -26,6 +26,7 @@ actor CompleterMapActor<T: Sendable> {
 
     private let _defaultTimeout: TimeInterval
     private var _completerMap = [String: AsyncCompleter<T>]()
+    private var _rejection: Error?
 
     init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
@@ -39,6 +40,10 @@ actor CompleterMapActor<T: Sendable> {
         }
 
         let newCompleter = AsyncCompleter<T>(label: label, defaultTimeout: _defaultTimeout)
+        if let _rejection {
+            newCompleter.resume(throwing: _rejection)
+            return newCompleter
+        }
         _completerMap[key] = newCompleter
         return newCompleter
     }
@@ -53,13 +58,15 @@ actor CompleterMapActor<T: Sendable> {
         completer.resume(throwing: error)
     }
 
-    func reset(throwing error: Error? = nil) {
+    /// Fails every completer with `error`. With `rejectingNew`, the completers made until the next reset fail with it too.
+    func reset(throwing error: Error? = nil, rejectingNew: Bool = false) {
         // Reset call completers...
         for (_, value) in _completerMap {
             value.reset(throwing: error)
         }
         // Clear all completers...
         _completerMap.removeAll()
+        _rejection = rejectingNew ? error ?? LiveKitError(.cancelled) : nil
     }
 }
 

@@ -485,8 +485,9 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
+            // A delegate callback ahead of the leave can still register a publication: it fails too, until `cleanUp()`.
             if [.disconnect, .resume, .reconnect].contains(leave.action) {
-                await _addTrackCompleters.reset(throwing: LiveKitError.from(reason: leave.reason))
+                await _addTrackCompleters.reset(throwing: LiveKitError.from(reason: leave.reason), rejectingNew: true)
             }
             try? await _delegate.notifyAsync {
                 await $0.signalClient(self,

@@ -285,6 +285,24 @@ struct CompleterMapActorTests {
         try await completer.wait()
     }
 
+    @Test func resetRejectingNewFailsLaterCompletersUntilTheNextReset() async throws {
+        let map = CompleterMapActor<Void>(label: "reject-new", defaultTimeout: 30)
+        await map.reset(throwing: LiveKitError(.participantRemoved), rejectingNew: true)
+
+        let rejected = await map.completer(for: "key")
+        await #expect {
+            try await rejected.wait()
+        } throws: { ($0 as? LiveKitError)?.type == .participantRemoved }
+
+        // The default reset accepts new completers again, and the rejected one was not kept for the key.
+        await map.reset()
+        let rearmed = await map.completer(for: "key")
+        let task = Task { try await rearmed.wait() }
+        await rearmed.waitForRegistration()
+        await map.resume(returning: (), for: "key")
+        try await task.value
+    }
+
     @Test func resumeThrowingReachesExistingWaiter() async {
         let map = CompleterMapActor<Void>(label: "existing-waiter", defaultTimeout: 30)
 
