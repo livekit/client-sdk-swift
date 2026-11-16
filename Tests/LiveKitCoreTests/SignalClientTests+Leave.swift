@@ -76,6 +76,7 @@ extension SignalClientTests {
         let pendingError = await #expect(throws: LiveKitError.self) { try await pending.value }
         #expect(pendingError?.type == .participantRemoved)
         release.resume(returning: ())
+        try await fixture.requested.completer(for: "TR_sending released").wait()
         await delivery.value
         #expect(fixture.delegate.events.copy() == [.latePublication(.participantRemoved), .leave])
     }
@@ -111,7 +112,15 @@ private struct LeaveFixture {
         client = try await SignalClient(testingResponse: .with { $0.refreshToken = "token" }, requestProcessor: { request in
             guard case let .addTrack(addTrack) = request.message else { return }
             await requested.resume(returning: (), for: addTrack.cid)
-            if addTrack.cid == heldCid { try? await release?.wait() }
+            guard addTrack.cid == heldCid, let release else { return }
+            // Reported to the test, which waits on it: this runs in the delegate's detached task, outside the test.
+            let released = await requested.completer(for: "\(addTrack.cid) released")
+            do {
+                try await release.wait()
+                released.resume(returning: ())
+            } catch {
+                released.resume(throwing: error)
+            }
         }, responseProcessed: {})
         delegate = CleaningUpLeaveDelegate(client: client)
         await client._delegate.set(delegate: delegate)
