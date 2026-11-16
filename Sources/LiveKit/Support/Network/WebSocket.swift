@@ -54,7 +54,7 @@ actor WebSocket: Loggable, AsyncSequence {
     static var queue: DispatchQueue { .global(qos: .default) }
     /// URLSessionWebSocketTask's limit on a received message.
     static let maximumMessageSize = 1 << 20
-    /// How many frames may wait unread before the socket stops reading. Nothing is dropped past it: TCP pushes back.
+    /// How many unread frames stop the next read, not a limit on the queue: one read's small messages can all queue. Nothing is dropped: TCP pushes back.
     static let readAhead = 16
     /// The most one TCP read takes.
     static let readSize = 1 << 18

@@ -19,6 +19,7 @@ import Foundation
 import Testing
 
 extension WebSocketLifecycleTests {
+    /// The target is another origin, on another port: the caller's Cookie goes along, as URLSession sends it.
     @Test(arguments: [301, 302, 303, 307, 308], ["Authorization", "aUtHoRiZaTiOn"])
     func redirectDropsAuthorizationAndRebuildsHost(status: Int, authorization: String) async throws {
         let target = try FakeWebSocketServer(.idle)
