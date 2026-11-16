@@ -83,15 +83,16 @@ extension WebSocketLifecycleTests {
 
 private extension WebSocketLifecycleTests {
     /// Runs `body` on a socket whose writes TCP holds up: the server reads nothing until ``FakeWebSocketServer/readOn()``,
-    /// and 15 MB of messages wait to go out, more than the loopback buffers take. `heldUp` tells whether some still
-    /// wait. Returns the client's frames once the client dropped TCP.
+    /// and 2.4 MB of messages wait to go out, more than the loopback buffers take. `heldUp` tells whether some still
+    /// wait. Returns the client's frames once the client dropped TCP. A backlog too small to hold up the first pong
+    /// fails the pong order; a backlog too large to drain within `closeWait` loses our close frame, and `clientGone` throws.
     static func withWritesHeldUp(_ body: (FakeWebSocketServer, LiveKit.WebSocket, _ heldUp: @escaping () -> Bool) async throws -> Void)
         async throws -> [FakeWebSocketServer.ClientFrame]
     {
         let server = try FakeWebSocketServer(.upgradeOnly)
         defer { server.cancel() }
         let socket = try await LiveKit.WebSocket(url: server.url(), headers: [], timeoutInterval: 10, closeWait: 10)
-        let messages = 250, started = StateSync(0), written = StateSync(0)
+        let messages = 40, started = StateSync(0), written = StateSync(0)
         try await withThrowingTaskGroup(of: Void.self) { group in
             for _ in 0 ..< messages {
                 group.addTask {

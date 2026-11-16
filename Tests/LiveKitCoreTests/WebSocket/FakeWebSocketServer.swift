@@ -86,7 +86,8 @@ final class FakeWebSocketServer: Sendable {
     /// The client's frames, in the order they arrived.
     let frames = StateSync<[ClientFrame]>([])
     let closeAnswered = StateSync<UInt64?>(nil)
-    /// Resumed with the time, in `DispatchTime` uptime nanoseconds, the client dropped TCP after its close frame.
+    /// Resumed with the time, in `DispatchTime` uptime nanoseconds, the client dropped TCP after its close frame. Throws
+    /// at once if the client dropped TCP before the server read its close frame.
     let clientGone = AsyncCompleter<UInt64>(label: "FakeWebSocketServer.clientGone", defaultTimeout: 5)
 
     private let listener: NWListener
@@ -246,7 +247,12 @@ final class FakeWebSocketServer: Sendable {
 
     /// Answers the client's close frame as `behavior` says and keeps the socket open: the client must drop it.
     private func answerClose(_ connection: NWConnection, buffered: Data) {
-        readFrame(connection, buffered: buffered) { [self] opcode, rest in
+        // TCP ended before the client's close frame, such as one that its close deadline cut behind held-up writes.
+        let ended: @Sendable () -> Void = { [clientGone] in
+            clientGone.resume(throwing: LiveKitError(.network, message: "Client dropped TCP before its close frame"))
+            connection.cancel()
+        }
+        readFrame(connection, buffered: buffered, onEnd: ended) { [self] opcode, rest in
             guard opcode == 0x8 else { return answerClose(connection, buffered: rest) }
             awaitTeardown(connection, buffered: rest)
             switch behavior {
