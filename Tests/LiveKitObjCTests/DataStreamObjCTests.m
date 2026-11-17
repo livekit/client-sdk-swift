@@ -459,4 +459,46 @@
     [self waitForExpectationsWithTimeout:10 handler:nil];
 }
 
+#pragma mark - Exposure
+
+// The progress, trailer attribute and declared text size additions reach Objective-C under these
+// selectors.
+- (void)testStreamAdditionsAreExposed {
+    XCTAssertTrue([StreamTextOptions instancesRespondToSelector:@selector(initWithTopic:attributes:destinationIdentities:id:operationType:version:attachedStreamIDs:replyToStreamID:generated:compress:senderIdentity:totalSizeNumber:)]);
+    XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendText:options:onProgress:completionHandler:)]);
+    XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendBytes:options:onProgress:completionHandler:)]);
+    XCTAssertTrue([LocalParticipant instancesRespondToSelector:@selector(sendFile:options:onProgress:completionHandler:)]);
+    XCTAssertTrue([TextStreamReader instancesRespondToSelector:@selector(readProgressOnProgress:)]);
+    XCTAssertTrue([ByteStreamReader instancesRespondToSelector:@selector(readProgressOnProgress:)]);
+    XCTAssertTrue([TextStreamReader instancesRespondToSelector:@selector(stopReadingProgress)]);
+    XCTAssertTrue([ByteStreamReader instancesRespondToSelector:@selector(stopReadingProgress)]);
+    TextStreamReader *textReader = nil;
+    ByteStreamReader *byteReader = nil;
+#pragma clang diagnostic push
+#pragma clang diagnostic error "-Wdeprecated-declarations"
+    StreamTextOptions *options = [[StreamTextOptions alloc] initWithTopic:@"progress"
+                                                             attributes:@{}
+                                                  destinationIdentities:@[]
+                                                                     id:nil
+                                                          operationType:TextStreamInfoOperationTypeCreate
+                                                                version:0
+                                                      attachedStreamIDs:@[]
+                                                        replyToStreamID:nil
+                                                              generated:NO
+                                                               compress:YES
+                                                         senderIdentity:nil
+                                                        totalSizeNumber:@5];
+    XCTAssertNotNil(options);
+    [textReader readProgressOnProgress:^(StreamProgress *progress) {}];
+    [byteReader readProgressOnProgress:^(StreamProgress *progress) {}];
+    [textReader stopReadingProgress];
+    [byteReader stopReadingProgress];
+#pragma clang diagnostic pop
+    XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(bytesProcessed)]);
+    XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(bytesTotalNumber)]);
+    XCTAssertTrue([StreamProgress instancesRespondToSelector:@selector(fractionNumber)]);
+    XCTAssertTrue([TextStreamWriter instancesRespondToSelector:@selector(closeWithReason:attributes:completionHandler:)]);
+    XCTAssertTrue([ByteStreamWriter instancesRespondToSelector:@selector(closeWithReason:attributes:completionHandler:)]);
+}
+
 @end

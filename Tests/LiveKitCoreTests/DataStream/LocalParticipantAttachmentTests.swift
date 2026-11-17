@@ -137,7 +137,7 @@ extension LocalParticipantDataStreamTests {
         let files = StateSync<[(info: LiveKit.ByteStreamInfo, content: Data)]>([])
 
         func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
-            let reader = LiveKit.TextStreamReader(reader, info: LiveKit.TextStreamInfo(reader.info(), encryptionType: .none))
+            let reader = LiveKit.TextStreamReader(reader)
             order.mutate { $0.append(reader.info.id) }
             Task { [texts] in
                 guard let content = try? await reader.readAll() else { return }
@@ -146,7 +146,7 @@ extension LocalParticipantDataStreamTests {
         }
 
         func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
-            let reader = LiveKit.ByteStreamReader(reader, info: LiveKit.ByteStreamInfo(reader.info(), encryptionType: .none))
+            let reader = LiveKit.ByteStreamReader(reader)
             order.mutate { $0.append(reader.info.id) }
             Task { [files] in
                 guard let content = try? await reader.readAll() else { return }
