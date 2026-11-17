@@ -50,9 +50,9 @@ public final class TextStreamReader: NSObject, AsyncSequence, Sendable, TextStre
     private let progressRelay: StreamProgressRelay
     private let progressTask = StateSync<AnyTaskCancellable?>(nil)
 
-    init(_ reader: any LiveKitFFI.TextStreamReaderProtocol) {
+    init(_ reader: any LiveKitFFI.TextStreamReaderProtocol, onProgressSubscription: (@Sendable (Int) -> Void)? = nil) {
         self.reader = reader
-        progressRelay = StreamProgressRelay { await reader.nextProgress().map(StreamProgress.init) }
+        progressRelay = StreamProgressRelay(onSubscribe: onProgressSubscription) { await reader.nextProgress().map(StreamProgress.init) }
     }
 
     deinit {

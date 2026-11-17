@@ -240,6 +240,7 @@ extension ByteStreamReaderTests {
     /// What a stand-in core reader reports: a read that entered it, and a progress wait pending in
     /// it after the first update.
     struct Signals: Sendable {
+        var onProgressSubscription: (@Sendable (Int) -> Void)?
         var beforeNext: (@Sendable () async -> Void)?
         var progressOverride: (@Sendable () async -> LiveKitFFI.StreamProgress?)?
 
@@ -337,12 +338,12 @@ extension ByteStreamReaderTests {
         private let reader = StateSync<AnyReader?>(nil)
 
         func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
-            let stream = LiveKit.ByteStreamReader(SignallingByteReader(reader, signals: signals))
+            let stream = LiveKit.ByteStreamReader(SignallingByteReader(reader, signals: signals), onProgressSubscription: signals.onProgressSubscription)
             hand(AnyReader(readAll: { _ = try await stream.readAll() }, readPayload: { try await stream.readAll() }, iterate: { for try await _ in stream {} }, progress: { stream.progress }, readProgress: { stream.readProgress(onProgress: $0) }, stopReadingProgress: { stream.stopReadingProgress() }))
         }
 
         func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
-            let stream = LiveKit.TextStreamReader(SignallingTextReader(reader, signals: signals))
+            let stream = LiveKit.TextStreamReader(SignallingTextReader(reader, signals: signals), onProgressSubscription: signals.onProgressSubscription)
             hand(AnyReader(readAll: { _ = try await stream.readAll() }, readPayload: { try await Data(stream.readAll().utf8) }, iterate: { for try await _ in stream {} }, progress: { stream.progress }, readProgress: { stream.readProgress(onProgress: $0) }, stopReadingProgress: { stream.stopReadingProgress() }))
         }
 

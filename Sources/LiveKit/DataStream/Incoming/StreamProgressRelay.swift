@@ -25,12 +25,16 @@ actor StreamProgressRelay {
         let progress: StreamProgress
     }
 
+    // Internal barrier for testing cancellation after a subscriber has actually registered.
+    private let onSubscribe: (@Sendable (Int) -> Void)?
     private let read: @Sendable () async -> StreamProgress?
     private var latest: Update?
-    private var pending: Task<Update?, Never>?
+    private var pending = false
     private var finished = false
+    private var subscribers: [UUID: CheckedContinuation<Update?, Error>] = [:]
 
-    init(read: @escaping @Sendable () async -> StreamProgress?) {
+    init(onSubscribe: (@Sendable (Int) -> Void)? = nil, read: @escaping @Sendable () async -> StreamProgress?) {
+        self.onSubscribe = onSubscribe
         self.read = read
     }
 
@@ -38,24 +42,44 @@ actor StreamProgressRelay {
         try Task.checkCancellation()
         if let latest, latest.version > version { return latest }
         if finished { return nil }
-        let task: Task<Update?, Never>
-        if let pending {
-            task = pending
-        } else {
-            task = Task {
-                let value = await read()
-                if let value {
-                    latest = Update(version: (latest?.version ?? 0) + 1, progress: value)
-                } else {
-                    finished = true
+        let id = UUID()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                guard !Task.isCancelled else {
+                    continuation.resume(throwing: CancellationError())
+                    return
                 }
-                pending = nil
-                return value == nil ? nil : latest
+                subscribers[id] = continuation
+                onSubscribe?(version)
+                if !pending {
+                    pending = true
+                    // The shared native wait must not inherit an observer's task-local resources.
+                    Task.detached(priority: Task.currentPriority) { [read] in
+                        await self.publish(read())
+                    }
+                }
             }
-            pending = task
+        } onCancel: {
+            // This actor hop ends immediately after detaching the subscriber; it never waits on core.
+            Task { await self.cancel(id) }
         }
-        // Abandon only this observer's wait. The shared task publishes its result even if every
-        // observer cancels, and a replacement can replay the last update after native EOF.
-        return try await abandoningOnCancel { await task.value }
+    }
+
+    private func cancel(_ id: UUID) {
+        subscribers.removeValue(forKey: id)?.resume(throwing: CancellationError())
+    }
+
+    private func publish(_ value: StreamProgress?) {
+        if let value {
+            latest = Update(version: (latest?.version ?? 0) + 1, progress: value)
+        } else {
+            finished = true
+        }
+        pending = false
+        let waiting = subscribers.values
+        subscribers.removeAll()
+        for subscriber in waiting {
+            subscriber.resume(returning: value == nil ? nil : latest)
+        }
     }
 }

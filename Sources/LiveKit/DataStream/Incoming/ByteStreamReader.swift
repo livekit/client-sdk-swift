@@ -42,9 +42,9 @@ public final class ByteStreamReader: NSObject, AsyncSequence, Sendable {
     private let progressRelay: StreamProgressRelay
     private let progressTask = StateSync<AnyTaskCancellable?>(nil)
 
-    init(_ reader: any LiveKitFFI.ByteStreamReaderProtocol) {
+    init(_ reader: any LiveKitFFI.ByteStreamReaderProtocol, onProgressSubscription: (@Sendable (Int) -> Void)? = nil) {
         self.reader = reader
-        progressRelay = StreamProgressRelay { await reader.nextProgress().map(StreamProgress.init) }
+        progressRelay = StreamProgressRelay(onSubscribe: onProgressSubscription) { await reader.nextProgress().map(StreamProgress.init) }
     }
 
     deinit {
