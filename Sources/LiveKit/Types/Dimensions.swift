@@ -157,7 +157,7 @@ extension Dimensions {
                 Livekit_VideoLayer.with {
                     $0.width = UInt32((Double(width) / pow(2, Double(idx))).rounded(.down))
                     $0.height = UInt32((Double(height) / pow(2, Double(idx))).rounded(.down))
-                    $0.quality = Livekit_VideoQuality(rawValue: scalabilityMode.spatial - idx - 1) ?? .off
+                    $0.quality = Livekit_VideoQuality(rawValue: scalabilityMode.spatial - idx - 1)
                     $0.bitrate = UInt32((Double(truncating: firstEncoding.maxBitrateBps ?? 0) / pow(3, Double(idx))).rounded(.up))
                 }
             }

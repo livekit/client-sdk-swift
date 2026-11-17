@@ -579,6 +579,7 @@ extension Room {
     //   recursive cleanUp call through the onFailure path.
     //
     // Cancellation contract — cleanUp() must NEVER be guarded by Task.isCancelled:
+    // A Leave handler continues cleanup after SignalClient.cleanUp cancels its message loop.
     //
     //   disconnect()
     //       cancelReconnect() ──► reconnectTask cancelled
@@ -810,9 +811,10 @@ extension Room: AppStateDelegate {
 
 // MARK: - Devices
 
-@available(*, deprecated, renamed: "AudioManager.shared.isVoiceProcessingBypassed")
+// swiftformat:disable:next extensionAttributes
 public extension Room {
     /// Set this to true to bypass initialization of voice processing.
+    @available(*, deprecated, renamed: "AudioManager.shared.isVoiceProcessingBypassed")
     @objc
     static var bypassVoiceProcessing: Bool {
         get { AudioManager.shared.isVoiceProcessingBypassed }

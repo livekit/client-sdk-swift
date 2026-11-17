@@ -92,6 +92,27 @@ public final class StateSync<State>: @unchecked Sendable, Loggable {
         }
     }
 
+    /// Mutates without a snapshot or observer notification, for owners that do not use observers.
+    @discardableResult
+    func mutateWithoutObservation<Result>(_ block: (inout State) throws -> Result, file: StaticString = #file, line: Int = #line, function: String = #function) rethrows -> Result {
+        #if LK_SIGNPOSTS
+        let mutateID = OSSignpostID(log: signpostLog)
+        os_signpost(.begin, log: signpostLog, name: file, signpostID: mutateID, "%s:%d %s %s (lock)", "\(file)", line, function, stateTypeName)
+        #endif
+        return try _lock.sync {
+            #if LK_SIGNPOSTS
+            os_signpost(.end, log: signpostLog, name: file, signpostID: mutateID)
+            let blockID = OSSignpostID(log: signpostLog)
+            os_signpost(.begin, log: signpostLog, name: file, signpostID: blockID, "%s:%d %s %s (block)", "\(file)", line, function, stateTypeName)
+            #endif
+            let result = try block(&_state)
+            #if LK_SIGNPOSTS
+            os_signpost(.end, log: signpostLog, name: file, signpostID: blockID)
+            #endif
+            return result
+        }
+    }
+
     // read sync and return copy
     public func copy(file: StaticString = #file, line: Int = #line, function: String = #function) -> State {
         #if LK_SIGNPOSTS
