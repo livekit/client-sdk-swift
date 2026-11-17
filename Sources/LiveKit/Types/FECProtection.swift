@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 import Foundation
 
-/// How the server controls proactive FlexFEC protection for a subscribed video track.
+/// How proactive FlexFEC protection is controlled for a video track.
 ///
 /// - SeeAlso: ``FECProtection``
 @objc
@@ -32,7 +33,7 @@ public enum FECProtectionMode: Int, Sendable {
     case minimum
 }
 
-/// The share of packets the server spends on FlexFEC repairs in ``FECProtectionMode/fixed`` and
+/// The share of packets spent on FlexFEC repairs in ``FECProtectionMode/fixed`` and
 /// ``FECProtectionMode/minimum`` modes. Frames that span only a few packets get proportionally more.
 ///
 /// - SeeAlso: ``FECProtection``
@@ -46,17 +47,20 @@ public enum FECProtectionLevel: Int, Sendable {
     case high = 3
 }
 
-/// Proactive FlexFEC protection the server adds to a subscribed video track.
+/// Proactive FlexFEC protection for a video track.
 ///
-/// The server sends repair packets alongside the track's media, so the receiver can recover lost
-/// packets without waiting for a retransmission.
+/// Repair packets are sent alongside the track's media, so the receiver can recover lost packets
+/// without waiting for a retransmission. The same setting controls both legs:
+/// - Subscribing: the protection the server adds towards this client, see
+///   ``RemoteTrackPublication/set(fecProtection:)``.
+/// - Publishing: the protection this client adds towards the server, see
+///   ``VideoPublishOptions/fecProtection``.
 ///
 /// ```swift
 /// try await publication.set(fecProtection: .adaptive)
-/// try await publication.set(fecProtection: .minimum(.medium))
+/// try await room.localParticipant.publish(videoTrack: track,
+///                                         options: VideoPublishOptions(simulcast: false, fecProtection: .minimum(.medium)))
 /// ```
-///
-/// - SeeAlso: ``RemoteTrackPublication/set(fecProtection:)``
 @objcMembers
 public final class FECProtection: NSObject, Sendable {
     /// How the protection is controlled.
@@ -147,7 +151,27 @@ extension FECProtection {
     }
 }
 
+extension FECProtection {
+    func toRTCType() -> LKRTCRtpFecProtection {
+        let result = LKRTCRtpFecProtection()
+        result.mode = mode.toRTCType()
+        if usesLevel {
+            result.protectionFactor = level.protectionFactor
+        }
+        return result
+    }
+}
+
 extension FECProtectionMode {
+    func toRTCType() -> LKRTCRtpFecProtectionMode {
+        switch self {
+        case .disabled: .disabled
+        case .adaptive: .adaptive
+        case .fixed: .fixed
+        case .minimum: .minimum
+        }
+    }
+
     func toPBType() -> Livekit_FECProtectionMode {
         switch self {
         case .disabled: .fecModeDisabled
@@ -159,6 +183,15 @@ extension FECProtectionMode {
 }
 
 extension FECProtectionLevel {
+    /// Repair packets per media packet, matching the levels the server uses for subscribers.
+    var protectionFactor: Double {
+        switch self {
+        case .low: 0.15
+        case .medium: 0.25
+        case .high: 0.35
+        }
+    }
+
     func toPBType() -> Livekit_FECProtectionLevel {
         switch self {
         case .low: .fecLevelLow

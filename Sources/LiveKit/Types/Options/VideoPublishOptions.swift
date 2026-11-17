@@ -41,6 +41,17 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
 
     public let streamName: String?
 
+    /// Proactive FlexFEC protection this client adds to the published track.
+    ///
+    /// `nil` keeps WebRTC's default, which adapts protection to the observed packet loss like
+    /// ``FECProtection/adaptive``.
+    ///
+    /// - Note: Repairs are only sent when FlexFEC was negotiated, which requires
+    ///   ``LiveKitSDK/setFlexFECEnabled(_:)`` and a server with upstream FlexFEC enabled.
+    ///   WebRTC does not allocate a FlexFEC stream for simulcast, so this only takes effect
+    ///   with `simulcast: false`.
+    public let fecProtection: FECProtection?
+
     public init(name: String? = nil,
                 encoding: VideoEncoding? = nil,
                 screenShareEncoding: VideoEncoding? = nil,
@@ -50,7 +61,8 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
                 preferredCodec: VideoCodec? = nil,
                 preferredBackupCodec: VideoCodec? = nil,
                 degradationPreference: DegradationPreference = .auto,
-                streamName: String? = nil)
+                streamName: String? = nil,
+                fecProtection: FECProtection? = nil)
     {
         self.name = name
         self.encoding = encoding
@@ -62,6 +74,7 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
         self.preferredBackupCodec = preferredBackupCodec
         self.degradationPreference = degradationPreference
         self.streamName = streamName
+        self.fecProtection = fecProtection
     }
 
     // MARK: - Equal
@@ -77,7 +90,8 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
             preferredCodec == other.preferredCodec &&
             preferredBackupCodec == other.preferredBackupCodec &&
             degradationPreference == other.degradationPreference &&
-            streamName == other.streamName
+            streamName == other.streamName &&
+            fecProtection == other.fecProtection
     }
 
     override public var hash: Int {
@@ -92,6 +106,7 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
         hasher.combine(preferredBackupCodec)
         hasher.combine(degradationPreference)
         hasher.combine(streamName)
+        hasher.combine(fecProtection)
         return hasher.finalize()
     }
 }
