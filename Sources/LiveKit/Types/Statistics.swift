@@ -688,6 +688,11 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
     public let headerBytesSent: UInt64?
     public let retransmittedPacketsSent: UInt64?
     public let retransmittedBytesSent: UInt64?
+    /// FlexFEC repair packets sent for this stream, also counted in `packetsSent`.
+    /// Present once the first repair packet is sent.
+    public let fecPacketsSent: UInt64?
+    /// FlexFEC repair bytes sent for this stream, also counted in `bytesSent`.
+    public let fecBytesSent: UInt64?
     public let targetBitrate: Double?
     public let totalEncodedBytesTarget: UInt64?
     public let frameWidth: UInt?
@@ -726,6 +731,8 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
         headerBytesSent = rawValues.readOptional("headerBytesSent")
         retransmittedPacketsSent = rawValues.readOptional("retransmittedPacketsSent")
         retransmittedBytesSent = rawValues.readOptional("retransmittedBytesSent")
+        fecPacketsSent = rawValues.readOptional("fecPacketsSent")
+        fecBytesSent = rawValues.readOptional("fecBytesSent")
         targetBitrate = rawValues.readOptional("targetBitrate")
         totalEncodedBytesTarget = rawValues.readOptional("totalEncodedBytesTarget")
         frameWidth = rawValues.readOptional("frameWidth")

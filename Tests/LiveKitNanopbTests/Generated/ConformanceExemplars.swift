@@ -1357,6 +1357,20 @@ func oracleExemplar_Livekit_GetDataBlobResponse() -> Livekit_GetDataBlobResponse
     }
 }
 
+func exemplar_Livekit_FECProtection() -> LiveKit.Livekit_FECProtection {
+    LiveKit.Livekit_FECProtection.with { m in
+        m.mode = .fecModeAdaptive
+        m.level = .fecLevelLow
+    }
+}
+
+func oracleExemplar_Livekit_FECProtection() -> Livekit_FECProtection {
+    Livekit_FECProtection.with { m in
+        m.mode = .fecModeAdaptive
+        m.level = .fecLevelLow
+    }
+}
+
 func exemplar_Livekit_UpdateTrackSettings() -> LiveKit.Livekit_UpdateTrackSettings {
     LiveKit.Livekit_UpdateTrackSettings.with { m in
         m.trackSids = ["track_sids_0", "track_sids_1"]
@@ -1366,6 +1380,7 @@ func exemplar_Livekit_UpdateTrackSettings() -> LiveKit.Livekit_UpdateTrackSettin
         m.height = 6
         m.fps = 7
         m.priority = 8
+        m.fec = exemplar_Livekit_FECProtection()
     }
 }
 
@@ -1378,6 +1393,7 @@ func oracleExemplar_Livekit_UpdateTrackSettings() -> Livekit_UpdateTrackSettings
         m.height = 6
         m.fps = 7
         m.priority = 8
+        m.fec = oracleExemplar_Livekit_FECProtection()
     }
 }
 
@@ -2353,6 +2369,12 @@ let conformanceExemplars: [ConformanceExemplar] = [
         facade: { try exemplar_Livekit_GetDataBlobResponse().serializedData() },
         oracle: { try oracleExemplar_Livekit_GetDataBlobResponse().serializedData() },
         reencode: { try LiveKit.Livekit_GetDataBlobResponse(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_FECProtection",
+        facade: { try exemplar_Livekit_FECProtection().serializedData() },
+        oracle: { try oracleExemplar_Livekit_FECProtection().serializedData() },
+        reencode: { try LiveKit.Livekit_FECProtection(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_UpdateTrackSettings",

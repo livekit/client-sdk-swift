@@ -262,7 +262,8 @@ extension RemoteTrackPublication {
     func resetTrackSettings() {
         // track is initially disabled when adaptive stream is enabled
         let initiallyEnabled = !isAdaptiveStreamEnabled
-        _state.mutate { $0.trackSettings = TrackSettings(enabled: initiallyEnabled) }
+        // keep the requested FEC protection, the server keeps it too
+        _state.mutate { $0.trackSettings = TrackSettings(enabled: initiallyEnabled, fecProtection: $0.trackSettings.fecProtection) }
     }
 
     // attempt to send track settings

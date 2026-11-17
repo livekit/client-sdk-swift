@@ -17,6 +17,29 @@ typedef enum _livekit_SignalTarget {
     livekit_SignalTarget_SUBSCRIBER = 1
 } livekit_SignalTarget;
 
+/* How proactive video FEC protection is controlled for a subscribed track. */
+typedef enum _livekit_FECProtectionMode {
+    /* No proactive FEC. Zero value, so an empty FECProtection disables FEC. */
+    livekit_FECProtectionMode_FEC_MODE_DISABLED = 0,
+    /* Fully automatic: protection follows observed packet loss, aligned with the
+ libwebrtc algorithm. Level is ignored. */
+    livekit_FECProtectionMode_FEC_MODE_ADAPTIVE = 1,
+    /* Constant protection at the given level, regardless of packet loss. */
+    livekit_FECProtectionMode_FEC_MODE_FIXED = 2,
+    /* Protection never drops below the given level; it rises adaptively under
+ higher packet loss and returns to that floor once loss subsides. */
+    livekit_FECProtectionMode_FEC_MODE_MINIMUM = 3
+} livekit_FECProtectionMode;
+
+/* Proactive video FEC presets, matching the publish-track protection levels. */
+typedef enum _livekit_FECProtectionLevel {
+    /* Server default, currently FEC_LEVEL_LOW. */
+    livekit_FECProtectionLevel_FEC_LEVEL_UNSPECIFIED = 0,
+    livekit_FECProtectionLevel_FEC_LEVEL_LOW = 1, /* approximately 15% repair packet overhead */
+    livekit_FECProtectionLevel_FEC_LEVEL_MEDIUM = 2, /* approximately 25% repair packet overhead */
+    livekit_FECProtectionLevel_FEC_LEVEL_HIGH = 3 /* approximately 35% repair packet overhead */
+} livekit_FECProtectionLevel;
+
 typedef enum _livekit_StreamState {
     livekit_StreamState_ACTIVE = 0,
     livekit_StreamState_PAUSED = 1
@@ -379,6 +402,12 @@ typedef struct _livekit_GetDataBlobResponse {
     struct _livekit_DataBlob *blob;
 } livekit_GetDataBlobResponse;
 
+typedef struct _livekit_FECProtection {
+    livekit_FECProtectionMode *mode;
+    /* Used by FEC_MODE_FIXED and FEC_MODE_MINIMUM; ignored otherwise. */
+    livekit_FECProtectionLevel *level;
+} livekit_FECProtection;
+
 typedef struct _livekit_UpdateTrackSettings {
     pb_size_t track_sids_count;
     char **track_sids;
@@ -399,6 +428,14 @@ typedef struct _livekit_UpdateTrackSettings {
  2. when the network is congested, server will assign available bandwidth to
     higher priority tracks first. lowest priority tracks can be paused */
     uint32_t *priority;
+    /* Proactive FlexFEC protection for the subscribed video tracks in track_sids.
+ Ignored for audio tracks, and when the server has downstream FlexFEC
+ disabled or flexfec-03 was not negotiated with the subscriber.
+ Unlike the other fields, omitting this keeps the previous setting; the
+ initial setting is FEC_MODE_DISABLED.
+ Unknown modes are treated as FEC_MODE_DISABLED; an unknown level is treated
+ as FEC_LEVEL_UNSPECIFIED. */
+    struct _livekit_FECProtection *fec;
 } livekit_UpdateTrackSettings;
 
 typedef struct _livekit_UpdateLocalAudioTrack {
@@ -697,6 +734,14 @@ extern "C" {
 #define _livekit_SignalTarget_MAX livekit_SignalTarget_SUBSCRIBER
 #define _livekit_SignalTarget_ARRAYSIZE ((livekit_SignalTarget)(livekit_SignalTarget_SUBSCRIBER+1))
 
+#define _livekit_FECProtectionMode_MIN livekit_FECProtectionMode_FEC_MODE_DISABLED
+#define _livekit_FECProtectionMode_MAX livekit_FECProtectionMode_FEC_MODE_MINIMUM
+#define _livekit_FECProtectionMode_ARRAYSIZE ((livekit_FECProtectionMode)(livekit_FECProtectionMode_FEC_MODE_MINIMUM+1))
+
+#define _livekit_FECProtectionLevel_MIN livekit_FECProtectionLevel_FEC_LEVEL_UNSPECIFIED
+#define _livekit_FECProtectionLevel_MAX livekit_FECProtectionLevel_FEC_LEVEL_HIGH
+#define _livekit_FECProtectionLevel_ARRAYSIZE ((livekit_FECProtectionLevel)(livekit_FECProtectionLevel_FEC_LEVEL_HIGH+1))
+
 #define _livekit_StreamState_MIN livekit_StreamState_ACTIVE
 #define _livekit_StreamState_MAX livekit_StreamState_PAUSED
 #define _livekit_StreamState_ARRAYSIZE ((livekit_StreamState)(livekit_StreamState_PAUSED+1))
@@ -752,6 +797,9 @@ extern "C" {
 
 
 
+
+#define livekit_FECProtection_mode_ENUMTYPE livekit_FECProtectionMode
+#define livekit_FECProtection_level_ENUMTYPE livekit_FECProtectionLevel
 
 #define livekit_UpdateTrackSettings_quality_ENUMTYPE livekit_VideoQuality
 
@@ -833,7 +881,8 @@ extern "C" {
 #define livekit_StoreDataBlobResponse_init_default {NULL, NULL}
 #define livekit_GetDataBlobRequest_init_default  {NULL, NULL, NULL}
 #define livekit_GetDataBlobResponse_init_default {NULL, NULL}
-#define livekit_UpdateTrackSettings_init_default {0, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+#define livekit_FECProtection_init_default       {NULL, NULL}
+#define livekit_UpdateTrackSettings_init_default {0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_UpdateLocalAudioTrack_init_default {NULL, 0, NULL}
 #define livekit_UpdateLocalVideoTrack_init_default {NULL, NULL, NULL}
 #define livekit_LeaveRequest_init_default        {NULL, NULL, NULL, NULL}
@@ -898,7 +947,8 @@ extern "C" {
 #define livekit_StoreDataBlobResponse_init_zero  {NULL, NULL}
 #define livekit_GetDataBlobRequest_init_zero     {NULL, NULL, NULL}
 #define livekit_GetDataBlobResponse_init_zero    {NULL, NULL}
-#define livekit_UpdateTrackSettings_init_zero    {0, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+#define livekit_FECProtection_init_zero          {NULL, NULL}
+#define livekit_UpdateTrackSettings_init_zero    {0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_UpdateLocalAudioTrack_init_zero  {NULL, 0, NULL}
 #define livekit_UpdateLocalVideoTrack_init_zero  {NULL, NULL, NULL}
 #define livekit_LeaveRequest_init_zero           {NULL, NULL, NULL, NULL}
@@ -1076,6 +1126,8 @@ extern "C" {
 #define livekit_GetDataBlobRequest_key_tag       3
 #define livekit_GetDataBlobResponse_request_id_tag 1
 #define livekit_GetDataBlobResponse_blob_tag     2
+#define livekit_FECProtection_mode_tag           1
+#define livekit_FECProtection_level_tag          2
 #define livekit_UpdateTrackSettings_track_sids_tag 1
 #define livekit_UpdateTrackSettings_disabled_tag 3
 #define livekit_UpdateTrackSettings_quality_tag  4
@@ -1083,6 +1135,7 @@ extern "C" {
 #define livekit_UpdateTrackSettings_height_tag   6
 #define livekit_UpdateTrackSettings_fps_tag      7
 #define livekit_UpdateTrackSettings_priority_tag 8
+#define livekit_UpdateTrackSettings_fec_tag      9
 #define livekit_UpdateLocalAudioTrack_track_sid_tag 1
 #define livekit_UpdateLocalAudioTrack_features_tag 2
 #define livekit_UpdateLocalVideoTrack_track_sid_tag 1
@@ -1526,6 +1579,12 @@ X(a, POINTER,  OPTIONAL, MESSAGE,  blob,              2)
 #define livekit_GetDataBlobResponse_DEFAULT NULL
 #define livekit_GetDataBlobResponse_blob_MSGTYPE livekit_DataBlob
 
+#define livekit_FECProtection_FIELDLIST(X, a) \
+X(a, POINTER,  SINGULAR, UENUM,    mode,              1) \
+X(a, POINTER,  SINGULAR, UENUM,    level,             2)
+#define livekit_FECProtection_CALLBACK NULL
+#define livekit_FECProtection_DEFAULT NULL
+
 #define livekit_UpdateTrackSettings_FIELDLIST(X, a) \
 X(a, POINTER,  REPEATED, STRING,   track_sids,        1) \
 X(a, POINTER,  SINGULAR, BOOL,     disabled,          3) \
@@ -1533,9 +1592,11 @@ X(a, POINTER,  SINGULAR, UENUM,    quality,           4) \
 X(a, POINTER,  SINGULAR, UINT32,   width,             5) \
 X(a, POINTER,  SINGULAR, UINT32,   height,            6) \
 X(a, POINTER,  SINGULAR, UINT32,   fps,               7) \
-X(a, POINTER,  SINGULAR, UINT32,   priority,          8)
+X(a, POINTER,  SINGULAR, UINT32,   priority,          8) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  fec,               9)
 #define livekit_UpdateTrackSettings_CALLBACK NULL
 #define livekit_UpdateTrackSettings_DEFAULT NULL
+#define livekit_UpdateTrackSettings_fec_MSGTYPE livekit_FECProtection
 
 #define livekit_UpdateLocalAudioTrack_FIELDLIST(X, a) \
 X(a, POINTER,  SINGULAR, STRING,   track_sid,         1) \
@@ -1866,6 +1927,7 @@ extern const pb_msgdesc_t livekit_StoreDataBlobRequest_msg;
 extern const pb_msgdesc_t livekit_StoreDataBlobResponse_msg;
 extern const pb_msgdesc_t livekit_GetDataBlobRequest_msg;
 extern const pb_msgdesc_t livekit_GetDataBlobResponse_msg;
+extern const pb_msgdesc_t livekit_FECProtection_msg;
 extern const pb_msgdesc_t livekit_UpdateTrackSettings_msg;
 extern const pb_msgdesc_t livekit_UpdateLocalAudioTrack_msg;
 extern const pb_msgdesc_t livekit_UpdateLocalVideoTrack_msg;
@@ -1933,6 +1995,7 @@ extern const pb_msgdesc_t livekit_MediaSectionsRequirement_msg;
 #define livekit_StoreDataBlobResponse_fields &livekit_StoreDataBlobResponse_msg
 #define livekit_GetDataBlobRequest_fields &livekit_GetDataBlobRequest_msg
 #define livekit_GetDataBlobResponse_fields &livekit_GetDataBlobResponse_msg
+#define livekit_FECProtection_fields &livekit_FECProtection_msg
 #define livekit_UpdateTrackSettings_fields &livekit_UpdateTrackSettings_msg
 #define livekit_UpdateLocalAudioTrack_fields &livekit_UpdateLocalAudioTrack_msg
 #define livekit_UpdateLocalVideoTrack_fields &livekit_UpdateLocalVideoTrack_msg
@@ -2000,6 +2063,7 @@ extern const pb_msgdesc_t livekit_MediaSectionsRequirement_msg;
 /* livekit_StoreDataBlobResponse_size depends on runtime parameters */
 /* livekit_GetDataBlobRequest_size depends on runtime parameters */
 /* livekit_GetDataBlobResponse_size depends on runtime parameters */
+/* livekit_FECProtection_size depends on runtime parameters */
 /* livekit_UpdateTrackSettings_size depends on runtime parameters */
 /* livekit_UpdateLocalAudioTrack_size depends on runtime parameters */
 /* livekit_UpdateLocalVideoTrack_size depends on runtime parameters */

@@ -21,26 +21,32 @@ struct TrackSettings: Equatable, Hashable {
     let dimensions: Dimensions
     let videoQuality: VideoQuality
     let preferredFPS: UInt
+    /// `nil` until requested, so updates leave the server's setting unchanged.
+    let fecProtection: FECProtection?
 
     init(enabled: Bool = false,
          dimensions: Dimensions = .zero,
          videoQuality: VideoQuality = .low,
-         preferredFPS: UInt = 0)
+         preferredFPS: UInt = 0,
+         fecProtection: FECProtection? = nil)
     {
         isEnabled = enabled
         self.dimensions = dimensions
         self.videoQuality = videoQuality
         self.preferredFPS = preferredFPS
+        self.fecProtection = fecProtection
     }
 
     func copyWith(isEnabled: ValueOrAbsent<Bool> = .absent,
                   dimensions: ValueOrAbsent<Dimensions> = .absent,
                   videoQuality: ValueOrAbsent<VideoQuality> = .absent,
-                  preferredFPS: ValueOrAbsent<UInt> = .absent) -> TrackSettings
+                  preferredFPS: ValueOrAbsent<UInt> = .absent,
+                  fecProtection: ValueOrAbsent<FECProtection?> = .absent) -> TrackSettings
     {
         TrackSettings(enabled: isEnabled.value(ifAbsent: self.isEnabled),
                       dimensions: dimensions.value(ifAbsent: self.dimensions),
                       videoQuality: videoQuality.value(ifAbsent: self.videoQuality),
-                      preferredFPS: preferredFPS.value(ifAbsent: self.preferredFPS))
+                      preferredFPS: preferredFPS.value(ifAbsent: self.preferredFPS),
+                      fecProtection: fecProtection.value(ifAbsent: self.fecProtection))
     }
 }

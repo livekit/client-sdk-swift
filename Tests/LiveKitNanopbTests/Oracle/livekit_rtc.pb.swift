@@ -73,6 +73,110 @@ nonisolated enum Livekit_SignalTarget: SwiftProtobuf.Enum, Swift.CaseIterable {
 
 }
 
+/// How proactive video FEC protection is controlled for a subscribed track.
+nonisolated enum Livekit_FECProtectionMode: SwiftProtobuf.Enum, Swift.CaseIterable {
+  typealias RawValue = Int
+
+  /// No proactive FEC. Zero value, so an empty FECProtection disables FEC.
+  case fecModeDisabled // = 0
+
+  /// Fully automatic: protection follows observed packet loss, aligned with the
+  /// libwebrtc algorithm. Level is ignored.
+  case fecModeAdaptive // = 1
+
+  /// Constant protection at the given level, regardless of packet loss.
+  case fecModeFixed // = 2
+
+  /// Protection never drops below the given level; it rises adaptively under
+  /// higher packet loss and returns to that floor once loss subsides.
+  case fecModeMinimum // = 3
+  case UNRECOGNIZED(Int)
+
+  init() {
+    self = .fecModeDisabled
+  }
+
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .fecModeDisabled
+    case 1: self = .fecModeAdaptive
+    case 2: self = .fecModeFixed
+    case 3: self = .fecModeMinimum
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  var rawValue: Int {
+    switch self {
+    case .fecModeDisabled: return 0
+    case .fecModeAdaptive: return 1
+    case .fecModeFixed: return 2
+    case .fecModeMinimum: return 3
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static let allCases: [Livekit_FECProtectionMode] = [
+    .fecModeDisabled,
+    .fecModeAdaptive,
+    .fecModeFixed,
+    .fecModeMinimum,
+  ]
+
+}
+
+/// Proactive video FEC presets, matching the publish-track protection levels.
+nonisolated enum Livekit_FECProtectionLevel: SwiftProtobuf.Enum, Swift.CaseIterable {
+  typealias RawValue = Int
+
+  /// Server default, currently FEC_LEVEL_LOW.
+  case fecLevelUnspecified // = 0
+
+  /// approximately 15% repair packet overhead
+  case fecLevelLow // = 1
+
+  /// approximately 25% repair packet overhead
+  case fecLevelMedium // = 2
+
+  /// approximately 35% repair packet overhead
+  case fecLevelHigh // = 3
+  case UNRECOGNIZED(Int)
+
+  init() {
+    self = .fecLevelUnspecified
+  }
+
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .fecLevelUnspecified
+    case 1: self = .fecLevelLow
+    case 2: self = .fecLevelMedium
+    case 3: self = .fecLevelHigh
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  var rawValue: Int {
+    switch self {
+    case .fecLevelUnspecified: return 0
+    case .fecLevelLow: return 1
+    case .fecLevelMedium: return 2
+    case .fecLevelHigh: return 3
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static let allCases: [Livekit_FECProtectionLevel] = [
+    .fecLevelUnspecified,
+    .fecLevelLow,
+    .fecLevelMedium,
+    .fecLevelHigh,
+  ]
+
+}
+
 nonisolated enum Livekit_StreamState: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
   case active // = 0
@@ -1408,6 +1512,21 @@ nonisolated struct Livekit_GetDataBlobResponse: Sendable {
   fileprivate var _blob: Livekit_DataBlob? = nil
 }
 
+nonisolated struct Livekit_FECProtection: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var mode: Livekit_FECProtectionMode = .fecModeDisabled
+
+  /// Used by FEC_MODE_FIXED and FEC_MODE_MINIMUM; ignored otherwise.
+  var level: Livekit_FECProtectionLevel = .fecLevelUnspecified
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
 nonisolated struct Livekit_UpdateTrackSettings: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -1438,9 +1557,27 @@ nonisolated struct Livekit_UpdateTrackSettings: Sendable {
   ///    higher priority tracks first. lowest priority tracks can be paused
   var priority: UInt32 = 0
 
+  /// Proactive FlexFEC protection for the subscribed video tracks in track_sids.
+  /// Ignored for audio tracks, and when the server has downstream FlexFEC
+  /// disabled or flexfec-03 was not negotiated with the subscriber.
+  /// Unlike the other fields, omitting this keeps the previous setting; the
+  /// initial setting is FEC_MODE_DISABLED.
+  /// Unknown modes are treated as FEC_MODE_DISABLED; an unknown level is treated
+  /// as FEC_LEVEL_UNSPECIFIED.
+  var fec: Livekit_FECProtection {
+    get {_fec ?? Livekit_FECProtection()}
+    set {_fec = newValue}
+  }
+  /// Returns true if `fec` has been explicitly set.
+  var hasFec: Bool {self._fec != nil}
+  /// Clears the value of `fec`. Subsequent reads from it will return its default value.
+  mutating func clearFec() {self._fec = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
+
+  fileprivate var _fec: Livekit_FECProtection? = nil
 }
 
 nonisolated struct Livekit_UpdateLocalAudioTrack: Sendable {
@@ -2484,6 +2621,14 @@ fileprivate nonisolated let _protobuf_package = "livekit"
 
 nonisolated extension Livekit_SignalTarget: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PUBLISHER\0\u{1}SUBSCRIBER\0")
+}
+
+nonisolated extension Livekit_FECProtectionMode: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0FEC_MODE_DISABLED\0\u{1}FEC_MODE_ADAPTIVE\0\u{1}FEC_MODE_FIXED\0\u{1}FEC_MODE_MINIMUM\0")
+}
+
+nonisolated extension Livekit_FECProtectionLevel: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0FEC_LEVEL_UNSPECIFIED\0\u{1}FEC_LEVEL_LOW\0\u{1}FEC_LEVEL_MEDIUM\0\u{1}FEC_LEVEL_HIGH\0")
 }
 
 nonisolated extension Livekit_StreamState: SwiftProtobuf._ProtoNameProviding {
@@ -4592,9 +4737,44 @@ nonisolated extension Livekit_GetDataBlobResponse: SwiftProtobuf.Message, SwiftP
   }
 }
 
+nonisolated extension Livekit_FECProtection: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".FECProtection"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}mode\0\u{1}level\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.mode) }()
+      case 2: try { try decoder.decodeSingularEnumField(value: &self.level) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.mode != .fecModeDisabled {
+      try visitor.visitSingularEnumField(value: self.mode, fieldNumber: 1)
+    }
+    if self.level != .fecLevelUnspecified {
+      try visitor.visitSingularEnumField(value: self.level, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_FECProtection, rhs: Livekit_FECProtection) -> Bool {
+    if lhs.mode != rhs.mode {return false}
+    if lhs.level != rhs.level {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 nonisolated extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UpdateTrackSettings"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sids\0\u{2}\u{2}disabled\0\u{1}quality\0\u{1}width\0\u{1}height\0\u{1}fps\0\u{1}priority\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}track_sids\0\u{2}\u{2}disabled\0\u{1}quality\0\u{1}width\0\u{1}height\0\u{1}fps\0\u{1}priority\0\u{1}fec\0")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -4609,12 +4789,17 @@ nonisolated extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftP
       case 6: try { try decoder.decodeSingularUInt32Field(value: &self.height) }()
       case 7: try { try decoder.decodeSingularUInt32Field(value: &self.fps) }()
       case 8: try { try decoder.decodeSingularUInt32Field(value: &self.priority) }()
+      case 9: try { try decoder.decodeSingularMessageField(value: &self._fec) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.trackSids.isEmpty {
       try visitor.visitRepeatedStringField(value: self.trackSids, fieldNumber: 1)
     }
@@ -4636,6 +4821,9 @@ nonisolated extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftP
     if self.priority != 0 {
       try visitor.visitSingularUInt32Field(value: self.priority, fieldNumber: 8)
     }
+    try { if let v = self._fec {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -4647,6 +4835,7 @@ nonisolated extension Livekit_UpdateTrackSettings: SwiftProtobuf.Message, SwiftP
     if lhs.height != rhs.height {return false}
     if lhs.fps != rhs.fps {return false}
     if lhs.priority != rhs.priority {return false}
+    if lhs._fec != rhs._fec {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
