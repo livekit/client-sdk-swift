@@ -325,8 +325,7 @@ extension ByteStreamReaderTests {
         }
     }
 
-    /// Builds the public reader around a signalling core reader, and hands it over once, so the
-    /// capture keeps no reference to it.
+    /// Builds a public reader around a signalling core and hands it over without retaining it.
     final class ReaderCapture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
         let signals: Signals
 

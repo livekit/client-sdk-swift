@@ -40,7 +40,7 @@ extension ByteStreamReaderTests {
             released.append(ended)
             let subscribed = AsyncCompleter<Void>(label: "Subscriber registered", defaultTimeout: 5)
             registration.mutate { $0 = subscribed }
-            try await observeThenCancel(reader, objc: objc, released: ended, retained: retained, nativeWaiting: capture.signals.progressWaiting, subscribed: subscribed)
+            try await observeThenCancel(reader, objc: objc, context: ProgressContext(released: ended, retained: retained), nativeWaiting: capture.signals.progressWaiting, subscribed: subscribed)
         }
         // No chunks, trailer, or close have been sent: cancellation alone must release contexts.
         do {
@@ -71,11 +71,11 @@ extension ByteStreamReaderTests {
         }
     }
 
-    private func observeThenCancel(_ reader: AnyReader, objc: Bool, released: AsyncCompleter<Void>, retained: StateSync<Int>, nativeWaiting: AsyncCompleter<Void>, subscribed: AsyncCompleter<Void>) async throws {
+    private func observeThenCancel(_ reader: AnyReader, objc: Bool, context: ProgressContext, nativeWaiting: AsyncCompleter<Void>, subscribed: AsyncCompleter<Void>) async throws {
         let started = AsyncCompleter<Void>(label: "Observer initial progress", defaultTimeout: 5)
         let stopped = AsyncCompleter<Void>(label: "Observer callback released", defaultTimeout: 5)
         if objc {
-            ObservationContext.$lifetime.withValue(ProgressContext(released: released, retained: retained)) {
+            ObservationContext.$lifetime.withValue(context) {
                 reader.readProgress { [lifetime = CallbackLifetime(released: stopped)] _ in
                     withExtendedLifetime(lifetime) { started.resume(returning: ()) }
                 }
@@ -86,7 +86,7 @@ extension ByteStreamReaderTests {
             reader.stopReadingProgress()
             try await stopped.wait()
         } else {
-            let task = ObservationContext.$lifetime.withValue(ProgressContext(released: released, retained: retained)) {
+            let task = ObservationContext.$lifetime.withValue(context) {
                 Task {
                     for await _ in reader.progress() {
                         started.resume(returning: ())
