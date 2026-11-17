@@ -53,6 +53,7 @@ public final class ConnectOptions: NSObject, Sendable {
     public let reconnectMaxDelay: TimeInterval
 
     /// The timeout interval for the initial websocket connection.
+    /// - Note: It applies to each attempt: a redirect or a Basic authentication retry starts a new timeout.
     public let socketConnectTimeoutInterval: TimeInterval
 
     public let primaryTransportConnectTimeout: TimeInterval
