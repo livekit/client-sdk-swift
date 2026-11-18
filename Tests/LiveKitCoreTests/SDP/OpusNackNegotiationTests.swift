@@ -24,14 +24,20 @@ import LiveKitTestSupport
 
 @Suite(.serialized, .tags(.e2e, .media), TestLimits.e2e)
 struct OpusNackNegotiationTests {
-    @Test func serverNegotiatesNackOnSinglePCAudio() async throws {
-        try await TestEnvironment.withRoom(RoomTestingOptions(singlePeerConnection: true, canSubscribe: true)) { room in
+    @Test(arguments: [false, true])
+    func serverNegotiatesNackOnSinglePCAudio(sendOnlyFirst: Bool) async throws {
+        try await TestEnvironment.withRoom(RoomTestingOptions(singlePeerConnection: true, canPublish: true, canSubscribe: true)) { room in
             let publisher = try #require(room._state.transport?.publisher)
-            #expect(publisher.singlePCMode, "This test requires a server supporting single PC mode")
+            try #require(publisher.singlePCMode, "This test requires a server supporting single PC mode")
 
-            // An empty room can negotiate only data channels. Add a receive section so this
-            // checks an audio exchange with the SFU without needing a microphone or publisher.
+            // The first audio section determines the SFU's audio feedback, including when
+            // a send-only section precedes the receiving section. No microphone is needed.
             try await RTC.run {
+                if sendOnlyFirst {
+                    let send = LKRTCRtpTransceiverInit()
+                    send.direction = .sendOnly
+                    _ = try publisher.addTransceiver(ofType: .audio, transceiverInit: send)
+                }
                 let receive = LKRTCRtpTransceiverInit()
                 receive.direction = .recvOnly
                 _ = try publisher.addTransceiver(ofType: .audio, transceiverInit: receive)
@@ -54,6 +60,9 @@ struct OpusNackNegotiationTests {
             }
 
             let (offer, answer) = try #require(descriptions, "Audio sections did not finish negotiating")
+            let offeredAudio = SDP(parsing: offer).mediaSections.filter { $0.mediaType == "audio" }
+            #expect(offeredAudio.count == (sendOnlyFirst ? 2 : 1))
+            #expect(offeredAudio.first?.direction == (sendOnlyFirst ? .sendonly : .recvonly))
             for sdp in [offer, answer] {
                 let sections = SDP(parsing: sdp).mediaSections.filter { $0.mediaType == "audio" }
                 try #require(!sections.isEmpty)
