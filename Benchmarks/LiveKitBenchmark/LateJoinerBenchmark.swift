@@ -71,7 +71,7 @@ private let mConnectedToFrame: BenchmarkMetric = .custom("connected_to_first_fra
 /// 1 per iteration that never reached a milestone, 0 per iteration that completed — so a p90 of
 /// 1 means at least a tenth of the runs failed. Without it a flaky arm looks identical to a
 /// reliable one, only with fewer samples.
-private let joinMetrics = [mConnect, mFirstSub, mAllSubs, mFirstFrame, mAllFrames, mConnectedToFrame, mFailed]
+private let joinMetrics = [mConnect, mFirstSub, mAllSubs, mFirstFrame, mAllFrames, mConnectedToFrame, mFailed, mHeapRetained, mHeapRetainedBlocks]
 
 /// Publisher counts to sweep, from `LK_BENCH_JOIN_PUBLISHERS` (comma-separated).
 ///
