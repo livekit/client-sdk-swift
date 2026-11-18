@@ -260,7 +260,7 @@ extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateParticipants participants: [Livekit_ParticipantInfo]) async {
         log("participants: \(participants)")
 
-        var disconnectedParticipantIdentities = [Participant.Identity]()
+        var disconnectedParticipants = [(identity: Participant.Identity, participant: RemoteParticipant?)]()
         var newParticipants = [RemoteParticipant]()
 
         _state.mutate {
@@ -273,8 +273,14 @@ extension Room: SignalClientDelegate {
                 }
 
                 if info.state == .disconnected {
-                    // when it's disconnected, send updates
-                    disconnectedParticipantIdentities.append(infoIdentity)
+                    let participant = $0.remoteParticipants[infoIdentity]
+                    if let sid = participant?.sid?.stringValue,
+                       !sid.isEmpty, !info.sid.isEmpty, sid != info.sid
+                    {
+                        continue
+                    }
+                    $0.remoteParticipants.removeValue(forKey: infoIdentity)
+                    disconnectedParticipants.append((infoIdentity, participant))
                 } else {
                     let isNewParticipant = $0.remoteParticipants[infoIdentity] == nil
                     let participant = $0.updateRemoteParticipant(info: info, room: self)
@@ -289,10 +295,10 @@ extension Room: SignalClientDelegate {
         }
 
         await withTaskGroup { group in
-            for identity in disconnectedParticipantIdentities {
+            for (identity, participant) in disconnectedParticipants {
                 group.addTask {
                     do {
-                        try await self._onParticipantDidDisconnect(identity: identity)
+                        try await self._onParticipantDidDisconnect(identity: identity, removed: participant)
                     } catch {
                         self.log("Failed to process participant disconnection, error: \(error)", .error)
                     }
