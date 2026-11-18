@@ -23,6 +23,11 @@ import Foundation
 /// as a reliable one with fewer samples, and that only holds if every arm reports it the same way.
 let mFailed: BenchmarkMetric = .custom("failed_iterations", polarity: .prefersSmaller, useScalingFactor: false)
 
+/// The memory columns the suites on default metrics report, for suites that declare their own list.
+let memoryMetrics: [BenchmarkMetric] = [
+    .mallocCountTotal, .freeCountTotal, .mallocBytesCount, .mallocFreeDelta, .memoryLeakedBytes, .peakMemoryResident,
+]
+
 /// Runs `body` once per scaled iteration, committing its samples only when it completes and
 /// recording `failed_iterations` either way.
 ///
