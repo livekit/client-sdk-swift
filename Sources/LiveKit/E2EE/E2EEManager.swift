@@ -73,10 +73,11 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     private lazy var delegateAdapter: DelegateAdapter = .init(target: self)
 
-    private var _state = StateSync(State())
+    let _state = StateSync(State())
 
-    private struct State: Equatable {
+    struct State: Equatable {
         var enabled: Bool = true
+        var encryptedParticipantIdentities = Set<Participant.Identity>()
         var frameCryptors = [CryptorKey: LKRTCFrameCryptor]()
         var trackPublications = [LKRTCFrameCryptor: TrackPublication]()
         var dataCryptor: LKRTCDataPacketCryptor?
@@ -247,8 +248,13 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
         }
     }
 
+    func updateEncryption(participantInfo: Livekit_ParticipantInfo) {
+        guard participantInfo.tracks.contains(where: { $0.encryption != .none }) else { return }
+        _state.mutate { $0.encryptedParticipantIdentities.insert(Participant.Identity(from: participantInfo.identity)) }
+    }
+
     func addRtpReceiver(publication: RemoteTrackPublication, participantIdentity: Participant.Identity) async {
-        guard publication.encryptionType != .none else {
+        guard publication.encryptionType != .none || _state.encryptedParticipantIdentities.contains(participantIdentity) else {
             log("encryptionType is .none, skipping creating frame cryptor...", .warning)
             return
         }
@@ -292,11 +298,11 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
             }
             $0.frameCryptors.removeAll()
             $0.trackPublications.removeAll()
-            // The data cryptor is key-provider-scoped (not bound to a transport), and its users —
-            // encrypted data payloads and the data-track subsystem — survive a full reconnect, so
-            // keep it: nothing re-runs setup() until the next explicit connect.
+            // The data cryptor and encrypted-participant record are connection-scoped and survive
+            // a full reconnect. Keep both: setup() only runs on the next explicit connect.
             if !isFullReconnect {
                 $0.dataCryptor = nil
+                $0.encryptedParticipantIdentities.removeAll()
             }
         }
     }

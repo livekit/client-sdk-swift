@@ -241,6 +241,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         @discardableResult
         mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
+            stage.connection?.e2ee.copy()?.updateEncryption(participantInfo: info)
             let identity = Participant.Identity(from: info.identity)
             // Check if RemoteParticipant with same identity exists...
             if let participant = remoteParticipants[identity] { return participant }
