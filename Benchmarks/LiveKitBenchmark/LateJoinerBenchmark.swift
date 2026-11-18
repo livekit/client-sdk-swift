@@ -104,7 +104,7 @@ let lateJoinerBenchmarks: @Sendable () -> Void = {
                 configuration: .init(
                     // As in BM-SESSION, wall clock for the whole iteration would include seeding
                     // the room, which no user waits for. The named milestones are the measurement.
-                    metrics: joinMetrics + [.peakMemoryResident],
+                    metrics: joinMetrics + memoryMetrics,
                     timeUnits: .milliseconds,
                     units: Dictionary(uniqueKeysWithValues: joinMetrics.map { ($0, BenchmarkUnits.count) }),
                     warmupIterations: 2,

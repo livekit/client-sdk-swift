@@ -34,6 +34,11 @@ private func heapInUse() -> (bytes: Int, blocks: Int) {
     return (Int(statistics.size_in_use), Int(statistics.blocks_in_use))
 }
 
+/// The memory columns the suites on default metrics report, for suites that declare their own list.
+let memoryMetrics: [BenchmarkMetric] = [
+    .mallocCountTotal, .freeCountTotal, .mallocBytesCount, .mallocFreeDelta, .memoryLeakedBytes, .peakMemoryResident,
+]
+
 /// Runs `body` once per scaled iteration, committing its samples only when it completes and
 /// recording `failed_iterations` either way.
 ///
