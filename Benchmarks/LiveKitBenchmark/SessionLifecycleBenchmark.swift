@@ -51,7 +51,7 @@ private let mPubToFrame: BenchmarkMetric = .custom("publish_to_first_frame_ms", 
 private let mDataRtt: BenchmarkMetric = .custom("data_rtt_ms", polarity: .prefersSmaller, useScalingFactor: false)
 private let mDisconnect: BenchmarkMetric = .custom("disconnect_ms", polarity: .prefersSmaller, useScalingFactor: false)
 
-private let sessionMetrics = [mConnect, mPeerVisible, mPubToSub, mFirstFrame, mPubToFrame, mDataRtt, mDisconnect, mFailed, mHeapRetained, mHeapRetainedBlocks]
+private let sessionMetrics = [mConnect, mPeerVisible, mPubToSub, mFirstFrame, mPubToFrame, mDataRtt, mDisconnect, mFailed]
 
 let sessionLifecycleBenchmarks: @Sendable () -> Void = {
     for (name, singlePC) in [("BM-SESSION-001-DualPC", false), ("BM-SESSION-002-SinglePC", true)] {

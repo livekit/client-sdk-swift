@@ -23,17 +23,6 @@ import Foundation
 /// as a reliable one with fewer samples, and that only holds if every arm reports it the same way.
 let mFailed: BenchmarkMetric = .custom("failed_iterations", polarity: .prefersSmaller, useScalingFactor: false)
 
-/// Heap still in use after an iteration and its settle, relative to before it: what one iteration
-/// leaves behind. Read from the allocator's own statistics, so it needs no malloc interposer.
-let mHeapRetained: BenchmarkMetric = .custom("heap_retained_kb", polarity: .prefersSmaller, useScalingFactor: false)
-let mHeapRetainedBlocks: BenchmarkMetric = .custom("heap_retained_blocks", polarity: .prefersSmaller, useScalingFactor: false)
-
-private func heapInUse() -> (bytes: Int, blocks: Int) {
-    var statistics = malloc_statistics_t()
-    malloc_zone_statistics(nil, &statistics)
-    return (Int(statistics.size_in_use), Int(statistics.blocks_in_use))
-}
-
 /// The memory columns the suites on default metrics report, for suites that declare their own list.
 let memoryMetrics: [BenchmarkMetric] = [
     .mallocCountTotal, .freeCountTotal, .mallocBytesCount, .mallocFreeDelta, .memoryLeakedBytes, .peakMemoryResident,
@@ -57,17 +46,11 @@ func runIterations(_ benchmark: Benchmark,
         // rate these lines would otherwise be counted as.
         let isWarmup = benchmark.currentIteration < benchmark.configuration.warmupIterations
         let samples = MeasurementBuffer()
-        let before = heapInUse()
         let failure = try await runTolerantly { try await body(samples) }
+        if failure == nil { samples.commit(to: benchmark) }
         reportFailure(failure, variant: variant, isWarmup: isWarmup)
         benchmark.measurement(mFailed, failure == nil ? 0 : 1)
         try await Task.sleep(nanoseconds: settle)
-        guard failure == nil else { continue }
-        let after = heapInUse()
-        // Clamped: the framework discards a negative sample.
-        samples.record(mHeapRetained, max(0, (after.bytes - before.bytes) / 1024))
-        samples.record(mHeapRetainedBlocks, max(0, after.blocks - before.blocks))
-        samples.commit(to: benchmark)
     }
 }
 
