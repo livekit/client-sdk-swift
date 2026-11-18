@@ -58,6 +58,14 @@ final class Transport: NSObject, Loggable {
 
     private var _reNegotiate: Bool = false
 
+    /// The server's `mid` → track SID mapping, accumulated across session descriptions.
+    ///
+    /// The authority for naming received media in single PC mode. Lives here rather than on
+    /// `Room` because it is keyed by this peer connection's mids, so it is retired exactly when
+    /// the connection is — surviving a quick reconnect (same PC, same mids) and going away with a
+    /// full one.
+    private var _midToTrackSid: [String: Track.Sid] = [:]
+
     /// A local offer that has been signalled but not yet applied with
     /// `setLocalDescription`. See ``createInitialOffer()``.
     private var _pendingInitialOffer: LKRTCSessionDescription?
@@ -882,6 +890,73 @@ extension Transport {
         }
 
         return transceiver
+    }
+
+    /// Drops the mapping, so the next scan reads the connection as if nothing had been named on
+    /// it.
+    ///
+    /// It is keyed by this peer connection's mids, so it is normally retired with the connection.
+    /// A room move is the one event that invalidates it without ending it: every publication is
+    /// torn down and rebuilt on the same peer connection, and the mids the old server named mean
+    /// nothing to the new one.
+    func forgetReceivedMedia() {
+        _midToTrackSid.removeAll()
+    }
+
+    /// One receive m-section the server has bound to a published track.
+    struct ReceivedMedia {
+        let mid: String
+        let trackSid: Track.Sid
+        let track: RTCMediaTrack
+        let receiver: RTCReceiver
+    }
+
+    /// Records the server's `mid` → track SID mapping, then reports every bound section the room
+    /// has not been given yet.
+    ///
+    /// The mapping is merged, not replaced: a description carries the bindings it is announcing,
+    /// and an answer that mentions no mid is not a statement that previous ones were unbound.
+    ///
+    /// The *trigger* is the transceiver scan, not a change in the mapping. Native libwebrtc fires
+    /// `didAddTrack` only when a transceiver is first created — never when an already-negotiated
+    /// `recvonly` section has a track bound to it by an msid update, which is what the SFU does
+    /// to a section the client offered before there was media for it. Browsers hide this by
+    /// diffing receiver streams on every `setRemoteDescription` (blink's
+    /// `RTCPeerConnection::DidModifyTransceivers`); rust-sdks reimplements that diff in
+    /// `process_remote_track_addition`. This is the same diff, keyed by `(mid, trackSid)` because
+    /// the ObjC `RTCRtpReceiver` does not expose `streams`.
+    ///
+    /// Reports every bound section rather than only the ones not seen before, and keeps no record
+    /// of what it has reported. That is what makes it self-healing: a section negotiated before it
+    /// carries a track, named before its publication arrives, or whose publication was cleared by
+    /// an unsubscribe, is simply picked up by a later scan. Whether a section still needs
+    /// attaching is the room's question — it is the side that knows whether the publication
+    /// already holds the track — so answering it here would mean tracking state that can only go
+    /// stale.
+    ///
+    /// - Returns: Every bound section, for the caller to attach the ones it still needs.
+    func receivedMedia(applying mapping: [String: Track.Sid]) -> [ReceivedMedia] {
+        _midToTrackSid.merge(mapping) { _, new in new }
+
+        var seen: Set<String> = []
+        var current: [ReceivedMedia] = []
+        for transceiver in _pc.transceivers {
+            // Empty until negotiation assigns one, and again after a rollback — a requirement can
+            // add a transceiver while an earlier offer is still unanswered, so a scan sees it
+            // before it has a mid. `RTCRtpTransceiver.mid` is declared nonnull and returns `@""`
+            // in that state, not nil.
+            let mid = transceiver.mid
+            guard !mid.isEmpty, seen.insert(mid).inserted,
+                  let trackSid = _midToTrackSid[mid],
+                  let track = transceiver.receiver.track
+            else { continue }
+
+            current.append(ReceivedMedia(mid: mid,
+                                         trackSid: trackSid,
+                                         track: RTCMediaTrack(track),
+                                         receiver: RTCReceiver(transceiver.receiver)))
+        }
+        return current
     }
 
     func remove(track sender: RTCSender) throws {
