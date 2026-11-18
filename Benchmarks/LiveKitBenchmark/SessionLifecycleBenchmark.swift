@@ -61,7 +61,7 @@ let sessionLifecycleBenchmarks: @Sendable () -> Void = {
                 // `.default` would add wall clock for the whole iteration, which spans two
                 // connects, a publish and a teardown — a number no user waits for. The named
                 // milestones below are the measurement.
-                metrics: sessionMetrics,
+                metrics: sessionMetrics + [.peakMemoryResident],
                 timeUnits: .milliseconds,
                 units: Dictionary(uniqueKeysWithValues: sessionMetrics.map { ($0, BenchmarkUnits.count) }),
                 warmupIterations: 2,
