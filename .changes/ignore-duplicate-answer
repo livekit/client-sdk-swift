@@ -1,0 +1,1 @@
+patch type="fixed" "Ignore a duplicated server answer instead of applying it a second time"
