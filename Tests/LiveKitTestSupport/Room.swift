@@ -32,7 +32,9 @@ public struct RoomTestingOptions {
     /// `withRooms` enables E2EE (with a shared key) by default; set `false` for a plaintext room.
     public let isE2eeEnabled: Bool
     public let encryptionOptions: EncryptionOptions?
-    public let singlePeerConnection: Bool
+    /// `nil` runs whatever the SDK defaults to, so the shared suites follow the shipped
+    /// default instead of pinning a mode the product no longer uses.
+    public let singlePeerConnection: Bool?
 
     /// Override the client protocol version advertised to peers. When `nil`, uses the SDK default.
     public let clientProtocol: ClientProtocol?
@@ -54,7 +56,7 @@ public struct RoomTestingOptions {
                 enableMicrophone: Bool = false,
                 isE2eeEnabled: Bool = true,
                 encryptionOptions: EncryptionOptions? = nil,
-                singlePeerConnection: Bool = false,
+                singlePeerConnection: Bool? = nil,
                 clientProtocol: ClientProtocol? = nil,
                 dataStreamOptions: DataStreamOptions = DataStreamOptions(),
                 canPublish: Bool = false,

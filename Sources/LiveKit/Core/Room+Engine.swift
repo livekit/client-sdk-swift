@@ -314,17 +314,24 @@ extension Room {
         // connect, full reconnect, region failover) times itself from scratch. See
         // `Transport.set(connectionSetupTime:)`.
         let connectStartedAt = ProcessInfo.processInfo.systemUptime
-        var singlePC = _state.roomOptions.singlePeerConnection
+
+        // Honours what the last connect negotiated, not just the option. Against a server with
+        // no `/rtc/v1` the first attempt falls back to the legacy path and records that here;
+        // asking for single PC again on a full reconnect would rebuild the v1 join URL for a
+        // server that cannot answer it, and the fallback does not fire a second time because the
+        // reconnect skips the validation that raises `serviceNotFound`.
+        let mayUseV1 = await !signalClient.useV0SignalPath
+        var singlePC = _state.roomOptions.singlePeerConnection && mayUseV1
 
         // Built before the socket opens so its offer rides along with the JOIN request, removing
         // the offer→answer round trip from the connect path. It is serialized ahead of the
         // handshake rather than overlapped with it — the offer has to be in the JOIN URL.
         //
-        // Skipped once the signal client knows this server only speaks v0: the peer connection
-        // and its three data channels would be built and immediately discarded on every
-        // full-reconnect and region-failover attempt. `quickReconnectSequence` gates the same way.
-        let mayBundleOffer = await !signalClient.useV0SignalPath
-        var earlyPublisher: EarlyPublisher? = if singlePC, mayBundleOffer {
+        // `singlePC` already accounts for a server that only speaks v0, so there is nothing to
+        // bundle an offer into there: the peer connection and its three data channels would be
+        // built and immediately discarded on every full-reconnect and region-failover attempt.
+        // `quickReconnectSequence` gates the same way.
+        var earlyPublisher: EarlyPublisher? = if singlePC {
             try await EarlyPublisher.make(room: self,
                                           rtcConfiguration: makeRTCConfiguration(connectResponse: nil))
         } else {
