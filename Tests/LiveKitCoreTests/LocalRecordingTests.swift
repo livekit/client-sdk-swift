@@ -15,11 +15,12 @@
  */
 
 @preconcurrency import AVFoundation
+import CoreAudio
 @testable import LiveKit
 import LiveKitTestSupport
 import Testing
 
-@Suite(.serialized) struct LocalRecordingTests {
+struct LocalRecordingTests {
     @Test func manualRecordingDeliversAudioWithoutRoom() async throws {
         let manager = AudioManager.shared
         let observers = manager._state.engineObservers
