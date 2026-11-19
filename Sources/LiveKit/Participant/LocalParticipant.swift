@@ -863,17 +863,6 @@ extension LocalParticipant {
             transInit.direction = .sendOnly
             transInit.sendEncodings = sendEncodings
 
-            let addTrackName = publishName ?? track.name
-            // Request a new track to the server
-            let addTrackFunc: @Sendable () async throws -> Livekit_TrackInfo = {
-                try await room.signalClient.sendAddTrack(cid: track.mediaTrack.trackId,
-                                                         name: addTrackName,
-                                                         type: track.kind.toPBType(),
-                                                         source: track.source.toPBType(),
-                                                         encryption: room.e2eeManager?.frameEncryptionType.toPBType() ?? .none,
-                                                         populatorFunc)
-            }
-
             let negotiateFunc: @Sendable () async throws -> Void = {
                 let sender = try await RTC.run {
                     let startBitrateKbps = (track is LocalVideoTrack)
@@ -905,22 +894,19 @@ extension LocalParticipant {
                 try await room.publisherShouldNegotiate()
             }
 
-            let trackInfo = try await {
-                log("[publish] Fast publish mode: \(isFastPublishMode ? "true" : "false")")
-
-                if isFastPublishMode {
-                    // Concurrent
-                    async let trackInfoPromise = addTrackFunc()
-                    async let negotiatePromise: () = negotiateFunc()
-                    let (trackInfo, _) = try await (trackInfoPromise, negotiatePromise)
-                    return trackInfo
-                } else {
-                    // Sequential
-                    let trackInfoPromise = try await addTrackFunc()
-                    try await negotiateFunc()
-                    return trackInfoPromise
-                }
-            }()
+            let fastPublish = isFastPublishMode
+            let trackInfo = try await room.signalClient.sendAddTrack(
+                cid: track.mediaTrack.trackId,
+                name: publishName ?? track.name,
+                type: track.kind.toPBType(),
+                source: track.source.toPBType(),
+                encryption: room.e2eeManager?.frameEncryptionType.toPBType() ?? .none,
+                onSent: fastPublish ? negotiateFunc : nil,
+                populatorFunc,
+            )
+            if !fastPublish {
+                try await negotiateFunc()
+            }
 
             // At this point at least 1 audio frame should be generated to continue
             if let track = track as? LocalAudioTrack {

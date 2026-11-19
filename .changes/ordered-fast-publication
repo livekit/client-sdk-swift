@@ -1,0 +1,1 @@
+patch type="fixed" "Sends track registration before configuring and negotiating the sender during fast publication, while preserving overlap with server acceptance and the sequential fallback"

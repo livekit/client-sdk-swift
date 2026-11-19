@@ -663,11 +663,13 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
+    /// Registers the response waiter and sends AddTrack before optional sender setup and acceptance.
     func sendAddTrack(cid: String,
                       name: String,
                       type: Livekit_TrackType,
                       source: Livekit_TrackSource = .unknown,
                       encryption: Livekit_Encryption.TypeEnum = .none,
+                      onSent: (@Sendable () async throws -> Void)? = nil,
                       _ populator: AddTrackRequestPopulator) async throws -> Livekit_TrackInfo
     {
         let addTrackRequest = try Livekit_AddTrackRequest.with {
@@ -688,6 +690,7 @@ extension SignalClient {
 
         // Send the request to server...
         try await _sendRequest(request)
+        try await onSent?()
 
         // Wait for the trackInfo...
         return try await completer.wait()
