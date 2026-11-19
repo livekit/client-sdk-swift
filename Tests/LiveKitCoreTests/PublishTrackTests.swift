@@ -46,6 +46,33 @@ struct PublishTrackTests {
         }
     }
 
+    @Test(arguments: [false, true], [false, true])
+    func ordinaryPublicationWithEitherPolicyAndTransport(singlePC: Bool, fast: Bool) async throws {
+        let options = [
+            RoomTestingOptions(isE2eeEnabled: false, singlePeerConnection: singlePC, canPublish: true),
+            RoomTestingOptions(isE2eeEnabled: false, singlePeerConnection: singlePC, canSubscribe: true),
+        ]
+        try await TestEnvironment.withRooms(options) { rooms in
+            let publisher = rooms[0].localParticipant
+            publisher.set(enabledPublishCodecs: fast ? [.with { $0.mime = "video/VP8" }] : [])
+            #expect(publisher.isFastPublishMode == fast)
+            #expect(try rooms[0].requirePublisher().singlePCMode == singlePC)
+            let track = TestAudioTrack()
+            let publication = try await publisher.publish(audioTrack: track)
+            #expect(track._state.rtpSender != nil)
+            let identity = try #require(publisher.identity)
+            let remote = try #require(rooms[1].remoteParticipants[identity])
+            let deadline = Date().addingTimeInterval(5)
+            while Date() < deadline, !remote.audioTracks.contains(where: { $0.sid == publication.sid }) {
+                try await Task.sleep(nanoseconds: 10_000_000)
+            }
+            #expect(remote.audioTracks.contains { $0.sid == publication.sid })
+            try await publisher.unpublish(publication: publication)
+            #expect(track._state.rtpSender == nil)
+            #expect(publisher.audioTracks.isEmpty)
+        }
+    }
+
     @Test func publishWithoutPermissions() async throws {
         try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: false)) { room in
             let audioTrack = await LocalAudioTrack.createTrack()
