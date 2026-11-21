@@ -1,0 +1,1869 @@
+{
+  "source_revision": "3af10bdf521a1c5e02c70c2a68152a2dd9d6ad78",
+  "comparisons": [
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "paired_samples": 10,
+      "connected_ms": {
+        "median_paired_saving_ms": -5.05,
+        "paired_bootstrap_95_percent_interval_ms": [
+          -32.22,
+          32.93
+        ]
+      },
+      "first_outgoing_pcm_ms": {
+        "median_paired_saving_ms": 22.16,
+        "paired_bootstrap_95_percent_interval_ms": [
+          -4.27,
+          67.99
+        ]
+      },
+      "first_incoming_pcm_ms": {
+        "median_paired_saving_ms": -4.26,
+        "paired_bootstrap_95_percent_interval_ms": [
+          -59.9,
+          18.27
+        ]
+      }
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "paired_samples": 10,
+      "connected_ms": {
+        "median_paired_saving_ms": 811.32,
+        "paired_bootstrap_95_percent_interval_ms": [
+          799.65,
+          825.34
+        ]
+      },
+      "first_outgoing_pcm_ms": {
+        "median_paired_saving_ms": 510.19,
+        "paired_bootstrap_95_percent_interval_ms": [
+          498.12,
+          524.87
+        ]
+      },
+      "first_incoming_pcm_ms": {
+        "median_paired_saving_ms": 814.89,
+        "paired_bootstrap_95_percent_interval_ms": [
+          794.1,
+          831.84
+        ]
+      }
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "paired_samples": 10,
+      "connected_ms": {
+        "median_paired_saving_ms": -15.83,
+        "paired_bootstrap_95_percent_interval_ms": [
+          -46.7,
+          20.22
+        ]
+      },
+      "first_outgoing_pcm_ms": {
+        "median_paired_saving_ms": -5.1,
+        "paired_bootstrap_95_percent_interval_ms": [
+          -59.36,
+          38.96
+        ]
+      },
+      "first_incoming_pcm_ms": {
+        "median_paired_saving_ms": 0.34,
+        "paired_bootstrap_95_percent_interval_ms": [
+          -15.79,
+          31.31
+        ]
+      }
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "paired_samples": 10,
+      "connected_ms": {
+        "median_paired_saving_ms": 820.44,
+        "paired_bootstrap_95_percent_interval_ms": [
+          748.36,
+          868.81
+        ]
+      },
+      "first_outgoing_pcm_ms": {
+        "median_paired_saving_ms": 467.22,
+        "paired_bootstrap_95_percent_interval_ms": [
+          434.53,
+          482.84
+        ]
+      },
+      "first_incoming_pcm_ms": {
+        "median_paired_saving_ms": 795.34,
+        "paired_bootstrap_95_percent_interval_ms": [
+          772.13,
+          829.74
+        ]
+      }
+    }
+  ],
+  "environment": "staging",
+  "endpoint": "wss://xianstaging-hixkk74p.staging.livekit.cloud",
+  "observed_network": [
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 66,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 0,
+      "signal_rtt_ms": 61
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 64,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 0,
+      "signal_rtt_ms": 62
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 65,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 1,
+      "signal_rtt_ms": 62
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 61,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 1,
+      "signal_rtt_ms": 63
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 68,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 2,
+      "signal_rtt_ms": 63
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 67,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 2,
+      "signal_rtt_ms": 64
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 62,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 3,
+      "signal_rtt_ms": 66
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 70,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 3,
+      "signal_rtt_ms": 64
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 69,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 4,
+      "signal_rtt_ms": 65
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 65,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 4,
+      "signal_rtt_ms": 61
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 63,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 5,
+      "signal_rtt_ms": 62
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 63,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 5,
+      "signal_rtt_ms": 61
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 65,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 6,
+      "signal_rtt_ms": 69
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 61,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 6,
+      "signal_rtt_ms": 62
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 66,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 7,
+      "signal_rtt_ms": 65
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 67,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 7,
+      "signal_rtt_ms": 66
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 61,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 8,
+      "signal_rtt_ms": 60
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 64,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 8,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 68,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 9,
+      "signal_rtt_ms": 65
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 63,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 9,
+      "signal_rtt_ms": 62
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 0,
+      "signal_rtt_ms": 60
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 65,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 0,
+      "signal_rtt_ms": 61
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 62,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 1,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 65,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 1,
+      "signal_rtt_ms": 68
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 68,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 2,
+      "signal_rtt_ms": 63
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 64,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 2,
+      "signal_rtt_ms": 65
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 61,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 3,
+      "signal_rtt_ms": 66
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 61,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 3,
+      "signal_rtt_ms": 63
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 4,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 61,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 4,
+      "signal_rtt_ms": 62
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 71,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 5,
+      "signal_rtt_ms": 61
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 5,
+      "signal_rtt_ms": 70
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 6,
+      "signal_rtt_ms": 58
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 65,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 6,
+      "signal_rtt_ms": 60
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 65,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 7,
+      "signal_rtt_ms": 60
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 62,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 7,
+      "signal_rtt_ms": 61
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 8,
+      "signal_rtt_ms": 60
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 67,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 8,
+      "signal_rtt_ms": 62
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 67,
+      "join_track_used": true,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "spc",
+      "sample": 9,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": true,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 65,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "spc",
+      "sample": 9,
+      "signal_rtt_ms": 63
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 0,
+      "signal_rtt_ms": 62
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 65,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 0,
+      "signal_rtt_ms": 63
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 61,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 1,
+      "signal_rtt_ms": 64
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 65,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 1,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 65,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 2,
+      "signal_rtt_ms": 64
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 2,
+      "signal_rtt_ms": 60
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 61,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 3,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 3,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 67,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 4,
+      "signal_rtt_ms": 63
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 68,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 4,
+      "signal_rtt_ms": 61
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 63,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 5,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 66,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 5,
+      "signal_rtt_ms": 62
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 62,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 6,
+      "signal_rtt_ms": 65
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 63,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 6,
+      "signal_rtt_ms": 93
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 62,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 7,
+      "signal_rtt_ms": 62
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 65,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 7,
+      "signal_rtt_ms": 63
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 60,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 8,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 61,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 8,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 69,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 9,
+      "signal_rtt_ms": 68
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 0,
+      "ice_rtt_ms": 61,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 9,
+      "signal_rtt_ms": 67
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 63,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 0,
+      "signal_rtt_ms": 69
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 62,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 0,
+      "signal_rtt_ms": 61
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 61,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 1,
+      "signal_rtt_ms": 60
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 65,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 1,
+      "signal_rtt_ms": 60
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 59,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 2,
+      "signal_rtt_ms": 66
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 62,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 2,
+      "signal_rtt_ms": 63
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 3,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 60,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 3,
+      "signal_rtt_ms": 67
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 4,
+      "signal_rtt_ms": 64
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 68,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 4,
+      "signal_rtt_ms": 67
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 5,
+      "signal_rtt_ms": 62
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 66,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 5,
+      "signal_rtt_ms": 60
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 69,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 6,
+      "signal_rtt_ms": 66
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 65,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 6,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 68,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 7,
+      "signal_rtt_ms": 61
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 64,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 7,
+      "signal_rtt_ms": 65
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 60,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 8,
+      "signal_rtt_ms": 69
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 60,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 8,
+      "signal_rtt_ms": 59
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 63,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "prepared",
+      "pc": "dual",
+      "sample": 9,
+      "signal_rtt_ms": 58
+    },
+    {
+      "actual_single_pc": false,
+      "capture_delay_ms": 800,
+      "ice_rtt_ms": 69,
+      "join_track_used": false,
+      "media_protocol": "udp",
+      "mode": "baseline",
+      "pc": "dual",
+      "sample": 9,
+      "signal_rtt_ms": 62
+    }
+  ],
+  "added_signaling_rtt_ms": 0,
+  "token_delay_ms": 100,
+  "pre_connect_audio": true,
+  "audio_factory": "warmed shared process",
+  "media_network": "actual staging ICE/DTLS/SRTP, no added signaling or media delay",
+  "source": "generated 400 Hz PCM, native manual rendering mode, actual Opus/SFU/decoder",
+  "baseline": "previous Session capture -> credentials -> Room.connect -> publish sequence",
+  "companion": "warm participant publishing audio before Session starts; no agent dispatch or AI inference",
+  "samples": [
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 0,
+      "mode": "baseline",
+      "connected_ms": 471.9789584632963,
+      "first_outgoing_pcm_ms": 677.2164583671838,
+      "first_incoming_pcm_ms": 558.1512916833162
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 0,
+      "mode": "prepared",
+      "connected_ms": 439.0447500627488,
+      "first_outgoing_pcm_ms": 609.2293332330883,
+      "first_incoming_pcm_ms": 547.9781667236239
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 1,
+      "mode": "prepared",
+      "connected_ms": 406.3852916005999,
+      "first_outgoing_pcm_ms": 577.1178749855608,
+      "first_incoming_pcm_ms": 519.3370834458619
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 1,
+      "mode": "baseline",
+      "connected_ms": 398.5343750100583,
+      "first_outgoing_pcm_ms": 578.8075833115727,
+      "first_incoming_pcm_ms": 496.92666670307517
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 2,
+      "mode": "baseline",
+      "connected_ms": 393.46716669388115,
+      "first_outgoing_pcm_ms": 590.8271251246333,
+      "first_incoming_pcm_ms": 498.827958246693
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 2,
+      "mode": "prepared",
+      "connected_ms": 395.72212495841086,
+      "first_outgoing_pcm_ms": 558.6645000148565,
+      "first_incoming_pcm_ms": 508.86774994432926
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 3,
+      "mode": "prepared",
+      "connected_ms": 405.7715833187103,
+      "first_outgoing_pcm_ms": 566.778999986127,
+      "first_incoming_pcm_ms": 559.155625058338
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 3,
+      "mode": "baseline",
+      "connected_ms": 383.75779148191214,
+      "first_outgoing_pcm_ms": 578.9459166117013,
+      "first_incoming_pcm_ms": 498.1159165035933
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 4,
+      "mode": "baseline",
+      "connected_ms": 412.15649992227554,
+      "first_outgoing_pcm_ms": 630.0095415208489,
+      "first_incoming_pcm_ms": 528.1270416453481
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 4,
+      "mode": "prepared",
+      "connected_ms": 402.16237492859364,
+      "first_outgoing_pcm_ms": 567.6625415217131,
+      "first_incoming_pcm_ms": 508.4632500074804
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 5,
+      "mode": "prepared",
+      "connected_ms": 449.284499976784,
+      "first_outgoing_pcm_ms": 619.1902915015817,
+      "first_incoming_pcm_ms": 558.0553747713566
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 5,
+      "mode": "baseline",
+      "connected_ms": 396.17358334362507,
+      "first_outgoing_pcm_ms": 589.1978333238512,
+      "first_incoming_pcm_ms": 498.15124995075166
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 6,
+      "mode": "baseline",
+      "connected_ms": 385.69354149512947,
+      "first_outgoing_pcm_ms": 569.0443748608232,
+      "first_incoming_pcm_ms": 499.3370415177196
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 6,
+      "mode": "prepared",
+      "connected_ms": 404.9795416649431,
+      "first_outgoing_pcm_ms": 569.6018333546817,
+      "first_incoming_pcm_ms": 569.4649999495596
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 7,
+      "mode": "prepared",
+      "connected_ms": 396.21266652829945,
+      "first_outgoing_pcm_ms": 559.4202082138509,
+      "first_incoming_pcm_ms": 509.0459999628365
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 7,
+      "mode": "baseline",
+      "connected_ms": 462.3315001372248,
+      "first_outgoing_pcm_ms": 654.9229584634304,
+      "first_incoming_pcm_ms": 545.8397082984447
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 8,
+      "mode": "baseline",
+      "connected_ms": 447.3006250336766,
+      "first_outgoing_pcm_ms": 648.1645000167191,
+      "first_incoming_pcm_ms": 529.6941248234361
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 8,
+      "mode": "prepared",
+      "connected_ms": 390.93554159626365,
+      "first_outgoing_pcm_ms": 541.9410415925086,
+      "first_incoming_pcm_ms": 511.4252083003521
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 9,
+      "mode": "prepared",
+      "connected_ms": 446.8647916801274,
+      "first_outgoing_pcm_ms": 598.7758333794773,
+      "first_incoming_pcm_ms": 516.9284166768193
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "sample": 9,
+      "mode": "baseline",
+      "connected_ms": 401.7147500999272,
+      "first_outgoing_pcm_ms": 588.5380001273006,
+      "first_incoming_pcm_ms": 518.4575000312179
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 0,
+      "mode": "baseline",
+      "connected_ms": 1234.025291632861,
+      "first_outgoing_pcm_ms": 1428.1716248951852,
+      "first_incoming_pcm_ms": 1325.8224583696574
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 0,
+      "mode": "prepared",
+      "connected_ms": 408.688124967739,
+      "first_outgoing_pcm_ms": 890.8075834624469,
+      "first_incoming_pcm_ms": 519.9172918219119
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 1,
+      "mode": "prepared",
+      "connected_ms": 391.52941666543484,
+      "first_outgoing_pcm_ms": 899.7236250434071,
+      "first_incoming_pcm_ms": 498.6233334057033
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 1,
+      "mode": "baseline",
+      "connected_ms": 1203.9800833445042,
+      "first_outgoing_pcm_ms": 1389.323958195746,
+      "first_incoming_pcm_ms": 1320.5750833731145
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 2,
+      "mode": "baseline",
+      "connected_ms": 1199.593708384782,
+      "first_outgoing_pcm_ms": 1378.1728334724903,
+      "first_incoming_pcm_ms": 1318.0079166777432
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 2,
+      "mode": "prepared",
+      "connected_ms": 377.38695833832026,
+      "first_outgoing_pcm_ms": 875.9088332299143,
+      "first_incoming_pcm_ms": 507.285124855116
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 3,
+      "mode": "prepared",
+      "connected_ms": 397.1304583828896,
+      "first_outgoing_pcm_ms": 889.0400417149067,
+      "first_incoming_pcm_ms": 497.9437915608287
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 3,
+      "mode": "baseline",
+      "connected_ms": 1207.324291812256,
+      "first_outgoing_pcm_ms": 1399.2212500888854,
+      "first_incoming_pcm_ms": 1319.583041826263
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 4,
+      "mode": "baseline",
+      "connected_ms": 1236.8089999072254,
+      "first_outgoing_pcm_ms": 1458.0216666217893,
+      "first_incoming_pcm_ms": 1359.2045416589826
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 4,
+      "mode": "prepared",
+      "connected_ms": 408.71483320370317,
+      "first_outgoing_pcm_ms": 897.6699165068567,
+      "first_incoming_pcm_ms": 517.1711249276996
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 5,
+      "mode": "prepared",
+      "connected_ms": 455.4319584276527,
+      "first_outgoing_pcm_ms": 918.5510000679642,
+      "first_incoming_pcm_ms": 528.8383334409446
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 5,
+      "mode": "baseline",
+      "connected_ms": 1253.566041821614,
+      "first_outgoing_pcm_ms": 1428.7450835108757,
+      "first_incoming_pcm_ms": 1379.2281250935048
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 6,
+      "mode": "baseline",
+      "connected_ms": 1209.3705832958221,
+      "first_outgoing_pcm_ms": 1398.0831666849554,
+      "first_incoming_pcm_ms": 1317.9428749717772
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 6,
+      "mode": "prepared",
+      "connected_ms": 400.5050831474364,
+      "first_outgoing_pcm_ms": 897.4233749322593,
+      "first_incoming_pcm_ms": 529.7453748062253
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 7,
+      "mode": "prepared",
+      "connected_ms": 440.36516663618386,
+      "first_outgoing_pcm_ms": 884.2832916416228,
+      "first_incoming_pcm_ms": 514.2743333708495
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 7,
+      "mode": "baseline",
+      "connected_ms": 1201.2065835297108,
+      "first_outgoing_pcm_ms": 1378.2507916912436,
+      "first_incoming_pcm_ms": 1308.378166751936
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 8,
+      "mode": "baseline",
+      "connected_ms": 1192.9605833720416,
+      "first_outgoing_pcm_ms": 1399.9088748823851,
+      "first_incoming_pcm_ms": 1299.3201250210404
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 8,
+      "mode": "prepared",
+      "connected_ms": 393.31104164011776,
+      "first_outgoing_pcm_ms": 878.3313331659883,
+      "first_incoming_pcm_ms": 508.89308331534266
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 9,
+      "mode": "prepared",
+      "connected_ms": 377.6898749638349,
+      "first_outgoing_pcm_ms": 888.9680416323245,
+      "first_incoming_pcm_ms": 499.84333338215947
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "sample": 9,
+      "mode": "baseline",
+      "connected_ms": 1204.9632498528808,
+      "first_outgoing_pcm_ms": 1401.3436667155474,
+      "first_incoming_pcm_ms": 1318.8986666500568
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 0,
+      "mode": "baseline",
+      "connected_ms": 416.60854150541127,
+      "first_outgoing_pcm_ms": 629.5657497830689,
+      "first_incoming_pcm_ms": 570.526999887079
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 0,
+      "mode": "prepared",
+      "connected_ms": 444.78891673497856,
+      "first_outgoing_pcm_ms": 618.6394584365189,
+      "first_incoming_pcm_ms": 528.1475416850299
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 1,
+      "mode": "prepared",
+      "connected_ms": 411.96429170668125,
+      "first_outgoing_pcm_ms": 627.809583209455,
+      "first_incoming_pcm_ms": 518.1281249970198
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 1,
+      "mode": "baseline",
+      "connected_ms": 425.7044999394566,
+      "first_outgoing_pcm_ms": 699.5190000161529,
+      "first_incoming_pcm_ms": 529.3686666991562
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 2,
+      "mode": "baseline",
+      "connected_ms": 497.54424998536706,
+      "first_outgoing_pcm_ms": 678.3880000002682,
+      "first_incoming_pcm_ms": 568.9738332293928
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 2,
+      "mode": "prepared",
+      "connected_ms": 397.32616674154997,
+      "first_outgoing_pcm_ms": 610.9830832574517,
+      "first_incoming_pcm_ms": 501.06237502768636
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 3,
+      "mode": "prepared",
+      "connected_ms": 445.0010417494923,
+      "first_outgoing_pcm_ms": 637.2738333884627,
+      "first_incoming_pcm_ms": 539.2618749756366
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 3,
+      "mode": "baseline",
+      "connected_ms": 383.78508342429996,
+      "first_outgoing_pcm_ms": 600.3972918260843,
+      "first_incoming_pcm_ms": 539.2284584231675
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 4,
+      "mode": "baseline",
+      "connected_ms": 408.23683328926563,
+      "first_outgoing_pcm_ms": 629.3831665534526,
+      "first_incoming_pcm_ms": 559.7497499547899
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 4,
+      "mode": "prepared",
+      "connected_ms": 440.4228748753667,
+      "first_outgoing_pcm_ms": 638.6943750549108,
+      "first_incoming_pcm_ms": 528.4368749707937
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 5,
+      "mode": "prepared",
+      "connected_ms": 489.69333339482546,
+      "first_outgoing_pcm_ms": 667.5723749212921,
+      "first_incoming_pcm_ms": 577.5439999997616
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 5,
+      "mode": "baseline",
+      "connected_ms": 389.6874168422073,
+      "first_outgoing_pcm_ms": 608.2076667807996,
+      "first_incoming_pcm_ms": 497.12375015951693
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 6,
+      "mode": "baseline",
+      "connected_ms": 435.94683334231377,
+      "first_outgoing_pcm_ms": 607.1020835079253,
+      "first_incoming_pcm_ms": 518.4301249682903
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 6,
+      "mode": "prepared",
+      "connected_ms": 439.4255415536463,
+      "first_outgoing_pcm_ms": 689.5447499118745,
+      "first_incoming_pcm_ms": 528.6072916351259
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 7,
+      "mode": "prepared",
+      "connected_ms": 389.03312501497567,
+      "first_outgoing_pcm_ms": 599.0357918199152,
+      "first_incoming_pcm_ms": 507.72029161453247
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 7,
+      "mode": "baseline",
+      "connected_ms": 386.54287508688867,
+      "first_outgoing_pcm_ms": 598.1447917874902,
+      "first_incoming_pcm_ms": 507.0172499399632
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 8,
+      "mode": "baseline",
+      "connected_ms": 401.03070833720267,
+      "first_outgoing_pcm_ms": 620.0494167860597,
+      "first_incoming_pcm_ms": 498.9751251414418
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 8,
+      "mode": "prepared",
+      "connected_ms": 444.68395854346454,
+      "first_outgoing_pcm_ms": 680.3715417627245,
+      "first_incoming_pcm_ms": 529.8523334786296
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 9,
+      "mode": "prepared",
+      "connected_ms": 407.34491660259664,
+      "first_outgoing_pcm_ms": 618.1014999747276,
+      "first_incoming_pcm_ms": 528.9051665458828
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "sample": 9,
+      "mode": "baseline",
+      "connected_ms": 450.2762083429843,
+      "first_outgoing_pcm_ms": 628.6231665872037,
+      "first_incoming_pcm_ms": 529.612708138302
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 0,
+      "mode": "baseline",
+      "connected_ms": 1207.000583410263,
+      "first_outgoing_pcm_ms": 1428.8843332324177,
+      "first_incoming_pcm_ms": 1317.6902083214372
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 0,
+      "mode": "prepared",
+      "connected_ms": 454.31945845484734,
+      "first_outgoing_pcm_ms": 979.507458396256,
+      "first_incoming_pcm_ms": 530.5287917144597
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 1,
+      "mode": "prepared",
+      "connected_ms": 475.9110000450164,
+      "first_outgoing_pcm_ms": 977.716208435595,
+      "first_incoming_pcm_ms": 587.2474999632686
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 1,
+      "mode": "baseline",
+      "connected_ms": 1196.075958199799,
+      "first_outgoing_pcm_ms": 1428.113624919206,
+      "first_incoming_pcm_ms": 1326.9149998668581
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 2,
+      "mode": "baseline",
+      "connected_ms": 1245.2251666691154,
+      "first_outgoing_pcm_ms": 1476.9238331355155,
+      "first_incoming_pcm_ms": 1327.9790414962918
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 2,
+      "mode": "prepared",
+      "connected_ms": 385.4244581889361,
+      "first_outgoing_pcm_ms": 997.3747082985938,
+      "first_incoming_pcm_ms": 537.4494998250157
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 3,
+      "mode": "prepared",
+      "connected_ms": 407.3769999668002,
+      "first_outgoing_pcm_ms": 988.6802083346993,
+      "first_incoming_pcm_ms": 529.2677499819547
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 3,
+      "mode": "baseline",
+      "connected_ms": 1276.1918751057237,
+      "first_outgoing_pcm_ms": 1458.8233749382198,
+      "first_incoming_pcm_ms": 1359.5336249563843
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 4,
+      "mode": "baseline",
+      "connected_ms": 1262.9596248734742,
+      "first_outgoing_pcm_ms": 1478.307458339259,
+      "first_incoming_pcm_ms": 1338.3353331591934
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 4,
+      "mode": "prepared",
+      "connected_ms": 435.9250832349062,
+      "first_outgoing_pcm_ms": 982.7775000594556,
+      "first_incoming_pcm_ms": 539.5440000575036
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 5,
+      "mode": "prepared",
+      "connected_ms": 398.6872916575521,
+      "first_outgoing_pcm_ms": 988.4597084019333,
+      "first_incoming_pcm_ms": 558.2654168829322
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 5,
+      "mode": "baseline",
+      "connected_ms": 1283.5014583542943,
+      "first_outgoing_pcm_ms": 1501.0001249611378,
+      "first_incoming_pcm_ms": 1370.457416633144
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 6,
+      "mode": "baseline",
+      "connected_ms": 1259.1493749059737,
+      "first_outgoing_pcm_ms": 1459.783791564405,
+      "first_incoming_pcm_ms": 1349.400791572407
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 6,
+      "mode": "prepared",
+      "connected_ms": 521.9450001604855,
+      "first_outgoing_pcm_ms": 995.4804584849626,
+      "first_incoming_pcm_ms": 595.6753334030509
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 7,
+      "mode": "prepared",
+      "connected_ms": 399.7914167121053,
+      "first_outgoing_pcm_ms": 978.0369584914297,
+      "first_incoming_pcm_ms": 516.7220416478813
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 7,
+      "mode": "baseline",
+      "connected_ms": 1272.5533333141357,
+      "first_outgoing_pcm_ms": 1458.4090416319668,
+      "first_incoming_pcm_ms": 1349.8599582817405
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 8,
+      "mode": "baseline",
+      "connected_ms": 1195.6955415662378,
+      "first_outgoing_pcm_ms": 1410.176208242774,
+      "first_incoming_pcm_ms": 1300.5393750499934
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 8,
+      "mode": "prepared",
+      "connected_ms": 436.18208332918584,
+      "first_outgoing_pcm_ms": 997.6541665382683,
+      "first_incoming_pcm_ms": 508.6568749975413
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 9,
+      "mode": "prepared",
+      "connected_ms": 393.37225002236664,
+      "first_outgoing_pcm_ms": 1000.4325418267399,
+      "first_incoming_pcm_ms": 499.17254177853465
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "sample": 9,
+      "mode": "baseline",
+      "connected_ms": 1207.2268333286047,
+      "first_outgoing_pcm_ms": 1419.0888332668692,
+      "first_incoming_pcm_ms": 1328.916624886915
+    }
+  ],
+  "summary": [
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "mode": "baseline",
+      "samples": 10,
+      "connected_ms": {
+        "median": 400.12,
+        "p95": 471.98
+      },
+      "first_outgoing_pcm_ms": {
+        "median": 590.01,
+        "p95": 677.22
+      },
+      "first_incoming_pcm_ms": {
+        "median": 508.9,
+        "p95": 558.15
+      }
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 0,
+      "mode": "prepared",
+      "samples": 10,
+      "connected_ms": {
+        "median": 405.38,
+        "p95": 449.28
+      },
+      "first_outgoing_pcm_ms": {
+        "median": 568.63,
+        "p95": 619.19
+      },
+      "first_incoming_pcm_ms": {
+        "median": 518.13,
+        "p95": 569.46
+      }
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "mode": "baseline",
+      "samples": 10,
+      "connected_ms": {
+        "median": 1206.14,
+        "p95": 1253.57
+      },
+      "first_outgoing_pcm_ms": {
+        "median": 1399.57,
+        "p95": 1458.02
+      },
+      "first_incoming_pcm_ms": {
+        "median": 1319.24,
+        "p95": 1379.23
+      }
+    },
+    {
+      "pc": "spc",
+      "capture_delay_ms": 800,
+      "mode": "prepared",
+      "samples": 10,
+      "connected_ms": {
+        "median": 398.82,
+        "p95": 455.43
+      },
+      "first_outgoing_pcm_ms": {
+        "median": 889.92,
+        "p95": 918.55
+      },
+      "first_incoming_pcm_ms": {
+        "median": 511.58,
+        "p95": 529.75
+      }
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "mode": "baseline",
+      "samples": 10,
+      "connected_ms": {
+        "median": 412.42,
+        "p95": 497.54
+      },
+      "first_outgoing_pcm_ms": {
+        "median": 624.34,
+        "p95": 699.52
+      },
+      "first_incoming_pcm_ms": {
+        "median": 529.49,
+        "p95": 570.53
+      }
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 0,
+      "mode": "prepared",
+      "samples": 10,
+      "connected_ms": {
+        "median": 439.92,
+        "p95": 489.69
+      },
+      "first_outgoing_pcm_ms": {
+        "median": 632.54,
+        "p95": 689.54
+      },
+      "first_incoming_pcm_ms": {
+        "median": 528.52,
+        "p95": 577.54
+      }
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "mode": "baseline",
+      "samples": 10,
+      "connected_ms": {
+        "median": 1252.19,
+        "p95": 1283.5
+      },
+      "first_outgoing_pcm_ms": {
+        "median": 1458.62,
+        "p95": 1501.0
+      },
+      "first_incoming_pcm_ms": {
+        "median": 1333.63,
+        "p95": 1370.46
+      }
+    },
+    {
+      "pc": "dual",
+      "capture_delay_ms": 800,
+      "mode": "prepared",
+      "samples": 10,
+      "connected_ms": {
+        "median": 421.65,
+        "p95": 521.95
+      },
+      "first_outgoing_pcm_ms": {
+        "median": 988.57,
+        "p95": 1000.43
+      },
+      "first_incoming_pcm_ms": {
+        "median": 533.99,
+        "p95": 595.68
+      }
+    }
+  ]
+}

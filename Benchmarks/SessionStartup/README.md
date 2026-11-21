@@ -67,3 +67,26 @@ python3 scripts/summarize-session-audio.py /tmp/session-staging.log \
 The staging benchmark uses the real Cloud signaling and media network directly, with no latency relay. It retains the same modeled 100 ms credential fetch and 0/800 ms capture cases as the local comparison. Each sample logs actual Single-PC mode, whether the JOIN reservation was used, selected ICE-pair RTT, media protocol, and signaling ping RTT. Network probes run after the latency timestamps have been captured. The staging compatibility fixture also generates continuous audio so reconnect checks exercise a live publication.
 
 With immediate capture, incoming audio need not improve: capture introduces little delay in either flow, and preparing an outgoing publication does not remove the incoming track's subscription negotiation. The delayed-capture case demonstrates joining and receiving audio without waiting for microphone permission or startup.
+
+## Staging results — 2026-11-21 UTC
+
+Source: `3af10bdf`. Direct staging endpoint, 10 measured pairs per case plus an excluded warmup pair: 80 measured starts. All media connections used UDP. Across measured samples, median signaling ping RTT was 62 ms and selected ICE-pair RTT was 64 ms. Every prepared SPC sample used the JOIN reservation; dual-PC samples used ordinary publication. Session API and PC defaults are unchanged.
+
+All numbers below are medians from the start action, in milliseconds (previous flow → prepared flow):
+
+| Requested mode / injected capture delay | Room connected | Peer receives microphone PCM | Session receives companion PCM |
+|---|---:|---:|---:|
+| Single-PC / 0 ms | 400 → 405 | 590 → 569 | 509 → 518 |
+| Single-PC / 800 ms | 1,206 → 399 | 1,400 → 890 | 1,319 → 512 |
+| Dual-PC / 0 ms | 412 → 440 | 624 → 633 | 530 → 529 |
+| Dual-PC / 800 ms | 1,252 → 422 | 1,459 → 989 | 1,334 → 534 |
+
+The strong result is overlapping a slow capture operation with JOIN. Immediate-capture differences are small and inconclusive: the paired bootstrap 95% interval for outgoing savings is −4 to +68 ms for SPC and −59 to +39 ms for dual-PC. This staging run does not establish a reliable first-audio gain with already-ready capture. For delayed capture, the corresponding outgoing intervals are +498 to +525 ms (SPC) and +435 to +483 ms (dual-PC). Intervals describe these ten pairs, not production guarantees.
+
+The incoming path does not wait for outgoing publication in either flow once JOIN is under way. When capture is immediate, preparation therefore has little opportunity to accelerate companion audio. When capture is delayed, starting JOIN immediately removes that capture wait from the incoming path.
+
+Both participants run in one test process and share a warmed native audio engine/factory. These are real decoded PCM measurements over the staging media network, with synthetic audio and modeled credential/capture delays; they exclude physical microphone startup, cold application launch, speaker playback latency, UI rendering, and real agent inference.
+
+[Raw staging samples](staging/samples.csv), [staging median/p95, RTT observations, and paired intervals](staging/results.json), [final local comparison with 100 ms added signaling delay](local-100ms/results.json).
+
+Validation: the local 24-test regression run passed; staging compatibility checks (both PC modes and buffering options, cancellation/restart, capture failure, encryption fallback, quick/full reconnect, inactive RTP reservation, owner destruction) and native SDP identity checks passed. Quick reconnect may fall back to full reconnect on Cloud; the test waits for asynchronous republishing before checking the retained or replaced publication CID.

@@ -6,6 +6,7 @@ import json
 import math
 from pathlib import Path
 import re
+import random
 import statistics
 import subprocess
 
@@ -49,8 +50,22 @@ if len(counts) != 1:
 revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
 network = [json.loads(match.group(1)) for match in re.finditer(r'SESSION_AUDIO_NETWORK (\{[^\n]+\})', text)]
 network = [item for item in network if item['sample'] >= 0]
-report = dict(source_revision=revision, environment=args.environment, endpoint=args.endpoint, observed_network=network, added_signaling_rtt_ms=args.added_signaling_rtt_ms,
-              token_delay_ms=100, media_network=('direct loopback UDP, no added media delay' if args.environment == 'local'
+comparisons = []
+by_sample = {(row['pc'], row['capture_delay_ms'], row['sample'], row['mode']): row for row in rows}
+for pc in ['spc', 'dual']:
+    for delay in [0, 800]:
+        sample_ids = sorted({row['sample'] for row in rows if row['pc'] == pc and row['capture_delay_ms'] == delay})
+        comparison = dict(pc=pc, capture_delay_ms=delay, paired_samples=len(sample_ids))
+        for metric in ['connected_ms', 'first_outgoing_pcm_ms', 'first_incoming_pcm_ms']:
+            differences = [by_sample[(pc, delay, sample, 'baseline')][metric] -
+                           by_sample[(pc, delay, sample, 'prepared')][metric] for sample in sample_ids]
+            rng = random.Random(3610)
+            bootstrap = sorted(statistics.median(rng.choices(differences, k=len(differences))) for _ in range(10000))
+            comparison[metric] = dict(median_paired_saving_ms=round(statistics.median(differences), 2),
+                                      paired_bootstrap_95_percent_interval_ms=[round(bootstrap[249], 2), round(bootstrap[9749], 2)])
+        comparisons.append(comparison)
+report = dict(source_revision=revision, comparisons=comparisons, environment=args.environment, endpoint=args.endpoint, observed_network=network, added_signaling_rtt_ms=args.added_signaling_rtt_ms,
+              token_delay_ms=100, pre_connect_audio=True, audio_factory='warmed shared process', media_network=('direct loopback UDP, no added media delay' if args.environment == 'local'
                              else 'actual staging ICE/DTLS/SRTP, no added signaling or media delay'),
               source='generated 400 Hz PCM, native manual rendering mode, actual Opus/SFU/decoder',
               baseline='previous Session capture -> credentials -> Room.connect -> publish sequence',
@@ -59,7 +74,7 @@ report = dict(source_revision=revision, environment=args.environment, endpoint=a
 args.output.mkdir(parents=True, exist_ok=True)
 (args.output / 'results.json').write_text(json.dumps(report, indent=2) + '\n')
 with (args.output / 'samples.csv').open('w') as output:
-    writer = csv.DictWriter(output, fieldnames=list(rows[0]))
+    writer = csv.DictWriter(output, fieldnames=list(rows[0]), lineterminator="\n")
     writer.writeheader()
     writer.writerows(rows)
 for item in summary:
