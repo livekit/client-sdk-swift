@@ -24,31 +24,7 @@ import Testing
 @Suite(.serialized, .tags(.e2e), .enabled(if: ProcessInfo.processInfo.environment["LK_SESSION_BENCHMARK"] == "1"))
 struct SessionPublicationBenchmarkTests {
     @Test @MainActor func firstDecodedAudio() async throws {
-        try await RTC.run { try AudioManager.shared.setManualRenderingMode(true) }
-        let feeding = Task {
-            let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
-            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480)!
-            buffer.frameLength = 480
-            let channel = buffer.floatChannelData![0]
-            for index in 0 ..< 480 {
-                channel[index] = 0.4 * sin(Float(index) * 2 * .pi * 400 / 48000)
-            }
-            while !Task.isCancelled {
-                AudioManager.shared.mixer.capture(appAudio: buffer)
-                try? await Task.sleep(nanoseconds: 10_000_000)
-            }
-        }
-        do {
-            try await runSamples()
-        } catch {
-            feeding.cancel()
-            await feeding.value
-            try await RTC.run { try AudioManager.shared.setManualRenderingMode(false) }
-            throw error
-        }
-        feeding.cancel()
-        await feeding.value
-        try await RTC.run { try AudioManager.shared.setManualRenderingMode(false) }
+        try await SessionTestAudioSource.withAudio { try await runSamples() }
     }
 
     @MainActor private func runSamples() async throws {
@@ -107,6 +83,7 @@ struct SessionPublicationBenchmarkTests {
             let connected = try #require(connectionObserver.connected)
             if prepared { #expect(audio >= (captureReady.read { $0 } ?? .infinity), "Reserved sender transmitted before capture was ready") }
             print("SESSION_AUDIO_BENCH \(singlePC ? "spc" : "dual"),\(captureDelay),\(sample),\(prepared ? "prepared" : "baseline"),\((connected - began) * 1000),\((audio - began) * 1000),\((downlink - began) * 1000)")
+            try await reportNetwork(room: publisher, singlePC: singlePC, captureDelay: captureDelay, sample: sample, prepared: prepared)
         } catch {
             await session.end()
             await receiver.disconnect()
@@ -114,6 +91,26 @@ struct SessionPublicationBenchmarkTests {
         }
         await session.end()
         await receiver.disconnect()
+    }
+
+    @MainActor private func reportNetwork(room: Room, singlePC: Bool, captureDelay: Int, sample: Int, prepared: Bool) async throws {
+        let track = try #require(room.localParticipant.localAudioTracks.first?.track)
+        await track._onStatsTimer()
+        let statistics = track.statistics
+        let pairID = statistics?.transportStats?.selectedCandidatePairId
+        let pair = statistics?.iceCandidatePair.first { $0.id == pairID }
+        let signalRTT = try await room.signalClient.benchmarkRoundTripTime()
+        let data: [String: Any] = try [
+            "pc": singlePC ? "spc" : "dual", "capture_delay_ms": captureDelay, "sample": sample,
+            "mode": prepared ? "prepared" : "baseline",
+            "actual_single_pc": room.requirePublisher().singlePCMode,
+            "join_track_used": track._state.publicationCid != track.mediaTrack.trackId,
+            "ice_rtt_ms": pair?.currentRoundTripTime.map { $0 * 1000 } ?? -1,
+            "signal_rtt_ms": signalRTT,
+            "media_protocol": statistics?.remoteIceCandidate?.protocol ?? "unknown",
+        ]
+        let json = try JSONSerialization.data(withJSONObject: data, options: [.sortedKeys])
+        try print("SESSION_AUDIO_NETWORK " + #require(String(data: json, encoding: .utf8)))
     }
 }
 
@@ -150,5 +147,16 @@ private final class AudioArrival: RoomDelegate, AudioRenderer, @unchecked Sendab
             false
         }
         if audible { state.mutate { $0 = $0 ?? ProcessInfo.processInfo.systemUptime } }
+    }
+}
+
+private extension SignalClient {
+    func benchmarkRoundTripTime() async throws -> Int64 {
+        let state = _state
+        state.mutate { $0.rtt = 0 }
+        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+        try await sendRequest(.with { $0.pingReq = .with { $0.timestamp = timestamp } })
+        try await poll(timeout: 5, for: "signaling ping response") { state.rtt > 0 }
+        return state.rtt
     }
 }

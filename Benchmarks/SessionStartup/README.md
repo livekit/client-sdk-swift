@@ -46,3 +46,24 @@ LIVEKIT_TESTING_URL=ws://localhost:7880 xcrun swift test -j 4 \
 ```
 
 Coverage includes capture pending during JOIN, both PC modes, pre-connect buffering on/off, reservation RTP disabled before capture, late permission completion after end/restart, capture failure, encryption fallback, quick/full reconnect, task-owner destruction, and existing publish-on-join behavior. Run the opt-in benchmark separately: it changes process-wide AudioManager configuration.
+
+## Staging
+
+Use the credentials from your shell; the reports contain no API credentials:
+
+```sh
+export LIVEKIT_TESTING_URL="$LIVEKIT_URL"
+export LIVEKIT_TESTING_API_KEY="$LIVEKIT_API_KEY"
+export LIVEKIT_TESTING_API_SECRET="$LIVEKIT_API_SECRET"
+LK_SESSION_STAGING_TESTS=1 xcrun swift test -j 4 \
+  --filter 'SessionStagingValidationTests|PreparedAudioPublicationTests'
+LK_SESSION_BENCHMARK=1 LK_SESSION_BENCHMARK_SAMPLES=10 xcrun swift test -j 4 \
+  --filter SessionPublicationBenchmarkTests > /tmp/session-staging.log 2>&1
+python3 scripts/summarize-session-audio.py /tmp/session-staging.log \
+  Benchmarks/SessionStartup/staging --environment staging \
+  --endpoint "$LIVEKIT_TESTING_URL" --added-signaling-rtt-ms 0
+```
+
+The staging benchmark uses the real Cloud signaling and media network directly, with no latency relay. It retains the same modeled 100 ms credential fetch and 0/800 ms capture cases as the local comparison. Each sample logs actual Single-PC mode, whether the JOIN reservation was used, selected ICE-pair RTT, media protocol, and signaling ping RTT. Network probes run after the latency timestamps have been captured. The staging compatibility fixture also generates continuous audio so reconnect checks exercise a live publication.
+
+With immediate capture, incoming audio need not improve: capture introduces little delay in either flow, and preparing an outgoing publication does not remove the incoming track's subscription negotiation. The delayed-capture case demonstrates joining and receiving audio without waiting for microphone permission or startup.

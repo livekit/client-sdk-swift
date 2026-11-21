@@ -13,6 +13,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('log', type=Path)
 parser.add_argument('output', type=Path)
 parser.add_argument('--added-signaling-rtt-ms', type=int, default=100)
+parser.add_argument('--environment', choices=['local', 'staging'], default='local')
+parser.add_argument('--endpoint', default='ws://127.0.0.1:17883')
 args = parser.parse_args()
 text = args.log.read_text()
 if 'Test run with 1 test in 1 suite passed' not in text:
@@ -45,8 +47,11 @@ counts = {item['samples'] for item in summary}
 if len(counts) != 1:
     raise SystemExit('Unbalanced sample counts.')
 revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-report = dict(source_revision=revision, added_signaling_rtt_ms=args.added_signaling_rtt_ms,
-              token_delay_ms=100, media_network='direct loopback UDP, no added media delay',
+network = [json.loads(match.group(1)) for match in re.finditer(r'SESSION_AUDIO_NETWORK (\{[^\n]+\})', text)]
+network = [item for item in network if item['sample'] >= 0]
+report = dict(source_revision=revision, environment=args.environment, endpoint=args.endpoint, observed_network=network, added_signaling_rtt_ms=args.added_signaling_rtt_ms,
+              token_delay_ms=100, media_network=('direct loopback UDP, no added media delay' if args.environment == 'local'
+                             else 'actual staging ICE/DTLS/SRTP, no added signaling or media delay'),
               source='generated 400 Hz PCM, native manual rendering mode, actual Opus/SFU/decoder',
               baseline='previous Session capture -> credentials -> Room.connect -> publish sequence',
               companion='warm participant publishing audio before Session starts; no agent dispatch or AI inference',

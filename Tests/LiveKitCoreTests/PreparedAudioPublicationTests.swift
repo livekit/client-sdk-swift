@@ -39,6 +39,13 @@ struct PreparedAudioPublicationTests {
             let audio = try #require(document.mediaSections.first(where: { $0.mediaType == "audio" }))
             #expect(audio.msidTrackId == sender.senderId)
             #expect(await transport.localDescription == nil)
+            await RTC.run {
+                let track = RTC.createAudioTrack(source: RTC.createAudioSource(nil))
+                track.isEnabled = false
+                sender.raw.track = track
+            }
+            let attached = try #require(try await transport.createInitialOffer())
+            #expect(SDP(parsing: attached.offer.sdp).mediaSections.first(where: { $0.mediaType == "audio" })?.msidTrackId == sender.senderId)
             await transport.close()
         } catch {
             await transport.close()

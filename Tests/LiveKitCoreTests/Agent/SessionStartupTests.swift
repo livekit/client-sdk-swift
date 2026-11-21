@@ -149,13 +149,20 @@ struct SessionStartupTests {
             let original = try #require(room.localParticipant.localAudioTracks.first).sid
             let originalCid = try #require(track._state.publicationCid)
             try await room.debug_simulate(scenario: .quickReconnect)
-            #expect(room.connectionState == .connected)
-            #expect(room.localParticipant.publishedTracksInfo().first?.cid == originalCid)
-            #expect(room.localParticipant.localAudioTracks.first?.sid == original)
+            try await poll(timeout: 30, for: "quick reconnect or its full-reconnect fallback to republish") {
+                room.connectionState == .connected && room.localParticipant.localAudioTracks.count == 1
+                    && room.localParticipant.localAudioTracks.first?.track === track
+            }
+            let afterQuick = try #require(room.localParticipant.localAudioTracks.first).sid
+            if afterQuick == original {
+                #expect(room.localParticipant.publishedTracksInfo().first?.cid == originalCid)
+            } else {
+                #expect(track._state.publicationCid == track.mediaTrack.trackId)
+            }
             try await room.debug_simulate(scenario: .fullReconnect)
             try await poll(timeout: 30, for: "republishing the attached microphone") {
                 room.connectionState == .connected && room.localParticipant.localAudioTracks.count == 1
-                    && room.localParticipant.localAudioTracks.first?.sid != original
+                    && room.localParticipant.localAudioTracks.first?.sid != afterQuick
             }
             #expect(room.localParticipant.localAudioTracks.first?.track === track)
             #expect(track._state.publicationCid == track.mediaTrack.trackId)
