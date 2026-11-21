@@ -291,6 +291,7 @@ extension Room {
                                                           adaptiveStream: _state.roomOptions.adaptiveStream,
                                                           singlePeerConnection: singlePC,
                                                           publisherOffer: earlyPublisher?.offer,
+                                                          addTrackRequests: earlyPublisher?.offer == nil ? [] : earlyPublisher?.preparedTracks.map(\.request) ?? [],
                                                           connectSpan: connectSpan)
             return SignalConnection(response: response, singlePC: singlePC, earlyPublisher: earlyPublisher)
         } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
@@ -309,7 +310,7 @@ extension Room {
     }
 
     // full connect sequence, doesn't update connection state
-    func fullConnectSequence(_ url: URL, _ token: String) async throws {
+    func fullConnectSequence(_ url: URL, _ token: String, publishTracks: [InitialTrack] = []) async throws {
         // Taken before any peer connection or the signal socket exists, so every attempt (initial
         // connect, full reconnect, region failover) times itself from scratch. See
         // `Transport.set(connectionSetupTime:)`.
@@ -326,7 +327,8 @@ extension Room {
         let mayBundleOffer = await !signalClient.useV0SignalPath
         var earlyPublisher: EarlyPublisher? = if singlePC, mayBundleOffer {
             try await EarlyPublisher.make(room: self,
-                                          rtcConfiguration: makeRTCConfiguration(connectResponse: nil))
+                                          rtcConfiguration: makeRTCConfiguration(connectResponse: nil),
+                                          publishTracks: e2eeManager == nil ? publishTracks : [])
         } else {
             nil
         }
@@ -370,33 +372,49 @@ extension Room {
 
             // Eager publisher negotiation must run after `resumeQueues()` —
             // offers are not queueable, so sending while suspended drops them.
-            if case let .join(joinResponse) = connectResponse {
-                if earlyPublisher?.offer != nil {
-                    // The offer went out with the JOIN request and the server answers it over
-                    // the signal channel, so negotiating again here would offer over the top
-                    // of it. Matches `sent_publisher_offer` in rust-sdks.
-                    _state.mutate { $0.hasPublished = true }
-                } else {
-                    let isSubscriberPrimary = singlePC ? false : joinResponse.subscriberPrimary
-                    if singlePC || !isSubscriberPrimary || joinResponse.fastPublish {
-                        try await publisherShouldNegotiate(force: true)
-                    }
-                }
-            }
+            try await negotiateAfterJoin(connectResponse, earlyPublisher: earlyPublisher, singlePC: singlePC)
 
             // Wait for transport...
             try await primaryTransportConnectedCompleter.wait(timeout: _state.connectOptions.primaryTransportConnectTimeout)
             try Task.checkCancellation()
 
             if isAdopted { await recordConnectionSetupTime(startedAt: connectStartedAt) }
+
+            try await completeInitialPublish(earlyPublisher: earlyPublisher, publishTracks: publishTracks)
         } catch {
             // Once adopted, the staged join owns teardown through `cleanUp()`.
             if !isAdopted { await earlyPublisher?.close() }
+            await earlyPublisher?.detachTracks()
             throw error
         }
 
         connectSpan?.record("engine")
         connectSpan?.record("pc_connected")
+    }
+
+    /// Starts the publisher only when its offer was not already sent with JOIN.
+    private func negotiateAfterJoin(_ response: SignalClient.ConnectResponse, earlyPublisher: EarlyPublisher?, singlePC: Bool) async throws {
+        guard case let .join(joinResponse) = response else { return }
+        if earlyPublisher?.offer != nil {
+            _state.mutate { $0.hasPublished = true }
+        } else if singlePC || !joinResponse.subscriberPrimary || joinResponse.fastPublish {
+            try await publisherShouldNegotiate(force: true)
+        }
+    }
+
+    /// Completes bundled publications and publishes tracks omitted by a fallback normally.
+    private func completeInitialPublish(earlyPublisher: EarlyPublisher?, publishTracks: [InitialTrack]) async throws {
+        let preparedTracks = earlyPublisher?.offer == nil ? [] : earlyPublisher?.preparedTracks ?? []
+        let bundledCids = Set(preparedTracks.map(\.request.cid))
+        for prepared in preparedTracks {
+            try localParticipant.checkPermissions(toPublish: prepared.track)
+            let info = try await signalClient.waitForJoinTrack(cid: prepared.request.cid)
+            try await localParticipant.completePublish(prepared, info: info)
+        }
+        for initial in publishTracks where !bundledCids.contains(initial.track.mediaTrack.trackId) {
+            try await localParticipant._publish(track: initial.track, options: initial.options)
+        }
+        try Task.checkCancellation()
     }
 
     /// Hands the time from `startedAt` (`ProcessInfo.systemUptime`) to the primary transport

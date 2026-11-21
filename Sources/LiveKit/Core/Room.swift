@@ -380,12 +380,40 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
     }
 
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
     public func connect(url urlString: String,
                         token: String,
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
     {
+        try await connect(url: urlString, token: token, connectOptions: connectOptions,
+                          roomOptions: roomOptions, publishTracks: [])
+    }
+
+    // swiftlint:disable cyclomatic_complexity function_body_length
+    /// Connects and publishes the supplied tracks before returning.
+    ///
+    /// In single peer connection mode, unencrypted tracks travel with the JOIN request.
+    /// Other configurations publish normally after joining. A failed publication fails the
+    /// connection; supplied tracks are not retained for later connects or full reconnects.
+    ///
+    /// ```swift
+    /// let microphone = await LocalAudioTrack.createTrack()
+    /// try await room.connect(url: url, token: token,
+    ///                        publishTracks: [InitialTrack(track: microphone)])
+    /// ```
+    public func connect(url urlString: String,
+                        token: String,
+                        connectOptions: ConnectOptions? = nil,
+                        roomOptions: RoomOptions? = nil,
+                        publishTracks: [InitialTrack]) async throws
+    {
+        let cids = publishTracks.map(\.track.mediaTrack.trackId)
+        guard Set(cids).count == cids.count else {
+            throw LiveKitError(.invalidParameter, message: "The same track was supplied more than once")
+        }
+        guard publishTracks.allSatisfy({ $0.track._state.rtpSender == nil }) else {
+            throw LiveKitError(.invalidState, message: "A supplied track has already been published")
+        }
         guard let providedUrl = URL(string: urlString), providedUrl.isValidForConnect else {
             log("URL parse failed", .error)
             throw LiveKitError(.failedToParseUrl)
@@ -483,9 +511,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
                                                                     initialUrl: nextUrl,
                                                                     initialRegion: nextRegion,
-                                                                    token: token)
+                                                                    token: token,
+                                                                    publishTracks: publishTracks)
             } else {
-                try await fullConnectSequence(nextUrl, token)
+                try await fullConnectSequence(nextUrl, token, publishTracks: publishTracks)
                 finalUrl = nextUrl
             }
 
@@ -518,11 +547,16 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             }
 
             await cleanUp(withError: error)
+            for initial in publishTracks {
+                try? await initial.track.stop()
+            }
             throw error // Re-throw the original error
         }
 
         log("Connected to \(String(describing: self))", .info)
     }
+
+    // swiftlint:enable cyclomatic_complexity function_body_length
 
     public func disconnect() async {
         let shouldDisconnect = _state.mutate {

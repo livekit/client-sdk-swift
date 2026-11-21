@@ -169,6 +169,7 @@ actor SignalClient: Loggable {
                  adaptiveStream: Bool,
                  singlePeerConnection: Bool,
                  publisherOffer: Livekit_SessionDescription? = nil,
+                 addTrackRequests: [Livekit_AddTrackRequest] = [],
                  connectSpan: Span? = nil) async throws -> ConnectResponse
     {
         await cleanUp()
@@ -183,7 +184,8 @@ actor SignalClient: Loggable {
                                           reconnectMode: reconnectMode,
                                           participantSid: participantSid,
                                           adaptiveStream: adaptiveStream,
-                                          publisherOffer: publisherOffer)
+                                          publisherOffer: publisherOffer,
+                                          addTrackRequests: addTrackRequests)
         } else {
             try Utils.buildUrl(url,
                                connectOptions: connectOptions,
@@ -194,6 +196,7 @@ actor SignalClient: Loggable {
 
         _state.mutate { $0.useV0SignalPath = !singlePeerConnection }
 
+        await registerJoinTracks(addTrackRequests)
         let isReconnect = reconnectMode != nil
 
         if isReconnect {
@@ -521,6 +524,10 @@ private extension SignalClient {
             // request waiting. Anything else arriving here is for a request that reports its own
             // errors (data track publishes) or none.
             let isFailure = response.reason != .ok && response.reason != .queued
+            if isFailure, case let .addTrack(request) = response.request {
+                let message = response.message.isEmpty ? "Track publication rejected" : response.message
+                await _addTrackCompleters.resume(throwing: LiveKitError(.invalidState, message: message), for: request.cid)
+            }
             if isFailure, let completer = _dataBlobCompleters[response.requestID] {
                 let message = response.message.isEmpty ? "Request rejected (reason \(response.reason.rawValue))" : response.message
                 completer.resume(throwing: LiveKitError(.invalidState, message: message))
@@ -666,17 +673,26 @@ extension SignalClient {
             try populator(&$0)
         }
 
-        let request = Livekit_SignalRequest.with {
-            $0.addTrack = addTrackRequest
+        return try await sendAddTrack(addTrackRequest)
+    }
+
+    /// Sends a prepared publication request and waits for its acceptance.
+    func sendAddTrack(_ addTrackRequest: Livekit_AddTrackRequest) async throws -> Livekit_TrackInfo {
+        let completer = await _addTrackCompleters.completer(for: addTrackRequest.cid)
+        try await _sendRequest(.with { $0.addTrack = addTrackRequest })
+        return try await completer.wait()
+    }
+
+    /// Installs rejection waiters before the signal socket can deliver a response.
+    private func registerJoinTracks(_ requests: [Livekit_AddTrackRequest]) async {
+        for request in requests {
+            _ = await _addTrackCompleters.completer(for: request.cid)
         }
+    }
 
-        // Get completer for this add track request...
+    /// Waits for acceptance of a track already sent in the JOIN request.
+    func waitForJoinTrack(cid: String) async throws -> Livekit_TrackInfo {
         let completer = await _addTrackCompleters.completer(for: cid)
-
-        // Send the request to server...
-        try await _sendRequest(request)
-
-        // Wait for the trackInfo...
         return try await completer.wait()
     }
 
