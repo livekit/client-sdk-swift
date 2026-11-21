@@ -32,6 +32,7 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
     private let socketPath: SocketPath?
     private let receiverTask = StateSync<(id: UUID, task: AnyTaskCancellable)?>(nil)
     private let captureSerialRunner = SerialRunnerActor<Bool>()
+    private let resendTimer = StateSync<AnyTaskCancellable?>(nil)
 
     override func startCapture() async throws -> Bool {
         try await captureSerialRunner.run { try await self.startReceiver() }
@@ -95,7 +96,7 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 
                 for try await sample in receiver.incomingSamples {
                     switch sample {
-                    case let .image(buffer, rotation): capture(buffer, rotation: rotation)
+                    case let .image(buffer, rotation): captureAndScheduleResend(buffer, rotation: rotation)
                     case let .audio(buffer): AudioManager.shared.mixer.capture(appAudio: buffer)
                     }
                 }
@@ -107,7 +108,25 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
             log("Broadcast receiver error: \(error)", Task.isCancelled ? .debug : .error)
         }
         guard !Task.isCancelled else { return }
+        resendTimer.mutate { $0 = nil }
         _ = try? await stopCapture()
+    }
+
+    /// ReplayKit delivers no frames while the screen is static, so the last frame is resent
+    /// at 1 fps until a new one arrives, keeping late subscribers and keyframe requests served.
+    private func captureAndScheduleResend(_ buffer: CVPixelBuffer, rotation: VideoRotation) {
+        // Decoded per frame (never pooled) and only read afterwards, so sharing it with the timer is safe.
+        nonisolated(unsafe) let buffer = buffer
+        let newTimer = Task.detached(priority: .utility) { [weak self] in
+            while true {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled, let self, case .started = captureState else { break }
+                capture(buffer, rotation: rotation)
+            }
+        }.cancellable()
+        resendTimer.mutate { $0 = newTimer }
+
+        capture(buffer, rotation: rotation)
     }
 
     override func stopCapture() async throws -> Bool {
@@ -119,6 +138,7 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 
         // Already stopped
         guard didStop else { return false }
+        resendTimer.mutate { $0 = nil }
         if let receiver = receiverTask.mutate({ receiver in
             let current = receiver
             receiver = nil

@@ -16,6 +16,7 @@
 
 #if os(iOS)
 
+import CoreVideo
 import Foundation
 @testable import LiveKit
 import Testing
@@ -145,6 +146,40 @@ struct BroadcastScreenCapturerTests {
         #expect(activeCountAfterExit == 0)
     }
 
+    @Test func idleBroadcastResendsLastFrame() async throws {
+        let socketPath = try temporarySocketPath()
+        let capturer = await makeCapturer(socketPath: socketPath)
+        let renderer = FrameCounter()
+        capturer.rendererDelegates.add(delegate: renderer)
+        #expect(try await capturer.startCapture())
+
+        let uploader = Task { try await IPCChannel(connectingTo: socketPath) }
+        let timeout = Task {
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+            uploader.cancel()
+        }
+        let channel = try await uploader.value
+        timeout.cancel()
+
+        var pixelBuffer: CVPixelBuffer?
+        CVPixelBufferCreate(kCFAllocatorDefault, 64, 32, kCVPixelFormatType_32BGRA, nil, &pixelBuffer)
+        let (metadata, imageData) = try BroadcastImageCodec().encode(#require(pixelBuffer))
+        try await channel.send(header: BroadcastIPCHeader.image(metadata, ._0), payload: imageData)
+
+        for _ in 0 ..< 150 where renderer.timeStamps.count < 3 {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        let timeStamps = renderer.timeStamps
+        #expect(timeStamps.count >= 3)
+        #expect(timeStamps == timeStamps.sorted() && Set(timeStamps).count == timeStamps.count)
+
+        _ = try await capturer.stopCapture()
+        channel.close()
+        let countAfterStop = renderer.timeStamps.count
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        #expect(renderer.timeStamps.count == countAfterStop)
+    }
+
     @Test func startWithoutSocketPathIsNotCounted() async throws {
         let capturer = await makeCapturer(socketPath: nil)
 
@@ -152,6 +187,18 @@ struct BroadcastScreenCapturerTests {
         #expect(BroadcastScreenCapturer.activeCount == 0)
         _ = try await capturer.stopCapture()
         #expect(BroadcastScreenCapturer.activeCount == 0)
+    }
+}
+
+private final class FrameCounter: VideoRenderer, @unchecked Sendable {
+    private let _timeStamps = StateSync<[Int64]>([])
+    var timeStamps: [Int64] { _timeStamps.read { $0 } }
+
+    var isAdaptiveStreamEnabled: Bool { false }
+    var adaptiveStreamSize: CGSize { .zero }
+
+    func render(frame: VideoFrame) {
+        _timeStamps.mutate { $0.append(frame.timeStampNs) }
     }
 }
 
