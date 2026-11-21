@@ -45,13 +45,15 @@ struct EarlyPublisher: Sendable {
     /// Absent means "negotiate the ordinary way", never a failed connect.
     let offer: Livekit_SessionDescription?
     let preparedTracks: [LocalParticipant.PreparedPublish]
+    let preparedAudio: PreparedAudioPublication?
+    let audioRequest: Livekit_AddTrackRequest?
 
     /// Builds the transport, its data channels, and the deferred initial offer.
     ///
     /// Only ever called for single PC mode, where the publisher is primary — so the
     /// configuration passed here carries the client-side settings only, and the server's ICE
     /// servers are installed later by `JoinDependencies.make`.
-    static func make(room: Room, rtcConfiguration: LKRTCConfiguration, publishTracks: [InitialTrack] = []) async throws -> EarlyPublisher {
+    static func make(room: Room, rtcConfiguration: LKRTCConfiguration, publishTracks: [InitialTrack] = [], preparedAudio: PreparedAudioPublication? = nil) async throws -> EarlyPublisher {
         let transport = try await Transport(config: rtcConfiguration,
                                             target: .publisher,
                                             primary: true,
@@ -71,6 +73,7 @@ struct EarlyPublisher: Sendable {
             }
         } catch {
             await transport.close()
+            await preparedAudio?.discard(on: transport)
             for prepared in preparedTracks where prepared.track._state.transport === transport {
                 await prepared.track.set(transport: nil, rtpSender: nil)
             }
@@ -78,18 +81,20 @@ struct EarlyPublisher: Sendable {
         }
 
         do {
+            let audioRequest = try await preparedAudio?.reserve(on: transport)
             guard let initialOffer = try await transport.createInitialOffer() else {
                 throw LiveKitError(.invalidState, message: "Initial offer was not created")
             }
             return EarlyPublisher(transport: transport,
                                   dataChannels: dataChannels,
                                   offer: initialOffer.offer.toPBType(offerId: initialOffer.offerId),
-                                  preparedTracks: preparedTracks)
+                                  preparedTracks: preparedTracks, preparedAudio: preparedAudio, audioRequest: audioRequest)
         } catch {
             // A failed offer is recoverable: drop it and let the transport negotiate normally
             // once the JOIN response arrives.
             room.log("Failed to create the initial publisher offer, falling back to negotiation after JOIN: \(error)", .warning)
             await transport.close()
+            await preparedAudio?.discard(on: transport)
             for prepared in preparedTracks where prepared.track._state.transport === transport {
                 await prepared.track.set(transport: nil, rtpSender: nil)
             }
@@ -97,7 +102,7 @@ struct EarlyPublisher: Sendable {
             let fallback = try await Transport(config: rtcConfiguration, target: .publisher,
                                                primary: true, singlePCMode: true, delegate: room)
             let fallbackChannels = await PublisherDataChannels.make(on: fallback)
-            return EarlyPublisher(transport: fallback, dataChannels: fallbackChannels, offer: nil, preparedTracks: [])
+            return EarlyPublisher(transport: fallback, dataChannels: fallbackChannels, offer: nil, preparedTracks: [], preparedAudio: nil, audioRequest: nil)
         }
     }
 
@@ -109,6 +114,7 @@ struct EarlyPublisher: Sendable {
 
     func close() async {
         await transport.close()
+        await preparedAudio?.discard(on: transport)
         await detachTracks()
     }
 }

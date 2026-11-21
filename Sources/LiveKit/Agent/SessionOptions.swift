@@ -21,7 +21,7 @@ public struct SessionOptions: Sendable {
     /// The undelying ``Room`` object for the session.
     public var room: Room
     /// Whether to enable audio pre-connect with ``PreConnectAudioBuffer``.
-    /// If enabled, the microphone will be enabled before connecting to the room.
+    /// Capture runs concurrently with connection; available pre-connect audio is buffered.
     /// Use ``LocalMedia`` or ``AudioManager/setRecordingAlwaysPreparedMode(_:)``
     /// to request microphone permissions early in the app lifecycle.
     public var preConnectAudio: Bool

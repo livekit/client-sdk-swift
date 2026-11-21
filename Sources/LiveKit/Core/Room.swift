@@ -407,6 +407,14 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                         roomOptions: RoomOptions? = nil,
                         publishTracks: [InitialTrack]) async throws
     {
+        try await connect(url: urlString, token: token, connectOptions: connectOptions,
+                          roomOptions: roomOptions, publishTracks: publishTracks, preparedAudio: nil)
+    }
+
+    func connect(url urlString: String, token: String, connectOptions: ConnectOptions? = nil,
+                 roomOptions: RoomOptions? = nil, publishTracks: [InitialTrack] = [],
+                 preparedAudio: PreparedAudioPublication?) async throws
+    {
         let cids = publishTracks.map(\.track.mediaTrack.trackId)
         guard Set(cids).count == cids.count else {
             throw LiveKitError(.invalidParameter, message: "The same track was supplied more than once")
@@ -485,11 +493,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         let enableMicrophone = _state.connectOptions.enableMicrophone
         log("Concurrent enable microphone mode: \(enableMicrophone)")
 
-        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
+        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if preparedAudio == nil, let recorder = preConnectBuffer.recorder, recorder.isRecording {
             Task {
                 recorder.track
             }
-        } else if enableMicrophone {
+        } else if preparedAudio == nil, enableMicrophone {
             Task {
                 let localTrack = await LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
                                                                    reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
@@ -512,9 +520,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                                                                     initialUrl: nextUrl,
                                                                     initialRegion: nextRegion,
                                                                     token: token,
-                                                                    publishTracks: publishTracks)
+                                                                    publishTracks: publishTracks, preparedAudio: preparedAudio)
             } else {
-                try await fullConnectSequence(nextUrl, token, publishTracks: publishTracks)
+                try await fullConnectSequence(nextUrl, token, publishTracks: publishTracks, preparedAudio: preparedAudio)
                 finalUrl = nextUrl
             }
 

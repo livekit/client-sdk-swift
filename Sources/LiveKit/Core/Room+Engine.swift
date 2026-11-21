@@ -291,7 +291,7 @@ extension Room {
                                                           adaptiveStream: _state.roomOptions.adaptiveStream,
                                                           singlePeerConnection: singlePC,
                                                           publisherOffer: earlyPublisher?.offer,
-                                                          addTrackRequests: earlyPublisher?.offer == nil ? [] : earlyPublisher?.preparedTracks.map(\.request) ?? [],
+                                                          addTrackRequests: earlyPublisher?.offer == nil ? [] : (earlyPublisher?.preparedTracks.map(\.request) ?? []) + [earlyPublisher?.audioRequest].compactMap(\.self),
                                                           connectSpan: connectSpan)
             return SignalConnection(response: response, singlePC: singlePC, earlyPublisher: earlyPublisher)
         } catch let error as LiveKitError where error.type == .serviceNotFound && singlePC {
@@ -310,7 +310,7 @@ extension Room {
     }
 
     // full connect sequence, doesn't update connection state
-    func fullConnectSequence(_ url: URL, _ token: String, publishTracks: [InitialTrack] = []) async throws {
+    func fullConnectSequence(_ url: URL, _ token: String, publishTracks: [InitialTrack] = [], preparedAudio: PreparedAudioPublication? = nil) async throws {
         // Taken before any peer connection or the signal socket exists, so every attempt (initial
         // connect, full reconnect, region failover) times itself from scratch. See
         // `Transport.set(connectionSetupTime:)`.
@@ -328,7 +328,8 @@ extension Room {
         var earlyPublisher: EarlyPublisher? = if singlePC, mayBundleOffer {
             try await EarlyPublisher.make(room: self,
                                           rtcConfiguration: makeRTCConfiguration(connectResponse: nil),
-                                          publishTracks: e2eeManager == nil ? publishTracks : [])
+                                          publishTracks: e2eeManager == nil ? publishTracks : [],
+                                          preparedAudio: e2eeManager == nil ? preparedAudio : nil)
         } else {
             nil
         }

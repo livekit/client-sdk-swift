@@ -103,7 +103,7 @@ open class Session: ObservableObject {
     /// The underlying ``Room`` object for the session.
     public let room: Room
 
-    private enum TokenSourceConfiguration {
+    private enum TokenSourceConfiguration: Sendable {
         case fixed(any TokenSourceFixed)
         case configurable(any TokenSourceConfigurable, TokenRequestOptions)
 
@@ -127,6 +127,10 @@ open class Session: ObservableObject {
 
     private var tasks = Set<AnyTaskCancellable>()
     private var waitForAgentTask: AnyTaskCancellable?
+    private var startup: SessionStartup?
+    var startupDependencies = SessionStartup.Dependencies()
+    private var isRecordingForStartup = false
+    private var isEnding = false
 
     // MARK: - Init
 
@@ -226,7 +230,7 @@ open class Session: ObservableObject {
         } else if agent.isConnected {
             agent.failed(error: .left)
         } else {
-            agent.connecting(buffering: options.preConnectAudio)
+            agent.connecting(buffering: options.preConnectAudio && isRecordingForStartup)
         }
     }
 
@@ -256,37 +260,31 @@ open class Session: ObservableObject {
 
     /// Starts the session.
     public func start() async {
-        guard connectionState == .disconnected else { return }
+        guard !isEnding, startup == nil, connectionState == .disconnected else { return }
 
         error = nil
         waitForAgentTask = nil
 
         let timeout = options.agentConnectTimeout
 
-        let connect = { @Sendable in
-            let response = try await self.tokenSourceConfiguration.fetch()
-            try await self.room.connect(url: response.serverURL.absoluteString,
-                                        token: response.participantToken)
-            return response.dispatchesAgent()
-        }
+        let attempt = SessionStartup(room: room, preConnectAudio: options.preConnectAudio)
+        startup = attempt
+        isRecordingForStartup = false
+        connectionState = .connecting
+        agent.connecting(buffering: false)
+        let tokenSource = tokenSourceConfiguration
+        defer { if startup === attempt { startup = nil } }
 
         do {
-            let dispatchesAgent: Bool
-            if options.preConnectAudio {
-                dispatchesAgent = try await room.withPreConnectAudio(timeout: timeout) {
-                    await MainActor.run {
-                        self.connectionState = .connecting
-                        self.agent.connecting(buffering: true)
-                    }
-                    return try await connect()
-                }
-            } else {
-                connectionState = .connecting
-                agent.connecting(buffering: false)
-                dispatchesAgent = try await connect()
-                try await room.localParticipant.setMicrophone(enabled: true)
+            let dispatchesAgent = try await attempt.run(preConnectAudio: options.preConnectAudio,
+                                                        timeout: timeout, dependencies: startupDependencies,
+                                                        fetch: { try await tokenSource.fetch() })
+            { [weak self, weak attempt] in
+                guard let self, startup === attempt else { return }
+                isRecordingForStartup = true
+                updateAgent(in: room)
             }
-
+            guard startup === attempt else { return }
             if dispatchesAgent {
                 waitForAgentTask = Task { [weak self] in
                     try await Task.sleep(nanoseconds: UInt64(timeout * Double(NSEC_PER_SEC)))
@@ -298,6 +296,7 @@ open class Session: ObservableObject {
                 }.cancellable()
             }
         } catch {
+            guard startup === attempt else { return }
             self.error = .connection(error)
             connectionState = .disconnected
             agent.disconnected()
@@ -306,7 +305,20 @@ open class Session: ObservableObject {
 
     /// Terminates the session.
     public func end() async {
+        guard !isEnding else { return }
+        isEnding = true
+        defer { isEnding = false }
+        let attempt = startup
+        startup = nil
+        waitForAgentTask = nil
+        attempt?.cancel()
+        await attempt?.waitForTeardown()
         await room.disconnect()
+        room.preConnectBuffer.stopRecording(flush: true)
+        await attempt?.releaseReservation()
+        isRecordingForStartup = false
+        connectionState = .disconnected
+        agent.disconnected()
     }
 
     /// Resets the last error.

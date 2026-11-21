@@ -389,7 +389,7 @@ extension LocalParticipant {
         _state.trackPublications.values.filter { $0.track != nil }
             .map { publication in
                 Livekit_TrackPublishedResponse.with {
-                    $0.cid = publication.track!.mediaTrack.trackId
+                    $0.cid = publication.track!._state.publicationCid ?? publication.track!.mediaTrack.trackId
                     if let info = publication._state.latestInfo {
                         $0.track = info
                     }
@@ -763,13 +763,18 @@ extension LocalParticipant {
             throw LiveKitError(.invalidState, message: "Unknown LocalTrack type")
         }
         let options = (options as? AudioPublishOptions) ?? room._state.roomOptions.defaultAudioPublishOptions
-        let request = Livekit_AddTrackRequest.with {
+        let request = Self.audioPublishRequest(options: options)
+        return makePreparedPublish(track: track, options: options, request: request,
+                                   encodings: [RTC.createRtpEncodingParameters(encoding: options.encoding ?? AudioEncoding.presetMusic)])
+    }
+
+    /// Builds capture-independent audio options for both JOIN reservations and normal publication.
+    static func audioPublishRequest(options: AudioPublishOptions) -> Livekit_AddTrackRequest {
+        Livekit_AddTrackRequest.with {
             $0.disableDtx = !options.dtx
             $0.disableRed = !options.red
             $0.audioFeatures = Array(options.toFeatures())
         }
-        return makePreparedPublish(track: track, options: options, request: request,
-                                   encodings: [RTC.createRtpEncodingParameters(encoding: options.encoding ?? AudioEncoding.presetMusic)])
     }
 
     /// Resolves video dimensions, codec preferences, and simulcast layers before signaling.
@@ -883,7 +888,10 @@ extension LocalParticipant {
         }
 
         // Store publishOptions used for this track...
-        track._state.mutate { $0.lastPublishOptions = options }
+        track._state.mutate {
+            $0.lastPublishOptions = options
+            $0.publicationCid = prepared.request.cid
+        }
 
         let publication = LocalTrackPublication(info: trackInfo, participant: self)
         await publication.set(track: track)
@@ -908,8 +916,15 @@ extension LocalParticipant {
         return publication
     }
 
+    func publishPreparedAudio(_ track: LocalAudioTrack, preparation: PreparedAudioPublication) async throws {
+        let options = preparation.options
+        _ = try await _publishSerialRunner.run {
+            try await self._publish(track: track, options: options, preparedAudio: preparation)
+        }
+    }
+
     @discardableResult
-    func _publish(track: LocalTrack, options: TrackPublishOptions? = nil) async throws -> LocalTrackPublication {
+    func _publish(track: LocalTrack, options: TrackPublishOptions? = nil, preparedAudio: PreparedAudioPublication? = nil) async throws -> LocalTrackPublication {
         let room = try requireRoom()
         let publisher = try room.requirePublisher()
         try checkPermissions(toPublish: track)
@@ -918,13 +933,22 @@ extension LocalParticipant {
             throw LiveKitError(.invalidState, message: "This track has already been published.")
         }
         do {
-            let prepared = try await preparePublish(track: track, options: options)
+            var prepared = try await preparePublish(track: track, options: options)
+            let initial = try await preparedAudio?.sender(in: room)
+            if let (context, _) = initial {
+                prepared = PreparedPublish(track: track, options: prepared.options, request: context.request,
+                                           transceiverInit: prepared.transceiverInit)
+            }
+            let senderPreparation = prepared
             let negotiate: @Sendable () async throws -> Void = {
-                try await self.configureSender(prepared, publisher: publisher)
+                try await self.configureSender(senderPreparation, publisher: publisher)
                 try await room.publisherShouldNegotiate()
             }
             let trackInfo: Livekit_TrackInfo
-            if isFastPublishMode {
+            if let (context, info) = initial {
+                try await attachPreparedAudio(context, to: track)
+                trackInfo = info
+            } else if isFastPublishMode {
                 async let accepted = room.signalClient.sendAddTrack(prepared.request)
                 async let negotiated: Void = negotiate()
                 (trackInfo, _) = try await (accepted, negotiated)
@@ -932,7 +956,10 @@ extension LocalParticipant {
                 trackInfo = try await room.signalClient.sendAddTrack(prepared.request)
                 try await negotiate()
             }
-            return try await completePublish(prepared, info: trackInfo)
+            try Task.checkCancellation()
+            let publication = try await completePublish(prepared, info: trackInfo)
+            await preparedAudio?.commit()
+            return publication
         } catch {
             if let sender = track._state.read({ $0.transport === publisher ? $0.rtpSender : nil }) {
                 await rollback(sender: sender, publisher: publisher, room: room)
@@ -941,6 +968,24 @@ extension LocalParticipant {
             try? await track.stop()
             throw error
         }
+    }
+
+    /// Attaches authorized capture and enables RTP without another SDP negotiation.
+    private func attachPreparedAudio(_ context: PreparedAudioPublication.Sender, to track: LocalTrack) async throws {
+        try Task.checkCancellation()
+        try await RTC.run {
+            context.sender.raw.track = track.mediaTrack.raw
+            guard context.sender.raw.track?.trackId == track.mediaTrack.trackId else {
+                throw LiveKitError(.webRTC, message: "Could not attach prepared microphone")
+            }
+            let parameters = context.sender.raw.parameters
+            for encoding in parameters.encodings {
+                encoding.isActive = true
+            }
+            context.sender.raw.parameters = parameters
+        }
+        await track.set(transport: context.transport, rtpSender: context.sender)
+        try Task.checkCancellation()
     }
 
     // The server only learns about a track going away through renegotiation, so a publish that
