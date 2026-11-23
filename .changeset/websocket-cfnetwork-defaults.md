@@ -1,0 +1,5 @@
+---
+"client-sdk-swift": patch
+---
+
+CFNetwork's exact User-Agent and Accept-Language defaults and general HTTP authentication policy have no equivalent Network.framework API: the User-Agent now names the app and the SDK, authentication is limited to one Basic retry per protection space, and non-HTTP redirects fail because they cannot perform a WebSocket upgrade

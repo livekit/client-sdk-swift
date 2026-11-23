@@ -15,8 +15,17 @@ on:
         description: Specs repo to publish to
         default: livekit/podspecs
         type: string
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      ref:
+        default: main
+        type: string
+      dry_run:
+        default: true
+        type: boolean
+      spec_repo:
+        default: livekit/podspecs
+        type: string
 
 permissions:
   contents: read
@@ -30,7 +39,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.ref || 'main' }}
+          ref: ${{ inputs.ref }}
 
       - name: Setup CocoaPods
         uses: maxim-lobanov/setup-cocoapods@v1
@@ -46,6 +55,6 @@ jobs:
         uses: livekit/publish-cocoapod-action@089c62e30ff536886bac33f7e5dffb736ed27ed6 # main
         with:
           podspec: LiveKitClient.podspec
-          spec-repo: ${{ github.event.inputs.spec_repo || 'livekit/podspecs' }}
-          dry-run: ${{ github.event_name != 'release' && github.event.inputs.dry_run != 'false' }}
+          spec-repo: ${{ inputs.spec_repo }}
+          dry-run: ${{ inputs.dry_run }}
           token: ${{ secrets.PODSPECS_PAT }}

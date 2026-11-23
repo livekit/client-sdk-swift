@@ -1,0 +1,101 @@
+# After a release PR merges: build the XCFramework, then tag and create the
+# GitHub release, then publish the podspec, the XCFramework and the docs.
+# The steps that cannot be undone come last.
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+  # A failed job is re-run with "Re-run failed jobs" on the run itself:
+  # that keeps the merge commit. This trigger is for a run that needs a
+  # fixed workflow file from the branch. `verwalter release` resumes from
+  # the current state and skips what is done; the publish jobs run again.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit or tag to build and publish. Set it to the release tag when the tag exists. Empty is the branch head.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  # Builds only. A build that fails stops the release before the tag.
+  build:
+    # Only a release PR the tool opened: the branch prefix alone would let
+    # any pushed `release/*` branch trigger a release.
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/') && github.event.pull_request.user.login == 'verwalter-release[bot]' && contains(github.event.pull_request.body, '<!-- verwalter release -->'))
+    uses: ./.github/workflows/publish-xcframework.yaml
+    with:
+      ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+      dry_run: true
+    secrets: inherit
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      released: ${{ steps.verwalter.outputs.released }}
+      final: ${{ steps.final.outputs.final }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The merge commit itself: a push to main right after the merge
+          # must not move the tag.
+          ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+          fetch-depth: 0
+      - id: verwalter
+        uses: livekit/verwalter@39e3d7c57c2b6d96cf2d4b7771f3ab199490faba # v0.31.0
+        with:
+          command: release
+      # The docs site holds one version: an rc must not replace the docs of the last final release.
+      - id: final
+        run: '[[ "$(cat .version)" == *-* ]] || echo "final=true" >> "$GITHUB_OUTPUT"'
+
+  xcframework:
+    needs: release
+    if: needs.release.outputs.released == 'true' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/publish-xcframework.yaml
+    with:
+      ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+      dry_run: false
+    secrets: inherit
+
+  podspec:
+    needs: release
+    if: needs.release.outputs.released == 'true' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/publish-podspec.yaml
+    with:
+      ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+      dry_run: false
+    secrets: inherit
+
+  docs:
+    needs: release
+    if: (needs.release.outputs.released == 'true' || github.event_name == 'workflow_dispatch') && needs.release.outputs.final == 'true'
+    uses: ./.github/workflows/publish-docs.yaml
+    with:
+      ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+      dry_run: false
+    secrets: inherit
+
+  # The end state, asserted: `status --check` fails when the tag is not on
+  # the remote or the GitHub release is missing or still a draft.
+  verify:
+    needs: [release, xcframework, podspec, docs]
+    if: ${{ !cancelled() && !failure() && (needs.release.outputs.released == 'true' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # reads only. A draft release is visible only with write access
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+          fetch-depth: 0
+      - uses: livekit/verwalter@39e3d7c57c2b6d96cf2d4b7771f3ab199490faba # v0.31.0
+        with:
+          command: status
+          args: --check

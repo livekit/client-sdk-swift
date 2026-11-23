@@ -1,0 +1,5 @@
+---
+"client-sdk-swift": patch
+---
+
+A close frame from the server fails the signalling stream with its close code, so the client reconnects at once instead of after the ping timeout; our own close still ends it

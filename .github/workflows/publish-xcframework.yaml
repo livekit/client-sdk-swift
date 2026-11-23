@@ -10,8 +10,17 @@ on:
         description: Build only, skip draft release / PR
         default: true
         type: boolean
-  release:
-    types: [published]
+  # Called by release.yml: once with dry_run before the tag, once to publish after it.
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to build from (defaults to version, then main)
+        type: string
+      version:
+        type: string
+      dry_run:
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -32,7 +41,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.version || 'main' }}
+          ref: ${{ inputs.ref || inputs.version || 'main' }}
           submodules: recursive
           # Needed to reach github.sha below, which is not an ancestor of the
           # checked-out tag.
@@ -44,10 +53,9 @@ jobs:
       # must come from the tag, since that is the artifact's identity; the tooling
       # that packages them must not.
       #
-      # On a release event github.sha IS the tag's commit, so it cannot serve as
-      # the tooling ref -- that is exactly the stale script we are avoiding. Use
-      # the default branch there. A dispatch keeps github.sha so that changes to
-      # scripts/ can be exercised from a PR branch before they are merged.
+      # After a release PR merges, take the tooling from the default branch. A
+      # dispatch (of this workflow or of release.yml) keeps github.sha so that
+      # changes to scripts/ can be exercised from a PR branch before they are merged.
       - name: Use current build tooling
         env:
           TOOLING_REF: ${{ github.event_name == 'workflow_dispatch' && github.sha || format('origin/{0}', github.event.repository.default_branch) }}
@@ -64,7 +72,7 @@ jobs:
       - name: Resolve version
         id: ver
         run: |
-          VERSION="${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.version }}"
+          VERSION="${{ inputs.version }}"
           [ -z "$VERSION" ] && VERSION="$(cat .version)"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -77,7 +85,7 @@ jobs:
         run: swiftly run +xcode swift-sh scripts/xcframework.swift --version "${{ steps.ver.outputs.version }}"
 
       - name: Publish to hosting repo
-        if: ${{ github.event_name == 'release' || github.event.inputs.dry_run != 'true' }}
+        if: ${{ !inputs.dry_run }}
         uses: livekit/publish-xcframework-action@3b8645334fb62b0fd1d7067067819bcd111db157 # main
         with:
           xcframework-zip: .build/xcframework/LiveKit.xcframework.zip
