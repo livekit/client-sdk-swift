@@ -21,11 +21,26 @@ permissions:
   contents: read
 
 jobs:
+  # Only a run by hand, or a merged release PR or rc PR that the tool opened:
+  # the branch name alone would let any pushed `release/*` branch trigger a
+  # release. The author is `[release].author`, by default verwalter-release[bot].
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.verwalter.outputs.release }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+      - id: verwalter
+        uses: livekit/verwalter@9da894a1e4f7d298095a961be60c818afd47905b # v0.32.0-rc.1
+        with:
+          command: gate
+
   # Builds only. A build that fails stops the release before the tag.
   build:
-    # Only a release PR the tool opened: the branch prefix alone would let
-    # any pushed `release/*` branch trigger a release.
-    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/') && github.event.pull_request.user.login == 'verwalter-release[bot]' && contains(github.event.pull_request.body, '<!-- verwalter release -->'))
+    needs: gate
+    if: needs.gate.outputs.release == 'true'
     uses: ./.github/workflows/publish-xcframework.yaml
     with:
       ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
@@ -49,7 +64,7 @@ jobs:
           ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
           fetch-depth: 0
       - id: verwalter
-        uses: livekit/verwalter@39e3d7c57c2b6d96cf2d4b7771f3ab199490faba # v0.31.0
+        uses: livekit/verwalter@9da894a1e4f7d298095a961be60c818afd47905b # v0.32.0-rc.1
         with:
           command: release
       # The version names the concurrency groups. The docs site holds one version: an rc must not replace the docs of the last final release.
@@ -110,7 +125,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
           fetch-depth: 0
-      - uses: livekit/verwalter@39e3d7c57c2b6d96cf2d4b7771f3ab199490faba # v0.31.0
+      - uses: livekit/verwalter@9da894a1e4f7d298095a961be60c818afd47905b # v0.32.0-rc.1
         with:
           command: status
           args: --check
