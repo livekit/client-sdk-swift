@@ -26,7 +26,7 @@ internal import LiveKitWebRTC
 /// Shared engine for ScreenCaptureKit-backed capturers across platforms.
 ///
 /// Owns the `SCStream` lifecycle, sample-buffer delivery (``ScreenCaptureKit/SCStreamOutput``),
-/// the stream delegate, frame capture, and the static-screen resend timer. Subclasses supply the
+/// the stream delegate, and frame capture. Subclasses supply the
 /// `SCContentFilter` and `SCStreamConfiguration` for their platform — see ``MacOSScreenCapturer``
 /// (enumerated sources) and ``IOSScreenCapturer`` (system picker, iOS 27+).
 @available(macOS 12.3, iOS 27.0, *)
@@ -38,9 +38,6 @@ public class ScreenCapturer: VideoCapturer, @unchecked Sendable {
 
     struct State {
         var scStream: SCStream?
-        // Cached frame for resending to maintain a minimum of 1 fps
-        var lastFrame: LKRTCVideoFrame?
-        var resendTimer: AnyTaskCancellable?
     }
 
     let _screenCapturerState = StateSync(State())
@@ -69,9 +66,6 @@ public class ScreenCapturer: VideoCapturer, @unchecked Sendable {
     /// Stops and releases the active stream, if any.
     func teardownStream() async {
         guard let stream = _screenCapturerState.read({ $0.scStream }) else { return }
-
-        // Stop resending paused frames
-        _screenCapturerState.mutate { $0.resendTimer = nil }
 
         // A stream the user stopped from system UI is already gone, which `stopCapture()` reports
         // as an error. Releasing it is still the right outcome, so don't abort the teardown.
@@ -111,35 +105,11 @@ public class ScreenCapturer: VideoCapturer, @unchecked Sendable {
                                        rotation: ._0,
                                        timeStampNs: timeStampNs)
 
-        // Cache last frame
-        _screenCapturerState.mutate {
-            $0.lastFrame = rtcFrame
-        }
-
         capture(frame: rtcFrame, capturer: capturer, options: options)
-    }
-
-    private func capturePreviousFrame() async throws {
-        // Must be .started
-        guard case .started = captureState else {
-            log("CaptureState is not .started, resend timer should not trigger.", .warning)
-            return
-        }
-
-        guard let frame = _screenCapturerState.read({ $0.lastFrame }) else { return }
-
-        // create a new frame with new time stamp
-        let newFrame = LKRTCVideoFrame(buffer: frame.buffer,
-                                       rotation: frame.rotation,
-                                       timeStampNs: Self.createTimeStampNs())
-
-        // Feed frame to WebRTC
-        capture(frame: newFrame, capturer: capturer, options: options)
     }
 
     // MARK: - SCStreamOutput
 
-    // swiftlint:disable:next cyclomatic_complexity
     func handle(sampleBuffer: CMSampleBuffer, of outputType: SCStreamOutputType) {
         guard case .started = captureState else {
             log("Skipping capture since captureState is not .started")
@@ -168,20 +138,6 @@ public class ScreenCapturer: VideoCapturer, @unchecked Sendable {
                   let contentRect = CGRect(dictionaryRepresentation: contentRectDict as! CFDictionary), // swiftlint:disable:this force_cast
                   // let contentScale = attachments[.contentScale] as? CGFloat,
                   let scaleFactor = attachments[.scaleFactor] as? CGFloat else { return }
-
-            // Schedule resend timer
-            let newTimer = Task.detached(priority: .utility) { [weak self] in
-                while true {
-                    try? await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
-                    if Task.isCancelled { break }
-                    guard let self else { break }
-                    try await capturePreviousFrame()
-                }
-            }.cancellable()
-
-            _screenCapturerState.mutate {
-                $0.resendTimer = newTimer
-            }
 
             capture(sampleBuffer, contentRect: contentRect, scaleFactor: scaleFactor)
         }

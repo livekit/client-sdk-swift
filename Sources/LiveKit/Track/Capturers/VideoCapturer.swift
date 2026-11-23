@@ -79,6 +79,23 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         var dimensions: Dimensions?
         weak var processor: VideoProcessor?
         var isFrameProcessingBusy: Bool = false
+        var repeatsLastFrameWhileIdle = false
+        var lastCapture: LastCapture?
+    }
+
+    struct LastCapture {
+        let frame: LKRTCVideoFrame
+        let capturer: LKRTCVideoCapturer
+        let options: VideoCaptureOptions
+        var isFresh = true
+    }
+
+    private let idleRepeatTimer = AsyncTimer(interval: 1)
+
+    /// Resends the last frame once per second while the source delivers none (a static screen), so a
+    /// keyframe request from a new subscriber or after packet loss always has a frame to encode.
+    func set(repeatsLastFrameWhileIdle newValue: Bool) {
+        _state.mutate { $0.repeatsLastFrameWhileIdle = newValue }
     }
 
     let _state: StateSync<State>
@@ -155,6 +172,11 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
             $0.capturer?(self, didUpdate: .started)
         }
 
+        if _state.repeatsLastFrameWhileIdle {
+            idleRepeatTimer.setTimerBlock { [weak self] in self?.repeatLastFrameIfIdle() }
+            idleRepeatTimer.restart()
+        }
+
         return true
     }
 
@@ -182,6 +204,9 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
             $0.capturer?(self, didUpdate: .stopped)
         }
+
+        idleRepeatTimer.cancel()
+        _state.mutate { $0.lastCapture = nil }
 
         set(dimensions: nil)
 
@@ -291,7 +316,13 @@ extension VideoCapturer {
                           device: AVCaptureDevice?,
                           options: VideoCaptureOptions)
     {
-        if _state.isFrameProcessingBusy {
+        let isBusy = _state.mutate {
+            if $0.repeatsLastFrameWhileIdle, $0.startStopCounter > 0 {
+                $0.lastCapture = LastCapture(frame: frame, capturer: capturer, options: options)
+            }
+            return $0.isFrameProcessingBusy
+        }
+        if isBusy {
             log("Frame processing hasn't completed yet, skipping frame...", .warning)
             return
         }
@@ -307,32 +338,57 @@ extension VideoCapturer {
                 self._state.mutate { $0.isFrameProcessingBusy = false }
             }
 
-            var rtcFrame: LKRTCVideoFrame = frame
-            guard var lkFrame: VideoFrame = frame.toLKType() else {
-                log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
+            deliver(frame: frame, capturer: capturer, device: device, options: options)
+        }
+    }
+
+    /// Runs on `processingQueue`, so a repeated frame can never overtake or displace a new one.
+    private func repeatLastFrameIfIdle() {
+        processingQueue.async { [weak self] in
+            guard let self else { return }
+            let idle = _state.mutate { state -> LastCapture? in
+                guard let last = state.lastCapture, last.isFresh else { return state.lastCapture }
+                state.lastCapture?.isFresh = false
+                return nil
+            }
+            guard let idle else { return }
+            deliver(frame: LKRTCVideoFrame(buffer: idle.frame.buffer, rotation: idle.frame.rotation, timeStampNs: Self.createTimeStampNs()),
+                    capturer: idle.capturer,
+                    device: nil,
+                    options: idle.options)
+        }
+    }
+
+    private func deliver(frame: LKRTCVideoFrame,
+                         capturer: LKRTCVideoCapturer,
+                         device: AVCaptureDevice?,
+                         options: VideoCaptureOptions)
+    {
+        var rtcFrame: LKRTCVideoFrame = frame
+        guard var lkFrame: VideoFrame = frame.toLKType() else {
+            log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
+            return
+        }
+
+        // Apply processing if we have a processor attached.
+        if let processor = _state.processor {
+            guard let processedFrame = processor.process(frame: lkFrame) else {
+                log("VideoProcessor didn't return a frame, skipping frame.", .warning)
                 return
             }
+            lkFrame = processedFrame
+            rtcFrame = processedFrame.toRTCType()
+        }
 
-            // Apply processing if we have a processor attached.
-            if let processor = _state.processor {
-                guard let processedFrame = processor.process(frame: lkFrame) else {
-                    log("VideoProcessor didn't return a frame, skipping frame.", .warning)
-                    return
-                }
-                lkFrame = processedFrame
-                rtcFrame = processedFrame.toRTCType()
-            }
+        // Resolve real dimensions (apply frame rotation)
+        set(dimensions: Dimensions(width: rtcFrame.width, height: rtcFrame.height).apply(rotation: rtcFrame.rotation))
 
-            // Resolve real dimensions (apply frame rotation)
-            set(dimensions: Dimensions(width: rtcFrame.width, height: rtcFrame.height).apply(rotation: rtcFrame.rotation))
+        delegate?.capturer(capturer, didCapture: rtcFrame)
 
-            delegate?.capturer(capturer, didCapture: rtcFrame)
-
-            if rendererDelegates.isDelegatesNotEmpty {
-                rendererDelegates.notify { [lkFrame] renderer in
-                    renderer.render?(frame: lkFrame)
-                    renderer.render?(frame: lkFrame, captureDevice: device, captureOptions: options)
-                }
+        if rendererDelegates.isDelegatesNotEmpty {
+            rendererDelegates.notify { [lkFrame] renderer in
+                renderer.render?(frame: lkFrame)
+                renderer.render?(frame: lkFrame, captureDevice: device, captureOptions: options)
             }
         }
     }
