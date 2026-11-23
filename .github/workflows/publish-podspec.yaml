@@ -51,7 +51,27 @@ jobs:
         with:
           xcode-version: 26.5
 
+      # A second run for a version the specs repo has, merged or in an open PR,
+      # skips the publish. `pod repo push --no-overwrite` fails on a merged version.
+      - name: Check the specs repo
+        id: done
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.PODSPECS_PAT }}
+          SPEC_REPO: ${{ inputs.spec_repo }}
+        run: |
+          set -euo pipefail
+          VERSION=$(pod ipc spec LiveKitClient.podspec | jq -er .version)
+          if gh api "repos/$SPEC_REPO/contents/Specs/LiveKitClient/$VERSION/LiveKitClient.podspec" --silent 2>/dev/null; then
+            echo "::notice::$SPEC_REPO has LiveKitClient $VERSION. Skipping."
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          elif [ "$(gh pr list --repo "$SPEC_REPO" --head "publish/LiveKitClient-$VERSION" --state open --json number --jq length)" -gt 0 ]; then
+            echo "::notice::$SPEC_REPO has an open PR for LiveKitClient $VERSION. Skipping."
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish
+        if: steps.done.outputs.complete != 'true'
         uses: livekit/publish-cocoapod-action@089c62e30ff536886bac33f7e5dffb736ed27ed6 # main
         with:
           podspec: LiveKitClient.podspec

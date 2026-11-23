@@ -73,6 +73,7 @@ Find the cause first. The paths by cause are in the
 |---|---|
 | A job failed for a transient reason. | `gh run rerun <run-id> --failed` |
 | The workflow file needed a fix, and the fix is on `main`. | `gh workflow run release.yaml -f ref=<tag>` |
+| The build failed before the tag, and the fix to `scripts/` is on `main`. | `gh workflow run release.yaml -f ref=<merge commit of the release PR>` |
 | Only the XCFramework failed, and the fix is in `scripts/`. | `gh workflow run publish-xcframework.yaml -f version=<tag> -f dry_run=false` |
 | Only the podspec failed. | `gh workflow run publish-podspec.yaml -f ref=<tag> -f dry_run=false` |
 | Only the docs failed. | `gh workflow run publish-docs.yaml -f ref=<tag> -f dry_run=false` |

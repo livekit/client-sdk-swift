@@ -76,16 +76,38 @@ jobs:
           [ -z "$VERSION" ] && VERSION="$(cat .version)"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # A second run for a version the hosting repo has skips the build and the
+      # publish. The action refuses an existing release, so a repair run would fail.
+      - name: Check the hosting repo
+        id: done
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.XCFRAMEWORK_PAT }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          assets=$(gh release view "$VERSION" --repo "$HOSTING_REPO" --json assets --jq '.assets[].name' 2>/dev/null) || exit 0
+          prs=$(gh pr list --repo "$HOSTING_REPO" --head "release/$VERSION" --state all --json number --jq length)
+          if grep -qx LiveKit.xcframework.zip <<< "$assets" && [ "$prs" -gt 0 ]; then
+            echo "::notice::$HOSTING_REPO has release $VERSION and its PR. Skipping."
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::$HOSTING_REPO has release $VERSION, but it is incomplete (assets: ${assets:-none}, PRs: $prs). Delete it with 'gh release delete $VERSION --repo $HOSTING_REPO --cleanup-tag', then run again."
+            exit 1
+          fi
+
       - name: Install swiftly
+        if: steps.done.outputs.complete != 'true'
         run: |
           brew install swiftly swift-sh
           swiftly init --quiet-shell-followup --skip-install -y
 
       - name: Build XCFramework
+        if: steps.done.outputs.complete != 'true'
         run: swiftly run +xcode swift-sh scripts/xcframework.swift --version "${{ steps.ver.outputs.version }}"
 
       - name: Publish to hosting repo
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.done.outputs.complete != 'true' }}
         uses: livekit/publish-xcframework-action@3b8645334fb62b0fd1d7067067819bcd111db157 # main
         with:
           xcframework-zip: .build/xcframework/LiveKit.xcframework.zip
