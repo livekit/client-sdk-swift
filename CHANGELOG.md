@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.20.0] - 2026-11-23
+
+### Added
+
+- Data streams: attributes sent with the end of a stream (close(reason:attributes:) on TextStreamWriter and ByteStreamWriter, shown in the reader's info once the stream ends), progress reports for a one-shot sendText, sendBytes or sendFile (onProgress) and for an incoming stream (progress on TextStreamReader and ByteStreamReader, as StreamProgress), and StreamTextOptions.totalSize to declare the size of a text stream opened with streamText
+- Add keySize to KeyProviderOptions for AES-256 E2EE keys, to match the JS SDK
+
+### Changed
+
+- Cleartext ws:// upgrade requests send the full URL as the request target, also without a proxy, so that a system HTTP or PAC proxy can route them, and wss:// is unchanged
+- Benchmarks gain a late-joiner scenario (BM-JOIN) and no longer discard a whole variant when one iteration times out; the synthetic video source now produces moving content from a camera-type source, so `subscribed → first frame` measures media latency rather than a server-requested keyframe round trip
+- CFNetwork's exact User-Agent and Accept-Language defaults and general HTTP authentication policy have no equivalent Network.framework API: the User-Agent now names the app and the SDK, authentication is limited to one Basic retry per protection space, and non-HTTP redirects fail because they cannot perform a WebSocket upgrade
+- Data streams: cancelling a read closes the stream. The cancelled read throws CancellationError, and later reads throw StreamError.alreadyClosed
+- Update LiveKitWebRTC to 150.7871.08
+- The signalling WebSocket refuses a redirect from a secure URL to a cleartext one
+- A close frame from the server fails the signalling stream with its close code, so the client reconnects at once instead of after the ping timeout; our own close still ends it
+- The signalling WebSocket offers only forward-secret TLS cipher suites (ECDHE or TLS 1.3), even if the app sets an App Transport Security exception for its LiveKit host
+- Small messages are now compressed too when the server negotiates permessage-deflate
+- The minimum supported toolchain is now Xcode 26 (Swift 6.2): `Package.swift` declares `swift-tools-version:6.2` and the `Package@swift-6.2.swift` variant is gone, Xcode 16 CI coverage is removed, and the compiler-version guards for Swift 6.1 are deleted. Both Swift 5 and Swift 6 language modes remain supported, and the CocoaPods `swift_versions` stays `5.9`
+- Adds tests pinning that a receive-only media section's codec list does not constrain what a sending section in the same BUNDLE group can offer, in either negotiation order
+- `ByteStreamReader.writeToFile` now creates its destination exclusively: if a file already exists at the path the write fails with `StreamError.io` and the existing file is left untouched, where it was previously replaced. A symlink at the destination is no longer followed to its target. The sender chooses the file name, so replacing whatever sits at that path was not a safe default — callers that relied on the overwrite must now pick an explicit destination or remove the file first
+
+### Fixed
+
+- Update LiveKitWebRTC to 150.7871.05, which sizes the Metal renderer's drawables to the pixels displayed instead of the video's resolution times the screen scale (~214 MB for a small view showing 1080p on a 3x screen). VideoView also reports the video size of local and replayed frames to the renderer
+- Publisher offers now keep one fmtp config per payload type across the BUNDLE group, by conforming receive-only sections to the sending ones after munging — previously the video start bitrate written on a sending section left the preallocated receive sections of single peer connection mode declaring the same payload types without it
+- Fix local audio not reaching LocalAudioTrack renderers or capturePostProcessingDelegate when captured without a connected Room (startLocalRecording(), manual rendering mode, pre-connect audio buffer). Regressed in 2.13.0
+- Fix Opus DTX staying on when `dtx: false` comes from `RoomOptions.defaultAudioPublishOptions`. A track published without options now keeps the room defaults: `publishOptions` returns them, the audio features sent to the server include them, and a default `streamName` applies
+- Resume signal requests before responses so connection setup does not drop answers or ICE candidates produced by queued responses
+- Stop leaking about 25 KB per signalling connection: the WebSocket runs over Network.framework, as Foundation keeps every URLSession that ran a WebSocket task alive after it is closed; a rejected upgrade still reports its HTTP status
+- Region URLs returned by region discovery are now validated before the SDK fails over to them. Only encrypted (`wss`/`https`) LiveKit Cloud URLs without embedded credentials are accepted, and the check is enforced in `RegionInfo`'s initializer so it covers both sources of a region list: the `/settings/regions` response and the regions the server reports over signalling. Previously only the application-supplied URL was checked and the returned entries were used as they arrived, which matters because the SDK authenticates to those URLs with the participant token
+- RoomDelegate and ParticipantDelegate didReceiveData name the sender from the identity that the server sets, not the identity inside the packet. Data without a server-set identity has a nil participant
+- Fix a track subscribed after a local unpublish not playing in single peer connection mode. Offers rewrote `a=inactive` to `a=recvonly` on every RTP section, including the one left behind by an unpublish, whose transceiver `removeTrack` has stopped — so the server could bind a remote track to a section that can never receive. The rewrite was ported from rust-sdks, where it compensated for passing libwebrtc's legacy `offerToReceive` option as 0; this SDK never passes that option, so receive-only transceivers already offer `recvonly` without it
+
 ## [2.19.0] - 2026-10-26
 
 ### Changed
