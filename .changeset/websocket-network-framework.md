@@ -1,5 +1,0 @@
----
-"client-sdk-swift": patch
----
-
-Stop leaking about 25 KB per signalling connection: the WebSocket runs over Network.framework, as Foundation keeps every URLSession that ran a WebSocket task alive after it is closed; a rejected upgrade still reports its HTTP status

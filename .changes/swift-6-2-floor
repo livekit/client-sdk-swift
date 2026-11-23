@@ -1,0 +1,1 @@
+minor type="changed" "The minimum supported toolchain is now Xcode 26 (Swift 6.2): `Package.swift` declares `swift-tools-version:6.2` and the `Package@swift-6.2.swift` variant is gone, Xcode 16 CI coverage is removed, and the compiler-version guards for Swift 6.1 are deleted. Both Swift 5 and Swift 6 language modes remain supported, and the CocoaPods `swift_versions` stays `5.9`"

@@ -1,5 +1,0 @@
----
-"client-sdk-swift": patch
----
-
-The signalling WebSocket offers only forward-secret TLS cipher suites (ECDHE or TLS 1.3), even if the app sets an App Transport Security exception for its LiveKit host

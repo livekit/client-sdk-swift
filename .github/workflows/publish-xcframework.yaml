@@ -87,14 +87,18 @@ jobs:
         run: |
           set -euo pipefail
           assets=$(gh release view "$VERSION" --repo "$HOSTING_REPO" --json assets --jq '.assets[].name' 2>/dev/null) || exit 0
-          prs=$(gh pr list --repo "$HOSTING_REPO" --head "release/$VERSION" --state all --json number --jq length)
-          if grep -qx LiveKit.xcframework.zip <<< "$assets" && [ "$prs" -gt 0 ]; then
-            echo "::notice::$HOSTING_REPO has release $VERSION and its PR. Skipping."
-            echo "complete=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::error::$HOSTING_REPO has release $VERSION, but it is incomplete (assets: ${assets:-none}, PRs: $prs). Delete it with 'gh release delete $VERSION --repo $HOSTING_REPO --cleanup-tag', then run again."
+          if ! grep -qx LiveKit.xcframework.zip <<< "$assets"; then
+            echo "::error::$HOSTING_REPO has release $VERSION without LiveKit.xcframework.zip. If it is a draft, delete it with 'gh release delete $VERSION --repo $HOSTING_REPO --cleanup-tag', then run again."
             exit 1
           fi
+          # A PR closed without merge does not count: the hosting repo then lacks the manifests.
+          prs=$(gh pr list --repo "$HOSTING_REPO" --head "release/$VERSION" --state all --json state --jq '[.[] | select(.state != "CLOSED")] | length')
+          if [ "$prs" -eq 0 ]; then
+            echo "::error::$HOSTING_REPO has release $VERSION, but no open or merged PR from release/$VERSION. Reopen the closed PR, then run again."
+            exit 1
+          fi
+          echo "::notice::$HOSTING_REPO has release $VERSION and its PR. Skipping."
+          echo "complete=true" >> "$GITHUB_OUTPUT"
 
       - name: Install swiftly
         if: steps.done.outputs.complete != 'true'

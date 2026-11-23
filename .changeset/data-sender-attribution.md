@@ -1,5 +1,0 @@
----
-"client-sdk-swift": patch
----
-
-RoomDelegate and ParticipantDelegate didReceiveData name the sender from the identity that the server sets, not the identity inside the packet. Data without a server-set identity has a nil participant

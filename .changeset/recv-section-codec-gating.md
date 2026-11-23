@@ -1,5 +1,0 @@
----
-"client-sdk-swift": patch
----
-
-Adds tests pinning that a receive-only media section's codec list does not constrain what a sending section in the same BUNDLE group can offer, in either negotiation order

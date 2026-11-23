@@ -43,7 +43,6 @@ break. A PR without a user-facing change gets the `internal` label instead.
 | `publish-xcframework.yaml` | Called by `release.yaml`, or run by hand. | Builds the XCFramework, opens a draft release and a PR in `livekit/client-sdk-swift-xcframework`. |
 | `publish-podspec.yaml` | Called by `release.yaml`, or run by hand. | Opens a PR with the podspec in `livekit/podspecs`. |
 | `publish-docs.yaml` | Called by `release.yaml` for a final version, or run by hand. | Uploads the DocC site to S3. |
-| `pre-release.yaml` | Run by hand. | Opens an rc PR. |
 
 ## Release
 
@@ -60,9 +59,7 @@ A complete release has these results:
 
 ## Pre-release
 
-`gh workflow run pre-release.yaml --ref main`. Merging the rc PR tags
-`2.20.0-rc.1` and publishes the podspec and the XCFramework. The docs stay on
-the last final version.
+Not used. If this repository needs an rc, add `pre-release.yaml` from the verwalter examples.
 
 ## A release failed
 
@@ -72,7 +69,7 @@ Find the cause first. The paths by cause are in the
 | Situation | Command |
 |---|---|
 | A job failed for a transient reason. | `gh run rerun <run-id> --failed` |
-| The workflow file needed a fix, and the fix is on `main`. | `gh workflow run release.yaml -f ref=<tag>` |
+| The workflow file needed a fix, and the fix is on `main`. | `gh workflow run release.yaml -f ref=<tag>`. |
 | The build failed before the tag, and the fix to `scripts/` is on `main`, with the `internal` label and no changeset. | `gh workflow run release.yaml -f ref=<merge commit of the release PR>` |
 | Only the XCFramework failed, and the fix is in `scripts/`. | `gh workflow run publish-xcframework.yaml -f version=<tag> -f dry_run=false` |
 | Only the podspec failed. | `gh workflow run publish-podspec.yaml -f ref=<tag> -f dry_run=false` |

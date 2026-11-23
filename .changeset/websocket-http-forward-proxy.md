@@ -1,5 +1,0 @@
----
-"client-sdk-swift": patch
----
-
-Cleartext ws:// upgrade requests send the full URL as the request target, also without a proxy, so that a system HTTP or PAC proxy can route them, and wss:// is unchanged

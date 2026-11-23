@@ -1,5 +1,0 @@
----
-"client-sdk-swift": patch
----
-
-Publisher offers now keep one fmtp config per payload type across the BUNDLE group, by conforming receive-only sections to the sending ones after munging — previously the video start bitrate written on a sending section left the preallocated receive sections of single peer connection mode declaring the same payload types without it
