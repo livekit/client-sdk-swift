@@ -39,6 +39,8 @@ public struct RoomTestingOptions {
     /// How the room handles incoming data streams, for example a payload cap. The SDK default when
     /// not set.
     public let dataStreamOptions: DataStreamOptions
+    /// Publish options for an audio track that is published without options of its own.
+    public let defaultAudioPublishOptions: AudioPublishOptions
 
     // Perms
     public let canPublish: Bool
@@ -57,6 +59,7 @@ public struct RoomTestingOptions {
                 singlePeerConnection: Bool = false,
                 clientProtocol: ClientProtocol? = nil,
                 dataStreamOptions: DataStreamOptions = DataStreamOptions(),
+                defaultAudioPublishOptions: AudioPublishOptions = AudioPublishOptions(),
                 canPublish: Bool = false,
                 canPublishData: Bool = false,
                 canPublishSources: Set<Track.Source> = [],
@@ -73,6 +76,7 @@ public struct RoomTestingOptions {
         self.singlePeerConnection = singlePeerConnection
         self.clientProtocol = clientProtocol
         self.dataStreamOptions = dataStreamOptions
+        self.defaultAudioPublishOptions = defaultAudioPublishOptions
         self.canPublish = canPublish
         self.canPublishData = canPublishData
         self.canPublishSources = canPublishSources

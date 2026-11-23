@@ -165,6 +165,18 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     }
 }
 
+extension LocalAudioTrack {
+    /// Everything the server is told about this track: capture processing, publish options and Krisp.
+    func features(publishOptions: AudioPublishOptions?) -> Set<Livekit_AudioTrackFeature> {
+        var features = captureOptions.toFeatures()
+        features.formUnion(publishOptions?.toFeatures() ?? [])
+        if AudioManager.shared.capturePostProcessingDelegate?.audioProcessingName == kLiveKitKrispAudioProcessorName {
+            features.insert(.tfEnhancedNoiseCancellation)
+        }
+        return features
+    }
+}
+
 public extension LocalAudioTrack {
     var publishOptions: TrackPublishOptions? { super._state.lastPublishOptions }
     var publishState: Track.PublishState { super._state.publishState }
