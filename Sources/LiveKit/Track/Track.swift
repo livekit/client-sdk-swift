@@ -198,7 +198,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
     private func _resumeOrSuspendStatisticsTimer() async {
         let shouldStart = _state.read {
-            $0.reportStatistics && ($0.rtpSender != nil || $0.rtpReceiver != nil)
+            $0.reportStatistics && (nativePublication.copy() != nil || $0.rtpSender != nil || $0.rtpReceiver != nil)
         }
 
         if shouldStart {
@@ -464,6 +464,17 @@ public extension InboundRtpStreamStatistics {
 
 extension Track {
     func _onStatsTimer() async {
+        if let native = nativePublication.copy() {
+            do {
+                let records = try await native.getStatistics()
+                guard nativePublication.copy() === native else { return }
+                let statistics = TrackStatistics(native: records, previous: _state.statistics)
+                _state.mutate { $0.statistics = statistics }
+            } catch {
+                log("Native statistics sampling failed: \(error)")
+            }
+            return
+        }
         // Read from state
         let (transport, rtpSender, rtpReceiver, simulcastRtpSenders) = _state.read { ($0.transport, $0.rtpSender, $0.rtpReceiver, $0.rtpSenderForCodec) }
 
@@ -508,6 +519,7 @@ extension Track {
 
 extension Track {
     func detachNativeSource() async {
+        cancelStatisticsTimer()
         if let audio = self as? LocalAudioTrack { audio.nativeAudio.mutate { $0 = nil } }
         if let video = self as? LocalVideoTrack {
             video.nativeCapture.mutate { $0 = nil }

@@ -22,7 +22,10 @@ import AVFoundation
 public class RemoteVideoTrack: Track, RemoteTrackProtocol, @unchecked Sendable {
     private let nativeFrames = StateSync<AnyTaskCancellable?>(nil)
 
-    override func stopCapture() async throws { nativeFrames.mutate { $0 = nil } }
+    override func stopCapture() async throws {
+        cancelStatisticsTimer()
+        nativeFrames.mutate { $0 = nil }
+    }
 
     init(name: String,
          source: Track.Source,

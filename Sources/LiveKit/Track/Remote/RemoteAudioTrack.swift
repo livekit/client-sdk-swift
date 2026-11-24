@@ -99,6 +99,7 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
     }
 
     override func stopCapture() async throws {
+        cancelStatisticsTimer()
         nativeFrames.mutate { $0 = nil }
     }
 

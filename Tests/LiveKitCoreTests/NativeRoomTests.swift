@@ -24,10 +24,10 @@ import Testing
 struct NativeRoomTests {
     let url = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"] ?? "ws://127.0.0.1:17891"
 
-    func token(_ identity: String, room: String) throws -> String {
+    func token(_ identity: String, room: String, canUpdateMetadata: Bool = true) throws -> String {
         try tokenGenerate(options: .init(videoGrants: .init(roomCreate: false, roomList: false, roomRecord: false, roomAdmin: false, roomJoin: true, room: room, destinationRoom: "",
                                                             canPublish: true, canSubscribe: true, canPublishData: true,
-                                                            canPublishSources: [], canUpdateOwnMetadata: true, ingressAdmin: false, hidden: false, recorder: false, agent: false), identity: identity),
+                                                            canPublishSources: [], canUpdateOwnMetadata: canUpdateMetadata, ingressAdmin: false, hidden: false, recorder: false, agent: false), identity: identity),
                           credentials: .init(key: "devkey", secret: "secret"))
     }
 

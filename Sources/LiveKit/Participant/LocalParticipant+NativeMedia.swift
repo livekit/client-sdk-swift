@@ -57,6 +57,7 @@ extension LocalParticipant {
             }
             await publication.set(track: audio)
             guard room.nativeSession.copy() === session else { throw CancellationError() }
+            await audio.set(reportStatistics: audio._state.reportStatistics)
             add(publication: publication)
             delegates.notify { $0.participant?(self, didPublishTrack: publication) }
             room.delegates.notify { $0.room?(room, participant: self, didPublishTrack: publication) }
@@ -65,7 +66,7 @@ extension LocalParticipant {
             try? await audio.nativePublication.copy()?.unpublish()
             try? await source.release()
             await audio.detachNativeSource()
-            throw error
+            throw LiveKitError.mappingNative(error)
         }
     }
 }
@@ -104,6 +105,7 @@ extension LocalParticipant {
                 track._state.mutate { $0.nativeSession = session; $0.sid = Track.Sid(from: info.sid); $0.publishState = .published; $0.lastPublishOptions = options; $0.dimensions = dimensions }
                 await publication.set(track: track)
                 guard room.nativeSession.copy() === session else { throw CancellationError() }
+                await track.set(reportStatistics: track._state.reportStatistics)
                 add(publication: publication)
                 delegates.notify { $0.participant?(self, didPublishTrack: publication) }
                 room.delegates.notify { $0.room?(room, participant: self, didPublishTrack: publication) }
@@ -112,11 +114,11 @@ extension LocalParticipant {
                 try? await track.nativePublication.copy()?.unpublish()
                 try? await source.release()
                 await track.detachNativeSource()
-                throw error
+                throw LiveKitError.mappingNative(error)
             }
         } catch {
             try? await track.stop()
-            throw error
+            throw LiveKitError.mappingNative(error)
         }
     }
 }

@@ -46,6 +46,7 @@ extension NativeRoomTests {
                 try await Task.sleep(nanoseconds: 10_000_000)
             }
             try await eventually { rendered.peak.copy() > 0 }
+            try await checkNativeStatistics(local: track, remote: remoteTrack)
             #expect(remote.encryptionType == .gcm)
             try await checkStreams(sender: sender, receiver: receiver, encryption: .gcm)
             try await receiver.registerRpcMethod("encrypted-echo") { $0.payload }
@@ -73,7 +74,7 @@ extension NativeRoomTests {
 
     private func publishAudio(_ sender: Room, microphone: Bool) async throws -> (LocalTrackPublication, NativeLocalAudioTrack?) {
         if microphone { return try (#require(try await sender.localParticipant.setMicrophone(enabled: true)), nil) }
-        let track = await LocalAudioTrack.createTrack()
+        let track = await LocalAudioTrack.createTrack(reportStatistics: true)
         let source = try await sender.requireNativeSession().createAudioTrack(name: track.name, channels: 1)
         track.nativeAudio.mutate { $0 = source }
         let publication = try await sender.localParticipant.publish(audioTrack: track)
@@ -88,7 +89,7 @@ extension NativeRoomTests {
         let options = RoomOptions(encryptionOptions: encryption, reportRemoteTrackStatistics: true)
         let sender = Room(roomOptions: options)
         let receiver = Room(roomOptions: options)
-        let track = await LocalVideoTrack.createBufferTrack(options: .init(dimensions: Dimensions(width: 320, height: 240)))
+        let track = await LocalVideoTrack.createBufferTrack(options: .init(dimensions: Dimensions(width: 320, height: 240)), reportStatistics: true)
         let capturer = try #require(track.capturer as? BufferCapturer)
         var pixelBuffer: CVPixelBuffer?
         #expect(CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &pixelBuffer) == kCVReturnSuccess)
@@ -113,6 +114,7 @@ extension NativeRoomTests {
             let view = VideoView()
             view.track = remote
             try await eventually { remote.videoFrame != nil && view.isRendering }
+            try await checkNativeStatistics(local: track, remote: remote)
             #expect(remote.dimensions == Dimensions(width: 320, height: 240))
             producer.cancel()
             await producer.value
@@ -157,6 +159,26 @@ extension NativeRoomTests {
             await receiver.disconnect()
             throw error
         }
+    }
+
+    private func checkNativeStatistics(local: LiveKit.Track, remote: LiveKit.Track) async throws {
+        try await eventually {
+            (local.statistics?.outboundRtpStream.first?.bytesSent ?? 0) > 0 &&
+                (remote.statistics?.inboundRtpStream.first?.bytesReceived ?? 0) > 0
+        }
+        let native = try #require(local.nativePublication.copy())
+        let records = try await native.getStatistics()
+        guard let value = records.compactMap({ record in
+            if case let .outboundRtp(value)? = record.stats { return value }
+            return nil
+        }).first else { Issue.record("Native outbound statistics missing"); return }
+        var large = value
+        large.sent.bytesSent = 9_007_199_254_740_993
+        let mapped = TrackStatistics(native: [.init(stats: .outboundRtp(large))], previous: nil)
+        #expect(mapped.outboundRtpStream.first?.bytesSent == 9_007_199_254_740_993)
+        #expect(mapped.outboundRtpStream.first?.id == value.rtc.id)
+        #expect(mapped.outboundRtpStream.first?.codecId == value.stream.codecId)
+        #expect(mapped.outboundRtpStream.first?.ssrc == UInt(value.stream.ssrc))
     }
 
     private final class PCMWatcher: AudioRenderer {

@@ -162,7 +162,8 @@ extension StreamError {
         case .AlreadyClosed: .alreadyClosed
         case .SendFailed: .sendFailed
         case .InvalidFileName: .invalidFileName
-        case let .Io(reason): .io(reason: reason)
+        case let .Io(reason), let .IoFailure(_, _, reason): .io(reason: reason)
+        case .Cancelled, .InvalidState: .internalError
         case .Internal: .internalError
         @unknown default: .terminated
         }
@@ -170,6 +171,14 @@ extension StreamError {
 }
 
 extension StreamError {
+    static func fromNative(_ error: LiveKitFFI.DataStreamError) -> Error {
+        switch error {
+        case .Cancelled: CancellationError()
+        case let .InvalidState(reason): LiveKitError(.invalidState, message: reason)
+        default: StreamError(error)
+        }
+    }
+
     /// Maps core read errors and closes a cancelled stream before throwing `CancellationError`.
     /// FFI close wakes native futures synchronously, so it must run outside the cancellation
     /// handler's task status-record lock. The detached task is joined, never cancelled or abandoned.
@@ -197,7 +206,7 @@ extension StreamError {
                 throw CancellationError()
             }
             if let error = error as? LiveKitFFI.DataStreamError {
-                throw StreamError(error)
+                throw StreamError.fromNative(error)
             }
             throw error
         }

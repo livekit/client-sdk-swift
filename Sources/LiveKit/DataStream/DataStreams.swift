@@ -191,7 +191,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
         do {
             return try await abandoningOnCancel { try await call(outgoing) }
         } catch let error as LiveKitFFI.DataStreamError {
-            throw StreamError(error)
+            throw StreamError.fromNative(error)
         }
     }
 }

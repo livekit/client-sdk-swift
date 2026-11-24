@@ -151,6 +151,7 @@ extension Room {
             await publication.set(track: nil)
             return
         }
+        await track.set(reportStatistics: track._state.reportStatistics)
         track.set(trackState: .started)
         participant.delegates.notify { $0.participant?(participant, didSubscribeTrack: publication) }
         delegates.notify { $0.room?(self, participant: participant, didSubscribeTrack: publication) }

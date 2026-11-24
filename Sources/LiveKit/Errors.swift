@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -219,6 +220,8 @@ extension LiveKitError {
         if let error = error as? LiveKitError {
             return error
         }
+
+        if let native = error as? NativeSessionError { return from(native: native) }
 
         if error is CancellationError {
             return LiveKitError(.cancelled)

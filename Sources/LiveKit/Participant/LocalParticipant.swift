@@ -86,6 +86,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
 
         if let native = publication.track?.nativePublication.copy() {
             try await native.unpublish()
+            publication.track?.cancelStatisticsTimer()
             if stopTrack, room._state.roomOptions.stopLocalTrackOnUnpublish, let audio = publication.track as? LocalAudioTrack {
                 try await audio.nativeAudio.copy()?.release()
                 audio.nativeAudio.mutate { $0 = nil }
@@ -113,21 +114,6 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         guard let track = publication.track as? LocalTrack else {
             return await _notifyDidUnpublish()
         }
-
-        if let publisher = room._state.transport?.publisher, let sender = track._state.rtpSender {
-            // Remove all simulcast senders...
-            let simulcastSenders = track._state.read { Array($0.rtpSenderForCodec.values) }
-            for simulcastSender in simulcastSenders {
-                try await publisher.remove(track: simulcastSender)
-            }
-            // Remove main sender...
-            try await publisher.remove(track: sender)
-            // Mark re-negotiation required...
-            try await room.publisherShouldNegotiate()
-        }
-        await track.set(transport: nil, rtpSender: nil)
-
-        track._state.mutate { $0.rtpSenderForCodec.removeAll() }
 
         // Wait for track to stop (if required)
         if stopTrack, room._state.roomOptions.stopLocalTrackOnUnpublish {
@@ -227,7 +213,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(metadata: String) async throws {
         let room = try requireRoom()
-        try await room.requireNativeSession().setMetadata(metadata: metadata)
+        do { try await room.requireNativeSession().setMetadata(metadata: metadata) } catch { throw LiveKitError.mappingNative(error) }
         _state.mutate { $0.metadata = metadata }
     }
 
@@ -236,13 +222,13 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(name: String) async throws {
         let room = try requireRoom()
-        try await room.requireNativeSession().setName(name: name)
+        do { try await room.requireNativeSession().setName(name: name) } catch { throw LiveKitError.mappingNative(error) }
         _state.mutate { $0.name = name }
     }
 
     public func set(attributes: [String: String]) async throws {
         let room = try requireRoom()
-        try await room.requireNativeSession().setAttributes(attributes: attributes)
+        do { try await room.requireNativeSession().setAttributes(attributes: attributes) } catch { throw LiveKitError.mappingNative(error) }
         _state.mutate { $0.attributes = attributes }
     }
 
@@ -313,23 +299,10 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
         super.set(info: info, connectionState: connectionState)
 
-        // Reconcile track mute status
         for trackInfo in info.tracks {
-            let trackSid = Track.Sid(from: trackInfo.sid)
-            guard let publication = trackPublications[trackSid] as? LocalTrackPublication else { continue }
-
-            let localMuted = publication.isMuted
-            if localMuted != trackInfo.muted {
-                log("updating server mute state after reconcile, track: \(trackSid), muted: \(localMuted)", .debug)
-                Task {
-                    do {
-                        let room = try requireRoom()
-                        try await room.signalClient.sendMuteTrack(trackSid: trackSid, muted: localMuted)
-                    } catch {
-                        log("Failed to update server mute state after reconcile, error: \(error)", .error)
-                    }
-                }
-            }
+            guard let publication = trackPublications[Track.Sid(from: trackInfo.sid)] as? LocalTrackPublication else { continue }
+            publication.updateFromInfo(info: trackInfo)
+            publication.track?.set(muted: trackInfo.muted)
         }
     }
 

@@ -303,8 +303,8 @@ extension NativeRoomDriver {
     private func finishRpc(_ id: String) { rpcTasks[id] = nil }
 }
 
-private extension NativeRoomDriver {
-    static func milliseconds(_ interval: TimeInterval) throws -> UInt64 {
+extension NativeRoomDriver {
+    private static func milliseconds(_ interval: TimeInterval) throws -> UInt64 {
         guard interval.isFinite, interval >= 0, interval * 1000 < Double(UInt64.max) else {
             throw LiveKitError(.invalidParameter, message: "Invalid timeout")
         }
@@ -318,7 +318,7 @@ private extension NativeRoomDriver {
               connect.reconnectMaxDelay == defaults.reconnectMaxDelay,
               connect.primaryTransportConnectTimeout == defaults.primaryTransportConnectTimeout,
               connect.publisherTransportConnectTimeout == defaults.publisherTransportConnectTimeout,
-              connect.iceServers.isEmpty, connect.iceTransportPolicy == .all,
+              connect.iceTransportPolicy != .none,
               !connect.isDscpEnabled, !connect.enableMicrophone,
               connect.protocolVersion == defaults.protocolVersion, connect.clientProtocol == defaults.clientProtocol
         else {
@@ -339,6 +339,9 @@ private extension NativeRoomDriver {
         return try .init(autoSubscribe: connect.autoSubscribe, adaptiveStream: room.adaptiveStream,
                          dynacast: room.dynacast, singlePeerConnection: room.singlePeerConnection,
                          connectTimeoutMs: milliseconds(connect.socketConnectTimeoutInterval),
-                         sdk: "swift", sdkVersion: LiveKitSDK.version, maxStreamPayloadBytes: payload.map(UInt32.init), encryption: encryption)
+                         sdk: "swift", sdkVersion: LiveKitSDK.version, maxStreamPayloadBytes: payload.map(UInt32.init), encryption: encryption,
+                         iceServers: connect.iceServers.map { .init(urls: $0.urls, username: $0.username ?? "", password: $0.credential ?? "") },
+                         iceTransportPolicy: connect.iceTransportPolicy == .relay ? .relay : connect.iceTransportPolicy == .noHost ? .noHost : .all,
+                         clientProtocol: Int32(connect.clientProtocol.rawValue))
     }
 }
