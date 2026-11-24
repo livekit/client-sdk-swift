@@ -32,7 +32,7 @@ import LiveKitTestSupport
 ///         swift test --filter TelemetryOptOutProcessTests
 ///
 /// `seed` (endpoint unreachable) leaves batches in this process name's cache for `beforeRoom`;
-/// `duringRequest` and `duringSubmit` connect to `livekit-server --dev`.
+/// `concurrentDisable` needs neither; `duringRequest` and `duringSubmit` connect to `livekit-server --dev`.
 @Suite(.serialized) struct TelemetryOptOutProcessTests {
     private static let selected = ProcessInfo.processInfo.environment["LK_TELEMETRY_OPT_OUT_CASE"]
     private static let recorder = ProcessInfo.processInfo.environment["LK_TELEMETRY_ENDPOINT"].flatMap(URL.init(string:))
@@ -128,6 +128,41 @@ import LiveKitTestSupport
         release.signal()
         await Telemetry.cleanUpFinished()
         #expect(Self.cachedFiles() == 0)
+    }
+
+    /// Overlapping opt-outs: the first caller is held right after it scheduled the clean-up, a
+    /// second caller returns at once, and awaiting the clean-up from there still waits for it.
+    /// Eight more concurrent opt-outs schedule nothing: the clean-up runs exactly once.
+    @Test(.enabled(if: selected == "concurrentDisable"))
+    func concurrentDisable() async {
+        let runs = StateSync(0)
+        Telemetry.beforeCleanUp.mutate { $0 = { runs.mutate { $0 += 1 } } }
+        let scheduled = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+        Telemetry.afterCleanUpScheduled.mutate { $0 = { scheduled.signal(); release.wait() } }
+        let firstReturned = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            LiveKitSDK.disableTelemetry()
+            firstReturned.signal()
+        }
+        #expect(await Self.signalled(scheduled))
+
+        #expect(await Self.disableReturns())
+        await Telemetry.cleanUpFinished()
+        #expect(runs.copy() == 1)
+
+        release.signal()
+        #expect(await Self.signalled(firstReturned))
+        await withTaskGroup(of: Bool.self) { group in
+            for _ in 0 ..< 8 {
+                group.addTask { await Self.disableReturns() }
+            }
+            for await returned in group {
+                #expect(returned)
+            }
+        }
+        await Telemetry.cleanUpFinished()
+        #expect(runs.copy() == 1)
+        #expect(telemetryIsDisabled())
     }
 
     @Test(.enabled(if: selected == "duringRequest"))

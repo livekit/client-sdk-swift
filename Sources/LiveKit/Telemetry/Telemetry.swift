@@ -49,18 +49,29 @@ enum Telemetry {
     /// Test seam: runs on ``cleanUpQueue`` right before the refused configure.
     static let beforeCleanUp = StateSync<(@Sendable () -> Void)?>(nil)
 
+    /// Test seam: runs on the caller that scheduled the clean-up, after it let go of the lock.
+    static let afterCleanUpScheduled = StateSync<(@Sendable () -> Void)?>(nil)
+
+    /// Marks and queues the clean-up in one locked step, so a caller that finds it marked also
+    /// finds it queued. Queueing never blocks; the configure runs later, outside the lock.
     private static func cleanUp() {
-        guard cleanUpScheduled.mutate({ let first = !$0; $0 = true; return first }) else { return }
-        cleanUpQueue.async {
-            beforeCleanUp.copy()?()
-            install()
+        let scheduled = cleanUpScheduled.mutate { scheduled in
+            guard !scheduled else { return false }
+            scheduled = true
+            cleanUpQueue.async {
+                beforeCleanUp.copy()?()
+                install()
+            }
+            return true
         }
+        if scheduled { afterCleanUpScheduled.copy()?() }
     }
 
-    /// Returns once the opt-out's clean-up has run; at once when none was scheduled.
+    /// Returns once the opt-out's clean-up has run; at once when none was scheduled. Queued under
+    /// the scheduling lock, so it lands behind any clean-up that a concurrent opt-out marked.
     static func cleanUpFinished() async {
         await withCheckedContinuation { continuation in
-            cleanUpQueue.async { continuation.resume() }
+            cleanUpScheduled.read { _ in cleanUpQueue.async { continuation.resume() } }
         }
     }
 
