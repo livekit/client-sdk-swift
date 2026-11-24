@@ -99,6 +99,16 @@ dependency: swift-protobuf (test-only); removed submodule: `protocol`. Remaining
 capture, render and the audio device module; `LKObjCHelpers` stays because public
 `LKSampleHandler` calls its broadcast-finish helper. Source: `swift package describe` on both trees.
 
+## Prune gates (681232eb, evidence in research-v3/swift-prune)
+
+| Gate | Result |
+|---|---|
+| Full SwiftPM test-target compile | `swift build --build-tests --jobs 2` in a fresh scratch: exit 0, Core/Audio/ObjC bundles built, no protocol targets. |
+| Runtime, owned server | 118 tests in 17 suites (Room, Participant, data, RPC, streams, data tracks, encryption, controls, cancellation): 109 pass. All 71 issues are listed unsupported surfaces: packet encryptionType `.none` (39), nondefault clientProtocol (17), decrypt-failure callback (4), nonzero key index (2), `debug_simulate` (2), and 7 follow-on missed receipts. |
+| Unchanged ObjC suite | 21/21 pass. |
+| API digester, macOS and iOS device Release | Against 2fcaec9c and b0291abc: 0 breaking, 0 additions. ObjC header declarations are an equal multiset; text differs only in doc comments and the moved `Room` prepareConnection category. Selftest passes. |
+| iOS simulator Release, lint | Builds; SwiftLint 0 warnings, SwiftFormat clean. |
+
 ## Connection option contract
 
 Mapped: autoSubscribe, adaptiveStream, dynacast, singlePeerConnection,
