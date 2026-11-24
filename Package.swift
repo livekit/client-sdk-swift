@@ -87,6 +87,7 @@ let package = Package(
                 "LiveKitTestSupport",
                 .product(name: "LiveKitFFI", package: "livekit-ffi-xcframework"),
             ],
+            exclude: ["Telemetry/otelcol.yaml"], // the e2e collector's configuration, read by otelcol
         ),
         .testTarget(
             name: "LiveKitAudioTests",

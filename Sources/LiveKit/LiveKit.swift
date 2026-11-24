@@ -58,7 +58,8 @@ public class LiveKitSDK: NSObject, Loggable {
     /// Opts this process out of client telemetry. Collection stops when this returns, in existing
     /// Rooms too, and Rooms created afterwards collect nothing; everything not yet sent (queued,
     /// open, or cached on disk by this launch or an earlier one) is deleted in the background.
-    /// Not remembered across launches: call it at every launch, before creating a Room.
+    /// An upload already in progress can still reach the server, and data already sent cannot be
+    /// recalled. Not remembered across launches: call it at every launch, before creating a Room.
     ///
     /// - Note: TODO: final shape pending the token/consent discussion.
     public static func disableTelemetry() {
