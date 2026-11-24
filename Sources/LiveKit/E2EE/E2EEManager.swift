@@ -76,12 +76,15 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
 }
 
 // ponytail: the native session owns per-track cryptors; these callbacks keep the public conformance.
+// swiftformat:disable unusedArguments
 extension E2EEManager: RoomDelegate {
-    public func room(_: Room, participant _: LocalParticipant, didPublishTrack _: LocalTrackPublication) {}
+    public func room(_: Room, participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {}
 
-    public func room(_: Room, participant _: LocalParticipant, didUnpublishTrack _: LocalTrackPublication) {}
+    public func room(_: Room, participant: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication) {}
 
-    public func room(_: Room, participant _: RemoteParticipant, didSubscribeTrack _: RemoteTrackPublication) {}
+    public func room(_: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {}
 
-    public func room(_: Room, participant _: RemoteParticipant, didUnsubscribeTrack _: RemoteTrackPublication) {}
+    public func room(_: Room, participant: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication) {}
 }
+
+// swiftformat:enable unusedArguments
