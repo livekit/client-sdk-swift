@@ -8,13 +8,12 @@ not general capture safety. The Swift and Rust reviews are not yet complete.
 
 Checkpoint: production Room integration against safe Rust
 `6bda54970f8d24c845d5a1ef32bed6b8bf133c17` (shipped FFI0.13.4 baseline).
-Package: `/Users/blaze/livekit/research-v3/rust-ffi/room-apis-6bda549-safe/livekit-ffi-xcframework`.
+Package: `/Users/blaze/livekit/research-v3/rust-ffi/room-apis-6bda549-safe-apple/livekit-ffi-xcframework`.
 Verified macOS arm64 binary SHA-256:
 `ba4a237e1268adc8df39657f7559dbe007dae122afb64cc97c5e78647cabfde9`.
 Automatic PlatformAudio activation is removed; safe receive-only output remains
-blocked on a capture-independent public core API. This safe checkpoint is macOS
-only; final iOS verification needs matching safe slices. Earlier Apple archive
-members require iOS14 despite device LC13 / SDK declaration13: **iOS13 is a
+blocked on a capture-independent public core API. Matching safe device/simulator slices are now available; both explicitly require
+iOS14. SDK declaration13 therefore remains incompatible: **iOS13 is a
 minor-release blocker**, not established support. No stand-ins or second Room engine.
 
 **Conclusion:** production encrypted connection, microphone/synthetic PCM,
@@ -37,10 +36,10 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 
 | Gate | Current conclusion |
 |---|---|
-| Public Swift/ObjC declarations, enum values, selectors, availability | macOS Release/distribution at `23dfa1f7` and historical iOS device at `96cddfb0`: digester reports zero breaking changes and zero additions. ObjC header differs only by relocating the unchanged Room.prepareConnection category; exact header line multiset is equal. Enum/selector/availability text is unchanged. This is surface evidence, not behavioral compatibility. |
+| Public Swift/ObjC declarations, enum values, selectors, availability | macOS Release/distribution at `23dfa1f7` and matching-safe iOS device at `3d4754e1`: digester reports zero breaking changes and zero additions. ObjC header differs only by relocating the unchanged Room.prepareConnection category; exact header line multiset is equal. Enum/selector/availability text is unchanged. This is surface evidence, not behavioral compatibility. |
 | Existing unmodified public E2E | 21 existing Objective-C test methods passed unchanged, including streams/file/incremental writers, data tracks, RPC and Room delegates. Current participant identity/membership, PublishDataTests and DataTrackApiTests also pass with original unchanged shared-key/statistics-enabled fixtures; this does not imply all default/media behavior is compatible. |
 | Lifecycle/default/error/delegate/observation semantics | Two-room state/delegate/data/rejoin, invalid-token, cancellation and release proof exists. Sequential name callback ordering/getter consistency and SwiftUI notification delivery now pass. Involuntary reconnect, full error parity and default-option parity remain unproved. New unsupported throws and ineffective nonthrowing controls are **compatibility breaks**. |
-| Supported build/package/target matrix | Current safe macOS arm64 Debug/Release pass. Earlier247 iOS device/simulator builds passed, but do not validate this source delta; safe iOS slices are pending. Catalyst/tvOS/visionOS/Intel simulator slices absent. Absolute local artifact pin is research packaging, not a distributable minor release. |
+| Supported build/package/target matrix | Current safe macOS arm64 Debug/Release pass. Matching-safe iOS device Release/API and arm64 simulator Release compilation pass; iOS14 native minimum remains incompatible with SDK declaration13. Catalyst/tvOS/visionOS/Intel simulator slices absent. Absolute local artifact pin is research packaging, not a distributable minor release. |
 
 ## Single capability/blocker ledger
 
@@ -67,7 +66,7 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 | `Room.connect`/stream command error types | **implemented typed mapping** for native Signal HTTP source/status/timeout, RequestFailure, RTC and stream IO/cancellation/state variants. | Exact typed permission rejection tested against server, misleading reason strings tested locally. Older reason-only cases and core-erased transport/region causes remain parity gaps; no string parsing. Other public command boundaries still need complete error audit. |
 | `Room.prepareConnection(url:token:)` and region preparation | Declaration retained; prepared-region/cache consumption is **pending** on the native connect path. | Native connection/region policy must expose the equivalent behavior; do not count retained Swift preparation code as parity. |
 | `Room.debug_simulate(scenario:)` | Unsupported activation throws. | No native simulation command exported. |
-| iOS, Catalyst, tvOS, visionOS | Current safe package is macOS only. Earlier247 iOS device/API and arm64 simulator compilation passed; this source delta awaits matching safe slices. Catalyst/tvOS/visionOS and Intel simulator slices absent. | No iOS runtime claim. Both WebRTC archives have2946 minimum-version commands, all14: device LC13 does NOT establish iOS13 support. SDK declaration13 is a real compatibility blocker. |
+| iOS, Catalyst, tvOS, visionOS | Matching safe package includes macOS and arm64 iOS device/simulator. Production device Release/API and arm64 simulator Release compilation pass at3d4754e1. Catalyst/tvOS/visionOS and Intel simulator slices absent. | No iOS runtime claim. Both WebRTC archives have2946 minimum-version commands, all14: device LC13 does NOT establish iOS13 support. SDK declaration13 is a real compatibility blocker. |
 
 Review-specific remaining gaps (existing declarations retained):
 
@@ -118,7 +117,7 @@ and remove the handler. The narrow manager-options delta below remains for final
 | Gate | Evidence and scope |
 |---|---|
 | Focused safe runtime | `review-followup/focused.log`: **8 functions / 10 cases pass**. Files NativeReviewTests.swift, NativeCompatibilityTests.swift, NativeMediaTests.swift. Covers legacy/modern encryption and shared keys, connecting/concurrent/residual RPC registration, typed permission/removal errors, encrypted synthetic/physical audio, video/VideoView, statistics and connected-before-subscribe ordering. No b3 media run after the privacy finding. |
-| Public API | `api-manager-final/macOS` at23dfa1f7: Release/distribution passes; both breaking and reversed-addition reports inspected, no changes. Swift interface and ObjC header byte-identical to626eecdf. `--diff` exit0 alone is not a compatibility gate. iOS recheck needs safe slices; old dumps do not cover this delta. |
+| Public API | `api-manager-final/macOS` at23dfa1f7: Release/distribution passes; both breaking and reversed-addition reports inspected, no changes. Swift interface and ObjC header byte-identical to626eecdf. `--diff` exit0 alone is not a compatibility gate. Matching-safe iOS recheck at3d4754e1 reports zero changes/additions; header only relocates unchanged prepareConnection category (identical line multiset). |
 | Objective-C | `review-followup/objc.log` / `objc.xcresult`: all21 unchanged methods in all7 Tests/LiveKitObjCTests files pass on safe6bda549 / source0c2e35d2. |
 | Lint | Strict lint passes changed source/test files (`review-followup/lint-final.log`, `test-lint.log`); source commit hook formats touched files. |
 | Original defaults | Earlier original Participant identity/membership, PublishDataTests and DataTrackApiTests passed with unchanged shared-key/statistics-enabled support fixtures (`c6-fixture-provenance.txt`, `stats-regression.log`, `stats-compat-test.log`). No weakened fixture counted as default parity. |
@@ -156,7 +155,10 @@ Package blob remains identical to008d5420; no artifact/default/API redesign.
 nil and opposite constructor/connect-time options). Strict lint passes Room.swift
 and NativeReviewTests.swift. Fresh macOS Release/API reports zero changes/additions;
 Swift interface and ObjC header are byte-identical to the approved checkpoint.
-No broad runtime rerun; matching safe iOS slices remain outstanding.
+No broad runtime rerun. Claude final re-review approvedaf45ccaf with no blockers.
+Parent rerun recovered after selecting system Swift and restoring the owned server:
+manager-options/recovery-tests.log records the same2functions/5cases passed.
+Use `PATH=/usr/bin:/bin:$PATH` and start the configured server before these tests.
 
 ```sh
 LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Users/blaze/livekit/research-v3/swift-native-next/production-check --filter 'managerReplacementUsesConnectedEncryptionOptions|configuredEncryptionEnableIsIdempotent'
@@ -164,3 +166,25 @@ swiftlint lint --strict Sources/LiveKit/Core/Room.swift Tests/LiveKitCoreTests/N
 JOBS=2 CACHE=/Users/blaze/livekit/research-v3/swift-native-next/api-cache .github/api-check/api-dump.sh /Users/blaze/livekit/research-v3/swift-native-next/api-manager-final macOS
 .github/api-check/api-dump.sh --diff /Users/blaze/livekit/research-v3/swift-baseline/macOS /Users/blaze/livekit/research-v3/swift-native-next/api-manager-final/macOS
 ```
+
+Matching-safe Apple pin3d4754e1 changes only Package.swift's local artifact path;
+Sources are identical to approvedaf45ccaf. All SHA256SUMS entries and archive hash
+`06b940bc0029d5bc7acec1f4a6b6adf79f4658cb6312c45b409e33bc3c1d5a2c` verified;
+all3 generated Swift files and the macOS binary are unchanged. Evidence:
+`safe-apple/` and `api-safe-apple/iOS`. Device/API reports zero breaking/addition
+entries; ObjC header line multiset matches baseline. Device/simulator incremental
+verification result bundles resolve initial Xcode “failed with exit code0” log
+messages; both builds succeeded. No iOS runtime claim or Swift platform-floor edit.
+iOS14 native minimum remains a minor-compatibility blocker. Native iOS signatures
+verify; unchanged macOS bundle fails strict signature validation (“ambiguous bundle
+format”), a research-packaging/distribution blocker. Native independent review pending.
+Parent recovery log `manager-options/parent-recovery-tests.log` passes2functions/5cases;
+parent verified and stopped owned server85789 after the run.
+
+Apple gate commands (system toolchain, no native rebuild):
+```sh
+PATH=/usr/bin:/bin:$PATH JOBS=2 CACHE=/Users/blaze/livekit/research-v3/swift-native-next/api-cache .github/api-check/api-dump.sh /Users/blaze/livekit/research-v3/swift-native-next/api-safe-apple iOS
+PATH=/usr/bin:/bin:$PATH .github/api-check/api-dump.sh --diff /Users/blaze/livekit/research-v3/swift-baseline/iOS /Users/blaze/livekit/research-v3/swift-native-next/api-safe-apple/iOS
+```
+Exact simulator/device xcodebuild commands and hashes are saved with the final
+review packet; only production build targets run, no runtime test cases.
