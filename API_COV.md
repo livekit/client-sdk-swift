@@ -106,3 +106,14 @@ DataTrack/DataTrackPublishTests.swift and DataTrack/DataTrackTests.swift (all un
 Tests/LiveKitCoreTests). ObjC: all seven files in Tests/LiveKitObjCTests.
 Lint: `swiftlint lint --strict` on the exact 20-file list in the external
 `touched-swift-files.txt`; targeted resilience/header fixes also have lint logs.
+
+Follow-up data-path checks (893 artifact, no SDK source/API changes):
+`NativeRoomTests.participantObservationAndCallbackOrder` and
+`rpcErrorsDeadlineAndCancellation`: **2 functions / 2 cases passed**. Identity,
+synchronous getters inside name callbacks, ordered sequential name callbacks,
+SwiftUI notification delivery, custom RPC code/message/data, unsupported-method
+code, response deadline, cancellation and a subsequent RPC are covered. Baseline
+`2fcaec9c` participant observer implementation and existing RPC assertions were
+compared read-only; no baseline runtime rerun. This is plaintext data-path proof.
+Command: `LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Users/blaze/livekit/research-v3/swift-native-next/production-check --filter 'participantObservationAndCallbackOrder|rpcErrorsDeadlineAndCancellation'`.
+Evidence: `observation-rpc-final.log`, `observation-lint.log` in the evidence root.

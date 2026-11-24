@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Combine
 import Foundation
 @testable import LiveKit
 import LiveKitFFI
@@ -82,6 +83,119 @@ struct NativeRoomTests {
             await alice.disconnect()
             await bob.disconnect()
             throw error
+        }
+    }
+
+    @Test
+    func participantObservationAndCallbackOrder() async throws {
+        let name = "swift-observation-\(UUID().uuidString)"
+        let alice = Room()
+        let bob = Room()
+        do {
+            try await alice.connect(url: url, token: token("alice", room: name))
+            try await bob.connect(url: url, token: token("bob", room: name))
+            try await eventually { bob.remoteParticipants.count == 1 }
+            let participant = try #require(bob.remoteParticipants[.init(from: "alice")])
+            let watcher = NameWatcher(participant)
+            bob.add(delegate: watcher)
+            let observed = StateSync<[String]>([])
+            let observation = participant.objectWillChange.sink { [weak participant] in
+                if let name = participant?.name { observed.mutate { $0.append(name) } }
+            }
+            defer { observation.cancel() }
+            for name in ["first", "second"] {
+                try await alice.localParticipant.set(name: name)
+                try await eventually {
+                    watcher.names.copy().last == name && observed.copy().contains(name)
+                }
+                #expect(bob.remoteParticipants[.init(from: "alice")] === participant)
+            }
+            #expect(watcher.names.copy() == ["first", "second"])
+            await alice.disconnect()
+            await bob.disconnect()
+        } catch {
+            await alice.disconnect()
+            await bob.disconnect()
+            throw error
+        }
+    }
+
+    @Test
+    func rpcErrorsDeadlineAndCancellation() async throws {
+        let name = "swift-rpc-errors-\(UUID().uuidString)"
+        let caller = Room()
+        let receiver = Room()
+        let destination = Participant.Identity(from: "receiver")
+        do {
+            try await caller.connect(url: url, token: token("caller", room: name))
+            try await receiver.connect(url: url, token: token("receiver", room: name))
+            try await eventually { caller.remoteParticipants.count == 1 }
+            try await receiver.registerRpcMethod("custom") { _ in
+                throw RpcError(code: 101, message: "custom failure", data: "details")
+            }
+            for (method, code) in [("custom", 101), ("missing", RpcError.BuiltInError.unsupportedMethod.code)] {
+                do {
+                    _ = try await caller.localParticipant.performRpc(destinationIdentity: destination, method: method, payload: "")
+                    Issue.record("Expected RPC failure")
+                } catch let error as RpcError {
+                    #expect(error.code == code)
+                    if method == "custom" {
+                        #expect(error.message == "custom failure")
+                        #expect(error.data == "details")
+                    }
+                }
+            }
+            let entered = AsyncCompleter<Void>(label: "RPC entered", defaultTimeout: 5)
+            let release = AsyncCompleter<String>(label: "RPC release", defaultTimeout: 10)
+            try await receiver.registerRpcMethod("wait") { _ in
+                entered.resume(returning: ())
+                return try await release.wait()
+            }
+            do {
+                _ = try await caller.localParticipant.performRpc(destinationIdentity: destination, method: "wait", payload: "", responseTimeout: 1, maxRoundTripLatency: 0.1)
+                Issue.record("Expected RPC deadline")
+            } catch let error as RpcError {
+                #expect(error.code == RpcError.BuiltInError.responseTimeout.code)
+            }
+            try await checkRpcCancellation(caller: caller, receiver: receiver, destination: destination, entered: entered, release: release)
+            await caller.disconnect()
+            await receiver.disconnect()
+        } catch {
+            await caller.disconnect()
+            await receiver.disconnect()
+            throw error
+        }
+    }
+
+    private func checkRpcCancellation(caller: Room, receiver: Room, destination: Participant.Identity,
+                                      entered: AsyncCompleter<Void>, release: AsyncCompleter<String>) async throws
+    {
+        entered.reset()
+        let call = Task {
+            try await caller.localParticipant.performRpc(destinationIdentity: destination, method: "wait", payload: "")
+        }
+        try await entered.wait()
+        call.cancel()
+        await #expect(throws: CancellationError.self) { try await call.value }
+        release.resume(returning: "late")
+        try await receiver.registerRpcMethod("echo") { $0.payload }
+        #expect(try await caller.localParticipant.performRpc(destinationIdentity: destination, method: "echo", payload: "after cancel") == "after cancel")
+    }
+
+    private final class NameWatcher: NSObject, RoomDelegate, Sendable {
+        let participant: RemoteParticipant
+        let names = StateSync<[String]>([])
+        init(_ participant: RemoteParticipant) { self.participant = participant }
+        func room(_ room: Room, participant: Participant, didUpdateName name: String) {
+            guard name == "first" || name == "second" else { return }
+            #expect(participant === self.participant)
+            #expect(participant.name == name)
+            if let identity = participant.identity {
+                #expect(room.remoteParticipants[identity] === participant)
+            } else {
+                Issue.record("Participant identity missing in name callback")
+            }
+            names.mutate { $0.append(name) }
         }
     }
 
