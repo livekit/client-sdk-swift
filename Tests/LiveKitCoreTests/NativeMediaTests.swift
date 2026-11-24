@@ -27,7 +27,8 @@ extension NativeRoomTests {
         let encryption = EncryptionOptions(keyProvider: BaseKeyProvider(isSharedKey: true, sharedKey: "native-swift-media-test-key"))
         let options = RoomOptions(encryptionOptions: encryption, reportRemoteTrackStatistics: true)
         let sender = Room(roomOptions: options)
-        let receiver = Room(roomOptions: options)
+        let subscriptionOrder = InitialSubscriptionWatcher()
+        let receiver = Room(delegate: subscriptionOrder, roomOptions: options)
         do {
             try await sender.connect(url: url, token: token("sender", room: name))
             let (local, source) = try await publishAudio(sender, microphone: microphone)
@@ -37,6 +38,8 @@ extension NativeRoomTests {
             try await eventually { receiver.remoteParticipants.values.first?.audioTracks.first?.track != nil }
             let remote = try #require(receiver.remoteParticipants.values.first?.audioTracks.first)
             let remoteTrack = try #require(remote.track as? RemoteAudioTrack)
+            try await eventually { subscriptionOrder.events.copy().contains("subscribed") }
+            #expect(subscriptionOrder.events.copy().prefix(2) == ["connected", "subscribed"])
             let rendered = PCMWatcher()
             remoteTrack.add(audioRenderer: rendered)
             let samples = (0 ..< 480).map { Int16(sin(Double($0) * 2 * .pi * 440 / 48000) * 12000) }
@@ -179,6 +182,18 @@ extension NativeRoomTests {
         #expect(mapped.outboundRtpStream.first?.id == value.rtc.id)
         #expect(mapped.outboundRtpStream.first?.codecId == value.stream.codecId)
         #expect(mapped.outboundRtpStream.first?.ssrc == UInt(value.stream.ssrc))
+    }
+
+    private final class InitialSubscriptionWatcher: NSObject, RoomDelegate, Sendable {
+        let events = StateSync<[String]>([])
+        func room(_: Room, didUpdateConnectionState state: ConnectionState, from _: ConnectionState) {
+            if state == .connected { events.mutate { $0.append("connected") } }
+        }
+
+        func room(_ room: Room, participant _: RemoteParticipant, didSubscribeTrack _: RemoteTrackPublication) {
+            #expect(room.connectionState == .connected)
+            events.mutate { $0.append("subscribed") }
+        }
     }
 
     private final class PCMWatcher: AudioRenderer {

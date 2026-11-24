@@ -220,3 +220,8 @@ LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Use
 Media/ObjC/API follow-up awaits the safe native replacement; no media run on b3
 following the privacy finding. The review corrections require independent
 re-review; old API dumps are not yet evidence for this source diff.
+
+Prepared initial-subscription ordering assertion in NativeMediaTests.swift:
+`swift test --jobs 2 --package-path /Users/blaze/livekit/research-v3/swift-native-next/production-check list`
+builds/lists successfully (`review-fixes/test-build-list.log`); strict lint passes.
+This is **compile-only**, not a media test pass; execution awaits the safe artifact.
