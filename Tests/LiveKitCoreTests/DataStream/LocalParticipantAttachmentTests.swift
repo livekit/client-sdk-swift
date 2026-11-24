@@ -67,22 +67,19 @@ struct LocalParticipantAttachmentTests {
 
     /// Cancelling the call ends it at once, while an attachment's send is in flight.
     ///
-    /// The native transport cannot be held from Swift, so large files keep the sends in flight.
-    /// The file sends start only after the text send returns, so the call is cancelled once the
-    /// receiver has read the first chunk of an attachment, and it must still be pending then.
+    /// The native transport cannot be held from Swift, so large incompressible files keep the sends
+    /// in flight. The file sends start only after the text send returns, so the call is cancelled
+    /// once the receiver sees an attachment's byte stream open, and it must still be pending then.
     @Test func cancellingAttachmentsEndsAllSends() async throws {
-        let files = try (0 ..< 2).map { _ in try temporaryFile(byte: 0x5A, count: 32 * 1024 * 1024) }
+        let files = try (0 ..< 2).map { _ in try randomFile(count: 32 * 1024 * 1024) }
         defer { files.forEach { try? FileManager.default.removeItem(at: $0) } }
 
         try await withSenderAndReceiver { sender, receiver in
-            let attachmentChunk = AsyncCompleter<Void>(label: "First attachment chunk received", defaultTimeout: 30)
-            try await receiver.registerByteStreamHandler(for: "chat") { reader, _ in
-                var chunks = reader.makeAsyncIterator()
-                if try await chunks.next() != nil { attachmentChunk.resume(returning: ()) }
-            }
+            let attachmentOpened = AsyncCompleter<Void>(label: "Attachment stream opened", defaultTimeout: 30)
+            try await receiver.registerByteStreamHandler(for: "chat") { _, _ in attachmentOpened.resume(returning: ()) }
             let sendReturned = StateSync(false)
 
-            let error = try await returnedError(cancellingAfter: attachmentChunk, beforeCancel: {
+            let error = try await returnedError(cancellingAfter: attachmentOpened, beforeCancel: {
                 #expect(!sendReturned.copy(), "The send returned before the cancel; the test proved nothing")
             }) {
                 defer { sendReturned.mutate { $0 = true } }
@@ -98,6 +95,14 @@ struct LocalParticipantAttachmentTests {
         try await TestEnvironment.withRooms([RoomTestingOptions(canPublishData: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
             try await body(rooms[0], rooms[1])
         }
+    }
+
+    private func randomFile(count: Int) throws -> URL {
+        var data = Data(count: count)
+        data.withUnsafeMutableBytes { arc4random_buf($0.baseAddress, count) }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).bin")
+        try data.write(to: url)
+        return url
     }
 
     private func temporaryFile(byte: UInt8, count: Int) throws -> URL {
