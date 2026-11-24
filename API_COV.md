@@ -26,17 +26,17 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 
 | Gate | Current conclusion |
 |---|---|
-| Public Swift/ObjC declarations, enum values, selectors, availability | macOS Release/distribution build at `85e6f807`: digester reports zero breaking changes and zero additions. ObjC header differs only by relocating the unchanged Room.prepareConnection category; exact header line multiset is equal. Enum/selector/availability text is unchanged. This is surface evidence, not behavioral compatibility. |
+| Public Swift/ObjC declarations, enum values, selectors, availability | macOS Release/distribution build at `42e475cb`: digester reports zero breaking changes and zero additions. ObjC header differs only by relocating the unchanged Room.prepareConnection category; exact header line multiset is equal. Enum/selector/availability text is unchanged. This is surface evidence, not behavioral compatibility. |
 | Existing unmodified public E2E | 21 existing Objective-C test methods passed unchanged, including streams/file/incremental writers, data tracks, RPC and Room delegates. Current participant identity/membership, PublishDataTests and DataTrackApiTests also pass with original unchanged shared-key/statistics-enabled fixtures; this does not imply all defaults/media statistics work. |
 | Lifecycle/default/error/delegate/observation semantics | Two-room state/delegate/data/rejoin, invalid-token, cancellation and release proof exists. Sequential name callback ordering/getter consistency and SwiftUI notification delivery now pass. Involuntary reconnect, full error parity and default-option parity remain unproved. New unsupported throws and ineffective nonthrowing controls are **compatibility breaks**. |
-| Supported build/package/target matrix | macOS arm64 Debug tests and Release/distribution build passed; iOS/Catalyst/tvOS/visionOS slices absent. Absolute local artifact pin is research packaging, not a distributable minor release. |
+| Supported build/package/target matrix | macOS arm64 Debug tests and Release/distribution build passed; iOS/Catalyst/tvOS/visionOS packaged slices absent. Absolute local artifact pin is research packaging, not a distributable minor release. |
 
 ## Single capability/blocker ledger
 
 | Swift API / behavior | Native support and Swift status | Evidence / remaining work |
 |---|---|---|
 | `Room.connect(url:token:connectOptions:roomOptions:) async throws`, `disconnect() async` | **implemented**, native session is the active connection owner. Swift signaling/Transport connection orchestration removed. | `NativeRoomTests.productionRoomLifecycle`, invalid-token/cancellation and release tests. Explicit disconnect/rejoin tested; involuntary network recovery not yet proved. |
-| `Room.remoteParticipants`, `localParticipant`, metadata/state getters and delegates | **implemented** for room and participant state. Native records feed existing nanopb/entity setters and StateSync; identity retains the same RemoteParticipant across updates. | Two-room membership, name/metadata/attributes updates, departure and rejoin. Media publication records are projected; media Track handles remain absent. |
+| `Room.remoteParticipants`, `localParticipant`, metadata/state getters and delegates | **implemented** for room and participant state. Native records feed existing nanopb/entity setters and StateSync; identity retains the same RemoteParticipant across updates. | Two-room membership, name/metadata/attributes updates, departure and rejoin. Media publication records are projected; native audio/video Track handles attach to the same publications. |
 | `LocalParticipant.publish(data:options:) async throws` | **implemented** payload delivery, `NativeRoomSession.publishData(payload:options:)`; encryption metadata remains incorrect/incomplete in the legacy callback. | Existing `PublishDataTests`: both permission cases, 100 reliable topics each. Native data-channel buffer-status callbacks are not exported. Core drops packet encryption type: legacy callback still receives `.none`, which is **not authoritative** for encrypted payloads (one warning per connection). No `.gcm` inference or metadata-parity claim. |
 | `LocalParticipant.set(name:)`, `set(metadata:)`, `set(attributes:)` | **implemented**, native typed commands. | Production two-room update/identity test. |
 | `sendText`, `sendBytes`, `sendFile`, `streamText`, `streamBytes`; byte/text reader/writer APIs | Native handles and room commands **available**; plaintext text/bytes/file/incremental variants **implemented** in production. Progress-specific Swift acceptance remains pending. | `NativeRoomTests` text and byte round trips; existing DataStreamObjCTests proves file, text and incremental byte/text writers. Native milestone README also proves all five commands. No old packet managers. |
@@ -140,3 +140,13 @@ iterations); matched 120 reads without task cancellation report none. This is
 not migration-specific evidence and does not establish safety/fix. Deferred
 cancellation/cleanup remains; no dependency upgrade. Evidence:
 `/Users/blaze/livekit/research-v3/current-cancellation/baseline/REPORT.md`.
+
+Media checkpoint final verification: Release/distribution build and saved
+`api-media-final/macOS` at `42e475cb` report zero API changes/additions;
+Objective-C header hash remains `6819645bdc9f8c4b829736946aa1cc2321eb037dead76697855396b7559a0bdc`.
+`objc-media.log`/`objc-media.xcresult`: all 21 unchanged methods/cases pass.
+Commands are the same API/ObjC commands above with output names `api-media-final`
+and `objc-media`. `media-post-api.log`: three functions / four cases pass
+(encrypted synthetic+physical audio, GCM text/byte stream metadata and RPC,
+buffer video/VideoView, disconnect capture cleanup, Room release). No source
+changes after the saved API dump; this follow-up adds assertions only.

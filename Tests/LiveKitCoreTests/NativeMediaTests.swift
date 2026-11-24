@@ -47,6 +47,9 @@ extension NativeRoomTests {
             }
             try await eventually { rendered.peak.copy() > 0 }
             #expect(remote.encryptionType == .gcm)
+            try await checkStreams(sender: sender, receiver: receiver, encryption: .gcm)
+            try await receiver.registerRpcMethod("encrypted-echo") { $0.payload }
+            #expect(try await sender.localParticipant.performRpc(destinationIdentity: .init(from: "receiver"), method: "encrypted-echo", payload: "encrypted") == "encrypted")
             try await local.mute()
             try await eventually { remote.isMuted }
             #expect(receiver.remoteParticipants.values.first?.audioTracks.first === remote)

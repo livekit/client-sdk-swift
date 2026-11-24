@@ -199,15 +199,17 @@ struct NativeRoomTests {
         }
     }
 
-    private func checkStreams(sender alice: Room, receiver bob: Room) async throws {
+    func checkStreams(sender alice: Room, receiver bob: Room, encryption: LiveKit.EncryptionType = .none) async throws {
         let text = AsyncCompleter<String>(label: "native text", defaultTimeout: 10)
         try await bob.registerTextStreamHandler(for: "text") { reader, _ in
+            #expect(reader.info.encryptionType == encryption)
             do { try await text.resume(returning: reader.readAll()) } catch { text.resume(throwing: error) }
         }
         _ = try await alice.localParticipant.sendText("stream", for: "text")
         #expect(try await text.wait() == "stream")
         let bytes = AsyncCompleter<Data>(label: "native bytes", defaultTimeout: 10)
         try await bob.registerByteStreamHandler(for: "bytes") { reader, _ in
+            #expect(reader.info.encryptionType == encryption)
             do { try await bytes.resume(returning: reader.readAll()) } catch { bytes.resume(throwing: error) }
         }
         _ = try await alice.localParticipant.sendBytes(Data([1, 2, 3]), for: "bytes")
