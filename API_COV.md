@@ -1,5 +1,11 @@
 # Swift API coverage over the native room backend
 
+**Review update:** native artifact `b3bf27bb` is not accepted. Its automatic
+playout lease can enable microphone capture when a PCM track is published later.
+That activation is being removed. Safe receive-only speaker output remains a
+core-API gap; the output measurements below cover only the tested event order,
+not general capture safety. The Swift and Rust reviews are not yet complete.
+
 Checkpoint: production Room and media integration against committed Rust
 `b3bf27bbb6f56c67d4ff136c5c0d67d63cb48e50` (shipped FFI 0.13.4 baseline).
 Package: `/Users/blaze/livekit/research-v3/rust-ffi/room-apis-b3bf27bb/livekit-ffi-xcframework`.
