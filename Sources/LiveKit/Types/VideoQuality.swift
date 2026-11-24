@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 import Foundation
 
 @objc
@@ -37,6 +38,14 @@ extension VideoQuality {
 
     func toPBType() -> Livekit_VideoQuality {
         Self.toPBTypeMap[self] ?? .low
+    }
+
+    func toNativeType() -> NativeVideoQuality {
+        switch self {
+        case .low: .low
+        case .medium: .medium
+        case .high: .high
+        }
     }
 }
 

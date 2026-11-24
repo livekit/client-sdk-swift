@@ -169,19 +169,11 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     ///   - digit: Human-readable DTMF digit, such as `"1"`, `"*"`, or `"#"`.
     public func publishDtmf(code: UInt32, digit: String) async throws {
         let room = try requireRoom()
-
-        let packet = Livekit_DataPacket.with {
-            $0.kind = .reliable
-            $0.sipDtmf = Livekit_SipDTMF.with {
-                $0.code = code
-                $0.digit = digit
-            }
-        }
-
-        try await room.send(dataPacket: packet)
+        // Core sends DTMF reliably without data E2EE, so the encrypted-payload guard does not apply.
+        do {
+            try await room.requireNativeSession().publishDtmf(code: code, digit: digit, destinationIdentities: [])
+        } catch { throw LiveKitError.mappingNative(error) }
     }
-
-    // swiftformat:disable unusedArguments
 
     /**
      * Control who can subscribe to LocalParticipant's published tracks.
@@ -199,14 +191,27 @@ public class LocalParticipant: Participant, @unchecked Sendable {
      *  By default this is set to true.
      * - Parameter participantTrackPermissions Full list of individual permissions per
      *  participant/track. Any omitted participants will not receive any permissions.
+     * - Note: Completion means the permissions were handed to the native session; it is not a server
+     *  acknowledgement. Each participant SID resolves to an identity among the current remote
+     *  participants, and an SID this client does not know is skipped, as the server skips one.
+     *  After a revocation, a subscriber may keep a stale permission status or track until the server
+     *  reports the change.
      */
     public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
                                                 trackPermissions: [ParticipantTrackPermission] = []) async throws
     {
-        throw LiveKitError(.invalidState, message: "Track subscription permissions are not exported by this native artifact")
+        let room = try requireRoom()
+        // ponytail: resolved against this client's view, so a participant the server knows but this client
+        // has not yet received is skipped; a native SID-based permission export removes that window.
+        let permissions = trackPermissions.compactMap { permission in
+            room.remoteParticipants.first { $0.value.sid?.stringValue == permission.participantSid }
+                .map { permission.toNative(identity: $0.key.stringValue) }
+        }
+        do {
+            try await room.requireNativeSession().setTrackSubscriptionPermissions(allParticipantsAllowed: allParticipantsAllowed,
+                                                                                  permissions: permissions)
+        } catch { throw LiveKitError.mappingNative(error) }
     }
-
-    // swiftformat:enable unusedArguments
 
     /// Sets and updates the metadata of the local participant.
     ///

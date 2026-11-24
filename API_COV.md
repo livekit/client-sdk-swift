@@ -77,9 +77,9 @@ Review-specific remaining gaps (existing declarations retained):
 
 | Signature / callback | Status |
 |---|---|
-| `LocalParticipant.publishDtmf(code:digit:) async throws` | Unsupported native packet activation; needs the core-supported room DTMF export. |
-| `LocalParticipant.setTrackSubscriptionPermissions(allParticipantsAllowed:trackPermissions:) async throws` | Unsupported activation; needs native room subscription-permission command. |
-| `RemoteTrackPublication.set(videoQuality:) async throws` | Unsupported nondefault quality, separately from FPS; needs publication quality export. |
+| `LocalParticipant.publishDtmf(code:digit:) async throws` | **wired, unverified**: Rust `08da67f` `publishDtmf` with no destinations (broadcast, as baseline). Core sends it reliably without data E2EE, so no encrypted-payload guard. No public Swift DTMF receive callback exists; native `dtmfReceived` is ignored. Awaits the matching 08 Apple package. |
+| `LocalParticipant.setTrackSubscriptionPermissions(allParticipantsAllowed:trackPermissions:) async throws` | **wired, unverified**: Rust `08da67f` identity-based command. Each public participant SID resolves to an identity among current remote participants; unknown SIDs are skipped like the server does, but a participant the client has not yet seen is also skipped. Completion is desired state, not server acknowledgement; core resends on reconnect. Core can keep a stale permission status or track after revocation; native permission status is not projected to `isSubscriptionAllowed`. |
+| `RemoteTrackPublication.set(videoQuality:) async throws` | **wired, unverified**: Rust `08da67f` `setVideoQuality` for video; audio keeps the stored setting only, as the server ignores it. Request only: core ignores non-simulcast tracks, and no layer selection is claimed. Preferred FPS still rejects. |
 | `Room.connect(...)` on an already-connected Room | Throws invalidState rather than baseline reconnect behavior; compatibility unresolved. |
 | `room(_:participant:trackPublication:didReceiveTranscriptionSegments:)`, internal `room(didReceiveTranscriptionPacket:)`, `room(_:didFailToDecryptDataWithEror:)` | No corresponding native delivery mapping; exact native transcription/decryption events needed. No fabricated callbacks. |
 | Per-publication encryption-state callbacks | Native participant/state event lacks track SID; cannot associate truthfully. |

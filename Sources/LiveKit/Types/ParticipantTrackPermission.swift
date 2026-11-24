@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 import Foundation
 
 @objcMembers
@@ -52,5 +53,11 @@ extension ParticipantTrackPermission {
             $0.allTracks = self.allTracksAllowed
             $0.trackSids = self.allowedTrackSids
         }
+    }
+}
+
+extension ParticipantTrackPermission {
+    func toNative(identity: String) -> NativeTrackPermission {
+        NativeTrackPermission(participantIdentity: identity, allowAll: allTracksAllowed, allowedTrackSids: allowedTrackSids)
     }
 }

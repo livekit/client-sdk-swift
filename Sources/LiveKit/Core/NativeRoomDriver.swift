@@ -185,6 +185,7 @@ actor NativeRoomDriver {
         case let .dataTrackUnpublished(_, identity, sid):
             room.nativeDataTrackUnpublished(sid: sid, identity: identity)
             return true
+        case .dtmfReceived: return true // The public Swift API has no DTMF receive callback.
         default: return false
         }
     }

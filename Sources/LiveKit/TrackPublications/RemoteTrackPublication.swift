@@ -124,6 +124,7 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     /// This indicates the highest quality the client can accept. if network
     /// bandwidth does not allow, server will automatically reduce quality to
     /// optimize for uninterrupted video.
+    /// - Note: This is a request. The native core ignores it for a track that is not simulcast.
     public func set(videoQuality newValue: VideoQuality) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
@@ -261,8 +262,8 @@ extension RemoteTrackPublication {
     // attempt to send track settings
     func send(trackSettings settings: TrackSettings) async throws {
         let previous = _state.trackSettings
-        guard settings.preferredFPS == previous.preferredFPS, settings.videoQuality == previous.videoQuality else {
-            throw LiveKitError(.invalidParameter, message: "Native preferred FPS and explicit quality controls are not exported")
+        guard settings.preferredFPS == previous.preferredFPS else {
+            throw LiveKitError(.invalidParameter, message: "Native preferred FPS control is not exported")
         }
         let participant = try await requireParticipant()
         let room = try participant.requireRoom()
@@ -271,6 +272,10 @@ extension RemoteTrackPublication {
             let native = try room.requireNativeSession().publication(identity: identity.stringValue, sid: sid.stringValue)
             if settings.dimensions != previous.dimensions, settings.dimensions.width > 0, settings.dimensions.height > 0 {
                 try await native.setVideoDimensions(width: UInt32(settings.dimensions.width), height: UInt32(settings.dimensions.height))
+            }
+            // The server ignores quality for audio, so only video reaches the video-only native command.
+            if settings.videoQuality != previous.videoQuality, kind == .video {
+                try await native.setVideoQuality(quality: settings.videoQuality.toNativeType())
             }
             try await native.setEnabled(enabled: settings.isEnabled)
         } catch { throw LiveKitError.mappingNative(error) }
