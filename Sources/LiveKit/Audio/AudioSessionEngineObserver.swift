@@ -82,6 +82,12 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         // stops. Keeps `.playAndRecord` across mute toggles instead of churning
         // the category on every requirement change.
         var hasRecorded: Bool = false
+
+        // The system deactivated the session or dropped its configuration
+        // behind the observer's back (a media services reset), so the next
+        // configuration must apply the category and activate the session even
+        // though a requirement is already held.
+        var needsActivation: Bool = false
     }
 
     let _state = StateSync(State())
@@ -170,7 +176,9 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             }
 
             do {
-                try configureIfNeeded(oldState: oldState, newState: $0)
+                if try configureIfNeeded(oldState: oldState, newState: $0) {
+                    $0.needsActivation = false
+                }
             } catch {
                 if !isRelease {
                     $0 = oldState
@@ -182,8 +190,24 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
     // MARK: - Audio Session Configuration
 
-    private func configureIfNeeded(oldState: State, newState: State) throws {
-        guard newState.isAutomaticConfigurationEnabled else { return }
+    /// Re-applies the configuration and activates the session if it was deactivated behind the
+    /// observer's back (``State/needsActivation``) while a requirement is held.
+    ///
+    /// Calls `AVAudioSession` synchronously. Like the rest of the configuration it may run in an engine
+    /// lifecycle hook, but never from an audio session event callback, which must return quickly.
+    func reactivateSessionIfNeeded() throws {
+        try _state.mutate {
+            guard $0.isAutomaticConfigurationEnabled, $0.needsActivation,
+                  $0.isPlayoutEnabled || $0.isRecordingEnabled else { return }
+            try configureIfNeeded(oldState: $0, newState: $0)
+            $0.needsActivation = false
+        }
+    }
+
+    /// Returns whether the SDK configured the session itself, so `needsActivation` was honored.
+    @discardableResult
+    private func configureIfNeeded(oldState: State, newState: State) throws -> Bool {
+        guard newState.isAutomaticConfigurationEnabled else { return false }
 
         // Deprecated: `customConfigureAudioSessionFunc` overrides the default configuration.
         // This path does not support error propagation since the legacy func returns Void.
@@ -192,10 +216,11 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             let oldLegacy = AudioManager.State(localTracksCount: oldState.isRecordingEnabled ? 1 : 0, remoteTracksCount: oldState.isPlayoutEnabled ? 1 : 0)
             let newLegacy = AudioManager.State(localTracksCount: newState.isRecordingEnabled ? 1 : 0, remoteTracksCount: newState.isPlayoutEnabled ? 1 : 0)
             legacyConfigFunc(newLegacy, oldLegacy)
-            return
+            return false
         }
 
         try configureAudioSession(oldState: oldState, newState: newState)
+        return true
     }
 
     func configureAudioSession(oldState: State, newState: State) throws {
@@ -237,7 +262,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 throw error
             }
 
-            if !oldState.isPlayoutEnabled, !oldState.isRecordingEnabled {
+            if Self.requiresActivation(oldState: oldState, newState: newState) {
                 do {
                     log("AudioSession activating...")
                     try session.setActive(true)
@@ -247,6 +272,13 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 }
             }
         }
+    }
+
+    /// Whether configuring `newState` must activate the session: it was inactive, or it was deactivated
+    /// behind the observer's back (``State/needsActivation``).
+    static func requiresActivation(oldState: State, newState: State) -> Bool {
+        guard newState.isPlayoutEnabled || newState.isRecordingEnabled else { return false }
+        return newState.needsActivation || (!oldState.isPlayoutEnabled && !oldState.isRecordingEnabled)
     }
 
     /// Picks the audio session configuration for the given state.
