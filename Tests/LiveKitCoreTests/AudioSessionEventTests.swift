@@ -28,16 +28,20 @@ struct AudioSessionEventTests {
     private typealias Observer = AudioSessionEngineObserver
 
     private final class RecordingObserver: AudioSessionEngineObserver, @unchecked Sendable {
+        struct Failure: Error {}
+
         struct Configuration {
             let oldState: Observer.State
             let newState: Observer.State
             var activates: Bool { Observer.requiresActivation(oldState: oldState, newState: newState) }
         }
 
+        let isFailing = StateSync(false)
         let configurations = StateSync<[Configuration]>([])
 
         override func configureAudioSession(oldState: Observer.State, newState: Observer.State) throws {
             configurations.mutate { $0.append(Configuration(oldState: oldState, newState: newState)) }
+            if isFailing.copy() { throw Failure() }
         }
 
         func takeConfigurations() -> [Configuration] {
@@ -127,6 +131,93 @@ struct AudioSessionEventTests {
         // Nothing to activate for when no requirement is held.
         inactive.needsActivation = true
         #expect(!Observer.requiresActivation(oldState: active, newState: inactive))
+    }
+
+    // MARK: - Interruptions
+
+    @Test func engineRestartAfterInterruptionReactivatesTheSession() throws {
+        let (observer, engine) = startedObserver()
+
+        observer.audioSessionDidBeginInterruption(reason: .default)
+        #expect(observer._state.isInterrupted)
+        #expect(observer._state.needsActivation)
+
+        // An engine start while still interrupted does not try to activate.
+        #expect(observer.engineWillStart(engine, isPlayoutEnabled: true, isRecordingEnabled: true) == 0)
+        #expect(observer.takeConfigurations().isEmpty)
+
+        observer.audioSessionDidEndInterruption(shouldResume: true)
+        #expect(observer.engineWillStart(engine, isPlayoutEnabled: true, isRecordingEnabled: true) == 0)
+
+        let configuration = try #require(observer.takeConfigurations().first)
+        #expect(configuration.activates)
+        #expect(configuration.newState.isRecordingEnabled)
+        #expect(!observer._state.needsActivation)
+
+        // Done once: later starts do not reconfigure.
+        _ = observer.engineWillStart(engine, isPlayoutEnabled: true, isRecordingEnabled: true)
+        #expect(observer.takeConfigurations().isEmpty)
+    }
+
+    @Test func interruptionEndWithoutResumeHintDefersReactivation() {
+        let (observer, engine) = startedObserver()
+
+        observer.audioSessionDidBeginInterruption(reason: .default)
+        observer.audioSessionDidEndInterruption(shouldResume: false)
+        _ = observer.engineWillStart(engine, isPlayoutEnabled: true, isRecordingEnabled: true)
+
+        #expect(observer.takeConfigurations().isEmpty)
+        // The next configuration change still activates the session.
+        #expect(observer._state.needsActivation)
+    }
+
+    /// `RTCAudioSession` reports an interruption end each time the app becomes active.
+    @Test func interruptionEndWithoutBeginDoesNothing() {
+        let (observer, engine) = startedObserver()
+
+        observer.audioSessionDidEndInterruption(shouldResume: true)
+        _ = observer.engineWillStart(engine, isPlayoutEnabled: true, isRecordingEnabled: true)
+
+        #expect(observer.takeConfigurations().isEmpty)
+        #expect(!observer._state.needsActivation)
+    }
+
+    @Test func failedReactivationDoesNotFailTheEngineStart() {
+        let (observer, engine) = startedObserver()
+
+        observer.audioSessionDidBeginInterruption(reason: .default)
+        observer.audioSessionDidEndInterruption(shouldResume: true)
+        observer.isFailing.mutate { $0 = true }
+
+        #expect(observer.engineWillStart(engine, isPlayoutEnabled: true, isRecordingEnabled: true) == 0)
+        #expect(observer.takeConfigurations().count == 1)
+        // Kept, so the next configuration activates again.
+        #expect(observer._state.needsActivation)
+    }
+
+    @Test func automaticConfigurationDisabledLeavesTheSessionAlone() {
+        let (observer, engine) = startedObserver()
+        observer.isAutomaticConfigurationEnabled = false
+
+        observer.audioSessionDidBeginInterruption(reason: .default)
+        observer.audioSessionDidEndInterruption(shouldResume: true)
+        _ = observer.engineWillStart(engine, isPlayoutEnabled: true, isRecordingEnabled: true)
+
+        #expect(observer.takeConfigurations().isEmpty)
+    }
+
+    /// A requirement change after an interruption (the mic is enabled, say) activates the session even
+    /// though a requirement was already held, and clears the flag.
+    @Test func requirementChangeAfterInterruptionActivates() throws {
+        let (observer, engine) = startedObserver()
+        observer.audioSessionDidBeginInterruption(reason: .default)
+        observer.audioSessionDidEndInterruption(shouldResume: false)
+
+        _ = observer.engineDidDisable(engine, isPlayoutEnabled: true, isRecordingEnabled: false)
+
+        let configuration = try #require(observer.takeConfigurations().first)
+        #expect(configuration.activates)
+        #expect(!observer._state.needsActivation)
     }
 
     // MARK: - Media services reset

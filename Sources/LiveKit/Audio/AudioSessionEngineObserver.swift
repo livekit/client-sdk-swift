@@ -84,10 +84,16 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         var hasRecorded: Bool = false
 
         // The system deactivated the session or dropped its configuration
-        // behind the observer's back (a media services reset), so the next
-        // configuration must apply the category and activate the session even
-        // though a requirement is already held.
+        // behind the observer's back (a media services reset or an
+        // interruption), so the next configuration must apply the category and
+        // activate the session even though a requirement is already held.
         var needsActivation: Bool = false
+
+        // Between an interruption's begin and end. The session cannot be
+        // activated meanwhile.
+        var isInterrupted: Bool = false
+        // The system's resume hint from the last interruption end.
+        var shouldResumeAfterInterruption: Bool = true
     }
 
     let _state = StateSync(State())
