@@ -60,9 +60,12 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     }
 
     /// Subscribe or unsubscribe from this track.
-    public func set(subscribed _: Bool) async throws {
+    // swiftformat:disable unusedArguments
+    public func set(subscribed newValue: Bool) async throws {
         throw LiveKitError(.invalidState, message: "Media subscription control is not exported by this native artifact")
     }
+
+    // swiftformat:enable unusedArguments
 
     /// Enable or disable server from sending down data for this track.
     ///

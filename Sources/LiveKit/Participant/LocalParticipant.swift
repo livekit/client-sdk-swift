@@ -190,11 +190,14 @@ public class LocalParticipant: Participant, @unchecked Sendable {
      * - Parameter participantTrackPermissions Full list of individual permissions per
      *  participant/track. Any omitted participants will not receive any permissions.
      */
-    public func setTrackSubscriptionPermissions(allParticipantsAllowed _: Bool,
-                                                trackPermissions _: [ParticipantTrackPermission] = []) async throws
+    // swiftformat:disable unusedArguments
+    public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
+                                                trackPermissions: [ParticipantTrackPermission] = []) async throws
     {
         throw LiveKitError(.invalidState, message: "Track subscription permissions are not exported by this native artifact")
     }
+
+    // swiftformat:enable unusedArguments
 
     /// Sets and updates the metadata of the local participant.
     ///
