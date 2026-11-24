@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 
 @objc
@@ -39,10 +40,10 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     // this must be on .main queue
     private var _asTimer = AsyncTimer(interval: 0.3)
 
-    override func updateFromInfo(info: Livekit_TrackInfo) {
+    override func updateFromInfo(info: NativeTrackPublication) {
         super.updateFromInfo(info: info)
-        track?.set(muted: info.muted)
-        set(metadataMuted: info.muted)
+        track?.set(muted: info.isMuted)
+        set(metadataMuted: info.isMuted)
     }
 
     override public var isSubscribed: Bool {

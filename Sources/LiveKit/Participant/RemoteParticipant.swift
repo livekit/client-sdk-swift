@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -27,9 +28,9 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         _state.dataTracks.reduce(into: [:]) { $0[$1.name] = $1 }
     }
 
-    init(info: Livekit_ParticipantInfo, room: Room, connectionState: ConnectionState) {
+    init(info: NativeParticipant, publications: [NativeTrackPublication], room: Room, connectionState: ConnectionState) {
         super.init(room: room, sid: Participant.Sid(from: info.sid), identity: Participant.Identity(from: info.identity))
-        set(info: info, connectionState: connectionState)
+        set(info: info, publications: publications, connectionState: connectionState)
     }
 
     /// Adds the track, returning `false` if this exact track is already attached. Identity-based
@@ -60,13 +61,13 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         _state.mutate { $0.dataTracks = [] }
     }
 
-    override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
-        super.set(info: info, connectionState: connectionState)
+    override func set(info: NativeParticipant, publications: [NativeTrackPublication], connectionState: ConnectionState) {
+        super.set(info: info, publications: publications, connectionState: connectionState)
 
         var validTrackPublications = [Track.Sid: RemoteTrackPublication]()
         var newTrackPublications = [Track.Sid: RemoteTrackPublication]()
 
-        for trackInfo in info.tracks {
+        for trackInfo in publications where trackInfo.participantIdentity == info.identity {
             let trackSid = Track.Sid(from: trackInfo.sid)
             var publication = _state.trackPublications[trackSid] as? RemoteTrackPublication
             if publication == nil {

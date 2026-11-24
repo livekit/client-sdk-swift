@@ -71,14 +71,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
 }
 
 // Internal
-extension AudioPublishOptions {
-    func toFeatures() -> Set<Livekit_AudioTrackFeature> {
-        Set([
-            !dtx ? .tfNoDtx : nil,
-            preConnect ? .tfPreconnectBuffer : nil,
-        ].compactMap(\.self))
-    }
-}
+extension AudioPublishOptions {}
 
 extension AudioPublishOptions {
     func withPreconnect(_ enabled: Bool) -> AudioPublishOptions {

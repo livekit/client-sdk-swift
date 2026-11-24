@@ -24,16 +24,7 @@ public enum EncryptionType: Int, Sendable {
     case custom
 }
 
-extension EncryptionType {
-    func toPBType() -> Livekit_Encryption.TypeEnum {
-        switch self {
-        case .none: .none
-        case .gcm: .gcm
-        case .custom: .custom
-        default: .custom
-        }
-    }
-}
+extension EncryptionType {}
 
 extension EncryptionType {
     /// Bridges to and from the FFI enum. Lives here beside the protobuf conversions so the data
@@ -53,17 +44,6 @@ extension EncryptionType {
         case .custom: self = .custom
         // A scheme added after this SDK is still a scheme — never report it as plaintext.
         @unknown default: self = .custom
-        }
-    }
-}
-
-extension Livekit_Encryption.TypeEnum {
-    func toLKType() -> EncryptionType {
-        switch self {
-        case .none: .none
-        case .gcm: .gcm
-        case .custom: .custom
-        default: .custom
         }
     }
 }

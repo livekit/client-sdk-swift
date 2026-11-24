@@ -20,7 +20,7 @@ import Foundation
 extension Room {
     @nonobjc func applyNativeSnapshot(_ snapshot: NativeRoomState, restoreDataTracks: Bool = false, restoreMedia: Bool = false) async {
         guard let native = nativeSession.copy() else { return }
-        if let info = snapshot.room { _state.mutate { $0.apply(roomInfo: info.toPBType()) } }
+        if let info = snapshot.room { _state.mutate { $0.apply(roomInfo: info) } }
         let identities = Set(snapshot.remoteParticipants.map { Participant.Identity(from: $0.identity) })
         for identity in remoteParticipants.keys where !identities.contains(identity) {
             try? await _onParticipantDidDisconnect(identity: identity)
@@ -33,7 +33,7 @@ extension Room {
             let identity = Participant.Identity(from: info.identity)
             let existing = remoteParticipants[identity]
             let participant = existing ?? _state.mutate {
-                $0.updateRemoteParticipant(info: info.toPBType(publications: snapshot.publications), room: self)
+                $0.updateRemoteParticipant(info: info, publications: snapshot.publications, room: self)
             }
             applyNativeParticipant(info, to: participant, publications: snapshot.publications)
             if existing == nil, connectionState == .connected {
@@ -77,7 +77,7 @@ extension Room {
     }
 
     private func applyNativeParticipant(_ info: NativeParticipant, to participant: Participant, publications: [NativeTrackPublication]) {
-        participant.set(info: info.toPBType(publications: publications), connectionState: connectionState)
+        participant.set(info: info, publications: publications, connectionState: connectionState)
         participant._state.mutate {
             if info.isSpeaking, !$0.isSpeaking { $0.lastSpokeAt = Date() }
             $0.isSpeaking = info.isSpeaking

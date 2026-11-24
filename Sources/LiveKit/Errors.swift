@@ -234,10 +234,6 @@ extension LiveKitError {
         log("Uncategorized error for: \(String(describing: error))")
         return LiveKitError(.unknown)
     }
-
-    static func from(reason: Livekit_DisconnectReason) -> LiveKitError {
-        LiveKitError(reason.toLKType())
-    }
 }
 
 extension Error {
@@ -290,21 +286,6 @@ extension Error {
         }
 
         return isNetworkError
-    }
-}
-
-extension Livekit_DisconnectReason {
-    func toLKType() -> LiveKitErrorType {
-        switch self {
-        case .clientInitiated: .cancelled
-        case .duplicateIdentity: .duplicateIdentity
-        case .serverShutdown: .serverShutdown
-        case .participantRemoved: .participantRemoved
-        case .roomDeleted: .roomDeleted
-        case .stateMismatch: .stateMismatch
-        case .joinFailure: .joinFailure
-        default: .unknown
-        }
     }
 }
 

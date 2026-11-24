@@ -52,75 +52,40 @@ extension Room {
         }
     }
 
-    func engine(_ engine: Room, didUpdateSpeakers speakers: [Livekit_SpeakerInfo]) {
-        let activeSpeakers = _state.mutate { state -> [Participant] in
-            var activeSpeakers: [Participant] = []
-            var seenParticipantSids = [Participant.Sid: Bool]()
-            for speaker in speakers {
-                let participantSid = Participant.Sid(from: speaker.sid)
-                seenParticipantSids[participantSid] = true
-                if participantSid == localParticipant.sid {
-                    localParticipant._state.mutate {
-                        $0.audioLevel = speaker.level
-                        if !$0.isSpeaking {
-                            $0.lastSpokeAt = Date()
-                        }
-                        $0.isSpeaking = true
-                    }
-                    activeSpeakers.append(localParticipant)
-                } else if let participant = state.remoteParticipant(forSid: participantSid) {
-                    participant._state.mutate {
-                        $0.audioLevel = speaker.level
-                        if !$0.isSpeaking {
-                            $0.lastSpokeAt = Date()
-                        }
-                        $0.isSpeaking = true
-                    }
-                    activeSpeakers.append(participant)
-                }
+    func didUpdateSpeakers(_ speakers: [(participant: Participant, level: Float)]) {
+        let participants: [Participant] = [localParticipant] + Array(_state.remoteParticipants.values)
+        for participant in participants {
+            let level = speakers.first { $0.participant === participant }?.level
+            participant._state.mutate {
+                if level != nil, !$0.isSpeaking { $0.lastSpokeAt = Date() }
+                $0.audioLevel = level ?? 0
+                $0.isSpeaking = level != nil
             }
-
-            if let localParticipantSid = localParticipant.sid, seenParticipantSids[localParticipantSid] == nil {
-                localParticipant._state.mutate {
-                    $0.audioLevel = 0.0
-                    $0.isSpeaking = false
-                }
-            }
-
-            for participant in state.remoteParticipants.values {
-                if let participantSid = participant.sid, seenParticipantSids[participantSid] == nil {
-                    participant._state.mutate {
-                        $0.audioLevel = 0.0
-                        $0.isSpeaking = false
-                    }
-                }
-            }
-
-            state.activeSpeakers = activeSpeakers
-            return activeSpeakers
         }
+        let activeSpeakers = speakers.map(\.participant)
+        _state.mutate { $0.activeSpeakers = activeSpeakers }
 
-        if case .connected = engine._state.connectionState {
+        if case .connected = _state.connectionState {
             delegates.notify(label: { "room.didUpdate speakers: \(activeSpeakers)" }) {
                 $0.room?(self, didUpdateSpeakingParticipants: activeSpeakers)
             }
         }
     }
 
-    func engine(_ engine: Room, didReceiveUserPacket packet: Livekit_UserPacket, participantIdentity: String, encryptionType: EncryptionType) {
+    // Native packets omit encryption metadata, so the legacy callback reports `.none`.
+    func didReceive(data: Data, topic: String, participantIdentity: String) {
         // participant could be null if data broadcasted from server
         let participant = _state.remoteParticipants[Participant.Identity(from: participantIdentity)]
 
-        if case .connected = engine._state.connectionState {
-            delegates.notify(label: { "room.didReceive data: \(packet.payload)" }) {
-                $0.room?(self, participant: participant, didReceiveData: packet.payload, forTopic: packet.topic, encryptionType: encryptionType)
-            }
+        guard case .connected = _state.connectionState else { return }
+        delegates.notify(label: { "room.didReceive data: \(data)" }) {
+            $0.room?(self, participant: participant, didReceiveData: data, forTopic: topic, encryptionType: .none)
+        }
 
-            if let participant {
-                participant.delegates.notify(label: { "participant.didReceive data: \(packet.payload)" }) { [weak participant] delegate in
-                    guard let participant else { return }
-                    delegate.participant?(participant, didReceiveData: packet.payload, forTopic: packet.topic, encryptionType: encryptionType)
-                }
+        if let participant {
+            participant.delegates.notify(label: { "participant.didReceive data: \(data)" }) { [weak participant] delegate in
+                guard let participant else { return }
+                delegate.participant?(participant, didReceiveData: data, forTopic: topic, encryptionType: .none)
             }
         }
     }

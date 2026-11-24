@@ -47,7 +47,7 @@ extension LocalParticipant {
             try Task.checkCancellation()
             guard room.nativeSession.copy() === session else { throw CancellationError() }
             let info = try native.info()
-            let publication = LocalTrackPublication(info: info.toPBType(), participant: self)
+            let publication = LocalTrackPublication(info: info, participant: self)
             audio._state.mutate {
                 $0.nativeSession = session
                 $0.sid = Track.Sid(from: info.sid)
@@ -101,7 +101,7 @@ extension LocalParticipant {
                 try Task.checkCancellation()
                 guard room.nativeSession.copy() === session else { throw CancellationError() }
                 let info = try native.info()
-                let publication = LocalTrackPublication(info: info.toPBType(), participant: self)
+                let publication = LocalTrackPublication(info: info, participant: self)
                 track._state.mutate { $0.nativeSession = session; $0.sid = Track.Sid(from: info.sid); $0.publishState = .published; $0.lastPublishOptions = options; $0.dimensions = dimensions }
                 await publication.set(track: track)
                 guard room.nativeSession.copy() === session else { throw CancellationError() }

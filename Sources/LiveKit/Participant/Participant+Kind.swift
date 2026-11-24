@@ -47,16 +47,3 @@ extension Participant.Kind: CustomStringConvertible {
 }
 
 // MARK: - Internal
-
-extension Livekit_ParticipantInfo_Kind {
-    func toLKType() -> Participant.Kind {
-        switch self {
-        case .standard: .standard
-        case .ingress: .ingress
-        case .egress: .egress
-        case .sip: .sip
-        case .agent: .agent
-        default: .unknown
-        }
-    }
-}

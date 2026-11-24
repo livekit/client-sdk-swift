@@ -16,9 +16,7 @@
 
 // swiftlint:disable file_length
 
-#if !COCOAPODS && !LK_XCFRAMEWORK
-import LiveKitNanopb
-#endif
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Combine
 import Foundation
@@ -234,13 +232,13 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         _state.mutate { $0.attributes = attributes }
     }
 
-    override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
-        super.set(info: info, connectionState: connectionState)
+    override func set(info: NativeParticipant, publications: [NativeTrackPublication], connectionState: ConnectionState) {
+        super.set(info: info, publications: publications, connectionState: connectionState)
 
-        for trackInfo in info.tracks {
+        for trackInfo in publications where trackInfo.participantIdentity == info.identity {
             guard let publication = trackPublications[Track.Sid(from: trackInfo.sid)] as? LocalTrackPublication else { continue }
             publication.updateFromInfo(info: trackInfo)
-            publication.track?.set(muted: trackInfo.muted)
+            publication.track?.set(muted: trackInfo.isMuted)
         }
     }
 

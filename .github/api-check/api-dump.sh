@@ -77,7 +77,7 @@ modulemap=$(find "$dd/Build/Intermediates.noindex" -name CLiveKitProto.modulemap
 xcrun swift-api-digester -dump-sdk -module LiveKit -target "$triple" -sdk "$sdk" \
     -I "$products" -F "$products" -F "$products/PackageFrameworks" \
     -abort-on-module-fail -o "$out/api-raw.json" \
-    -Xcc "-fmodule-map-file=$modulemap" -Xcc "-I$repo/Sources/CLiveKitProto/include"
+    ${modulemap:+-Xcc "-fmodule-map-file=$modulemap" -Xcc "-I$repo/Sources/CLiveKitProto/include"}
 [[ -s "$out/api-raw.json" ]] || { echo "swift-api-digester produced no dump" >&2; exit 1; }
 # Same prune as api-check.swift: `package` declarations are not public API.
 jq 'walk(if type == "object" and has("children") then .children |= map(select(.isInternal != true)) else . end)' \

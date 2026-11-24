@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-#if !COCOAPODS && !LK_XCFRAMEWORK
-import LiveKitNanopb
-#endif
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Combine
 import Foundation
@@ -85,8 +83,6 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
     public var videoTracks: [TrackPublication] {
         _state.trackPublications.values.filter { $0.kind == .video }
     }
-
-    var info: Livekit_ParticipantInfo?
 
     // Reference to the Room this Participant belongs to
     weak var _room: Room?
@@ -250,33 +246,33 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         publication.track?._state.mutate { $0.sid = publication.sid }
     }
 
-    func set(info: Livekit_ParticipantInfo, connectionState _: ConnectionState) {
+    func set(info: NativeParticipant, publications _: [NativeTrackPublication], connectionState _: ConnectionState) {
         _state.mutate {
             $0.sid = Sid(from: info.sid)
             $0.identity = Identity(from: info.identity)
             $0.name = info.name
             $0.metadata = info.metadata
-            $0.kind = info.kind.toLKType()
+            $0.kind = info.kind.lkType
             $0.attributes = info.attributes
             $0.agentAttributes = info.attributes.mapped(to: AgentAttributes.self)
-            $0.state = info.state.toLKType()
+            $0.state = info.state.lkType
             // Each version extends the one before, so a peer newer than this SDK reads as the
             // newest version it knows, not as a legacy client.
             $0.clientProtocol = ClientProtocol(rawValue: min(Int(info.clientProtocol), ClientProtocol.v2.rawValue)) ?? .v0
-            $0.capabilities = info.capabilities.compactMap { ClientCapability(rawValue: $0.rawValue) }
+            $0.capabilities = (info.capabilities ?? []).compactMap {
+                switch $0 {
+                case .packetTrailer: .packetTrailer
+                case .compressionDeflateRaw: .compressionDeflateRaw
+                default: nil
+                }
+            }
 
-            // Attempt to get millisecond precision.
-            if info.joinedAtMs != 0 {
-                $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(Double(info.joinedAtMs) / 1000))
-            } else if info.joinedAt != 0 {
-                $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
+            if info.joinedAt != 0 {
+                $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(Double(info.joinedAt) / 1000))
             }
         }
 
-        // Detach: a view from a decoded signal message would otherwise keep
-        // the entire response allocation alive for this participant's lifetime.
-        self.info = info.owned()
-        set(permissions: info.permission.toLKType())
+        set(permissions: info.permission?.lkType ?? ParticipantPermissions())
     }
 
     @discardableResult

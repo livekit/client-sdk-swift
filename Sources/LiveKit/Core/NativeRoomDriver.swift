@@ -167,8 +167,7 @@ actor NativeRoomDriver {
                 reportedPacketMetadataGap = true
                 room.log("Native packets omit encryption metadata; the legacy delegate encryption field is not authoritative", .warning)
             }
-            room.engine(room, didReceiveUserPacket: .with { $0.payload = packet.payload; $0.topic = packet.topic ?? "" },
-                        participantIdentity: packet.participantIdentity ?? "", encryptionType: .none)
+            room.didReceive(data: packet.payload, topic: packet.topic ?? "", participantIdentity: packet.participantIdentity ?? "")
             return true
         case let .byteStreamOpened(reader, identity):
             room.dataStreams.handleByteStreamOpened(reader, identity: identity)
@@ -201,7 +200,7 @@ actor NativeRoomDriver {
         switch update.event {
         case let .connectionStateChanged(state): snapshot.connection = state
         case let .disconnected(reason):
-            await disconnect(room: room, error: reason == .clientInitiated ? nil : LiveKitError.from(reason: reason.toPBType()))
+            await disconnect(room: room, error: reason == .clientInitiated ? nil : LiveKitError(reason.lkErrorType))
             return
         case let .roomUpdated(info), let .roomMetadataChanged(info, _), let .roomMoved(info): snapshot.room = info
         case let .tokenRefreshed(token): room._state.mutate { $0.token = token }
@@ -252,11 +251,10 @@ actor NativeRoomDriver {
             snapshot.remoteParticipants[index].audioLevel = levels[identity] ?? 0
             snapshot.remoteParticipants[index].isSpeaking = levels[identity] != nil
         }
-        room.engine(room, didUpdateSpeakers: speakers.compactMap { speaker in
+        room.didUpdateSpeakers(speakers.compactMap { speaker in
             let participant: Participant? = room.localParticipant.identity?.stringValue == speaker.identity
                 ? room.localParticipant : room.remoteParticipants[Participant.Identity(from: speaker.identity)]
-            guard let sid = participant?.sid else { return nil }
-            return .with { $0.sid = sid.stringValue; $0.level = speaker.audioLevel; $0.active = true }
+            return participant.map { ($0, speaker.audioLevel) }
         })
     }
 }

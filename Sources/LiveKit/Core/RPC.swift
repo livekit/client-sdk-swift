@@ -90,22 +90,6 @@ public struct RpcError: Error {
 
     static let MAX_MESSAGE_BYTES = 256
     static let MAX_DATA_BYTES = 15360 // 15 KB
-
-    static func fromProto(_ proto: Livekit_RpcError) -> RpcError {
-        RpcError(
-            code: Int(proto.code),
-            message: (proto.message).truncate(maxBytes: MAX_MESSAGE_BYTES),
-            data: proto.data.truncate(maxBytes: MAX_DATA_BYTES),
-        )
-    }
-
-    func toProto() -> Livekit_RpcError {
-        Livekit_RpcError.with {
-            $0.code = UInt32(code)
-            $0.message = message
-            $0.data = data
-        }
-    }
 }
 
 /// Maximum payload size for RPC v1 requests and responses. v2 (data-stream-based) payloads

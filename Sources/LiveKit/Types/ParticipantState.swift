@@ -35,46 +35,6 @@ public enum ParticipantState: Int, Sendable, CaseIterable {
     case unknown = 999
 }
 
-// MARK: - Conversions from/to protobuf types
-
-extension ParticipantState {
-    init(from protoState: Livekit_ParticipantInfo_State) {
-        switch protoState {
-        case .joining:
-            self = .joining
-        case .joined:
-            self = .joined
-        case .active:
-            self = .active
-        case .disconnected:
-            self = .disconnected
-        default:
-            self = .unknown
-        }
-    }
-
-    var protoState: Livekit_ParticipantInfo_State {
-        switch self {
-        case .joining:
-            .joining
-        case .joined:
-            .joined
-        case .active:
-            .active
-        case .disconnected:
-            .disconnected
-        case .unknown:
-            .joining // Default to joining for unknown state
-        }
-    }
-}
-
-extension Livekit_ParticipantInfo_State {
-    func toLKType() -> ParticipantState {
-        ParticipantState(from: self)
-    }
-}
-
 extension ParticipantState: CustomStringConvertible {
     public var description: String {
         switch self {

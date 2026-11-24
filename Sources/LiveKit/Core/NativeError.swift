@@ -50,42 +50,29 @@ extension LiveKitError {
         case let .region(reason): LiveKitError(.regionManager, message: reason, internalError: original)
         case .sendFailed, .transport: LiveKitError(.network, internalError: original)
         case .closed, .invalidState, .transportNotConfigured: LiveKitError(.invalidState, internalError: original)
-        case let .leave(reason, _): LiveKitError.from(reason: Livekit_DisconnectReason(rawValue: Int(reason)))
+        case let .leave(reason, _): LiveKitError(leaveType(reason))
         case .protoDecode: LiveKitError(.failedToConvertData, internalError: original)
         case .unknown: LiveKitError(.unknown, internalError: original)
         @unknown default: LiveKitError(.unknown, internalError: original)
         }
     }
 
+    /// `livekit.DisconnectReason` wire values carried by a signal leave.
+    private static func leaveType(_ reason: Int32) -> LiveKitErrorType {
+        switch reason {
+        case 1: .cancelled
+        case 2: .duplicateIdentity
+        case 3: .serverShutdown
+        case 4: .participantRemoved
+        case 5: .roomDeleted
+        case 6: .stateMismatch
+        case 7: .joinFailure
+        default: .unknown
+        }
+    }
+
     private static func httpType(source: NativeHttpFailureSource, status: UInt16) -> LiveKitErrorType {
         if source == .webSocketHandshake || !(400 ..< 500).contains(status) || status == 429 { return .network }
         return status == 404 ? .serviceNotFound : .validation
-    }
-}
-
-extension NativeDisconnectReason {
-    // Exhaustive native/protocol reason mapping; never parse display strings.
-    // swiftlint:disable:next cyclomatic_complexity
-    func toPBType() -> Livekit_DisconnectReason {
-        switch self {
-        case .unknownReason: .unknownReason
-        case .clientInitiated: .clientInitiated
-        case .duplicateIdentity: .duplicateIdentity
-        case .serverShutdown: .serverShutdown
-        case .participantRemoved: .participantRemoved
-        case .roomDeleted: .roomDeleted
-        case .stateMismatch: .stateMismatch
-        case .joinFailure: .joinFailure
-        case .migration: .migration
-        case .signalClose: .signalClose
-        case .roomClosed: .roomClosed
-        case .userUnavailable: .userUnavailable
-        case .userRejected: .userRejected
-        case .sipTrunkFailure: .sipTrunkFailure
-        case .connectionTimeout: .connectionTimeout
-        case .mediaFailure: .mediaFailure
-        case .agentError: .agentError
-        @unknown default: .unknownReason
-        }
     }
 }

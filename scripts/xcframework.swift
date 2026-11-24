@@ -171,8 +171,8 @@ func addSources(
 // swiftlint:disable function_body_length
 
 /// Generate a temporary .xcodeproj with a framework target that includes all
-/// LiveKit source files directly. SPM binary dependencies (WebRTC, UniFFI) and
-/// SwiftProtobuf are added as package dependencies. The target-level
+/// LiveKit source files directly. SPM binary dependencies (WebRTC, UniFFI)
+/// are added as package dependencies. The target-level
 /// MACH_O_TYPE=mh_dylib setting produces a proper dynamic .framework bundle.
 func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
     let pbxProj = PBXProj()
@@ -228,16 +228,11 @@ func generateFrameworkProject(at projectPath: Path, repoRoot: Path) throws {
         "MACH_O_TYPE": "mh_dylib",
         "CLANG_ENABLE_MODULES": "YES",
         "HEADER_SEARCH_PATHS": "$(inherited) "
-            + (repoRoot + "Sources/LKObjCHelpers/include").string + " "
-            + (repoRoot + "Sources/CLiveKitProto/include").string,
-        "SWIFT_ACTIVE_COMPILATION_CONDITIONS": "LK_XCFRAMEWORK",
-        // Both C modules resolve via their committed module.modulemap — textual
-        // clang modules compiled into this target, never public framework API.
+            + (repoRoot + "Sources/LKObjCHelpers/include").string,
+        // The C module resolves via its committed module.modulemap — a textual
+        // clang module compiled into this target, never public framework API.
         "SWIFT_INCLUDE_PATHS": "$(inherited) "
-            + (repoRoot + "Sources/LKObjCHelpers").string + " "
-            + (repoRoot + "Sources/CLiveKitProto").string,
-        // `package` access (LiveKitNanopb runtime) needs a package identifier.
-        "SWIFT_PACKAGE_NAME": "livekit_client_sdk_swift",
+            + (repoRoot + "Sources/LKObjCHelpers").string,
     ])
     pbxProj.add(object: targetConfig)
     let targetConfigList = XCConfigurationList(buildConfigurations: [targetConfig], defaultConfigurationName: "Release")
@@ -311,21 +306,6 @@ private func addSourceGroups(
     pbxProj.add(object: objcGroup)
     mainGroup.children.append(objcGroup)
     try addSources(dir: repoRoot + "Sources/LKObjCHelpers", group: objcGroup,
-                   sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj)
-
-    // The nanopb runtime compiles into this module (`package` access keeps it
-    // out of the emitted .swiftinterface); the C protocol layer compiles in as
-    // plain C files, imported by Swift via the CLiveKitProto modulemap.
-    let nanopbGroup = PBXGroup(sourceTree: .group, name: "LiveKitNanopb", path: "Sources/LiveKitNanopb")
-    pbxProj.add(object: nanopbGroup)
-    mainGroup.children.append(nanopbGroup)
-    try addSources(dir: repoRoot + "Sources/LiveKitNanopb", group: nanopbGroup,
-                   sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj)
-
-    let cProtoGroup = PBXGroup(sourceTree: .group, name: "CLiveKitProto", path: "Sources/CLiveKitProto")
-    pbxProj.add(object: cProtoGroup)
-    mainGroup.children.append(cProtoGroup)
-    try addSources(dir: repoRoot + "Sources/CLiveKitProto", group: cProtoGroup,
                    sourcesBP: sourcesBP, resourcesBP: resourcesBP, pbxProj: pbxProj)
 
     // Make ObjC headers public

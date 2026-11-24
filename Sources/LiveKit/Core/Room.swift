@@ -46,13 +46,14 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     /// Room's metadata.
     public var metadata: String? { _state.metadata }
 
-    public var serverVersion: String? { _state.serverInfo?.version.nilIfEmpty }
+    // Native snapshots omit server info; see API_COV.md.
+    public var serverVersion: String? { nil }
 
     /// Region code the client is currently connected to.
-    public var serverRegion: String? { _state.serverInfo?.region.nilIfEmpty }
+    public var serverRegion: String? { nil }
 
     /// Region code the client is currently connected to.
-    public var serverNodeId: String? { _state.serverInfo?.nodeID.nilIfEmpty }
+    public var serverNodeId: String? { nil }
 
     public var remoteParticipants: [Participant.Identity: RemoteParticipant] { _state.remoteParticipants }
 
@@ -168,8 +169,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var numParticipants: Int = 0
         var numPublishers: Int = 0
 
-        var serverInfo: Livekit_ServerInfo?
-
         // Engine
         var providedUrl: URL?
         var connectedUrl: URL?
@@ -184,9 +183,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // initial `JoinResponse.room.sid` is empty). Don't overwrite a known value
         // with an empty one, otherwise `Room.sid()` resolves with an empty SID and
         // never updates.
-        mutating func apply(roomInfo: Livekit_Room) {
-            if !roomInfo.sid.isEmpty {
-                sid = Room.Sid(from: roomInfo.sid)
+        mutating func apply(roomInfo: NativeRoomInfo) {
+            if let roomSid = roomInfo.sid, !roomSid.isEmpty {
+                sid = Room.Sid(from: roomSid)
             }
             if !roomInfo.name.isEmpty {
                 name = roomInfo.name
@@ -201,21 +200,18 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 maxParticipants = Int(roomInfo.maxParticipants)
             }
 
-            // Attempt to get millisecond precision.
-            if roomInfo.creationTimeMs != 0 {
-                creationTime = Date(timeIntervalSince1970: TimeInterval(Double(roomInfo.creationTimeMs) / 1000))
-            } else if roomInfo.creationTime != 0 {
-                creationTime = Date(timeIntervalSince1970: TimeInterval(roomInfo.creationTime))
+            if roomInfo.creationTime != 0 {
+                creationTime = Date(timeIntervalSince1970: TimeInterval(Double(roomInfo.creationTime) / 1000))
             }
         }
 
         @discardableResult
-        mutating func updateRemoteParticipant(info: Livekit_ParticipantInfo, room: Room) -> RemoteParticipant {
+        mutating func updateRemoteParticipant(info: NativeParticipant, publications: [NativeTrackPublication], room: Room) -> RemoteParticipant {
             let identity = Participant.Identity(from: info.identity)
             // Check if RemoteParticipant with same identity exists...
             if let participant = remoteParticipants[identity] { return participant }
             // Create new RemoteParticipant...
-            let participant = RemoteParticipant(info: info, room: room, connectionState: connectionState)
+            let participant = RemoteParticipant(info: info, publications: publications, room: room, connectionState: connectionState)
             remoteParticipants[identity] = participant
             return participant
         }

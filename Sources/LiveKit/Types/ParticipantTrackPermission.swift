@@ -46,15 +46,7 @@ public final class ParticipantTrackPermission: NSObject, Sendable {
     }
 }
 
-extension ParticipantTrackPermission {
-    func toPBType() -> Livekit_TrackPermission {
-        Livekit_TrackPermission.with {
-            $0.participantSid = self.participantSid
-            $0.allTracks = self.allTracksAllowed
-            $0.trackSids = self.allowedTrackSids
-        }
-    }
-}
+extension ParticipantTrackPermission {}
 
 extension ParticipantTrackPermission {
     func toNative(identity: String) -> NativeTrackPermission {
