@@ -115,7 +115,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     ///
     /// - Parameter enabled: Whether to enable encryption.
     public func setE2EEEnabled(_ enabled: Bool) {
-        guard e2eeManager != nil, nativeSession.copy() != nil else { return }
+        let options = _state.roomOptions
+        guard options.encryptionOptions != nil || options.e2eeOptions != nil,
+              nativeSession.copy() != nil else { return }
         nativeEncryptionRequested.mutate { $0 = !enabled }
         if !enabled {
             log("Dynamic native encryption disable is not exported; encrypted outgoing operations reject this request", .error)
@@ -136,7 +138,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     let dataStreams = DataStreams()
 
     func requireNativeSession(forEncryptedPayload: Bool = false, forMedia: Bool = false) throws -> NativeRoomSession {
-        let encryptedOperation = forMedia || (forEncryptedPayload && _state.roomOptions.encryptionOptions != nil)
+        let options = _state.roomOptions
+        let configured = options.encryptionOptions != nil || options.e2eeOptions != nil
+        let encryptedOperation = (forMedia && configured) || (forEncryptedPayload && options.encryptionOptions != nil)
         guard !encryptedOperation || !nativeEncryptionRequested.copy() else {
             throw LiveKitError(.invalidState, message: "Dynamic native encryption disable is not exported")
         }

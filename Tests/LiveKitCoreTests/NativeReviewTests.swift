@@ -64,6 +64,45 @@ extension NativeRoomTests {
         }
     }
 
+    @Test(arguments: ["plaintext", "legacy", "modern"])
+    func managerReplacementUsesConnectedEncryptionOptions(mode: String) async throws {
+        let key = BaseKeyProvider(isSharedKey: true, sharedKey: "manager-replacement-key")
+        let modern = RoomOptions(encryptionOptions: .init(keyProvider: key))
+        let options: RoomOptions = switch mode {
+        case "legacy": .init(e2eeOptions: .init(keyProvider: key))
+        case "modern": modern
+        default: .init()
+        }
+        // Connect-time options override the constructor's opposite configuration.
+        let room = Room(roomOptions: mode == "plaintext" ? modern : RoomOptions())
+        let replacement = mode == "modern" ? E2EEManager(e2eeOptions: .init(keyProvider: key)) : E2EEManager(options: .init(keyProvider: key))
+        do {
+            try await room.connect(url: url, token: token("manager", room: "swift-manager-\(UUID().uuidString)"), roomOptions: options)
+            for manager in [replacement, nil] {
+                room.e2eeManager = manager
+                room.setE2EEEnabled(false)
+                if mode == "plaintext" {
+                    _ = try room.requireNativeSession(forMedia: true)
+                } else {
+                    #expect(throws: LiveKitError.self) { try room.requireNativeSession(forMedia: true) }
+                }
+                if mode == "modern" {
+                    await #expect(throws: LiveKitError.self) { try await room.localParticipant.publish(data: Data()) }
+                } else {
+                    try await room.localParticipant.publish(data: Data("plaintext".utf8))
+                }
+                room.e2eeManager = nil
+                room.setE2EEEnabled(true)
+                _ = try room.requireNativeSession(forMedia: true)
+                try await room.localParticipant.publish(data: Data("enabled".utf8))
+            }
+            await room.disconnect()
+        } catch {
+            await room.disconnect()
+            throw error
+        }
+    }
+
     @Test
     func rpcRegistrationDuringConnectAndConcurrentChanges() async throws {
         let name = "swift-review-rpc-\(UUID().uuidString)"
