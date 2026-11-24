@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
+import Foundation
 @testable import LiveKit
 import LiveKitFFI
 import Testing
 
-struct NativeRoomProtoTests {
+struct NativeRoomMappingTests {
     @Test
     func snapshotPreservesMillisecondsAndPublicationOwnership() throws {
         let nativeRoom = NativeRoomInfo(sid: nil, name: "room", metadata: "metadata",
                                         numParticipants: 2, numPublishers: 1, maxParticipants: 8,
                                         activeRecording: true, emptyTimeout: 300, departureTimeout: 20,
                                         creationTime: 1_700_000_000_123)
-        let room = try Livekit_Room(serializedBytes: nativeRoom.toPBType().serializedData())
-        #expect(!room.hasSid)
-        #expect(room.creationTimeMs == 1_700_000_000_123)
-        #expect(room.creationTime == 0)
-        #expect(room.activeRecording)
+        var state = Room.State(connectOptions: ConnectOptions(), roomOptions: RoomOptions())
+        state.apply(roomInfo: nativeRoom)
+        #expect(state.sid == nil)
+        #expect(state.creationTime == Date(timeIntervalSince1970: 1_700_000_000.123))
+        #expect(state.isRecording)
+        #expect(state.maxParticipants == 8)
 
         let participant = NativeParticipant(identity: "alice", sid: "PA_alice", isLocal: false,
                                             name: "Alice", state: .active, kind: .bridge,
@@ -44,15 +46,24 @@ struct NativeRoomProtoTests {
         var other = own
         other.participantIdentity = "bob"
         other.sid = "TR_bob"
-        let info = try Livekit_ParticipantInfo(serializedBytes: participant.toPBType(publications: [other, own]).serializedData())
-        #expect(info.joinedAtMs == participant.joinedAt)
-        #expect(info.kind == .bridge)
-        #expect(info.kindDetails == [.bridgeRtsp])
-        #expect(info.clientProtocol == 2)
-        #expect(!info.hasPermission)
-        #expect(info.tracks.map(\.sid) == ["TR_alice"])
-        let track = try #require(info.tracks.first)
-        #expect(track.source == .screenShare)
-        #expect(track.encryption == .gcm)
+        let remote = RemoteParticipant(info: participant, publications: [other, own], room: Room(), connectionState: .connected)
+        #expect(remote.joinedAt == Date(timeIntervalSince1970: 1_700_000_000.456))
+        #expect(remote.kind == .unknown) // Public Participant.Kind has no bridge case.
+        #expect(remote.clientProtocol == .v2)
+        #expect(remote.capabilities == [.packetTrailer])
+        #expect(remote.permissions == ParticipantPermissions())
+        #expect(remote.trackPublications.keys.map(\.stringValue) == ["TR_alice"])
+        let track = try #require(remote.trackPublications.values.first)
+        #expect(track.source == .screenShareVideo)
+        #expect(track.encryptionType == .gcm)
+        #expect(track.isSimulcasted)
+        #expect(track.dimensions == Dimensions(width: 1920, height: 1080))
+    }
+
+    @Test(arguments: [(NativeDisconnectReason.clientInitiated, LiveKitErrorType.cancelled), (.duplicateIdentity, .duplicateIdentity),
+                      (.serverShutdown, .serverShutdown), (.participantRemoved, .participantRemoved), (.roomDeleted, .roomDeleted),
+                      (.stateMismatch, .stateMismatch), (.joinFailure, .joinFailure), (.migration, .unknown)])
+    func disconnectReasonMapsToErrorType(_ reason: NativeDisconnectReason, _ expected: LiveKitErrorType) {
+        #expect(reason.lkErrorType == expected)
     }
 }

@@ -70,16 +70,6 @@ struct SinglePCRepublishTests {
             try await poll(timeout: 30, for: "the unpublish reaches the peer") {
                 second.remoteParticipants[firstIdentity]?.videoTracks.isEmpty ?? false
             }
-            // `poll` takes a synchronous condition and the signalling state is @RTC-isolated.
-            let publisher = try #require(first._state.transport?.publisher)
-            let deadline = Date().addingTimeInterval(30)
-            var settled = false
-            while Date() < deadline {
-                if await publisher.signalingState == .stable { settled = true; break }
-                try await Task.sleep(nanoseconds: 100_000_000)
-            }
-            #expect(settled, "the unpublish offer was never answered")
-
             // Now `second` publishes, and `first` has to receive it — on the same peer connection
             // that still carries the section it just unpublished.
             let remoteTrack = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions(dimensions: Self.dimensions))

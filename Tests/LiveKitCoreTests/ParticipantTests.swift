@@ -16,6 +16,7 @@
 
 import Foundation
 @testable import LiveKit
+import LiveKitFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -25,40 +26,36 @@ import LiveKitTestSupport
 struct ParticipantTests {
     @Test(arguments: [(Int32(-1), ClientProtocol.v0), (0, .v0), (1, .v1), (2, .v2), (3, .v2), (.max, .v2)])
     func remoteClientProtocol(advertised: Int32, expected: ClientProtocol) {
-        let info = Livekit_ParticipantInfo.with {
-            $0.identity = "remote"
-            $0.clientProtocol = advertised
-        }
-        let participant = RemoteParticipant(info: info, room: Room(), connectionState: .connected)
+        let participant = RemoteParticipant(info: info(clientProtocol: advertised), publications: [], room: Room(), connectionState: .connected)
         #expect(participant.clientProtocol == expected)
     }
 
     /// Capabilities come from the participant info: none by default, both known ones, and nothing
-    /// for the protocol's placeholder or a value this SDK does not know.
+    /// for the protocol's placeholder.
     @Test(arguments: [
-        ([Livekit_ClientInfo_Capability](), [ClientCapability]()),
-        ([.capCompressionDeflateRaw, .capPacketTrailer], [.compressionDeflateRaw, .packetTrailer]),
-        ([.capUnused, Livekit_ClientInfo_Capability(rawValue: 9999), .capCompressionDeflateRaw], [.compressionDeflateRaw]),
+        ([LiveKitFFI.ClientCapability](), [LiveKit.ClientCapability]()),
+        ([.compressionDeflateRaw, .packetTrailer], [.compressionDeflateRaw, .packetTrailer]),
+        ([.unused, .compressionDeflateRaw], [.compressionDeflateRaw]),
     ])
-    func remoteCapabilities(advertised: [Livekit_ClientInfo_Capability], expected: [ClientCapability]) {
-        let participant = RemoteParticipant(info: info(capabilities: advertised), room: Room(), connectionState: .connected)
+    func remoteCapabilities(advertised: [LiveKitFFI.ClientCapability], expected: [LiveKit.ClientCapability]) {
+        let participant = RemoteParticipant(info: info(capabilities: advertised), publications: [], room: Room(), connectionState: .connected)
         #expect(participant.capabilities == expected)
     }
 
     /// A later update replaces the capabilities, so one without any clears them.
     @Test func remoteCapabilitiesClearedByLaterUpdate() {
-        let participant = RemoteParticipant(info: info(capabilities: [.capCompressionDeflateRaw]), room: Room(), connectionState: .connected)
+        let participant = RemoteParticipant(info: info(capabilities: [.compressionDeflateRaw]), publications: [], room: Room(), connectionState: .connected)
         #expect(participant.capabilities == [.compressionDeflateRaw])
 
-        participant.set(info: info(capabilities: []), connectionState: .connected)
+        participant.set(info: info(capabilities: []), publications: [], connectionState: .connected)
         #expect(participant.capabilities.isEmpty)
     }
 
-    private func info(capabilities: [Livekit_ClientInfo_Capability]) -> Livekit_ParticipantInfo {
-        Livekit_ParticipantInfo.with {
-            $0.identity = "remote"
-            $0.capabilities = capabilities
-        }
+    private func info(clientProtocol: Int32 = 0, capabilities: [LiveKitFFI.ClientCapability]? = nil) -> NativeParticipant {
+        NativeParticipant(identity: "remote", sid: "", isLocal: false, name: "", state: .active, kind: .standard, kindDetails: [],
+                          metadata: "", attributes: [:], isSpeaking: false, audioLevel: 0, connectionQuality: .good, joinedAt: 0,
+                          permission: nil, isEncrypted: false, disconnectReason: .unknownReason, clientProtocol: clientProtocol,
+                          capabilities: capabilities)
     }
 
     @Test func localParticipantIdentity() async throws {

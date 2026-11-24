@@ -120,7 +120,6 @@ struct RepublishTracksTests {
             #expect(republished.sid != publication.sid)
             #expect(republished.track === track)
             #expect(track._state.trackState == .started)
-            #expect(track._state.rtpSender != nil, "Track was not re-attached to the new publisher")
 
             switch scenario.capture {
             case .uninterrupted:

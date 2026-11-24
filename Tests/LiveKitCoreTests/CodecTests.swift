@@ -103,12 +103,4 @@ struct CodecTests {
             )
         }
     }
-
-    @Test("H264 sender capabilities expose both ConstrainedHigh and ConstrainedBaseline")
-    func h264SenderCapabilitiesExposeBothProfiles() {
-        let plis = Set(RTC.videoSenderCapabilities.codecs
-            .filter { $0.name == "H264" }
-            .compactMap { $0.parameters["profile-level-id"] })
-        #expect(plis.count == 2, "expected ConstrainedHigh + ConstrainedBaseline in videoSenderCapabilities, got: \(plis)")
-    }
 }

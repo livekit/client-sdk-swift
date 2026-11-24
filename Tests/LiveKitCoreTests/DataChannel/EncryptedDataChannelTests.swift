@@ -77,12 +77,7 @@ import LiveKitTestSupport
                 let sender = rooms[0]
                 let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 
-                let userPacket = Livekit_UserPacket.with {
-                    $0.payload = testData
-                    $0.destinationIdentities = [remoteIdentity.stringValue]
-                }
-
-                try await sender.send(userPacket: userPacket, kind: .reliable)
+                try await sender.localParticipant.publish(data: testData, options: DataPublishOptions(destinationIdentities: [remoteIdentity], reliable: true))
 
                 await self.awaitEvent()
             }
@@ -122,12 +117,7 @@ import LiveKitTestSupport
 
                 let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 
-                let userPacket = Livekit_UserPacket.with {
-                    $0.payload = testData
-                    $0.destinationIdentities = [remoteIdentity.stringValue]
-                }
-
-                try await sender.send(userPacket: userPacket, kind: .reliable)
+                try await sender.localParticipant.publish(data: testData, options: DataPublishOptions(destinationIdentities: [remoteIdentity], reliable: true))
 
                 await self.awaitEvent()
             }
@@ -160,12 +150,7 @@ import LiveKitTestSupport
                 let sender = rooms[0]
                 let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 
-                let userPacket = Livekit_UserPacket.with {
-                    $0.payload = testData
-                    $0.destinationIdentities = [remoteIdentity.stringValue]
-                }
-
-                try await sender.send(userPacket: userPacket, kind: .reliable)
+                try await sender.localParticipant.publish(data: testData, options: DataPublishOptions(destinationIdentities: [remoteIdentity], reliable: true))
 
                 await self.awaitEvent()
             }
@@ -207,12 +192,7 @@ import LiveKitTestSupport
 
                 let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 
-                let userPacket = Livekit_UserPacket.with {
-                    $0.payload = testData
-                    $0.destinationIdentities = [remoteIdentity.stringValue]
-                }
-
-                try await sender.send(userPacket: userPacket, kind: .reliable)
+                try await sender.localParticipant.publish(data: testData, options: DataPublishOptions(destinationIdentities: [remoteIdentity], reliable: true))
 
                 await self.awaitEvent()
             }
@@ -254,12 +234,7 @@ import LiveKitTestSupport
                 let receiverExportedKey = receiverKeyProvider.exportKey()
                 #expect(senderExportedKey != receiverExportedKey, "Keys should be different after sender ratchets")
 
-                let userPacket = Livekit_UserPacket.with {
-                    $0.payload = testData
-                    $0.destinationIdentities = [remoteIdentity.stringValue]
-                }
-
-                try await sender.send(userPacket: userPacket, kind: .reliable)
+                try await sender.localParticipant.publish(data: testData, options: DataPublishOptions(destinationIdentities: [remoteIdentity], reliable: true))
 
                 await self.awaitEvent()
             }
@@ -299,12 +274,7 @@ import LiveKitTestSupport
 
                 senderKeyProvider.setCurrentKeyIndex(1)
 
-                let userPacket = Livekit_UserPacket.with {
-                    $0.payload = testData
-                    $0.destinationIdentities = [remoteIdentity.stringValue]
-                }
-
-                try await sender.send(userPacket: userPacket, kind: .reliable)
+                try await sender.localParticipant.publish(data: testData, options: DataPublishOptions(destinationIdentities: [remoteIdentity], reliable: true))
 
                 await self.awaitEvent()
             }
@@ -352,12 +322,7 @@ extension EncryptedDataChannelTests {
                 }
                 let remoteIdentity = try #require(sender.remoteParticipants.keys.first)
 
-                let userPacket = Livekit_UserPacket.with {
-                    $0.payload = testData
-                    $0.destinationIdentities = [remoteIdentity.stringValue]
-                }
-
-                try await sender.send(userPacket: userPacket, kind: .reliable)
+                try await sender.localParticipant.publish(data: testData, options: DataPublishOptions(destinationIdentities: [remoteIdentity], reliable: true))
 
                 await self.awaitEvent()
             }

@@ -16,6 +16,7 @@
 
 import Foundation
 @testable import LiveKit
+import LiveKitFFI
 import Testing
 
 struct RoomStateTests {
@@ -47,11 +48,7 @@ struct RoomStateTests {
         if let sid = c.initialSid { state.sid = Room.Sid(from: sid) }
         state.name = c.initialName
 
-        let info = Livekit_Room.with { info in
-            info.sid = c.infoSid
-            info.name = c.infoName
-        }
-        state.apply(roomInfo: info)
+        state.apply(roomInfo: info(sid: c.infoSid, name: c.infoName))
 
         #expect(state.sid?.stringValue == c.expectedSid)
         #expect(state.name == c.expectedName)
@@ -63,32 +60,24 @@ struct RoomStateTests {
         state.maxParticipants = 50
         state.creationTime = Date(timeIntervalSince1970: 1000)
 
-        state.apply(roomInfo: Livekit_Room())
+        state.apply(roomInfo: info())
 
         #expect(state.maxParticipants == 50)
         #expect(state.creationTime == Date(timeIntervalSince1970: 1000))
     }
 
-    // MARK: - SignalClient delegate (Room.sid() flow)
+    // MARK: - Room.sid() flow
 
-    /// Issue #1009: SID delivered in a later `RoomUpdate` after an empty `JoinResponse.room.sid`.
+    /// Issue #1009: SID delivered in a later room update after an empty join SID.
     @Test func joinWithEmptySidThenRoomUpdatePopulatesSid() async throws {
         let room = Room()
 
-        let join = Livekit_JoinResponse.with { join in
-            join.room = .with { $0.sid = "" }
-            join.room = .with { $0.name = "my-room" }
-        }
-        await room.signalClient(room.signalClient, didReceiveConnectResponse: .join(join))
+        room._state.mutate { $0.apply(roomInfo: info(sid: "", name: "my-room")) }
 
         #expect(room.sid == nil)
         #expect(room.name == "my-room")
 
-        let update = Livekit_Room.with { update in
-            update.sid = "RM_delivered_later"
-            update.name = "my-room"
-        }
-        await room.signalClient(room.signalClient, didUpdateRoom: update)
+        room._state.mutate { $0.apply(roomInfo: info(sid: "RM_delivered_later", name: "my-room")) }
 
         let awaited = try await room.sid()
         #expect(awaited.stringValue == "RM_delivered_later")
@@ -97,27 +86,17 @@ struct RoomStateTests {
     @Test func joinWithSidResolvesAwaitedSid() async throws {
         let room = Room()
 
-        let join = Livekit_JoinResponse.with { join in
-            join.room = .with { $0.sid = "RM_from_join" }
-        }
-        await room.signalClient(room.signalClient, didReceiveConnectResponse: .join(join))
+        room._state.mutate { $0.apply(roomInfo: info(sid: "RM_from_join")) }
 
         let awaited = try await room.sid()
         #expect(awaited.stringValue == "RM_from_join")
     }
 
-    @Test func roomUpdateWithEmptySidDoesNotClearExistingSid() async {
+    @Test func roomUpdateWithEmptySidDoesNotClearExistingSid() {
         let room = Room()
 
-        let join = Livekit_JoinResponse.with { join in
-            join.room = .with { $0.sid = "RM_initial" }
-        }
-        await room.signalClient(room.signalClient, didReceiveConnectResponse: .join(join))
-
-        let update = Livekit_Room.with { update in
-            update.sid = ""
-        }
-        await room.signalClient(room.signalClient, didUpdateRoom: update)
+        room._state.mutate { $0.apply(roomInfo: info(sid: "RM_initial")) }
+        room._state.mutate { $0.apply(roomInfo: info(sid: "")) }
 
         #expect(room.sid?.stringValue == "RM_initial")
     }
@@ -125,8 +104,11 @@ struct RoomStateTests {
     // MARK: - Helpers
 
     private func makeState() -> Room.State {
-        Room.State(connectOptions: ConnectOptions(),
-                   roomOptions: RoomOptions(),
-                   stage: .idle(IdleDependencies(dataStreams: DataStreams())))
+        Room.State(connectOptions: ConnectOptions(), roomOptions: RoomOptions())
+    }
+
+    private func info(sid: String? = nil, name: String = "") -> NativeRoomInfo {
+        NativeRoomInfo(sid: sid, name: name, metadata: "", numParticipants: 0, numPublishers: 0, maxParticipants: 0,
+                       activeRecording: false, emptyTimeout: 0, departureTimeout: 0, creationTime: 0)
     }
 }
