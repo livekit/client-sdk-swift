@@ -26,8 +26,9 @@ times out on both baseline and migration. The b3 receive-only output proof is
 not accepted after the microphone-activation privacy finding above; safe output
 needs a core API. Audible output and iOS runtime remain unverified.
 Complete metadata/errors/options and the full Apple target matrix remain gaps.
-Independent reviews passed for the frozen revisions above. The parent's Rust
-rerun awaits a runnable snapshot containing the pinned protocol submodule.
+Independent reviews passed for the frozen revisions above. The parent reran the
+exact Rust snapshot with both pinned submodules: 52 room-API tests passed
+(10 live tests ignored), and all 34 legacy core-modules tests passed.
 
 `implemented` means working-backend/PoC behavior exercised by the evidence below,
 not minor-version compatibility; `pending` means
