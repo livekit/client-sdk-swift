@@ -46,9 +46,11 @@ extension SignalClientTests {
             negotiated.resume(returning: ())
         }
         async let published: Livekit_TrackInfo = {
-            let info = try await client.sendAddTrack(cid: "pending", name: "camera", type: .video,
-                                                     onSent: fast ? negotiate : nil) { _ in }
-            if !fast { try await negotiate() }
+            let info = try await LocalParticipant.publishTrackInfo(.with {
+                $0.cid = "pending"
+                $0.name = "camera"
+                $0.type = .video
+            }, client: client, fast: fast, negotiate: negotiate)
             trace.mutate { $0.append("complete") }
             return info
         }()
@@ -79,7 +81,11 @@ extension SignalClientTests {
             $0.connectionState = .connected
         }
         await client.resumeQueues()
-        let info = try await client.sendAddTrack(cid: "immediate", name: "camera", type: .video, onSent: {
+        let info = try await LocalParticipant.publishTrackInfo(.with {
+            $0.cid = "immediate"
+            $0.name = "camera"
+            $0.type = .video
+        }, client: client, fast: true, negotiate: {
             let response = Livekit_SignalResponse.with {
                 $0.trackPublished = .with {
                     $0.cid = "immediate"
@@ -87,8 +93,46 @@ extension SignalClientTests {
                 }
             }
             try await client.onWebSocketMessage(.data(response.serializedData()), from: socket)
-        }) { _ in }
+        })
         #expect(info.sid == "TR_immediate")
         await client.cleanUp()
+    }
+
+    @Test func republishingSameCIDWaitsForFreshResponse() async throws {
+        let (server, url) = try await FakeWebSocketServer.started(.idle)
+        defer { server.cancel() }
+        let socket = try await LiveKit.WebSocket(url: url, headers: [], timeoutInterval: 10)
+        defer { socket.close() }
+        let client = try await SignalClient(testingResponse: .with { $0.refreshToken = "token" },
+                                            requestProcessor: { _ in }, responseProcessed: {})
+        await client._state.mutate {
+            $0.socket = socket
+            $0.connectionState = .connected
+        }
+        await client.resumeQueues()
+        let request = Livekit_AddTrackRequest.with { $0.cid = "same"; $0.type = .audio }
+        for sid in ["TR_first", "TR_second"] {
+            try await client.sendAddTrack(request)
+            async let info = client.waitForTrack(cid: "same")
+            let response = Livekit_SignalResponse.with {
+                $0.trackPublished = .with { $0.cid = "same"; $0.track = .with { $0.sid = sid } }
+            }
+            try await client.onWebSocketMessage(.data(response.serializedData()), from: socket)
+            #expect(try await info.sid == sid)
+        }
+        await client.cleanUp()
+    }
+
+    @Test func duplicateRegistrationDoesNotReplaceOriginalWaiter() async throws {
+        let map = CompleterMapActor<String>(label: "publication attempts", defaultTimeout: 5)
+        try await map.register(for: "same")
+        await #expect(throws: LiveKitError.self) { try await map.register(for: "same") }
+        await map.resumeIfPresent(returning: "original", for: "same")
+        #expect(try await map.wait(for: "same") == "original")
+        // A late response cannot prime a future operation.
+        await map.resumeIfPresent(returning: "stale", for: "same")
+        try await map.register(for: "same")
+        await map.resumeIfPresent(returning: "fresh", for: "same")
+        #expect(try await map.wait(for: "same") == "fresh")
     }
 }

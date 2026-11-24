@@ -48,6 +48,37 @@ actor CompleterMapActor<T: Sendable> {
         return newCompleter
     }
 
+    /// Register one pending operation without reusing a previous operation's result.
+    func register(for key: String) throws {
+        if let _rejection { throw _rejection }
+        guard _completerMap[key] == nil else {
+            throw LiveKitError(.invalidState, message: "Operation already pending for \(key)")
+        }
+        _completerMap[key] = AsyncCompleter<T>(label: label, defaultTimeout: _defaultTimeout)
+    }
+
+    /// Consume the registered operation, including cancellation and failure.
+    func wait(for key: String) async throws -> T {
+        if let _rejection { throw _rejection }
+        guard let completer = _completerMap[key] else {
+            throw LiveKitError(.invalidState, message: "No operation pending for \(key)")
+        }
+        defer {
+            if _completerMap[key] === completer { _completerMap.removeValue(forKey: key) }
+        }
+        return try await completer.wait()
+    }
+
+    /// Ignore unsolicited or late responses instead of caching them for a future operation.
+    func resumeIfPresent(returning value: T, for key: String) {
+        _completerMap[key]?.resume(returning: value)
+    }
+
+    /// Discard an operation that failed before its consumer could wait.
+    func discard(for key: String) {
+        _completerMap.removeValue(forKey: key)?.reset()
+    }
+
     func resume(returning value: T, for key: String) {
         let completer = completer(for: key)
         completer.resume(returning: value)

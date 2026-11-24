@@ -894,19 +894,16 @@ extension LocalParticipant {
                 try await room.publisherShouldNegotiate()
             }
 
-            let fastPublish = isFastPublishMode
-            let trackInfo = try await room.signalClient.sendAddTrack(
-                cid: track.mediaTrack.trackId,
-                name: publishName ?? track.name,
-                type: track.kind.toPBType(),
-                source: track.source.toPBType(),
-                encryption: room.e2eeManager?.frameEncryptionType.toPBType() ?? .none,
-                onSent: fastPublish ? negotiateFunc : nil,
-                populatorFunc,
-            )
-            if !fastPublish {
-                try await negotiateFunc()
+            let request = try Livekit_AddTrackRequest.with {
+                $0.cid = track.mediaTrack.trackId
+                $0.name = publishName ?? track.name
+                $0.type = track.kind.toPBType()
+                $0.source = track.source.toPBType()
+                $0.encryption = room.e2eeManager?.frameEncryptionType.toPBType() ?? .none
+                try populatorFunc(&$0)
             }
+            let trackInfo = try await Self.publishTrackInfo(request, client: room.signalClient,
+                                                            fast: isFastPublishMode, negotiate: negotiateFunc)
 
             // At this point at least 1 audio frame should be generated to continue
             if let track = track as? LocalAudioTrack {
@@ -968,6 +965,22 @@ extension LocalParticipant {
             try await room.publisherShouldNegotiate()
         } catch {
             log("[publish] failed to roll back sender, error: \(error)", .warning)
+        }
+    }
+
+    /// Keep registration ordering and negotiation policy together in the publish pipeline.
+    static func publishTrackInfo(_ request: Livekit_AddTrackRequest, client: SignalClient,
+                                 fast: Bool, negotiate: @Sendable () async throws -> Void) async throws -> Livekit_TrackInfo
+    {
+        try await client.sendAddTrack(request)
+        do {
+            if fast { try await negotiate() }
+            let info = try await client.waitForTrack(cid: request.cid)
+            if !fast { try await negotiate() }
+            return info
+        } catch {
+            await client.cancelTrackPublication(cid: request.cid)
+            throw error
         }
     }
 

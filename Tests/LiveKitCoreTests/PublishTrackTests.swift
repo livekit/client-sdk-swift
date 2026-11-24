@@ -62,14 +62,33 @@ struct PublishTrackTests {
             #expect(track._state.rtpSender != nil)
             let identity = try #require(publisher.identity)
             let remote = try #require(rooms[1].remoteParticipants[identity])
-            let deadline = Date().addingTimeInterval(5)
-            while Date() < deadline, !remote.audioTracks.contains(where: { $0.sid == publication.sid }) {
-                try await Task.sleep(nanoseconds: 10_000_000)
+            try await poll(timeout: 5, for: "remote publication \(publication.sid)") {
+                remote.audioTracks.contains { $0.sid == publication.sid }
             }
-            #expect(remote.audioTracks.contains { $0.sid == publication.sid })
             try await publisher.unpublish(publication: publication)
             #expect(track._state.rtpSender == nil)
             #expect(publisher.audioTracks.isEmpty)
+        }
+    }
+
+    @Test func republishingSameTrackUsesRemotePublicationSID() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
+            let publisher = rooms[0].localParticipant
+            let identity = try #require(publisher.identity)
+            let remote = try #require(rooms[1].remoteParticipants[identity])
+            let track = TestAudioTrack()
+            let first = try await publisher.publish(audioTrack: track)
+            try await poll(timeout: 5, for: "the first remote publication") {
+                remote.audioTracks.contains { $0.sid == first.sid }
+            }
+            try await publisher.unpublish(publication: first)
+            try await poll(timeout: 5, for: "the first publication to disappear") { remote.audioTracks.isEmpty }
+            let second = try await publisher.publish(audioTrack: track)
+            #expect(second.sid != first.sid)
+            try await poll(timeout: 5, for: "the republished remote SID") {
+                remote.audioTracks.contains { $0.sid == second.sid }
+            }
+            #expect(Set(remote.audioTracks.map(\.sid)) == [second.sid])
         }
     }
 

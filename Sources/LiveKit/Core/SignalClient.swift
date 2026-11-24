@@ -470,7 +470,7 @@ private extension SignalClient {
         case let .trackPublished(trackPublished):
             log("[publish] resolving completer for cid: \(trackPublished.cid)")
             // Complete
-            await _addTrackCompleters.resume(returning: trackPublished.track, for: trackPublished.cid)
+            await _addTrackCompleters.resumeIfPresent(returning: trackPublished.track, for: trackPublished.cid)
 
         case let .trackUnpublished(trackUnpublished):
             _delegate.notifyDetached { await $0.signalClient(self, didUnpublishLocalTrack: trackUnpublished) }
@@ -663,13 +663,12 @@ extension SignalClient {
         try await _sendRequest(r)
     }
 
-    /// Registers the response waiter and sends AddTrack before optional sender setup and acceptance.
+    /// Send a track registration and await its acknowledgement.
     func sendAddTrack(cid: String,
                       name: String,
                       type: Livekit_TrackType,
                       source: Livekit_TrackSource = .unknown,
                       encryption: Livekit_Encryption.TypeEnum = .none,
-                      onSent: (@Sendable () async throws -> Void)? = nil,
                       _ populator: AddTrackRequestPopulator) async throws -> Livekit_TrackInfo
     {
         let addTrackRequest = try Livekit_AddTrackRequest.with {
@@ -681,19 +680,29 @@ extension SignalClient {
             try populator(&$0)
         }
 
-        let request = Livekit_SignalRequest.with {
-            $0.addTrack = addTrackRequest
+        try await sendAddTrack(addTrackRequest)
+        return try await waitForTrack(cid: cid)
+    }
+
+    /// Register the waiter before sending, without waiting for the publication acknowledgement.
+    func sendAddTrack(_ request: Livekit_AddTrackRequest) async throws {
+        try await _addTrackCompleters.register(for: request.cid)
+        do {
+            try await _sendRequest(.with { $0.addTrack = request })
+        } catch {
+            await _addTrackCompleters.discard(for: request.cid)
+            throw error
         }
+    }
 
-        // Get completer for this add track request...
-        let completer = await _addTrackCompleters.completer(for: cid)
+    /// Consume this publication attempt's acknowledgement.
+    func waitForTrack(cid: String) async throws -> Livekit_TrackInfo {
+        try await _addTrackCompleters.wait(for: cid)
+    }
 
-        // Send the request to server...
-        try await _sendRequest(request)
-        try await onSent?()
-
-        // Wait for the trackInfo...
-        return try await completer.wait()
+    /// Release a registration when negotiation failed before waiting for its acknowledgement.
+    func cancelTrackPublication(cid: String) async {
+        await _addTrackCompleters.discard(for: cid)
     }
 
     func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings) async throws {
