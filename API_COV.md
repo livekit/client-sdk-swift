@@ -37,7 +37,7 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 
 | Gate | Current conclusion |
 |---|---|
-| Public Swift/ObjC declarations, enum values, selectors, availability | macOS Release/distribution at `0c2e35d2` and historical iOS device at `96cddfb0`: digester reports zero breaking changes and zero additions. ObjC header differs only by relocating the unchanged Room.prepareConnection category; exact header line multiset is equal. Enum/selector/availability text is unchanged. This is surface evidence, not behavioral compatibility. |
+| Public Swift/ObjC declarations, enum values, selectors, availability | macOS Release/distribution at `23dfa1f7` and historical iOS device at `96cddfb0`: digester reports zero breaking changes and zero additions. ObjC header differs only by relocating the unchanged Room.prepareConnection category; exact header line multiset is equal. Enum/selector/availability text is unchanged. This is surface evidence, not behavioral compatibility. |
 | Existing unmodified public E2E | 21 existing Objective-C test methods passed unchanged, including streams/file/incremental writers, data tracks, RPC and Room delegates. Current participant identity/membership, PublishDataTests and DataTrackApiTests also pass with original unchanged shared-key/statistics-enabled fixtures; this does not imply all default/media behavior is compatible. |
 | Lifecycle/default/error/delegate/observation semantics | Two-room state/delegate/data/rejoin, invalid-token, cancellation and release proof exists. Sequential name callback ordering/getter consistency and SwiftUI notification delivery now pass. Involuntary reconnect, full error parity and default-option parity remain unproved. New unsupported throws and ineffective nonthrowing controls are **compatibility breaks**. |
 | Supported build/package/target matrix | Current safe macOS arm64 Debug/Release pass. Earlier247 iOS device/simulator builds passed, but do not validate this source delta; safe iOS slices are pending. Catalyst/tvOS/visionOS/Intel simulator slices absent. Absolute local artifact pin is research packaging, not a distributable minor release. |
@@ -100,11 +100,12 @@ Cancellation uses deferred native cancellation/cleanup, never synchronous native
 ## Verification and compatibility
 
 Evidence root: `/Users/blaze/livekit/research-v3/swift-native-next/`.
-Current source `0c2e35d2`, safe native6bda549. No native rebuild or speculative
+Current source `23dfa1f7`, safe native6bda549. No native rebuild or speculative
 additive exports consumed. Public declarations retained; no migration acceptance.
 
-Claude re-review closed the original3 blockers at02b055c1 as source-only.
-The subsequent delta defers publication attachment until receive setup succeeds,
+Claude approved008d5420 with no blockers and independently verified source/package
+provenance, macOS API reports, ObjC21, focused8functions10cases and lint.
+The approved corrections defer publication attachment until receive setup succeeds,
 so failed setup cleanup cannot emit an unmatched unsubscribe. Connected precedes
 initial subscribe. Legacy false-toggle leaves plaintext data/streams/RPC usable;
 modern encrypted payloads and encrypted media/data-track activation still reject.
@@ -112,12 +113,12 @@ Unregister failure clears native confirmation only: an unregistered Swift handle
 rejects residual invocations, and re-registering replaces the native core handler.
 The real-native residual/replacement test passes; no healthy-session unregister
 failure was injected. Rare pending-RPC registration failure can still fail connect
-and remove the handler. These exact corrections await independent re-review.
+and remove the handler. The narrow manager-options delta below remains for final review.
 
 | Gate | Evidence and scope |
 |---|---|
 | Focused safe runtime | `review-followup/focused.log`: **8 functions / 10 cases pass**. Files NativeReviewTests.swift, NativeCompatibilityTests.swift, NativeMediaTests.swift. Covers legacy/modern encryption and shared keys, connecting/concurrent/residual RPC registration, typed permission/removal errors, encrypted synthetic/physical audio, video/VideoView, statistics and connected-before-subscribe ordering. No b3 media run after the privacy finding. |
-| Public API | `api-review-safe/macOS` at0c2e35d2: Release/distribution passes; both breaking and reversed-addition reports inspected, no changes. Swift interface and ObjC header byte-identical to626eecdf. `--diff` exit0 alone is not a compatibility gate. iOS recheck needs safe slices; old dumps do not cover this delta. |
+| Public API | `api-manager-final/macOS` at23dfa1f7: Release/distribution passes; both breaking and reversed-addition reports inspected, no changes. Swift interface and ObjC header byte-identical to626eecdf. `--diff` exit0 alone is not a compatibility gate. iOS recheck needs safe slices; old dumps do not cover this delta. |
 | Objective-C | `review-followup/objc.log` / `objc.xcresult`: all21 unchanged methods in all7 Tests/LiveKitObjCTests files pass on safe6bda549 / source0c2e35d2. |
 | Lint | Strict lint passes changed source/test files (`review-followup/lint-final.log`, `test-lint.log`); source commit hook formats touched files. |
 | Original defaults | Earlier original Participant identity/membership, PublishDataTests and DataTrackApiTests passed with unchanged shared-key/statistics-enabled support fixtures (`c6-fixture-provenance.txt`, `stats-regression.log`, `stats-compat-test.log`). No weakened fixture counted as default parity. |
@@ -145,3 +146,21 @@ the same two continuation-storage TSan signatures (120 cancellations); matched
 120 reads without task cancellation report none. Not migration-specific, not a
 safety/fix proof. Deferred cleanup remains. Evidence:
 `/Users/blaze/livekit/research-v3/current-cancellation/baseline/REPORT.md`.
+
+Narrow manager-options follow-up23dfa1f7: both toggle and operation guards use
+`Room.State.roomOptions`, the immutable options selected/stored by NativeRoomDriver
+at connect. Replacing or clearing public e2eeManager cannot change this decision.
+Package blob remains identical to008d5420; no artifact/default/API redesign.
+`manager-options/tests.log`: **2 functions / 5 cases pass** in NativeReviewTests.swift
+(existing legacy/modern enable test plus plaintext/legacy/modern manager replacement,
+nil and opposite constructor/connect-time options). Strict lint passes Room.swift
+and NativeReviewTests.swift. Fresh macOS Release/API reports zero changes/additions;
+Swift interface and ObjC header are byte-identical to the approved checkpoint.
+No broad runtime rerun; matching safe iOS slices remain outstanding.
+
+```sh
+LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Users/blaze/livekit/research-v3/swift-native-next/production-check --filter 'managerReplacementUsesConnectedEncryptionOptions|configuredEncryptionEnableIsIdempotent'
+swiftlint lint --strict Sources/LiveKit/Core/Room.swift Tests/LiveKitCoreTests/NativeReviewTests.swift
+JOBS=2 CACHE=/Users/blaze/livekit/research-v3/swift-native-next/api-cache .github/api-check/api-dump.sh /Users/blaze/livekit/research-v3/swift-native-next/api-manager-final macOS
+.github/api-check/api-dump.sh --diff /Users/blaze/livekit/research-v3/swift-baseline/macOS /Users/blaze/livekit/research-v3/swift-native-next/api-manager-final/macOS
+```
