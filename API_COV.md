@@ -22,10 +22,10 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 
 | Gate | Current conclusion |
 |---|---|
-| Public Swift/ObjC declarations, enum values, selectors, availability | NSObject hierarchy retained; final macOS digester/header comparison pending. Unchanged signatures alone do not establish compatibility. |
+| Public Swift/ObjC declarations, enum values, selectors, availability | macOS Release/distribution build at `85e6f807`: digester reports zero breaking changes and zero additions. ObjC header differs only by relocating the unchanged Room.prepareConnection category; exact header line multiset is equal. Enum/selector/availability text is unchanged. This is surface evidence, not behavioral compatibility. |
 | Existing unmodified public E2E | 21 existing Objective-C test methods passed unchanged, including streams/file/incremental writers, data tracks, RPC and Room delegates. Swift subset uses explicitly adapted plaintext/no-statistics fixtures and is **not** unchanged-app acceptance. |
 | Lifecycle/default/error/delegate/observation semantics | Two-room state/delegate/data/rejoin, invalid-token, cancellation and release proof exists. Involuntary reconnect, full error parity, observation ordering and default-option parity remain unproved. New unsupported throws and ineffective nonthrowing controls are **compatibility breaks**. |
-| Supported build/package/target matrix | macOS arm64 debug proof only so far; iOS/Catalyst/tvOS/visionOS slices absent. Absolute local artifact pin is research packaging, not a distributable minor release. |
+| Supported build/package/target matrix | macOS arm64 Debug tests and Release/distribution build passed; iOS/Catalyst/tvOS/visionOS slices absent. Absolute local artifact pin is research packaging, not a distributable minor release. |
 
 ## Single capability/blocker ledger
 
@@ -48,6 +48,8 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 | `AudioManager.setPlatformVoiceProcessingAllowed(_:)`, `LocalAudioTrack.setAudioProcessingOptions(_:)`, voice processing/AGC controls | **pending mapping**, not inherently impossible. Current throwing activation rejects because this artifact supplies no native mapping. Nonthrowing controls are **compile-only** for native media. | Distinguish core-supported processing controls from graph-access blockers; validate the actual next media exports before wiring. |
 | Room encryption options / `setE2EEEnabled(_:)` | **blocked in this artifact**. Encryption options reject at connect. Nonthrowing enable request is logged and blocks subsequent outgoing command activation; it does not retrofit open handles. | Audio/video/data E2EE needs real native configuration. Encrypted data-track assertions are not plaintext acceptance tests. |
 | `Room.serverVersion`, `serverRegion`, `serverNodeId` | **compile-only**, nil: native snapshots omit server info. | Needs native/core metadata access. |
+| `Room.connect`/stream command error types | **compatibility unresolved**: `NativeSessionError.Connection(reason:)` / `Request(reason:)` erase structured status/cause information. | Native structured connection/HTTP and stream-command errors are needed for exact LiveKitError/StreamError parity; no parsing of display strings. |
+| `Room.prepareConnection(url:token:)` and region preparation | Declaration retained; prepared-region/cache consumption is **pending** on the native connect path. | Native connection/region policy must expose the equivalent behavior; do not count retained Swift preparation code as parity. |
 | `Room.debug_simulate(scenario:)` | Unsupported activation throws. | No native simulation command exported. |
 | iOS, Catalyst, tvOS, visionOS | **blocked for execution** by this macOS-only artifact. Declarations remain. | Need exact platform slices; iOS API comparison cannot be claimed from a macOS build. |
 
@@ -67,7 +69,7 @@ Cancellation uses deferred native cancellation/cleanup, never synchronous native
 ## Verification and compatibility
 
 Evidence: `/Users/blaze/livekit/research-v3/swift-native-next/`.
-`production-tests-8.log`: **18 test functions / 18 cases passed** (six suites).
+`production-tests-final.log`: **18 test functions / 18 cases passed** (six suites).
 The external test manifest compiles all production sources unchanged via symlinks
 and selected repository tests. Its copied test fixtures disable default E2EE and
 remote statistics only; no production/native stand-ins. Obsolete internal-manager
@@ -76,9 +78,31 @@ tests require migration and are not counted as passing.
 `production-tests-7.log` preserves broader-run failures: two encrypted-frame cases
 and one unreliable sequence-send assertion. `production-test-4.log` is the first
 production Room connection/data/RPC/text/bytes/rejoin proof. `objc-final.log`: **21 Objective-C test methods/cases passed**, all seven existing
-ObjC files unchanged. Final Swift follow-up and API comparison are being completed;
-no baseline suite rerun. Independent Claude review remains pending.
+ObjC files unchanged. Final Release API output is `api-final/macOS/` with exact source/package tree hashes
+and compiler target in `provenance.txt`. `api-compare-final.log` contains the
+comparison; `objc-header.diff` contains only category relocation. A focused
+post-API Swift follow-up passed **4 functions / 4 cases** in
+`production-post-api.log` (`NativeRoomTests|NativeRoomProtoTests`).
+No baseline suite rerun. Independent Claude review remains pending.
 
 Public baseline: Swift `2fcaec9c` / v2.20.0, read-only dumps and Objective-C headers
-at `/Users/blaze/livekit/research-v3/swift-baseline`. The final comparison must use
-`.github/api-check/api-dump.sh` after the backend build, not adapter-only evidence.
+at `/Users/blaze/livekit/research-v3/swift-baseline`. Comparison uses `.github/api-check/api-dump.sh` after the real backend build.
+No iOS dump was produced: this native package has no iOS slice.
+
+Verification commands (all local, at most two build jobs):
+
+```sh
+LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Users/blaze/livekit/research-v3/swift-native-next/production-check --filter 'NativeRoomTests|NativeRoomProtoTests|PublishDataTests|DataTrackApiTests|defineAndGetSchema|getUndefinedSchemaThrows|frameTimestamp|resubscribe|publishedState'
+# In research-v3/swift-native-next/production-check:
+LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 TEST_RUNNER_LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 xcodebuild test -scheme LiveKit -destination 'platform=macOS' -jobs 2 -only-testing:LiveKitObjCTests -derivedDataPath /Users/blaze/livekit/research-v3/swift-native-next/objc-dd -resultBundlePath /Users/blaze/livekit/research-v3/swift-native-next/objc-final.xcresult
+# In the owned Swift worktree:
+JOBS=2 CACHE=/Users/blaze/livekit/research-v3/swift-native-next/api-cache .github/api-check/api-dump.sh /Users/blaze/livekit/research-v3/swift-native-next/api-final macOS
+.github/api-check/api-dump.sh --diff /Users/blaze/livekit/research-v3/swift-baseline/macOS /Users/blaze/livekit/research-v3/swift-native-next/api-final/macOS
+```
+
+Swift test files: NativeRoomTests.swift, NativeRoomProtoTests.swift,
+PublishDataTests.swift, DataTrack/DataTrackApiTests.swift, selected functions in
+DataTrack/DataTrackPublishTests.swift and DataTrack/DataTrackTests.swift (all under
+Tests/LiveKitCoreTests). ObjC: all seven files in Tests/LiveKitObjCTests.
+Lint: `swiftlint lint --strict` on the exact 20-file list in the external
+`touched-swift-files.txt`; targeted resilience/header fixes also have lint logs.
