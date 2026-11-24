@@ -24,7 +24,6 @@ extension LKRTCMediaConstraints: @unchecked Swift.Sendable {} // immutable after
 extension LKRTCRtpCapabilities: @unchecked Swift.Sendable {} // immutable capability snapshot, held in static lets
 extension LKRTCRtpTransceiverInit: @unchecked Swift.Sendable {} // built by callers, then carried into @RTC publish hops
 extension LKRTCSessionDescription: @unchecked Swift.Sendable {} // immutable; flows between the signal client and @RTC
-extension LKRTCStatisticsReport: @unchecked Swift.Sendable {} // immutable snapshot returned from @RTC stats calls
 
 // MARK: Data channel send path
 

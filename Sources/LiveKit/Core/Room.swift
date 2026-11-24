@@ -31,10 +31,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     public let delegates = MulticastDelegate<RoomDelegate>(label: "RoomDelegate")
 
-    // MARK: - Metrics
-
-    lazy var metricsManager = MetricsManager()
-
     // MARK: - Public
 
     /// Server assigned id of the Room.
@@ -126,9 +122,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     public lazy var localParticipant: LocalParticipant = .init(room: self)
 
-    let primaryTransportConnectedCompleter = AsyncCompleter<Void>(label: "Primary transport connect", defaultTimeout: .defaultTransportState)
-    let publisherTransportConnectedCompleter = AsyncCompleter<Void>(label: "Publisher transport connect", defaultTimeout: .defaultTransportState)
-
     let activeParticipantCompleters = CompleterMapActor<Void>(label: "Participant active", defaultTimeout: .defaultParticipantActiveTimeout)
 
     let nativeDriver = NativeRoomDriver()
@@ -153,15 +146,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     // MARK: - PreConnect
 
     lazy var preConnectBuffer = PreConnectAudioBuffer(room: self)
-
-    // MARK: - Queue
-
-    var _blockProcessQueue = DispatchQueue(label: "LiveKitSDK.engine.pendingBlocks",
-                                           qos: .default)
-
-    var _queuedBlocks = [ConditionalExecutionEntry]()
-
-    // MARK: - RPC
 
     // MARK: - State
 
@@ -190,23 +174,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var providedUrl: URL?
         var connectedUrl: URL?
         var token: String?
-        var preparedRegion: RegionInfo?
-
-        // preferred reconnect mode which will be used only for next attempt
-        var nextReconnectMode: ReconnectMode?
-        var isReconnectingWithMode: ReconnectMode?
         var connectionState: ConnectionState = .disconnected
-        var reconnectTask: AnyTaskCancellable?
         var disconnectError: LiveKitError?
-        var hasPublished: Bool = false
-
-        var transport: TransportMode? { nil }
 
         // Timing
         var connectSpan: Span?
-
-        // Agents
-        var transcriptionReceivedTimes: [String: Date] = [:]
 
         // Server can deliver `sid` / `name` in a later `RoomUpdate` (e.g. when the
         // initial `JoinResponse.room.sid` is empty). Don't overwrite a known value
@@ -258,10 +230,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     private let _sidCompleter = AsyncCompleter<Sid>(label: "sid", defaultTimeout: .resolveSid)
 
-    // MARK: - Region
-
-    let _regionManager = StateSync<RegionManager?>(nil)
-
     // MARK: Objective-C Support
 
     override public convenience init() {
@@ -298,10 +266,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             AppStateListener.shared.delegates.add(delegate: self)
         }
 
-        Task {
-            await metricsManager.register(room: self)
-        }
-
         // trigger events when state mutates
         _state.onDidMutate = { [weak self] newState, oldState in
             guard let self else { return }
@@ -331,34 +295,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 }
             }
 
-            if newState.connectionState == .reconnecting, newState.isReconnectingWithMode == nil {
-                log("reconnectMode should not be .none", .error)
-            }
-
-            if (newState.connectionState != oldState.connectionState) || (newState.isReconnectingWithMode != oldState.isReconnectingWithMode) {
-                log("connectionState: \(oldState.connectionState) -> \(newState.connectionState), reconnectMode: \(String(describing: newState.isReconnectingWithMode))")
+            if newState.connectionState != oldState.connectionState {
+                log("connectionState: \(oldState.connectionState) -> \(newState.connectionState)")
             }
 
             engine(self, didMutateState: newState, oldState: oldState)
-
-            // execution control
-            _blockProcessQueue.async { [weak self] in
-                guard let self, !self._queuedBlocks.isEmpty else { return }
-
-                log("[execution control] processing pending entries (\(_queuedBlocks.count))...")
-
-                _queuedBlocks.removeAll { entry in
-                    // return and remove this entry if matches remove condition
-                    guard !entry.removeCondition(newState, oldState) else { return true }
-                    // return but don't remove this entry if doesn't match execute condition
-                    guard entry.executeCondition(newState, oldState) else { return false }
-
-                    self.log("[execution control] condition matching block...")
-                    entry.block()
-                    // remove this entry
-                    return true
-                }
-            }
 
             // Notify Room when state mutates
             Task { @MainActor in
@@ -386,12 +327,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             for track in tracks {
                 await track.detachNativeSource()
             }
-        }
-    }
-
-    private func cancelReconnect() {
-        _state.mutate {
-            $0.reconnectTask = nil
         }
     }
 }
@@ -453,24 +388,6 @@ extension Room {
         }
 
         await participant.cleanUp(notify: true)
-    }
-}
-
-// MARK: - Session Migration
-
-extension Room {
-    func resetTrackSettings() {
-        log("resetting track settings...")
-
-        // create an array of RemoteTrackPublication
-        let remoteTrackPublications = _state.remoteParticipants.values.map {
-            $0._state.trackPublications.values.compactMap { $0 as? RemoteTrackPublication }
-        }.joined()
-
-        // reset track settings for all RemoteTrackPublication
-        for publication in remoteTrackPublications {
-            publication.resetTrackSettings()
-        }
     }
 }
 

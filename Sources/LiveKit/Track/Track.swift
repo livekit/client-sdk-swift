@@ -112,17 +112,6 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         var lastPublishOptions: TrackPublishOptions?
         var publishState: PublishState = .unpublished
 
-        weak var transport: Transport?
-        var videoCodec: VideoCodec?
-        var rtpSender: RTCSender?
-        var rtpSenderForCodec: [VideoCodec: RTCSender] = [:] // simulcastSender
-        var rtpReceiver: RTCReceiver?
-
-        // Last dynacast state the server sent, so it can be re-applied after a renegotiation
-        // re-enables every encoding. Mirrors the sender split above.
-        var subscribedQualities: [Livekit_SubscribedQuality] = []
-        var subscribedQualitiesForCodec: [VideoCodec: [Livekit_SubscribedQuality]] = [:]
-
         // All VideoRendererAdapters attached to this track, key/value for direct removal.
         var videoRendererAdapters = MapTable<VideoRenderer, VideoRendererAdapter>.weakToStrongObjects()
     }
@@ -174,31 +163,9 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         }
     }
 
-    func set(transport: Transport?, rtpSender: RTCSender?) async {
-        _state.mutate {
-            $0.transport = transport
-            $0.rtpSender = rtpSender
-            // Both caches can describe this sender: the per-codec one holds the main sender's
-            // entry when the track publishes its primary codec.
-            if rtpSender == nil {
-                $0.subscribedQualities = []
-                $0.subscribedQualitiesForCodec.removeAll()
-            }
-        }
-        await _resumeOrSuspendStatisticsTimer()
-    }
-
-    func set(transport: Transport?, rtpReceiver: RTCReceiver?) async {
-        _state.mutate {
-            $0.transport = transport
-            $0.rtpReceiver = rtpReceiver
-        }
-        await _resumeOrSuspendStatisticsTimer()
-    }
-
     private func _resumeOrSuspendStatisticsTimer() async {
         let shouldStart = _state.read {
-            $0.reportStatistics && (nativePublication.copy() != nil || $0.rtpSender != nil || $0.rtpReceiver != nil)
+            $0.reportStatistics && nativePublication.copy() != nil
         }
 
         if shouldStart {
@@ -464,55 +431,14 @@ public extension InboundRtpStreamStatistics {
 
 extension Track {
     func _onStatsTimer() async {
-        if let native = nativePublication.copy() {
-            do {
-                let records = try await native.getStatistics()
-                guard nativePublication.copy() === native else { return }
-                let statistics = TrackStatistics(native: records, previous: _state.statistics)
-                _state.mutate { $0.statistics = statistics }
-            } catch {
-                log("Native statistics sampling failed: \(error)")
-            }
-            return
-        }
-        // Read from state
-        let (transport, rtpSender, rtpReceiver, simulcastRtpSenders) = _state.read { ($0.transport, $0.rtpSender, $0.rtpReceiver, $0.rtpSenderForCodec) }
-
-        // Transport is required...
-        guard let transport else { return }
-
-        // Main statistics
-
-        var statisticsReport: LKRTCStatisticsReport?
-        let prevStatistics = _state.read { $0.statistics }
-
-        if let sender = rtpSender {
-            statisticsReport = await transport.statistics(for: sender)
-        } else if let receiver = rtpReceiver {
-            statisticsReport = await transport.statistics(for: receiver)
-        }
-
-        guard let statisticsReport else {
-            log("statisticsReport is nil", .error)
-            return
-        }
-
-        let trackStatistics = TrackStatistics(from: Array(statisticsReport.statistics.values), prevStatistics: prevStatistics)
-
-        // Simulcast statistics
-
-        let prevSimulcastStatistics = _state.read { $0.simulcastStatistics }
-        var _simulcastStatistics: [VideoCodec: TrackStatistics] = [:]
-
-        for _sender in simulcastRtpSenders {
-            let _report = await transport.statistics(for: _sender.value)
-            _simulcastStatistics[_sender.key] = TrackStatistics(from: Array(_report.statistics.values),
-                                                                prevStatistics: prevSimulcastStatistics[_sender.key])
-        }
-
-        _state.mutate {
-            $0.statistics = trackStatistics
-            $0.simulcastStatistics = _simulcastStatistics
+        guard let native = nativePublication.copy() else { return }
+        do {
+            let records = try await native.getStatistics()
+            guard nativePublication.copy() === native else { return }
+            let statistics = TrackStatistics(native: records, previous: _state.statistics)
+            _state.mutate { $0.statistics = statistics }
+        } catch {
+            log("Native statistics sampling failed: \(error)")
         }
     }
 }

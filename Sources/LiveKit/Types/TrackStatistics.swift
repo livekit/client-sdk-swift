@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-internal import LiveKitWebRTC
 import Foundation
 
 @objcMembers
@@ -34,10 +33,6 @@ public class TrackStatistics: NSObject, @unchecked Sendable, Loggable {
 
     public let remoteInboundRtpStream: [RemoteInboundRtpStreamStatistics]
     public let remoteOutboundRtpStream: [RemoteOutboundRtpStreamStatistics]
-
-    convenience init(from stats: [LKRTCStatistics], prevStatistics: TrackStatistics?) {
-        self.init(statistics: stats.compactMap { $0.toLKType(prevStatistics: prevStatistics) })
-    }
 
     @nonobjc init(statistics stats: [Statistics]) {
         codec = stats.compactMap { $0 as? CodecStatistics }
@@ -127,11 +122,5 @@ extension OutboundRtpStreamStatistics {
 public extension Sequence<OutboundRtpStreamStatistics> {
     func sortedByRidIndex() -> [OutboundRtpStreamStatistics] {
         sorted { $0.ridIndex > $1.ridIndex }
-    }
-}
-
-extension LKRTCStatistics {
-    func toLKType(prevStatistics: TrackStatistics?) -> Statistics? {
-        Statistics.decode(id: id, type: type, timestamp: timestamp_us, values: values, prevStatistics: prevStatistics)
     }
 }

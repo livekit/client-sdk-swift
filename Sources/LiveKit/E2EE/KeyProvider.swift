@@ -157,8 +157,6 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
         var native: NativeKeyProvider?
         var keys: [String: [Int32: Data]] = [:]
         var currentKeyIndex: Int32 = 0
-        var keyIndexGeneration: UInt64 = 0
-        var keyIndexObservers = [ObjectIdentifier: @Sendable (Int32, UInt64) -> Void]()
     }
 
     private let _state = StateSync(State())
@@ -305,35 +303,10 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
             log("Independent native media/data key-index switching is not exported", .error)
             return
         }
-        let (currentKeyIndex, generation, observers) = _state.mutate {
-            $0.currentKeyIndex = index % options.keyRingSize
-            $0.keyIndexGeneration += 1
-            return ($0.currentKeyIndex, $0.keyIndexGeneration, Array($0.keyIndexObservers.values))
-        }
-        for observer in observers {
-            observer(currentKeyIndex, generation)
-        }
+        _state.mutate { $0.currentKeyIndex = index % options.keyRingSize }
     }
 
     // MARK: - Internal
-
-    /// The current key index with the generation of the change that set it. Observers are
-    /// notified outside the lock, so the generation is what lets them order concurrent changes.
-    func currentKeyIndexWithGeneration() -> (index: Int32, generation: UInt64) {
-        _state.read { ($0.currentKeyIndex, $0.keyIndexGeneration) }
-    }
-
-    var keyIndexObserverCount: Int {
-        _state.keyIndexObservers.count
-    }
-
-    func addKeyIndexObserver(_ owner: AnyObject, _ observer: @escaping @Sendable (Int32, UInt64) -> Void) {
-        _state.mutate { $0.keyIndexObservers[ObjectIdentifier(owner)] = observer }
-    }
-
-    func removeKeyIndexObserver(_ owner: AnyObject) {
-        _state.mutate { $0.keyIndexObservers[ObjectIdentifier(owner)] = nil }
-    }
 
     func nativeProvider() throws -> NativeKeyProvider {
         try _state.mutate { state in

@@ -139,18 +139,14 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         let room = try requireRoom()
         let options = options ?? room._state.roomOptions.defaultDataPublishOptions
 
-        guard let identityString = _state.identity?.stringValue else {
+        guard _state.identity != nil else {
             throw LiveKitError(.invalidState, message: "identity is nil")
         }
-
-        let userPacket = Livekit_UserPacket.with {
-            $0.participantIdentity = identityString
-            $0.payload = data
-            $0.destinationIdentities = options.destinationIdentities.map(\.stringValue)
-            $0.topic = options.topic ?? ""
-        }
-
-        try await room.send(userPacket: userPacket, kind: options.reliable ? .reliable : .lossy)
+        let session = try room.requireNativeSession(forEncryptedPayload: true)
+        do {
+            try await session.publishData(payload: data, options: .init(reliable: options.reliable, topic: options.topic ?? "",
+                                                                        destinationIdentities: options.destinationIdentities.map(\.stringValue)))
+        } catch { throw LiveKitError.mappingNative(error) }
     }
 
     /// Publish a SIP DTMF message to the room.
@@ -238,62 +234,6 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         _state.mutate { $0.attributes = attributes }
     }
 
-    @RTC
-    func _set(subscribedQualities qualities: [Livekit_SubscribedQuality], forTrackSid trackSid: Track.Sid) {
-        guard let publication = trackPublications[trackSid],
-              let track = publication.track as? LocalVideoTrack,
-              let sender = track._state.rtpSender
-        else { return }
-
-        // Apply the merged list, not the incoming one: a re-apply can only replay what is cached,
-        // so feeding the sender anything else would make the two paths disagree.
-        let cached = track._state.read { $0.subscribedQualities }
-        let merged = cached.merged(with: qualities)
-        // The server restates unchanged qualities after every answer, and every mutate notifies
-        // the track's delegates synchronously, inside the lock.
-        if !merged.sameState(as: cached) {
-            track._state.mutate { $0.subscribedQualities = merged }
-        }
-        sender.raw._set(subscribedQualities: merged)
-    }
-
-    /// Re-applies the last known dynacast state to every local video sender.
-    ///
-    /// Applying a publisher answer re-enables every encoding, and the server only ever reports
-    /// qualities that *changed*, so without this the layers dynacast paused stay unpaused.
-    func refreshSubscribedQualities() async {
-        for publication in localVideoTracks {
-            guard let track = publication.track as? LocalVideoTrack else { continue }
-
-            // Reading before the hop is safe because SignalClient delivers every callback through
-            // one AsyncSerialDelegate, so a quality update cannot land between here and the apply.
-            let (qualities, qualitiesForCodec) = track._state.read { ($0.subscribedQualities, $0.subscribedQualitiesForCodec) }
-            // Early-out before the hop: @RTC blocks, and this runs on every renegotiation.
-            guard !qualities.isEmpty || !qualitiesForCodec.isEmpty else { continue }
-
-            await RTC.run {
-                for (videoCodec, codecQualities) in qualitiesForCodec {
-                    let subscribedCodec = Livekit_SubscribedCodec.with {
-                        $0.codec = videoCodec.name
-                        $0.qualities = codecQualities
-                    }
-                    do {
-                        let didUpdate = try track._set(subscribedCodec: subscribedCodec)
-                        if !didUpdate {
-                            track.log("No sender for cached codec: \(videoCodec.name)")
-                        }
-                    } catch {
-                        track.log("Failed to refresh qualities for codec: \(videoCodec.name), error: \(error)")
-                    }
-                }
-
-                if !qualities.isEmpty, let sender = track._state.rtpSender {
-                    sender.raw._set(subscribedQualities: qualities)
-                }
-            }
-        }
-    }
-
     override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
         super.set(info: info, connectionState: connectionState)
 
@@ -374,58 +314,6 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         }
     }
     #endif
-}
-
-// MARK: - Session Migration
-
-extension LocalParticipant {
-    func publishedTracksInfo() -> [Livekit_TrackPublishedResponse] {
-        _state.trackPublications.values.filter { $0.track != nil }
-            .map { publication in
-                Livekit_TrackPublishedResponse.with {
-                    $0.cid = publication.track?.mediaTrack?.trackId ?? publication.sid.stringValue
-                    if let info = publication._state.latestInfo {
-                        $0.track = info
-                    }
-                }
-            }
-    }
-
-    func republishAllTracks() async throws {
-        let publications = _state.trackPublications.values.compactMap { $0 as? LocalTrackPublication }
-        let mediaTracks = publications.compactMap { $0.track as? LocalTrack }
-
-        for publication in publications {
-            // Screen share capture sources (broadcast extension IPC, ReplayKit) cannot be
-            // restarted programmatically, so keep them capturing until re-published.
-            let isScreenShare = publication.source == .screenShareVideo
-                || (publication.source == .unknown && publication.kind == .video && publication.name == Track.screenShareVideoName)
-            let keepCapturing = isScreenShare && !(publication.track?.isMuted ?? true)
-            do {
-                try await _unpublish(publication: publication, notify: true, stopTrack: !keepCapturing)
-                if keepCapturing {
-                    await publication.set(track: nil)
-                }
-            } catch {
-                log("Failed to unpublish track \(publication.sid) with error \(error)", .error)
-            }
-        }
-
-        var firstError: Error?
-
-        for mediaTrack in mediaTracks {
-            // Don't re-publish muted tracks
-            if mediaTrack.isMuted { continue }
-            do {
-                try await _publish(track: mediaTrack, options: mediaTrack.publishOptions)
-            } catch {
-                log("Failed to re-publish \(mediaTrack.source) track, error: \(error)", .error)
-                firstError = firstError ?? error
-            }
-        }
-
-        if let firstError { throw firstError }
-    }
 }
 
 // MARK: - Simplified API
@@ -598,52 +486,6 @@ public extension LocalParticipant {
     }
 }
 
-// MARK: - Simulcast codecs
-
-extension LocalParticipant {
-    // Publish additional (backup) codec when requested by server
-    func publish(additionalVideoCodec _: Livekit_SubscribedCodec,
-                 for _: LocalTrackPublication) async throws
-    {
-        throw LiveKitError(.invalidState, message: "Additional native video codec controls are not exported")
-    }
-}
-
-// MARK: - Helper
-
-extension [Livekit_SubscribedQuality] {
-    /// Find the highest quality in the array
-    var highest: Livekit_VideoQuality {
-        reduce(Livekit_VideoQuality.off) { maxQuality, subscribedQuality in
-            subscribedQuality.enabled && subscribedQuality.quality > maxQuality ? subscribedQuality.quality : maxQuality
-        }
-    }
-
-    /// Whether both lists describe the same subscription state.
-    ///
-    /// Cheaper than `==`, which compares whole messages by re-serializing both sides.
-    func sameState(as other: [Livekit_SubscribedQuality]) -> Bool {
-        elementsEqual(other) { $0.quality == $1.quality && $0.enabled == $1.enabled }
-    }
-
-    /// This list updated with `update`, replacing matching qualities in place and appending new ones.
-    ///
-    /// A `SubscribedQualityUpdate` only carries the qualities that changed, so replacing the list
-    /// wholesale would forget the pause state of every layer the server did not mention. Entries are
-    /// owned rather than kept as views, since the result outlives the message it arrived in.
-    func merged(with update: [Livekit_SubscribedQuality]) -> [Livekit_SubscribedQuality] {
-        var result = self
-        for updated in update.map({ $0.owned() }) {
-            if let index = result.firstIndex(where: { $0.quality == updated.quality }) {
-                result[index] = updated
-            } else {
-                result.append(updated)
-            }
-        }
-        return result
-    }
-}
-
 // MARK: - Private
 
 extension LocalParticipant {
@@ -662,11 +504,5 @@ extension LocalParticipant {
         if !sources.isEmpty, !sources.contains(track.source.rawValue) {
             throw LiveKitError(.insufficientPermissions, message: "Participant does not have permission to publish tracks from this source")
         }
-    }
-}
-
-extension LocalParticipant {
-    var isFastPublishMode: Bool {
-        !_internalState.enabledPublishVideoCodecs.isEmpty
     }
 }

@@ -14,29 +14,16 @@
  * limitations under the License.
  */
 
-internal import LiveKitWebRTC
 import Combine
 import Foundation
 
+/// Holds the encryption configuration of a ``Room`` connection.
+///
+/// - Note: The native session encrypts media and data. This object keeps the public options and the
+///   enabled flag; it does not create per-track frame cryptors, so it emits no per-publication
+///   `didUpdateE2EEState` callbacks.
 @objcMembers
 public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Loggable {
-    // Private delegate adapter to hide RTCFrameCryptorDelegate symbol
-    private class DelegateAdapter: NSObject, LKRTCFrameCryptorDelegate {
-        weak var target: E2EEManager?
-
-        init(target: E2EEManager? = nil) {
-            self.target = target
-        }
-
-        func frameCryptor(_ frameCryptor: LKRTCFrameCryptor,
-                          didStateChangeWithParticipantId participantId: String,
-                          with stateChanged: LKRTCFrameCryptorState)
-        {
-            // Redirect
-            target?.frameCryptor(frameCryptor, didStateChangeWithParticipantId: participantId, with: stateChanged)
-        }
-    }
-
     // MARK: - Public
 
     public let e2eeOptions: E2EEOptions?
@@ -51,14 +38,7 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
     }
 
     public var isDataChannelEncryptionEnabled: Bool {
-        _state.enabled && options != nil
-    }
-
-    /// Whether data-track frames should be encrypted: the runtime flag plus a configured
-    /// encryption type, honoring either options style (unlike the data-channel gate, which
-    /// requires the newer ``EncryptionOptions``).
-    var isDataTrackEncryptionEnabled: Bool {
-        _state.enabled && frameEncryptionType != .none
+        _enabled.copy() && options != nil
     }
 
     public var dataChannelEncryptionType: EncryptionType {
@@ -68,315 +48,40 @@ public class E2EEManager: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     // MARK: - Private
 
-    // Reference to Room
     private weak var _room: Room?
-
-    private lazy var delegateAdapter: DelegateAdapter = .init(target: self)
-
-    private var _state = StateSync(State())
-
-    private struct State: Equatable {
-        var enabled: Bool = true
-        var frameCryptors = [CryptorKey: LKRTCFrameCryptor]()
-        var trackPublications = [LKRTCFrameCryptor: TrackPublication]()
-        var dataCryptor: LKRTCDataPacketCryptor?
-        var keyIndexGeneration: UInt64 = 0
-    }
-
-    typealias CryptorKey = [Participant.Identity: Track.Sid]
-
-    /// Building a frame cryptor has to hop to the RTC executor, so an attach cannot complete
-    /// synchronously inside a room delegate callback. Requests are queued here instead and applied
-    /// one at a time in the order they arrived, which is what keeps a detach from overtaking the
-    /// attach it belongs to.
-    private enum Request: Sendable {
-        case attach(LocalTrackPublication, Participant.Identity)
-        case attachRemote(RemoteTrackPublication, Participant.Identity)
-        case detach(CryptorKey)
-    }
-
-    private let requestContinuation: AsyncStream<Request>.Continuation
-    private var requestLoop: AnyTaskCancellable?
+    private let _enabled = StateSync(true)
 
     public init(e2eeOptions: E2EEOptions) {
         self.e2eeOptions = e2eeOptions
         options = nil
-        let (requests, continuation) = AsyncStream.makeStream(of: Request.self)
-        requestContinuation = continuation
         super.init()
-        observe(requests: requests)
-        observeKeyIndex()
     }
 
     public init(options: EncryptionOptions) {
         e2eeOptions = nil
         self.options = options
-        let (requests, continuation) = AsyncStream.makeStream(of: Request.self)
-        requestContinuation = continuation
         super.init()
-        observe(requests: requests)
-        observeKeyIndex()
-    }
-
-    deinit {
-        keyProvider.removeKeyIndexObserver(self)
-    }
-
-    private func observe(requests: AsyncStream<Request>) {
-        requestLoop = requests.subscribe(self) { manager, request in
-            await manager.apply(request)
-        }
-    }
-
-    private func observeKeyIndex() {
-        keyProvider.addKeyIndexObserver(self) { [weak self] index, generation in
-            self?.setSenderKeyIndex(index, generation: generation)
-        }
-    }
-
-    /// Re-stamps every local sender with a provider key-index change, unless one at least as new
-    /// has been applied already: the provider notifies outside its lock, so two concurrent
-    /// rotations can arrive here in the wrong order.
-    func setSenderKeyIndex(_ index: Int32, generation: UInt64) {
-        _state.mutate { Self.apply(index, generation: generation, to: &$0) }
-    }
-
-    private static func apply(_ index: Int32, generation: UInt64, to state: inout State) {
-        guard generation > state.keyIndexGeneration else { return }
-        state.keyIndexGeneration = generation
-        for (frameCryptor, publication) in state.trackPublications where publication is LocalTrackPublication {
-            frameCryptor.keyIndex = index
-        }
-    }
-
-    func install(frameCryptor: LKRTCFrameCryptor, for publication: TrackPublication, participantIdentity: Participant.Identity) {
-        frameCryptor.delegate = delegateAdapter
-        _state.mutate {
-            $0.frameCryptors[[participantIdentity: publication.sid]] = frameCryptor
-            $0.trackPublications[frameCryptor] = publication
-            frameCryptor.enabled = $0.enabled
-            if publication is LocalTrackPublication {
-                let current = keyProvider.currentKeyIndexWithGeneration()
-                frameCryptor.keyIndex = current.index
-                Self.apply(current.index, generation: current.generation, to: &$0)
-            }
-        }
-    }
-
-    private func apply(_ request: Request) async {
-        switch request {
-        case let .attach(publication, participantIdentity):
-            await addRtpSender(publication: publication, participantIdentity: participantIdentity)
-        case let .attachRemote(publication, participantIdentity):
-            await addRtpReceiver(publication: publication, participantIdentity: participantIdentity)
-        case let .detach(key):
-            detachCryptor(key)
-        }
-    }
-
-    private func detachCryptor(_ key: CryptorKey) {
-        _state.mutate {
-            guard let frameCryptor = $0.frameCryptors.removeValue(forKey: key) else { return }
-            frameCryptor.delegate = nil
-            frameCryptor.enabled = false
-            $0.trackPublications.removeValue(forKey: frameCryptor)
-        }
     }
 
     public func setup(room: Room) {
-        if _room != room { cleanUp() }
         _room = room
-
         room.add(delegate: self)
-
-        let localPublications = room.localParticipant.trackPublications.values.compactMap { $0 as? LocalTrackPublication }
-
-        for publication in localPublications {
-            if let participantIdentity = room.localParticipant.identity {
-                requestContinuation.yield(.attach(publication, participantIdentity))
-            }
-        }
-
-        for remoteParticipant in room.remoteParticipants.values {
-            let remotePublications = remoteParticipant.trackPublications.values.compactMap { $0 as? RemoteTrackPublication }
-
-            for publication in remotePublications {
-                if let participantIdentity = remoteParticipant.identity {
-                    requestContinuation.yield(.attachRemote(publication, participantIdentity))
-                }
-            }
-        }
-
-        addDataChannelCryptor()
     }
 
     public func enableE2EE(enabled: Bool) {
-        _state.mutate {
-            $0.enabled = enabled
-            for (_, frameCryptor) in $0.frameCryptors {
-                frameCryptor.enabled = enabled
-            }
-        }
+        _enabled.mutate { $0 = enabled }
     }
 
-    func addRtpSender(publication: LocalTrackPublication, participantIdentity: Participant.Identity) async {
-        guard publication.encryptionType != .none else {
-            log("encryptionType is .none, skipping creating frame cryptor...", .warning)
-            return
-        }
-
-        guard let sender = publication.track?._state.rtpSender else {
-            log("sender is nil, skipping creating frame cryptor...", .warning)
-            return
-        }
-
-        // The raw sender is `@RTC`-confined and `LKRTCFrameCryptor` is not `Sendable`, so build
-        // and install it entirely on the RTC executor.
-        await RTC.run {
-            guard let frameCryptor = LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
-                                                       rtpSender: sender.raw,
-                                                       participantId: participantIdentity.stringValue,
-                                                       algorithm: .aesGcm,
-                                                       keyProvider: keyProvider.rtcKeyProvider)
-            else {
-                log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
-                return
-            }
-
-            install(frameCryptor: frameCryptor, for: publication, participantIdentity: participantIdentity)
-        }
-    }
-
-    func addRtpReceiver(publication: RemoteTrackPublication, participantIdentity: Participant.Identity) async {
-        guard publication.encryptionType != .none else {
-            log("encryptionType is .none, skipping creating frame cryptor...", .warning)
-            return
-        }
-
-        guard let receiver = publication.track?._state.rtpReceiver else {
-            log("receiver is nil, skipping creating frame cryptor...", .warning)
-            return
-        }
-
-        // The raw receiver is `@RTC`-confined and `LKRTCFrameCryptor` is not `Sendable`, so build
-        // and install it entirely on the RTC executor.
-        await RTC.run {
-            guard let frameCryptor = LKRTCFrameCryptor(factory: RTC.peerConnectionFactory,
-                                                       rtpReceiver: receiver.raw,
-                                                       participantId: participantIdentity.stringValue,
-                                                       algorithm: .aesGcm,
-                                                       keyProvider: keyProvider.rtcKeyProvider)
-            else {
-                log("frameCryptor is nil, skipping creating frame cryptor...", .warning)
-                return
-            }
-
-            install(frameCryptor: frameCryptor, for: publication, participantIdentity: participantIdentity)
-        }
-    }
-
-    func addDataChannelCryptor() {
-        _state.mutate {
-            $0.dataCryptor = LKRTCDataPacketCryptor(algorithm: .aesGcm, keyProvider: keyProvider.rtcKeyProvider)
-        }
-    }
-
-    public func cleanUp() {
-        cleanUp(isFullReconnect: false)
-    }
-
-    func cleanUp(isFullReconnect: Bool) {
-        _state.mutate {
-            for (_, frameCryptor) in $0.frameCryptors {
-                frameCryptor.delegate = nil
-            }
-            $0.frameCryptors.removeAll()
-            $0.trackPublications.removeAll()
-            // The data cryptor is key-provider-scoped (not bound to a transport), and its users —
-            // encrypted data payloads and the data-track subsystem — survive a full reconnect, so
-            // keep it: nothing re-runs setup() until the next explicit connect.
-            if !isFullReconnect {
-                $0.dataCryptor = nil
-            }
-        }
-    }
+    public func cleanUp() {}
 }
 
-// MARK: - Frame encryption
-
-extension E2EEManager {
-    func frameCryptor(_ frameCryptor: LKRTCFrameCryptor, didStateChangeWithParticipantId participantId: String, with state: LKRTCFrameCryptorState) {
-        guard let room = _room else {
-            log("room is nil", .warning)
-            return
-        }
-
-        guard let publication = _state.read({ $0.trackPublications[frameCryptor] }) else {
-            log("publication is nil", .warning)
-            return
-        }
-
-        log("frameCryptor didStateChangeWithParticipantId \(participantId) with state \(state.rawValue)")
-
-        room.delegates.notify { delegate in
-            delegate.room?(room, trackPublication: publication, didUpdateE2EEState: state.toLKType())
-        }
-    }
-}
-
+// ponytail: the native session owns per-track cryptors; these callbacks keep the public conformance.
 extension E2EEManager: RoomDelegate {
-    public func room(_: Room, participant: LocalParticipant, didPublishTrack publication: LocalTrackPublication) {
-        guard let participantIdentity = participant.identity else { return }
-        requestContinuation.yield(.attach(publication, participantIdentity))
-    }
+    public func room(_: Room, participant _: LocalParticipant, didPublishTrack _: LocalTrackPublication) {}
 
-    public func room(_: Room, participant: LocalParticipant, didUnpublishTrack publication: LocalTrackPublication) {
-        guard let participantIdentity = participant.identity else { return }
-        requestContinuation.yield(.detach([participantIdentity: publication.sid]))
-    }
+    public func room(_: Room, participant _: LocalParticipant, didUnpublishTrack _: LocalTrackPublication) {}
 
-    public func room(_: Room, participant: RemoteParticipant, didSubscribeTrack publication: RemoteTrackPublication) {
-        guard let participantIdentity = participant.identity else { return }
-        requestContinuation.yield(.attachRemote(publication, participantIdentity))
-    }
+    public func room(_: Room, participant _: RemoteParticipant, didSubscribeTrack _: RemoteTrackPublication) {}
 
-    public func room(_: Room, participant: RemoteParticipant, didUnsubscribeTrack publication: RemoteTrackPublication) {
-        guard let participantIdentity = participant.identity else { return }
-        requestContinuation.yield(.detach([participantIdentity: publication.sid]))
-    }
-}
-
-// MARK: - Data Packet encryption
-
-extension E2EEManager {
-    func encrypt(data: Data) throws -> LKRTCEncryptedPacket {
-        guard let room = _room,
-              let identity = room.localParticipant.identity?.stringValue
-        else {
-            throw LiveKitError(.invalidState, message: "Room or participant identity is nil")
-        }
-
-        guard let cryptor = _state.dataCryptor else {
-            throw LiveKitError(.invalidState, message: "Cryptor is nil")
-        }
-
-        let keyIndex = UInt32(keyProvider.getCurrentKeyIndex())
-        guard let encryptedData = cryptor.encrypt(identity, keyIndex: keyIndex, data: data) else {
-            throw LiveKitError(.encryptionFailed, message: "Failed to encrypt data packet")
-        }
-
-        return encryptedData
-    }
-
-    func handle(encryptedData: LKRTCEncryptedPacket, participantIdentity: String) throws -> Data {
-        guard let cryptor = _state.dataCryptor else {
-            throw LiveKitError(.invalidState, message: "Cryptor is nil")
-        }
-
-        guard let decryptedData = cryptor.decrypt(participantIdentity, encryptedPacket: encryptedData) else {
-            throw LiveKitError(.decryptionFailed, message: "Failed to decrypt data packet")
-        }
-
-        return decryptedData
-    }
+    public func room(_: Room, participant _: RemoteParticipant, didUnsubscribeTrack _: RemoteTrackPublication) {}
 }
