@@ -177,7 +177,7 @@ final class URLSessionTelemetryTransport: TelemetryTransport {
         }
         let data: Data, response: URLResponse
         do {
-            (data, response) = try await session.data(for: urlRequest)
+            (data, response) = try await read(urlRequest)
         } catch {
             throw ExportError.Retryable(reason: error.localizedDescription, retryAfterMs: nil)
         }
@@ -189,6 +189,29 @@ final class URLSessionTelemetryTransport: TelemetryTransport {
             headers[name] = value
         }
         return ExportResponse(status: UInt16(clamping: http.statusCode), headers: headers, body: data)
+    }
+
+    /// The core's limit on a collector answer, in decoded bytes.
+    static let maxResponseBytes = 65536
+
+    /// Reads at most one byte past ``maxResponseBytes``, then cancels the request: the core treats
+    /// a longer body as an overflow and retries the batch, `Retry-After` included.
+    private func read(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        guard #available(iOS 15, macOS 12, *) else {
+            // ponytail: no streaming read before iOS 15 / macOS 12, so the whole answer is buffered
+            // and the core rejects an oversized one only afterwards. Upgrade path: a data-delegate reader.
+            return try await session.data(for: request)
+        }
+        let (bytes, response) = try await session.bytes(for: request)
+        var body = Data()
+        for try await byte in bytes {
+            body.append(byte)
+            if body.count > Self.maxResponseBytes {
+                bytes.task.cancel()
+                break
+            }
+        }
+        return (body, response)
     }
 }
 

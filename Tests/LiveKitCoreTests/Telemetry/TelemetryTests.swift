@@ -20,7 +20,7 @@ import AVFAudio
 import CoreVideo
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
+import LiveKitFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -97,6 +97,26 @@ struct TelemetryTests {
             }
             #expect(followed == follows, "\(target)")
         }
+    }
+
+    /// An oversized answer is cut while it is read, not after: the collector below never finishes
+    /// its body, so only a bounded read returns. One byte past the limit is kept for the core,
+    /// which retries the batch after `Retry-After`; an answer at the limit comes back whole.
+    @Test(.timeLimit(.minutes(1)))
+    func transportStopsReadingAnOversizedAnswer() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [EndlessCollector.self, CollectorStub.self]
+        let transport = URLSessionTelemetryTransport(session: URLSession(configuration: configuration))
+        let limit = URLSessionTelemetryTransport.maxResponseBytes
+
+        let endless = try await transport.send(request: ExportRequest(url: "http://endless.test/v1/logs", headers: [:], body: Data()))
+        #expect(endless.status == 503 && endless.headers["Retry-After"] == "17")
+        #expect(endless.body.count == limit + 1)
+        try await poll(timeout: 5, interval: 0.05, for: "the request is cancelled") { EndlessCollector.stopped.copy() }
+
+        CollectorStub.answer.mutate { $0 = .success(.init(status: 200, headers: [:], body: Data(repeating: 0x78, count: limit))) }
+        let atLimit = try await transport.send(request: ExportRequest(url: "http://collector.test/v1/logs", headers: [:], body: Data()))
+        #expect(atLimit.body.count == limit)
     }
 }
 

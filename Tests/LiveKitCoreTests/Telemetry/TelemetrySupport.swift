@@ -20,7 +20,7 @@ import AVFAudio
 import CoreVideo
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
+import LiveKitFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -84,6 +84,23 @@ final class CollectorStub: URLProtocol, @unchecked Sendable {
             client?.urlProtocolDidFinishLoading(self)
         case let .failure(error):
             client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+}
+
+/// A collector whose answer never ends: 80 KiB of body, then nothing until the client cancels.
+final class EndlessCollector: URLProtocol, @unchecked Sendable {
+    static let stopped = StateSync(false)
+
+    override static func canInit(with request: URLRequest) -> Bool { request.url?.host == "endless.test" }
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func stopLoading() { Self.stopped.mutate { $0 = true } }
+
+    override func startLoading() {
+        let response = HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: "HTTP/1.1", headerFields: ["Retry-After": "17"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        for _ in 0 ..< 5 {
+            client?.urlProtocol(self, didLoad: Data(repeating: 0x78, count: 16384))
         }
     }
 }
