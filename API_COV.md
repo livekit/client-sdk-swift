@@ -16,6 +16,32 @@ API with Rust `livekit-ffi` (`room-apis`) as the owner of WebRTC and signaling.
 
 An existing Rust FFI operation does not make a row implemented. Only a test does.
 
+## Native integration checkpoint (2026-11-24)
+
+Local package is pinned to artifact `room-apis-023c8a7b`, source
+`023c8a7b62c346a7fc9ef69f3fdd8417aece0a69`; framework SHA-256
+`16cad8f56ef01cb68d10aa9c5dce6aa4061815f0f6db39049fb8285eb28b5273`.
+macOS arm64 only. This is an intermediate, **non-building production target**.
+The public NSObject hierarchy is unchanged. No production Room connection/data
+result exists yet; the old engine is still present, not a native fallback.
+
+| Seam / exact signature | Status and evidence | Next dependency / alternative |
+|---|---|---|
+| `NativeRoomInfo.toPBType() -> Livekit_Room`, `NativeParticipant.toPBType(publications:) -> Livekit_ParticipantInfo`, `NativeTrackPublication.toPBType() -> Livekit_TrackInfo` (internal) | Adapter-only proof: `NativeRoomProtoTests.snapshotPreservesMillisecondsAndPublicationOwnership`, 1 function / 1 case passed against the actual artifact in an external minimal package using symlinks to repository sources. | Wire to existing entity setters/StateSync in the session driver; no Room behavior proved. |
+| `Room.connect(url:token:connectOptions:roomOptions:) async throws`, `Room.disconnect() async`, `LocalParticipant.publish(data:options:) async throws` | Pending. Full `swift build --jobs 2 --target LiveKit` fails on absent stream/data-track generated types and old managers/network injection. | Await compatible value/handle exports and room commands; delete old packet managers and network injection when integrating. No stand-ins. |
+| `ByteStreamReader.next() async throws -> Data?`, `TextStreamReader.next() async throws -> String?`, `LocalDataTrack`, `RemoteDataTrack`, `DataTrackStream` | Missing in shipped artifact; compiler evidence in `swift-native-next/build.log`. | Rust owner is rebasing onto FFI 0.13.4 and exporting existing wrappers; no artifact available yet. |
+| `Participant.capabilities: [ClientCapability]` | NativeParticipant has no capabilities field in this artifact. | Requested field from Rust owner; do not report an empty list as supported negotiation. |
+| `Claims.inference`, `Claims.observability`, `TokenOptions.inferenceGrants`, `TokenOptions.observabilityGrants` | Absent in artifact; documented by its README/generated bindings. | Rebased source reportedly has these; await compiled package. |
+
+Evidence and the isolated test manifest are external at
+`/Users/blaze/livekit/research-v3/swift-native-next/`. `adapter-check.log` is
+adapter verification only, not a reduced production acceptance suite.
+`lint.log`: zero violations in the adapter and its test. No baseline rerun.
+The native driver, unsupported-option activation validation, two-room tests,
+final API digester/ObjC comparison and independent Claude review remain pending.
+Cancellation must use deferred cleanup, never synchronous native `cancel()` in
+Swift `onCancel` (native cancellation investigation is not final).
+
 ## Baseline surface
 
 Source: `swift-api-digester` dump and the compiler-generated Objective-C header.
