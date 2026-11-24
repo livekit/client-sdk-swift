@@ -65,19 +65,27 @@ struct LocalParticipantAttachmentTests {
         }
     }
 
-    /// Cancelling the call ends it at once, while its file sends are still in flight.
+    /// Cancelling the call ends it at once, while an attachment's send is in flight.
     ///
-    /// The native transport cannot be held from Swift, so large files keep the sends in flight: the
-    /// call is cancelled when the receiver sees the text, before any file can have finished.
+    /// The native transport cannot be held from Swift, so large files keep the sends in flight.
+    /// The file sends start only after the text send returns, so the call is cancelled once the
+    /// receiver has read the first chunk of an attachment, and it must still be pending then.
     @Test func cancellingAttachmentsEndsAllSends() async throws {
         let files = try (0 ..< 2).map { _ in try temporaryFile(byte: 0x5A, count: 32 * 1024 * 1024) }
         defer { files.forEach { try? FileManager.default.removeItem(at: $0) } }
 
         try await withSenderAndReceiver { sender, receiver in
-            let textArrived = AsyncCompleter<Void>(label: "Text arrived", defaultTimeout: 30)
-            try await receiver.registerTextStreamHandler(for: "chat") { _, _ in textArrived.resume(returning: ()) }
+            let attachmentChunk = AsyncCompleter<Void>(label: "First attachment chunk received", defaultTimeout: 30)
+            try await receiver.registerByteStreamHandler(for: "chat") { reader, _ in
+                var chunks = reader.makeAsyncIterator()
+                if try await chunks.next() != nil { attachmentChunk.resume(returning: ()) }
+            }
+            let sendReturned = StateSync(false)
 
-            let error = try await returnedError(cancellingAfter: textArrived) {
+            let error = try await returnedError(cancellingAfter: attachmentChunk, beforeCancel: {
+                #expect(!sendReturned.copy(), "The send returned before the cancel; the test proved nothing")
+            }) {
+                defer { sendReturned.mutate { $0 = true } }
                 try await sender.localParticipant.sendText("see attached", options: LiveKit.StreamTextOptions(topic: "chat"), attachments: files)
             }
             #expect(error is CancellationError)
@@ -98,9 +106,11 @@ struct LocalParticipantAttachmentTests {
         return url
     }
 
-    /// Runs `send` in a task, cancels it once `signal` resolves if one is given, and returns the
-    /// error it threw, or `nil`. Fails if the task has not returned within 5 s of that point.
+    /// Runs `send` in a task, cancels it once `signal` resolves if one is given, calling
+    /// `beforeCancel` first, and returns the error it threw, or `nil`. Fails if the task has not
+    /// returned within 5 s of that point.
     private func returnedError(cancellingAfter signal: AsyncCompleter<Void>? = nil,
+                               beforeCancel: () -> Void = {},
                                _ send: @escaping @Sendable () async throws -> Void) async throws -> Error?
     {
         let returned = AsyncCompleter<Error?>(label: "Send returned", defaultTimeout: 5)
@@ -114,6 +124,7 @@ struct LocalParticipantAttachmentTests {
         }
         if let signal {
             try await signal.wait()
+            beforeCancel()
             task.cancel()
         }
         return try await returned.wait()
