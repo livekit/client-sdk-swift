@@ -39,6 +39,40 @@ public protocol AudioEngineObserver: NextInvokable, Sendable {
     /// Buffers flow from `src` to `dst`. Preferred format to connect node is provided as `format`.
     /// Return true if custom implementation is provided, otherwise default implementation will be used.
     func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int
+
+    #if os(iOS) || os(visionOS) || os(tvOS)
+    /// Called when the audio session was interrupted, for example by a phone call or an alarm.
+    ///
+    /// The system has usually stopped the engine already when this is called.
+    ///
+    /// - Important: Called on WebRTC's worker thread, which blocks until this returns. Return quickly and
+    ///   do not call `AVAudioSession` or ``AudioManager`` APIs synchronously from here.
+    /// - Note: Has a default implementation that forwards to ``next``. An implementation must forward too.
+    /// - SeeAlso: ``AudioManager/onAudioSessionEvent``
+    func audioSessionDidBeginInterruption(reason: AVAudioSession.InterruptionReason)
+
+    /// Called when an audio session interruption ended, right before the engine restarts.
+    ///
+    /// Can be called without a preceding ``audioSessionDidBeginInterruption(reason:)``: it is also
+    /// reported each time the app becomes active and when the session is activated externally (CallKit).
+    /// The engine restarts whatever the value of `shouldResume`.
+    ///
+    /// - Parameter shouldResume: The system's `AVAudioSession.InterruptionOptions.shouldResume` hint.
+    /// - Important: Called on WebRTC's worker thread, which blocks until this returns. Return quickly and
+    ///   do not call `AVAudioSession` or ``AudioManager`` APIs synchronously from here.
+    /// - Note: Has a default implementation that forwards to ``next``. An implementation must forward too.
+    func audioSessionDidEndInterruption(shouldResume: Bool)
+
+    /// Called after the system reset its media services.
+    ///
+    /// Every audio object created before the reset, including the engine, no longer works, and the
+    /// audio session lost its category, mode and options.
+    ///
+    /// - Important: Called on WebRTC's worker thread, which blocks until this returns. Return quickly and
+    ///   do not call `AVAudioSession` or ``AudioManager`` APIs synchronously from here.
+    /// - Note: Has a default implementation that forwards to ``next``. An implementation must forward too.
+    func audioSessionMediaServicesWereReset()
+    #endif
 }
 
 /// Default implementation to make it optional.
@@ -74,4 +108,18 @@ public extension AudioEngineObserver {
     func engineWillConnectInput(_ engine: AVAudioEngine, src: AVAudioNode?, dst: AVAudioNode, format: AVAudioFormat, context: [AnyHashable: Any]) -> Int {
         next?.engineWillConnectInput(engine, src: src, dst: dst, format: format, context: context) ?? 0
     }
+
+    #if os(iOS) || os(visionOS) || os(tvOS)
+    func audioSessionDidBeginInterruption(reason: AVAudioSession.InterruptionReason) {
+        next?.audioSessionDidBeginInterruption(reason: reason)
+    }
+
+    func audioSessionDidEndInterruption(shouldResume: Bool) {
+        next?.audioSessionDidEndInterruption(shouldResume: shouldResume)
+    }
+
+    func audioSessionMediaServicesWereReset() {
+        next?.audioSessionMediaServicesWereReset()
+    }
+    #endif
 }

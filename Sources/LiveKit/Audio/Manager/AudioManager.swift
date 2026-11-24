@@ -183,6 +183,8 @@ public class AudioManager: Loggable {
         public var remoteTracksCount: Int = 0
         public var customConfigureFunc: ConfigureAudioSessionFunc?
         public var sessionConfiguration: AudioSessionConfiguration?
+        var onAudioSessionEvent: OnAudioSessionEvent?
+        var isAudioSessionInterrupted: Bool = false
 
         public var trackState: TrackState {
             switch (localTracksCount > 0, remoteTracksCount > 0) {
