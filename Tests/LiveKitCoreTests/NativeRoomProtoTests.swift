@@ -36,7 +36,7 @@ struct NativeRoomProtoTests {
                                             kindDetails: [.bridgeRtsp], metadata: "", attributes: [:],
                                             isSpeaking: false, audioLevel: 0, connectionQuality: .excellent,
                                             joinedAt: 1_700_000_000_456, permission: nil, isEncrypted: false,
-                                            disconnectReason: .unknownReason, clientProtocol: 2)
+                                            disconnectReason: .unknownReason, clientProtocol: 2, capabilities: [.packetTrailer])
         let own = NativeTrackPublication(sid: "TR_alice", participantIdentity: "alice", name: "screen",
                                          kind: .video, source: .screenshare, isMuted: false,
                                          simulcasted: true, width: 1920, height: 1080,

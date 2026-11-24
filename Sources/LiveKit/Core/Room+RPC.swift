@@ -50,7 +50,7 @@ public extension Room {
     func registerRpcMethod(_ method: String,
                            handler: @escaping RpcHandler) async throws
     {
-        try await rpcServer.registerHandler(method, handler: handler)
+        try await nativeDriver.registerRpcMethod(method, handler: handler)
     }
 
     /// Unregisters a previously registered RPC method.
@@ -60,7 +60,7 @@ public extension Room {
     /// - Parameter method: The name of the RPC method to unregister
     ///
     func unregisterRpcMethod(_ method: String) async {
-        await rpcServer.unregisterHandler(method)
+        await nativeDriver.unregisterRpcMethod(method)
     }
 
     /// Checks whether or not a handler has been registered for an RPC method.
@@ -71,7 +71,7 @@ public extension Room {
     /// - Returns: `true` if a handler has been registered, otherwise `false`.
     ///
     func isRpcMethodRegistered(_ method: String) async -> Bool {
-        await rpcServer.isRpcMethodRegistered(method)
+        await nativeDriver.isRpcMethodRegistered(method)
     }
 }
 

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 import Foundation
 
 // MARK: - Data Track Publishing
@@ -41,11 +42,14 @@ public extension LocalParticipant {
     /// See ``publishDataTrack(name:)``; the declared metadata is surfaced to subscribers via
     /// ``DataTrackInfo``.
     func publishDataTrack(name: String, options: DataTrackPublishOptions?) async throws -> LocalDataTrack {
-        guard let dataTracks = _room?.dataTracks else {
-            // Same error Rust reports for a publish on a disconnected room.
-            throw DataTrackPublishError.disconnected("Not connected to a room")
+        let session = try requireRoom().requireNativeSession()
+        do {
+            return try await LocalDataTrack(session.publishDataTrack(options: .init(name: name,
+                                                                                    schema: options?.schema?.ffi,
+                                                                                    frameEncoding: options?.frameEncoding?.ffi)))
+        } catch let error as LiveKitFFI.PublishError {
+            throw DataTrackPublishError(error)
         }
-        return try await dataTracks.publish(name: name, options: options)
     }
 
     /// Stores the definition of a data track schema, making it available to subscribers.
@@ -63,7 +67,11 @@ public extension LocalParticipant {
         guard let room = _room else {
             throw LiveKitError(.invalidState, message: "Not connected to a room")
         }
-        try await room.signalClient.sendStoreDataBlob(key: id.blobKey, contents: Data(definition.utf8))
+        do {
+            try await room.requireNativeSession().defineSchema(id: id.ffi, definition: definition)
+        } catch let error as LiveKitFFI.NativeSessionError {
+            throw LiveKitError(.invalidState, message: error.localizedDescription)
+        }
     }
 
     /// Retrieves the definition a participant ``defineSchema(_:definition:)``'d for a schema its
@@ -78,12 +86,11 @@ public extension LocalParticipant {
         guard let room = _room else {
             throw LiveKitError(.invalidState, message: "Not connected to a room")
         }
-        let contents = try await room.signalClient.sendGetDataBlob(key: id.blobKey,
-                                                                   participantIdentity: participant.stringValue)
-        guard let definition = String(data: contents, encoding: .utf8) else {
-            throw LiveKitError(.failedToConvertData, message: "Schema definition is not valid UTF-8")
+        do {
+            return try await room.requireNativeSession().getSchema(id: id.ffi, participant: participant.stringValue)
+        } catch let error as LiveKitFFI.NativeSessionError {
+            throw LiveKitError(.invalidState, message: error.localizedDescription)
         }
-        return definition
     }
 
     /// Publishes a data track for the duration of `body`, then unpublishes it automatically.

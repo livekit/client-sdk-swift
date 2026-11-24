@@ -51,11 +51,13 @@ public extension LocalParticipant {
                           responseTimeout: TimeInterval = 15,
                           maxRoundTripLatency: TimeInterval = 7) async throws -> String
     {
-        try await requireRoom().rpcClient.performRpc(destinationIdentity: destinationIdentity,
-                                                     method: method,
-                                                     payload: payload,
-                                                     responseTimeout: responseTimeout,
-                                                     maxRoundTripLatency: maxRoundTripLatency)
+        let room = try requireRoom()
+        _ = try room.requireNativeSession()
+        return try await room.nativeDriver.performRpc(destinationIdentity: destinationIdentity,
+                                                      method: method,
+                                                      payload: payload,
+                                                      responseTimeout: responseTimeout,
+                                                      maxRoundTripLatency: maxRoundTripLatency)
     }
 
     @available(*, deprecated, message: "registerRpcMethod(_:handler:) has been moved to room.")

@@ -1,0 +1,108 @@
+/*
+ * Copyright 2026 LiveKit
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+internal import LiveKitFFI
+import Foundation
+
+extension Room {
+    @nonobjc func applyNativeSnapshot(_ snapshot: NativeRoomState, restoreDataTracks: Bool = false) async {
+        guard let native = nativeSession.copy() else { return }
+        if let info = snapshot.room { _state.mutate { $0.apply(roomInfo: info.toPBType()) } }
+        let identities = Set(snapshot.remoteParticipants.map { Participant.Identity(from: $0.identity) })
+        for identity in remoteParticipants.keys where !identities.contains(identity) {
+            try? await _onParticipantDidDisconnect(identity: identity)
+            guard nativeSession.copy() === native else { return }
+        }
+        if let participant = snapshot.localParticipant {
+            applyNativeParticipant(participant, to: localParticipant, publications: snapshot.publications)
+        }
+        for info in snapshot.remoteParticipants {
+            let identity = Participant.Identity(from: info.identity)
+            let existing = remoteParticipants[identity]
+            let participant = existing ?? _state.mutate {
+                $0.updateRemoteParticipant(info: info.toPBType(publications: snapshot.publications), room: self)
+            }
+            applyNativeParticipant(info, to: participant, publications: snapshot.publications)
+            if existing == nil, connectionState == .connected {
+                delegates.notify { $0.room?(self, participantDidConnect: participant) }
+            }
+        }
+        if restoreDataTracks { restoreNativeDataTracks(snapshot) }
+        applyNativeConnection(snapshot.connection)
+    }
+
+    private func applyNativeConnection(_ connection: NativeConnectionState) {
+        _state.mutate {
+            switch connection {
+            case .idle, .connecting: break
+            case .connected: if $0.connectionState == .reconnecting { $0.connectionState = .connected }
+            case .reconnecting: $0.connectionState = .reconnecting
+            case .disconnected: break // Teardown is owned by the driver, before the terminal delegate.
+            }
+        }
+    }
+
+    private func restoreNativeDataTracks(_ snapshot: NativeRoomState) {
+        // Data-track events update the live handles separately. Snapshot recovery is only needed
+        // at join or cursor replacement; the native lookup never creates a second transport.
+        if let session = nativeSession.copy() {
+            let sids = Set(snapshot.dataTracks.map(\.info.sid))
+            for participant in remoteParticipants.values {
+                for track in participant._state.dataTracks where !sids.contains(track.info.sid.stringValue) {
+                    nativeDataTrackUnpublished(sid: track.info.sid.stringValue, identity: track.publisherIdentity.stringValue)
+                }
+            }
+            for publication in snapshot.dataTracks {
+                if let track = session.remoteDataTrack(sid: publication.info.sid) {
+                    nativeDataTrackPublished(track, identity: publication.publisherIdentity)
+                }
+            }
+        }
+    }
+
+    private func applyNativeParticipant(_ info: NativeParticipant, to participant: Participant, publications: [NativeTrackPublication]) {
+        participant.set(info: info.toPBType(publications: publications), connectionState: connectionState)
+        participant._state.mutate {
+            if info.isSpeaking, !$0.isSpeaking { $0.lastSpokeAt = Date() }
+            $0.isSpeaking = info.isSpeaking
+            $0.audioLevel = info.audioLevel
+            switch info.connectionQuality {
+            case .excellent: $0.connectionQuality = .excellent
+            case .good: $0.connectionQuality = .good
+            case .poor: $0.connectionQuality = .poor
+            case .lost: $0.connectionQuality = .lost
+            }
+        }
+    }
+
+    func nativeDataTrackPublished(_ native: LiveKitFFI.RemoteDataTrack, identity: String) {
+        guard let participant = remoteParticipants[Participant.Identity(from: identity)] else { return }
+        let sid = native.info().sid
+        guard !participant._state.dataTracks.contains(where: { $0.info.sid.stringValue == sid }) else { return }
+        let track = RemoteDataTrack(native)
+        guard participant.addDataTrack(track) else { return }
+        participant.delegates.notify { $0.participant?(participant, didPublishDataTrack: track) }
+        delegates.notify { $0.room?(self, participant: participant, didPublishDataTrack: track) }
+    }
+
+    func nativeDataTrackUnpublished(sid: String, identity: String) {
+        guard let participant = remoteParticipants[Participant.Identity(from: identity)] else { return }
+        let sid = DataTrack.Sid(from: sid)
+        guard participant.removeDataTrack(sid: sid) != nil else { return }
+        participant.delegates.notify { $0.participant?(participant, didUnpublishDataTrack: sid) }
+        delegates.notify { $0.room?(self, participant: participant, didUnpublishDataTrack: sid) }
+    }
+}

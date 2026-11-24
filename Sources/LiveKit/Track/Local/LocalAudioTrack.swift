@@ -121,21 +121,8 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     /// - Throws: ``AudioProcessingOptionsError`` when the options cannot be applied.
     /// - Note: Blocks the calling thread until WebRTC's signaling thread applies the options.
     @discardableResult
-    public func setAudioProcessingOptions(_ options: AudioProcessingOptions) throws -> AudioProcessingOptionsResult {
-        let result = try mediaTrack.blocking { rawTrack in
-            guard let audioTrack = rawTrack as? LKRTCAudioTrack else {
-                throw AudioProcessingOptionsError(
-                    code: .invalidState,
-                    message: "Media track is not an audio track",
-                )
-            }
-            return try audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
-        }
-        // Track-level options reach the ADM through the sender, so inform the
-        // session observer here to keep the session mode in sync with the
-        // requested voice processing implementation.
-        AudioManager.shared.updateExpectedPlatformVoiceProcessing(for: options)
-        return result
+    public func setAudioProcessingOptions(_: AudioProcessingOptions) throws -> AudioProcessingOptionsResult {
+        throw LiveKitError(.audioEngine, message: "Native audio processing and AVAudioEngine configuration are not exported by this artifact")
     }
 
     // MARK: - Internal

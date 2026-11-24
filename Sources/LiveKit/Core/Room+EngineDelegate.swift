@@ -18,7 +18,6 @@ internal import LiveKitWebRTC
 import Foundation
 
 extension Room {
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func engine(_: Room, didMutateState state: Room.State, oldState: Room.State) {
         if state.connectionState != oldState.connectionState {
             // connectionState did update
@@ -26,17 +25,6 @@ extension Room {
             // only if quick-reconnect
             if case .connected = state.connectionState, case .quick = state.isReconnectingWithMode {
                 resetTrackSettings()
-            }
-
-            // Re-send track permissions
-            if case .connected = state.connectionState {
-                Task {
-                    do {
-                        try await localParticipant.sendTrackSubscriptionPermissions()
-                    } catch {
-                        log("Failed to send track subscription permissions, error: \(error)", .error)
-                    }
-                }
             }
 
             delegates.notify(label: { "room.didUpdate connectionState: \(state.connectionState) oldValue: \(oldState.connectionState)" }) {
@@ -57,25 +45,9 @@ extension Room {
             } else if case .disconnected = state.connectionState {
                 // Disconnected
                 if case .connecting = oldState.connectionState {
-                    delegates.notify { $0.room?(self, didFailToConnectWithError: oldState.disconnectError) }
+                    delegates.notify { $0.room?(self, didFailToConnectWithError: state.disconnectError) }
                 } else {
                     delegates.notify { $0.room?(self, didDisconnectWithError: state.disconnectError) }
-                }
-            }
-        }
-
-        if state.connectionState == .connected,
-           oldState.connectionState == .reconnecting,
-           oldState.isReconnectingWithMode == .full
-        {
-            // Did complete a full reconnect
-            log("Re-publishing local tracks...")
-            Task.detached { [weak self] in
-                guard let self else { return }
-                do {
-                    try await localParticipant.republishAllTracks()
-                } catch {
-                    log("Failed to re-publish local tracks, error: \(error)", .error)
                 }
             }
         }
@@ -153,6 +125,7 @@ extension Room {
                 }
             }
 
+            state.activeSpeakers = activeSpeakers
             return activeSpeakers
         }
 
@@ -256,44 +229,6 @@ extension Room {
 
         participant.delegates.notify {
             $0.participant?(participant, trackPublication: publication, didReceiveTranscriptionSegments: segments)
-        }
-    }
-
-    func room(didReceiveRpcResponse response: Livekit_RpcResponse) {
-        let (payload, error): (String?, RpcError?) = switch response.value {
-        case let .payload(v): (v, nil)
-        case let .error(e): (nil, RpcError.fromProto(e))
-        default: (nil, nil)
-        }
-
-        Task.discarding { [rpcClient] in
-            await rpcClient.handleIncomingResponse(requestId: response.requestID,
-                                                   payload: payload,
-                                                   error: error)
-        }
-    }
-
-    func room(didReceiveRpcAck ack: Livekit_RpcAck) {
-        Task.discarding { [rpcClient] in
-            await rpcClient.handleIncomingAck(requestId: ack.requestID)
-        }
-    }
-
-    func room(didReceiveRpcRequest request: Livekit_RpcRequest, from participantIdentity: String) {
-        let callerIdentity = Participant.Identity(from: participantIdentity)
-        let requestId = request.id
-        let method = request.method
-        let payload = request.payload
-        let responseTimeout = TimeInterval(UInt64(request.responseTimeoutMs) / UInt64(msecPerSec))
-        let version = Int(request.version)
-
-        Task.discarding { [rpcServer] in
-            await rpcServer.handleIncomingRequest(callerIdentity: callerIdentity,
-                                                  requestId: requestId,
-                                                  method: method,
-                                                  payload: payload,
-                                                  responseTimeout: responseTimeout,
-                                                  version: version)
         }
     }
 }

@@ -60,26 +60,8 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     }
 
     /// Subscribe or unsubscribe from this track.
-    public func set(subscribed newValue: Bool) async throws {
-        guard _state.isSubscribePreferred != newValue else { return }
-
-        let participant = try await requireParticipant()
-        let room = try participant.requireRoom()
-
-        guard let participantSid = participant.sid else { return }
-
-        _state.mutate { $0.isSubscribePreferred = newValue }
-
-        if !newValue {
-            // Proactively clear the track. In single PC mode the transceiver is
-            // reused (direction changes) rather than removed, so the WebRTC
-            // didRemove(rtpReceiver:) callback may never fire.
-            await set(track: nil)
-        }
-
-        try await room.signalClient.sendUpdateSubscription(participantSid: participantSid,
-                                                           trackSid: sid,
-                                                           isSubscribed: newValue)
+    public func set(subscribed _: Bool) async throws {
+        throw LiveKitError(.invalidState, message: "Media subscription control is not exported by this native artifact")
     }
 
     /// Enable or disable server from sending down data for this track.
@@ -266,39 +248,8 @@ extension RemoteTrackPublication {
     }
 
     // attempt to send track settings
-    func send(trackSettings newValue: TrackSettings) async throws {
-        let participant = try await requireParticipant()
-        let room = try participant.requireRoom()
-
-        log("[adaptiveStream] sending \(newValue), sid: \(sid)")
-
-        let state = _state.copy()
-
-        if state.isSendingTrackSettings {
-            log("send(trackSettings:) called while previous send not completed", .error)
-            // Previous send hasn't completed yet...
-            throw LiveKitError(.invalidState, message: "Already busy sending new track settings")
-        }
-
-        // update state
-        _state.mutate {
-            $0.trackSettings = newValue
-            $0.isSendingTrackSettings = true
-        }
-
-        // Attempt to set the new settings
-        do {
-            try await room.signalClient.sendUpdateTrackSettings(trackSid: sid, settings: newValue)
-            _state.mutate { $0.isSendingTrackSettings = false }
-        } catch {
-            // Revert track settings on failure
-            _state.mutate {
-                $0.trackSettings = state.trackSettings
-                $0.isSendingTrackSettings = false
-            }
-
-            log("Failed to send track settings: \(newValue), sid: \(sid), error: \(error)")
-        }
+    func send(trackSettings _: TrackSettings) async throws {
+        throw LiveKitError(.invalidState, message: "Native track settings (including FPS) are not exported by this artifact")
     }
 }
 

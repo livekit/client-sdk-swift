@@ -51,6 +51,13 @@ extension NativeParticipant {
             $0.kind = kind.toPBType()
             $0.kindDetails = kindDetails.map { $0.toPBType() }
             $0.clientProtocol = clientProtocol
+            $0.capabilities = (capabilities ?? []).map {
+                switch $0 {
+                case .unused: .capUnused
+                case .packetTrailer: .capPacketTrailer
+                case .compressionDeflateRaw: .capCompressionDeflateRaw
+                }
+            }
             if let permission { $0.permission = permission.toPBType() }
             $0.tracks = publications.filter { $0.participantIdentity == identity }.map { $0.toPBType() }
         }

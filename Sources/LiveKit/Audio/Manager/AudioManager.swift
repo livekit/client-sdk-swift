@@ -335,19 +335,8 @@ public class AudioManager: Loggable {
     /// guarantee Apple Voice Processing I/O is not used.
     public var isPlatformVoiceProcessingAllowed: Bool { RTC.audioDeviceModule.isPlatformVoiceProcessingAllowed }
 
-    public func setPlatformVoiceProcessingAllowed(_ allowed: Bool) throws {
-        let result = RTC.audioDeviceModule.setPlatformVoiceProcessingAllowed(allowed)
-        try checkAdmResult(code: result)
-        #if os(iOS) || os(visionOS) || os(tvOS)
-        // Disallowing the platform path tears down any current VPIO and makes
-        // future captures resolve to software processing regardless of their
-        // options, so the session must not keep the chat mode expectation.
-        // Re-allowing does not enable VPIO by itself, the next capture's
-        // options decide, so the expectation is left for that path to update.
-        if !allowed {
-            audioSession.setPlatformVoiceProcessingExpected(false)
-        }
-        #endif
+    public func setPlatformVoiceProcessingAllowed(_: Bool) throws {
+        throw LiveKitError(.audioEngine, message: "Native audio processing and AVAudioEngine configuration are not exported by this artifact")
     }
 
     @available(*, deprecated, renamed: "isPlatformVoiceProcessingAllowed")
@@ -407,9 +396,8 @@ public class AudioManager: Loggable {
     /// In this mode, you can provide audio buffers by calling `AudioManager.shared.mixer.capture(appAudio:)` continuously.
     /// Remote audio will not play out automatically. Get remote mixed audio buffers with `AudioManager.shared.add(localAudioRenderer:)` or individual tracks with ``RemoteAudioTrack/add(audioRenderer:)``.
     /// - Note: While enabled, the SDK will not configure `AVAudioSession`. Configure it yourself if your app does its own audio I/O.
-    public func setManualRenderingMode(_ enabled: Bool) throws {
-        let result = RTC.audioDeviceModule.setManualRenderingMode(enabled)
-        try checkAdmResult(code: result)
+    public func setManualRenderingMode(_: Bool) throws {
+        throw LiveKitError(.audioEngine, message: "Native audio processing and AVAudioEngine configuration are not exported by this artifact")
     }
 
     public var isManualRenderingMode: Bool { RTC.audioDeviceModule.isManualRenderingMode }

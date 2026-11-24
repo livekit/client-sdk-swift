@@ -190,13 +190,10 @@ public class LocalParticipant: Participant, @unchecked Sendable {
      * - Parameter participantTrackPermissions Full list of individual permissions per
      *  participant/track. Any omitted participants will not receive any permissions.
      */
-    public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
-                                                trackPermissions: [ParticipantTrackPermission] = []) async throws
+    public func setTrackSubscriptionPermissions(allParticipantsAllowed _: Bool,
+                                                trackPermissions _: [ParticipantTrackPermission] = []) async throws
     {
-        self.allParticipantsAllowed = allParticipantsAllowed
-        self.trackPermissions = trackPermissions
-
-        try await sendTrackSubscriptionPermissions()
+        throw LiveKitError(.invalidState, message: "Track subscription permissions are not exported by this native artifact")
     }
 
     /// Sets and updates the metadata of the local participant.
@@ -204,7 +201,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(metadata: String) async throws {
         let room = try requireRoom()
-        try await room.signalClient.sendUpdateParticipant(metadata: metadata)
+        try await room.requireNativeSession().setMetadata(metadata: metadata)
         _state.mutate { $0.metadata = metadata }
     }
 
@@ -213,13 +210,13 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(name: String) async throws {
         let room = try requireRoom()
-        try await room.signalClient.sendUpdateParticipant(name: name)
+        try await room.requireNativeSession().setName(name: name)
         _state.mutate { $0.name = name }
     }
 
     public func set(attributes: [String: String]) async throws {
         let room = try requireRoom()
-        try await room.signalClient.sendUpdateParticipant(attributes: attributes)
+        try await room.requireNativeSession().setAttributes(attributes: attributes)
         _state.mutate { $0.attributes = attributes }
     }
 
