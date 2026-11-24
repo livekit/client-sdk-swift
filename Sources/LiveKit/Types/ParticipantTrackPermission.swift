@@ -58,6 +58,6 @@ extension ParticipantTrackPermission {
 
 extension ParticipantTrackPermission {
     func toNative(identity: String) -> NativeTrackPermission {
-        NativeTrackPermission(participantIdentity: identity, allowAll: allTracksAllowed, allowedTrackSids: allowedTrackSids)
+        NativeTrackPermission(participantIdentity: identity, allowAll: allTracksAllowed, allowedTrackSids: allTracksAllowed ? [] : allowedTrackSids)
     }
 }

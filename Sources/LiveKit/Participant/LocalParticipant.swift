@@ -203,7 +203,8 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         let room = try requireRoom()
         // ponytail: resolved against this client's view, so a participant the server knows but this client
         // has not yet received is skipped; a native SID-based permission export removes that window.
-        let permissions = trackPermissions.compactMap { permission in
+        // All participants take precedence, so their per-participant entries are not sent or validated.
+        let permissions = allParticipantsAllowed ? [] : trackPermissions.compactMap { permission in
             room.remoteParticipants.first { $0.value.sid?.stringValue == permission.participantSid }
                 .map { permission.toNative(identity: $0.key.stringValue) }
         }

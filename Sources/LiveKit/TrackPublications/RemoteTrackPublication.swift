@@ -124,7 +124,8 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     /// This indicates the highest quality the client can accept. if network
     /// bandwidth does not allow, server will automatically reduce quality to
     /// optimize for uninterrupted video.
-    /// - Note: This is a request. The native core ignores it for a track that is not simulcast.
+    /// - Note: Completion means the request was accepted, not that the server selected this layer.
+    ///   The native core ignores it for a track that is not simulcast.
     public func set(videoQuality newValue: VideoQuality) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
@@ -277,7 +278,9 @@ extension RemoteTrackPublication {
             if settings.videoQuality != previous.videoQuality, kind == .video {
                 try await native.setVideoQuality(quality: settings.videoQuality.toNativeType())
             }
-            try await native.setEnabled(enabled: settings.isEnabled)
+            if settings.isEnabled != previous.isEnabled {
+                try await native.setEnabled(enabled: settings.isEnabled)
+            }
         } catch { throw LiveKitError.mappingNative(error) }
         _state.mutate { $0.trackSettings = settings }
     }
