@@ -1,1 +1,0 @@
-patch type="fixed" "Fix Opus DTX staying on when `dtx: false` comes from `RoomOptions.defaultAudioPublishOptions`. A track published without options now keeps the room defaults: `publishOptions` returns them, the audio features sent to the server include them, and a default `streamName` applies"
