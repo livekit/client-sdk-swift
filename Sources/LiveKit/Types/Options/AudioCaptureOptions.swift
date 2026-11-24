@@ -135,12 +135,4 @@ extension AudioCaptureOptions {
             highpassFilterMode: highpassFilterMode,
         )
     }
-
-    func toFeatures() -> Set<Livekit_AudioTrackFeature> {
-        Set([
-            echoCancellation ? .tfEchoCancellation : nil,
-            noiseSuppression ? .tfNoiseSuppression : nil,
-            autoGainControl ? .tfAutoGainControl : nil,
-        ].compactMap(\.self))
-    }
 }

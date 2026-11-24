@@ -86,6 +86,15 @@ extension AudioProcessingOptions {
         (echoCancellation && echoCancellationMode != .software) ||
             (noiseSuppression && noiseSuppressionMode != .software)
     }
+
+    /// The audio track features these options report to the server.
+    func toFeatures() -> Set<Livekit_AudioTrackFeature> {
+        Set([
+            echoCancellation ? .tfEchoCancellation : nil,
+            noiseSuppression ? .tfNoiseSuppression : nil,
+            autoGainControl ? .tfAutoGainControl : nil,
+        ].compactMap(\.self))
+    }
 }
 
 /// The caller's request for one audio processing component: enabled flag plus

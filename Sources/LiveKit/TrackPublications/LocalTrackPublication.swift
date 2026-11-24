@@ -93,6 +93,14 @@ extension LocalTrackPublication {
     }
 }
 
+extension LocalTrackPublication: LocalAudioTrackDelegateInternal {
+    func localAudioTrackDidUpdateAudioFeatures(_ track: LocalAudioTrack) {
+        // A replaced track may still deliver a queued notification.
+        guard self.track === track else { return }
+        sendAudioTrackFeatures()
+    }
+}
+
 extension LocalTrackPublication: VideoCapturerDelegate {
     public func capturer(_: VideoCapturer, didUpdate _: Dimensions?) {
         Task.detached {

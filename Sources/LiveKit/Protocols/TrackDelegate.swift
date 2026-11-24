@@ -35,3 +35,8 @@ protocol TrackDelegateInternal: TrackDelegate {
     /// Used to report track state mutation to TrackPublication if attached.
     func track(_ track: Track, didMutateState newState: Track.State, oldState: Track.State)
 }
+
+protocol LocalAudioTrackDelegateInternal: TrackDelegate {
+    /// Notify LocalTrackPublication that the audio features it reports to the server may have changed.
+    func localAudioTrackDidUpdateAudioFeatures(_ track: LocalAudioTrack)
+}
