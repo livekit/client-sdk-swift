@@ -173,6 +173,8 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         try await room.send(dataPacket: packet)
     }
 
+    // swiftformat:disable unusedArguments
+
     /**
      * Control who can subscribe to LocalParticipant's published tracks.
      *
@@ -190,7 +192,6 @@ public class LocalParticipant: Participant, @unchecked Sendable {
      * - Parameter participantTrackPermissions Full list of individual permissions per
      *  participant/track. Any omitted participants will not receive any permissions.
      */
-    // swiftformat:disable unusedArguments
     public func setTrackSubscriptionPermissions(allParticipantsAllowed: Bool,
                                                 trackPermissions: [ParticipantTrackPermission] = []) async throws
     {
