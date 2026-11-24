@@ -30,13 +30,37 @@ enum Telemetry {
 
     /// Opt-out, in effect when this returns: no scope, no capture, configures refused; the core
     /// purges what it holds in the background. A cache left by an earlier launch belongs to no
-    /// pipeline yet: the refused configure deletes it.
+    /// pipeline yet: the clean-up's refused configure deletes it, off the caller's thread.
     static func disable() {
         disabled.mutate { $0 = true } // released before calling the core: never held across it
         telemetryDisable()
-        configure()
         for rtc in rtcInstruments.read({ $0.allObjects }) {
             rtc.stop()
+        }
+        cleanUp()
+    }
+
+    /// Owns the opt-out's clean-up: one refused configure, which waits for the core's purge and
+    /// then deletes ``storageDirectory`` (a failure stays with the core for a later opt-out). It
+    /// blocks while it runs, so it runs here, never on the caller; at most once per process.
+    static let cleanUpQueue = DispatchQueue(label: "LiveKitSDK.telemetry.cleanup", qos: .utility)
+    private static let cleanUpScheduled = StateSync(false)
+
+    /// Test seam: runs on ``cleanUpQueue`` right before the refused configure.
+    static let beforeCleanUp = StateSync<(@Sendable () -> Void)?>(nil)
+
+    private static func cleanUp() {
+        guard cleanUpScheduled.mutate({ let first = !$0; $0 = true; return first }) else { return }
+        cleanUpQueue.async {
+            beforeCleanUp.copy()?()
+            install()
+        }
+    }
+
+    /// Returns once the opt-out's clean-up has run; at once when none was scheduled.
+    static func cleanUpFinished() async {
+        await withCheckedContinuation { continuation in
+            cleanUpQueue.async { continuation.resume() }
         }
     }
 
@@ -66,14 +90,26 @@ enum Telemetry {
     /// Installed synchronously on first use, so a Room never misses its scope.
     private static let installed: Void = configure()
 
-    /// Install (or replace) the process pipeline; refused by the core after an opt-out.
+    /// Install the process pipeline; after the opt-out, the clean-up instead. A configure racing
+    /// the opt-out can still reach the core after it and wait there for the refusal.
     static func configure() {
+        guard !disabled.copy() else { return cleanUp() }
+        install()
+    }
+
+    /// The core's configure: installs, or after the opt-out refuses and erases `storageDir`.
+    private static func install() {
         let sdk = TelemetryResource(sdk: .swift,
                                     sdkVersion: LiveKitSDK.version,
                                     osName: String(describing: Utils.os()),
                                     osVersion: Utils.osVersionString(),
                                     deviceModel: Utils.modelIdentifier())
-        let config = TelemetryConfig(sdk: sdk, storageDir: storageDirectory?.path)
+        let storage = storageDirectory
+        if !disabled.copy(), let parent = storage?.deletingLastPathComponent() {
+            // The core creates the directory, not its parent: without one it caches in memory only.
+            try? FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        }
+        let config = TelemetryConfig(sdk: sdk, storageDir: storage?.path)
         // Fail-open: the app runs without telemetry rather than not at all.
         try? telemetryConfigure(config: config, transport: URLSessionTelemetryTransport(), instruments: [DeviceTelemetry(), WebRTCLogCapture()])
     }
