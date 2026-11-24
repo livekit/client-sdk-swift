@@ -121,6 +121,89 @@ struct AudioSessionCategorySelectionTests {
         _ = observer.engineDidDisable(engine, isPlayoutEnabled: false, isRecordingEnabled: false)
         #expect(!observer._state.hasRecorded)
     }
+
+    // MARK: - Configuration failures
+
+    /// Replaces the `AVAudioSession` calls so a test can make them fail on demand.
+    private final class FailingObserver: AudioSessionEngineObserver, @unchecked Sendable {
+        struct Failure: Error {}
+
+        let isFailing = StateSync(false)
+        let lastOldState = StateSync<Observer.State?>(nil)
+
+        override func configureAudioSession(oldState: Observer.State, newState _: Observer.State) throws {
+            lastOldState.mutate { $0 = oldState }
+            if isFailing.copy() { throw Failure() }
+        }
+    }
+
+    @Test func failedReleaseStillRemovesTheRequirement() throws {
+        let observer = FailingObserver()
+        let handle = try observer.acquire(requirement: .playbackOnly)
+
+        observer.isFailing.mutate { $0 = true }
+        #expect(throws: LiveKitError.self) { try handle.release() }
+        #expect(observer._state.sessionRequirements.isEmpty)
+        #expect(throws: Never.self) { try handle.release() }
+
+        // The next acquire starts from an inactive session, so it activates again.
+        observer.isFailing.mutate { $0 = false }
+        let next = try observer.acquire(requirement: .playbackOnly)
+        defer { try? next.release() }
+        let oldState = try #require(observer.lastOldState.copy())
+        #expect(!oldState.isPlayoutEnabled && !oldState.isRecordingEnabled)
+    }
+
+    @Test func failedAcquireIsNotRegistered() {
+        let observer = FailingObserver()
+        observer.isFailing.mutate { $0 = true }
+        #expect(throws: LiveKitError.self) { try observer.acquire(requirement: .playbackOnly) }
+        #expect(observer._state.sessionRequirements.isEmpty)
+    }
+
+    @Test func failedEngineEnableRollsBack() {
+        let observer = FailingObserver()
+        observer.isFailing.mutate { $0 = true }
+        let result = observer.engineWillEnable(AVAudioEngine(), isPlayoutEnabled: true, isRecordingEnabled: true)
+        #expect(result == kAudioEngineErrorFailedToConfigureAudioSession)
+        #expect(observer._state.sessionRequirements.isEmpty)
+        #expect(!observer._state.hasRecorded)
+    }
+
+    @Test func failedEngineDisableStillRemovesTheRequirement() throws {
+        let observer = FailingObserver()
+        let engine = AVAudioEngine()
+        _ = observer.engineWillEnable(engine, isPlayoutEnabled: true, isRecordingEnabled: true)
+
+        observer.isFailing.mutate { $0 = true }
+        let result = observer.engineDidDisable(engine, isPlayoutEnabled: false, isRecordingEnabled: false)
+        #expect(result == kAudioEngineErrorFailedToConfigureAudioSession)
+        #expect(observer._state.sessionRequirements.isEmpty)
+        #expect(!observer._state.hasRecorded)
+
+        // The audio device module only logs a failed teardown hook, so the engine is stopped. The next
+        // engine start must start from an inactive session and activate it again.
+        observer.isFailing.mutate { $0 = false }
+        let restart = observer.engineWillEnable(engine, isPlayoutEnabled: true, isRecordingEnabled: false)
+        #expect(restart == 0)
+        let oldState = try #require(observer.lastOldState.copy())
+        #expect(!oldState.isPlayoutEnabled && !oldState.isRecordingEnabled)
+        #expect(observer._state.isPlayoutEnabled)
+    }
+
+    /// A partial teardown (the mic stops, playout continues) that fails to reconfigure the session is
+    /// also committed: the engine no longer records, so the observer must not keep the recording requirement.
+    @Test func failedPartialEngineDisableStillShrinksTheRequirement() {
+        let observer = FailingObserver()
+        let engine = AVAudioEngine()
+        _ = observer.engineWillEnable(engine, isPlayoutEnabled: true, isRecordingEnabled: true)
+
+        observer.isFailing.mutate { $0 = true }
+        let result = observer.engineDidDisable(engine, isPlayoutEnabled: true, isRecordingEnabled: false)
+        #expect(result == kAudioEngineErrorFailedToConfigureAudioSession)
+        #expect(observer._state.isPlayoutEnabled)
+        #expect(!observer._state.isRecordingEnabled)
+    }
 }
 
 #endif
