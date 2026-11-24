@@ -42,7 +42,7 @@ public extension LocalParticipant {
     /// See ``publishDataTrack(name:)``; the declared metadata is surfaced to subscribers via
     /// ``DataTrackInfo``.
     func publishDataTrack(name: String, options: DataTrackPublishOptions?) async throws -> LocalDataTrack {
-        let session = try requireRoom().requireNativeSession()
+        let session = try requireRoom().requireNativeSession(forEncryptedPayload: true)
         do {
             return try await LocalDataTrack(session.publishDataTrack(options: .init(name: name,
                                                                                     schema: options?.schema?.ffi,

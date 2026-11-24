@@ -24,7 +24,7 @@ import Foundation
 final class DataStreams: NSObject, @unchecked Sendable, Loggable {
     private func outgoing() throws -> LiveKitFFI.NativeRoomSession {
         guard let room else { throw LiveKitError(.invalidState, message: "Room is gone") }
-        return try room.requireNativeSession()
+        return try room.requireNativeSession(forEncryptedPayload: true)
     }
 
     // Held weakly: the Room owns this coordinator, so the back-reference must not retain it. Used

@@ -62,3 +62,30 @@ extension LiveKitError {
         return status == 404 ? .serviceNotFound : .validation
     }
 }
+
+extension NativeDisconnectReason {
+    // Exhaustive native/protocol reason mapping; never parse display strings.
+    // swiftlint:disable:next cyclomatic_complexity
+    func toPBType() -> Livekit_DisconnectReason {
+        switch self {
+        case .unknownReason: .unknownReason
+        case .clientInitiated: .clientInitiated
+        case .duplicateIdentity: .duplicateIdentity
+        case .serverShutdown: .serverShutdown
+        case .participantRemoved: .participantRemoved
+        case .roomDeleted: .roomDeleted
+        case .stateMismatch: .stateMismatch
+        case .joinFailure: .joinFailure
+        case .migration: .migration
+        case .signalClose: .signalClose
+        case .roomClosed: .roomClosed
+        case .userUnavailable: .userUnavailable
+        case .userRejected: .userRejected
+        case .sipTrunkFailure: .sipTrunkFailure
+        case .connectionTimeout: .connectionTimeout
+        case .mediaFailure: .mediaFailure
+        case .agentError: .agentError
+        @unknown default: .unknownReason
+        }
+    }
+}

@@ -40,10 +40,12 @@ extension Room {
     }
 
     func send(userPacket: Livekit_UserPacket, kind: Livekit_DataPacket_Kind) async throws {
-        let session = try requireNativeSession()
-        try await session.publishData(payload: userPacket.payload,
-                                      options: .init(reliable: kind == .reliable, topic: userPacket.topic,
-                                                     destinationIdentities: userPacket.destinationIdentities))
+        let session = try requireNativeSession(forEncryptedPayload: true)
+        do {
+            try await session.publishData(payload: userPacket.payload,
+                                          options: .init(reliable: kind == .reliable, topic: userPacket.topic,
+                                                         destinationIdentities: userPacket.destinationIdentities))
+        } catch { throw LiveKitError.mappingNative(error) }
     }
 
     func send(dataPacket packet: consuming Livekit_DataPacket) async throws {

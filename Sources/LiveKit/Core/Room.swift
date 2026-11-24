@@ -115,9 +115,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     ///
     /// - Parameter enabled: Whether to enable encryption.
     public func setE2EEEnabled(_ enabled: Bool) {
-        guard let manager = e2eeManager, nativeSession.copy() != nil, enabled != manager.isDataChannelEncryptionEnabled else { return }
-        nativeEncryptionRequested.mutate { $0 = true }
-        log("Dynamic native data encryption switching is not exported; new outgoing commands reject this unsupported request", .error)
+        guard e2eeManager != nil, nativeSession.copy() != nil else { return }
+        nativeEncryptionRequested.mutate { $0 = !enabled }
+        if !enabled {
+            log("Dynamic native encryption disable is not exported; outgoing payloads reject this request", .error)
+        }
     }
 
     public lazy var localParticipant: LocalParticipant = .init(room: self)
@@ -127,17 +129,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
     let activeParticipantCompleters = CompleterMapActor<Void>(label: "Participant active", defaultTimeout: .defaultParticipantActiveTimeout)
 
-    let signalClient = SignalClient()
-
     let nativeDriver = NativeRoomDriver()
     let nativeSession = StateSync<NativeRoomSession?>(nil)
     let nativeEncryptionRequested = StateSync(false)
     let nativeE2EE = StateSync<E2EEManager?>(nil)
     let dataStreams = DataStreams()
 
-    func requireNativeSession() throws -> NativeRoomSession {
-        guard !nativeEncryptionRequested.copy() else {
-            throw LiveKitError(.invalidState, message: "Native encryption is not exported by this artifact")
+    func requireNativeSession(forEncryptedPayload: Bool = false) throws -> NativeRoomSession {
+        guard !forEncryptedPayload || !nativeEncryptionRequested.copy() else {
+            throw LiveKitError(.invalidState, message: "Dynamic native encryption disable is not exported")
         }
         guard let session = nativeSession.copy(), connectionState == .connected || connectionState == .reconnecting else {
             throw LiveKitError(.invalidState, message: "Room is not connected")
@@ -394,7 +394,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 // MARK: - Internal
 
 extension Room {
-    @nonobjc func cleanUp(withError disconnectError: Error? = nil, isFullReconnect _: Bool = false) async {
+    @nonobjc func cleanUp(withError disconnectError: Error? = nil) async {
         await nativeDriver.disconnect(room: self, error: disconnectError)
     }
 
@@ -443,10 +443,6 @@ extension Room {
     }
 
     func _onParticipantDidDisconnect(identity: Participant.Identity) async throws {
-        // Reap any in-flight RPCs targeting this participant before tearing them down,
-        // so the caller sees `recipientDisconnected` (1503) immediately instead of
-        // hanging until the user-supplied `responseTimeout`.
-
         guard let participant = _state.mutate({ $0.remoteParticipants.removeValue(forKey: identity) }) else {
             throw LiveKitError(.invalidState, message: "Participant not found for \(identity)")
         }

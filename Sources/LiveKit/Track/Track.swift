@@ -263,7 +263,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     @RTC
     func enable() async throws -> Bool {
         if let native = nativePublication.copy() {
-            try await native.setEnabled(enabled: true)
+            do { try await native.setEnabled(enabled: true) } catch { throw LiveKitError.mappingNative(error) }
             return true
         }
         guard let mediaTrack else { throw LiveKitError(.invalidState, message: "Track is not attached") }
@@ -277,7 +277,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     @RTC
     func disable() async throws -> Bool {
         if let native = nativePublication.copy() {
-            try await native.setEnabled(enabled: false)
+            do { try await native.setEnabled(enabled: false) } catch { throw LiveKitError.mappingNative(error) }
             return true
         }
         guard let mediaTrack else { throw LiveKitError(.invalidState, message: "Track is not attached") }
@@ -362,7 +362,7 @@ extension Track {
         // LocalTrack only, already muted
         guard self is LocalTrack, !isMuted else { return }
         if let native = nativePublication.copy() {
-            try await native.setMuted(muted: true)
+            do { try await native.setMuted(muted: true) } catch { throw LiveKitError.mappingNative(error) }
             set(muted: true)
             return
         }
@@ -378,7 +378,7 @@ extension Track {
         // LocalTrack only, already un-muted
         guard self is LocalTrack, isMuted else { return }
         if let native = nativePublication.copy() {
-            try await native.setMuted(muted: false)
+            do { try await native.setMuted(muted: false) } catch { throw LiveKitError.mappingNative(error) }
             set(muted: false)
             return
         }

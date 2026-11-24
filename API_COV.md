@@ -21,9 +21,9 @@ blocker. No stand-in exports, second Room engine or Swift peer connection.
 buffer-video capture and remote `VideoView` rendering work through Rust.
 Original unchanged shared-key/statistics-enabled participant fixtures now pass.
 **Drop-in/minor-version compatibility remains unestablished.** Camera capture
-times out on both baseline and migration. Native receive-only platform output
-now has nonzero host output-buffer proof independent of microphone/PCM sinks;
-audible output and iOS runtime remain unverified.
+times out on both baseline and migration. The b3 receive-only output proof is
+not accepted after the microphone-activation privacy finding above; safe output
+needs a core API. Audible output and iOS runtime remain unverified.
 Complete metadata/errors/options and the full Apple target matrix remain gaps. Independent Claude review remains required.
 
 `implemented` means working-backend/PoC behavior exercised by the evidence below,
@@ -57,7 +57,7 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 | `Room.registerRpcMethod`, `unregisterRpcMethod`, `isRpcMethodRegistered`; `LocalParticipant.performRpc(...)` | Native RPC operations **available**, production echo/rejoin **implemented**. Native reply handles preserve errors; Swift handler tasks cancel on disconnect. | Production echo/rejoin plus custom code/message/data, unsupported method, response deadline, cancellation and subsequent-call tests pass. Pending-reply disconnect remains pending. |
 | `Participant.capabilities: [ClientCapability]`, `clientProtocol` | Remote capabilities now mapped; local capabilities **compile-only** because native local snapshot is nil. Nondefault connect clientProtocol rejects: public core RoomOptions cannot override SignalOptions; the new export accepts only nil/default2. | No longer a missing remote-field/helper blocker. Core negotiates native sends. |
 | Token/log helpers (`Claims`, `TokenOptions`, inference/observability grants, `logForwardBootstrap`, `logForwardReceive`) | **available**, compatible generated 0.13.4 shapes; production compiles without replacement types. | Real token generation exercised by all integration fixtures. Old missing-export claims resolved. |
-| Media publish/subscribe and `TrackPublication.track` | **implemented working path**: native source/publication handles attach to existing NSObject tracks; remote PCM/video sinks feed AudioRenderer/VideoView; mute/unmute/unpublish/unsubscribe route native. | Swift encrypted synthetic PCM + physical microphone + buffer video/VideoView pass, including initial publication snapshot and identity across mute. Camera capture times out identically on unchanged baseline and migration with the same built-in device/authorization; no migration-specific adapter defect established. Receive-only subscription now acquires a session-owned PlatformAudio lease; teardown preserves other sessions/mics. Native host proof shows nonzero CoreAudio output before/after one receiver closes, recording uninitialized. Audible output is not claimed. Custom encoding/processing options reject pending mappings. |
+| Media publish/subscribe and `TrackPublication.track` | **implemented working path**: native source/publication handles attach to existing NSObject tracks; remote PCM/video sinks feed AudioRenderer/VideoView; mute/unmute/unpublish/unsubscribe route native. | Swift encrypted synthetic PCM + physical microphone + buffer video/VideoView pass, including initial publication snapshot and identity across mute. Camera capture times out identically on unchanged baseline and migration with the same built-in device/authorization; no migration-specific adapter defect established. The b3 automatic PlatformAudio lease is rejected after the privacy review: its tested event order did not establish general capture safety. Safe receive-only output needs a core API; no acceptance or audible-output claim. Custom encoding/processing options reject pending mappings. |
 | `RemoteTrackPublication.set(preferredFPS:)`, `RemoteAudioTrack.volume` | FPS control and per-track volume **blocked** on core/export support; volume is nonthrowing and **compile-only** for native media. | Requires actual controls, not fake setters. |
 | `AudioManager.setManualRenderingMode(_:)`, graph observers/mixer/custom-processing delegates | AVAudioEngine graph access **blocked** while Rust owns the device; manual-rendering activation throws. Nonthrowing graph interfaces are **compile-only**. | Exposing/owning the real graph would require a separate audio-device design; no large adapter added. |
 | `AudioManager.setPlatformVoiceProcessingAllowed(_:)`, `LocalAudioTrack.setAudioProcessingOptions(_:)`, voice processing/AGC controls | **pending mapping**, not inherently impossible. Current throwing activation rejects because this artifact supplies no native mapping. Nonthrowing controls are **compile-only** for native media. | Distinguish core-supported processing controls from graph-access blockers; validate the actual next media exports before wiring. |
@@ -68,6 +68,18 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 | `Room.prepareConnection(url:token:)` and region preparation | Declaration retained; prepared-region/cache consumption is **pending** on the native connect path. | Native connection/region policy must expose the equivalent behavior; do not count retained Swift preparation code as parity. |
 | `Room.debug_simulate(scenario:)` | Unsupported activation throws. | No native simulation command exported. |
 | iOS, Catalyst, tvOS, visionOS | Current combined Apple package retains247 bindings; prior production checks: production iOS device Release/API check passes; arm64 simulator Release compile passes. Catalyst/tvOS/visionOS and Intel simulator slices absent. | No iOS runtime claim. Both WebRTC archives have2946 minimum-version commands, all14: device LC13 does NOT establish iOS13 support. SDK declaration13 is a real compatibility blocker. |
+
+Review-specific remaining gaps (existing declarations retained):
+
+| Signature / callback | Status |
+|---|---|
+| `LocalParticipant.publishDtmf(code:digit:) async throws` | Unsupported native packet activation; needs the core-supported room DTMF export. |
+| `LocalParticipant.setTrackSubscriptionPermissions(allParticipantsAllowed:trackPermissions:) async throws` | Unsupported activation; needs native room subscription-permission command. |
+| `RemoteTrackPublication.set(videoQuality:) async throws` | Unsupported nondefault quality, separately from FPS; needs publication quality export. |
+| `Room.connect(...)` on an already-connected Room | Throws invalidState rather than baseline reconnect behavior; compatibility unresolved. |
+| `room(_:participant:trackPublication:didReceiveTranscriptionSegments:)`, internal `room(didReceiveTranscriptionPacket:)`, `room(_:didFailToDecryptDataWithEror:)` | No corresponding native delivery mapping; exact native transcription/decryption events needed. No fabricated callbacks. |
+| Per-publication encryption-state callbacks | Native participant/state event lacks track SID; cannot associate truthfully. |
+| `DataTrackPublishTests.encryptionToggleAfterConnectApplies` | **Known incompatible, not passed**: calls `setE2EEEnabled(false)` before data-track publication. Dynamic disable remains unsupported; outgoing payload activation rejects. Metadata/name/attributes are unaffected. |
 
 ## Connection option contract
 
@@ -185,3 +197,26 @@ LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Use
 JOBS=2 CACHE=/Users/blaze/livekit/research-v3/swift-native-next/api-cache .github/api-check/api-dump.sh /Users/blaze/livekit/research-v3/swift-native-next/api-playout-final macOS
 .github/api-check/api-dump.sh --diff /Users/blaze/livekit/research-v3/swift-baseline/macOS /Users/blaze/livekit/research-v3/swift-native-next/api-playout-final/macOS
 ```
+
+
+Claude review corrections (on top of privacy note1ab66a54): legacy and modern
+configured encryption `true` is idempotent; unsupported `false` rejection is
+limited to outgoing payloads. Shared-key set/export/ratchet ignore participant ID.
+RPC handlers are reserved before suspension and reconciled serially only after
+native connect; concurrent duplicate/unregister cannot double-register. All17
+native disconnect reasons map directly through existing proto/LiveKitError.
+Native publishData/unpublish/mute/enable/subscription/settings errors are mapped.
+Failed media attachment clears/cancels the partial track; metadata/quality/speaker
+events no longer enumerate native media handles. Initial media attachment follows
+the connected-state update. Dead Swift signaling sends/local factory observer were
+removed; no replacement engine added.
+Data-only regression (`review-fixes/data-final.log`): six functions/seven cases,
+NativeReviewTests.swift and NativeCompatibilityTests.swift, exact command:
+
+```sh
+LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Users/blaze/livekit/research-v3/swift-native-next/production-check --filter 'configuredEncryptionEnableIsIdempotent|rpcRegistrationDuringConnectAndConcurrentChanges|serverRemovalPreservesDisconnectReason|NativeCompatibilityTests'
+```
+
+Media/ObjC/API follow-up awaits the safe native replacement; no media run on b3
+following the privacy finding. The review corrections require independent
+re-review; old API dumps are not yet evidence for this source diff.

@@ -23,7 +23,14 @@ actor NativeRoomDriver {
     private var cursor: NativeRoomEventCursor?
     private var eventLoop: AnyTaskCancellable?
     private var projection: NativeRoomState?
-    private var handlers: [String: RpcHandler] = [:]
+    private struct RpcRegistration {
+        let id = UUID()
+        let handler: RpcHandler
+    }
+
+    private var handlers: [String: RpcRegistration] = [:]
+    private var installedRpcMethods: Set<String> = []
+    private let rpcOperations = SerialRunnerActor<Void>()
     private var closing = false
     private var reportedPacketMetadataGap = false
     private var closeWaiters: [CheckedContinuation<Void, Never>] = []
@@ -80,11 +87,11 @@ actor NativeRoomDriver {
             projection = snapshot
             await room.applyNativeSnapshot(snapshot, restoreDataTracks: true)
             guard session === native, !closing else { throw CancellationError() }
-            for method in handlers.keys {
-                try await native.registerRpcMethod(method: method)
-            }
+            try await synchronizeRpcMethods(on: native)
             guard session === native, !closing else { throw CancellationError() }
             room._state.mutate { $0.connectedUrl = parsed; $0.connectionState = .connected }
+            await room.applyNativeMedia(snapshot)
+            guard session === native, !closing else { throw CancellationError() }
             startEvents(events, session: native, room: room)
         } catch {
             if session === native, !closing { await disconnect(room: room, error: error) }
@@ -110,6 +117,7 @@ actor NativeRoomDriver {
         session = nil
         cursor = nil
         projection = nil
+        installedRpcMethods.removeAll()
         closing = false
         let waiters = closeWaiters
         closeWaiters.removeAll()
@@ -143,7 +151,7 @@ actor NativeRoomDriver {
             let replacement = native.events(options: .init())
             let snapshot = replacement.startState()
             projection = snapshot
-            await room.applyNativeSnapshot(snapshot, restoreDataTracks: true)
+            await room.applyNativeSnapshot(snapshot, restoreDataTracks: true, restoreMedia: true)
             guard session === native, !closing else { return }
             startEvents(replacement, session: native, room: room)
         } else {
@@ -188,10 +196,11 @@ actor NativeRoomDriver {
         if receiveTransient(update.event, room: room) { return }
         guard update.revision > snapshot.revision else { return }
         snapshot.revision = update.revision
+        var mediaChanged = false
         switch update.event {
         case let .connectionStateChanged(state): snapshot.connection = state
         case let .disconnected(reason):
-            await disconnect(room: room, error: reason == .clientInitiated ? nil : LiveKitError(.invalidState, message: "Native disconnect: \(reason)"))
+            await disconnect(room: room, error: reason == .clientInitiated ? nil : LiveKitError.from(reason: reason.toPBType()))
             return
         case let .roomUpdated(info), let .roomMetadataChanged(info, _), let .roomMoved(info): snapshot.room = info
         case let .tokenRefreshed(token): room._state.mutate { $0.token = token }
@@ -208,10 +217,14 @@ actor NativeRoomDriver {
             snapshot.publications.removeAll { $0.participantIdentity == participant.identity }
         case let .trackPublished(publication), let .trackMuted(publication), let .trackUnmuted(publication),
              let .trackSubscribed(publication), let .trackUnsubscribed(publication):
+            mediaChanged = true
             snapshot.publications.removeAll { $0.sid == publication.sid }
             snapshot.publications.append(publication)
-        case let .trackUnpublished(publication): snapshot.publications.removeAll { $0.sid == publication.sid }
+        case let .trackUnpublished(publication):
+            mediaChanged = true
+            snapshot.publications.removeAll { $0.sid == publication.sid }
         case let .localTrackRepublished(previous, publication):
+            mediaChanged = true
             snapshot.publications.removeAll { $0.sid == previous || $0.sid == publication.sid }
             snapshot.publications.append(publication)
         case let .activeSpeakersChanged(speakers):
@@ -225,7 +238,7 @@ actor NativeRoomDriver {
         default: break
         }
         projection = snapshot
-        await room.applyNativeSnapshot(snapshot)
+        await room.applyNativeSnapshot(snapshot, restoreMedia: mediaChanged)
     }
 
     private func updateSpeakers(_ speakers: [NativeSpeaker], in snapshot: inout NativeRoomState, room: Room) {
@@ -250,13 +263,44 @@ actor NativeRoomDriver {
 extension NativeRoomDriver {
     func registerRpcMethod(_ method: String, handler: @escaping RpcHandler) async throws {
         guard handlers[method] == nil else { throw LiveKitError(.invalidState, message: "RPC handler already registered") }
-        if let session, !closing { try await session.registerRpcMethod(method: method) }
-        handlers[method] = handler
+        let registration = RpcRegistration(handler: handler)
+        handlers[method] = registration
+        guard let session, projection != nil, !closing else { return }
+        do {
+            try await synchronizeRpcMethods(on: session)
+        } catch {
+            if handlers[method]?.id == registration.id { handlers[method] = nil }
+            throw LiveKitError.mappingNative(error)
+        }
     }
 
     func unregisterRpcMethod(_ method: String) async {
         handlers[method] = nil
-        if let session, !closing { try? await session.unregisterRpcMethod(method: method) }
+        guard let session, projection != nil, !closing else { return }
+        try? await synchronizeRpcMethods(on: session)
+    }
+
+    private func synchronizeRpcMethods(on native: NativeRoomSession) async throws {
+        try await rpcOperations.run { try await self.reconcileRpcMethods(on: native) }
+    }
+
+    private func reconcileRpcMethods(on native: NativeRoomSession) async throws {
+        while session === native, !closing, projection != nil {
+            if let method = installedRpcMethods.first(where: { handlers[$0] == nil }) {
+                try await native.unregisterRpcMethod(method: method)
+                guard session === native, !closing else { return }
+                installedRpcMethods.remove(method)
+            } else if let (method, registration) = handlers.first(where: { !installedRpcMethods.contains($0.key) }) {
+                do {
+                    try await native.registerRpcMethod(method: method)
+                } catch {
+                    if handlers[method]?.id == registration.id { handlers[method] = nil }
+                    throw LiveKitError.mappingNative(error)
+                }
+                guard session === native, !closing else { return }
+                installedRpcMethods.insert(method)
+            } else { return }
+        }
     }
 
     func isRpcMethodRegistered(_ method: String) -> Bool { handlers[method] != nil }
@@ -283,7 +327,7 @@ extension NativeRoomDriver {
 
     private func handleRpc(_ invocation: NativeRpcInvocation) {
         let info = invocation.info()
-        guard let handler = handlers[info.method] else {
+        guard let handler = handlers[info.method]?.handler else {
             _ = invocation.reject(error: .Failed(code: 1400, reason: "Unsupported method", data: nil))
             return
         }

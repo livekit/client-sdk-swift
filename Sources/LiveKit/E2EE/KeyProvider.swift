@@ -225,7 +225,7 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
         _state.mutate {
             $0.keys[options.sharedKey ? "" : participantId ?? "", default: [:]][targetIndex] = keyData
             do {
-                try $0.native?.setKey(key: keyData, participantIdentity: participantId, index: targetIndex)
+                try $0.native?.setKey(key: keyData, participantIdentity: options.sharedKey ? nil : participantId, index: targetIndex)
             } catch {
                 log("Native key update failed: \(error)", .error)
             }
@@ -248,7 +248,7 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
     public func ratchetKey(participantId: String? = nil, index: Int32? = nil) -> Data? {
         let targetIndex = index ?? getCurrentKeyIndex()
         if let native = _state.native {
-            return try? native.ratchetKey(participantIdentity: participantId, index: targetIndex)
+            return try? native.ratchetKey(participantIdentity: options.sharedKey ? nil : participantId, index: targetIndex)
         }
 
         if options.sharedKey {
@@ -270,7 +270,7 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
     public func exportKey(participantId: String? = nil, index: Int32? = nil) -> Data? {
         let targetIndex = index ?? getCurrentKeyIndex()
         if let native = _state.native {
-            return try? native.exportKey(participantIdentity: participantId, index: targetIndex)
+            return try? native.exportKey(participantIdentity: options.sharedKey ? nil : participantId, index: targetIndex)
         }
 
         if options.sharedKey {

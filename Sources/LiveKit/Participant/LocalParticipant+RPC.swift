@@ -52,7 +52,7 @@ public extension LocalParticipant {
                           maxRoundTripLatency: TimeInterval = 7) async throws -> String
     {
         let room = try requireRoom()
-        _ = try room.requireNativeSession()
+        _ = try room.requireNativeSession(forEncryptedPayload: true)
         return try await room.nativeDriver.performRpc(destinationIdentity: destinationIdentity,
                                                       method: method,
                                                       payload: payload,

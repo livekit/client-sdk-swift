@@ -18,7 +18,7 @@ internal import LiveKitFFI
 import Foundation
 
 extension Room {
-    @nonobjc func applyNativeSnapshot(_ snapshot: NativeRoomState, restoreDataTracks: Bool = false) async {
+    @nonobjc func applyNativeSnapshot(_ snapshot: NativeRoomState, restoreDataTracks: Bool = false, restoreMedia: Bool = false) async {
         guard let native = nativeSession.copy() else { return }
         if let info = snapshot.room { _state.mutate { $0.apply(roomInfo: info.toPBType()) } }
         let identities = Set(snapshot.remoteParticipants.map { Participant.Identity(from: $0.identity) })
@@ -40,7 +40,7 @@ extension Room {
                 delegates.notify { $0.room?(self, participantDidConnect: participant) }
             }
         }
-        await applyNativeMedia(snapshot)
+        if restoreMedia { await applyNativeMedia(snapshot) }
         if restoreDataTracks { restoreNativeDataTracks(snapshot) }
         applyNativeConnection(snapshot.connection)
     }
@@ -117,11 +117,13 @@ extension Room {
         for info in snapshot.publications {
             guard let participant = remoteParticipants[Participant.Identity(from: info.participantIdentity)],
                   let publication = participant.trackPublications[Track.Sid(from: info.sid)] as? RemoteTrackPublication else { continue }
+            var attaching: Track?
             do {
                 let handle = try session.publication(identity: info.participantIdentity, sid: info.sid)
                 if let audio = try handle.remoteAudioTrack() {
                     guard publication.track == nil else { continue }
                     let track = RemoteAudioTrack(name: info.name, source: publication.source, track: nil, reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+                    attaching = track
                     track.nativePublication.mutate { $0 = handle }
                     await publication.set(track: track)
                     try await track.receiveNativeAudio(audio)
@@ -129,6 +131,7 @@ extension Room {
                 } else if let video = try handle.remoteVideoTrack() {
                     guard publication.track == nil else { continue }
                     let track = RemoteVideoTrack(name: info.name, source: publication.source, track: nil, reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+                    attaching = track
                     track.nativePublication.mutate { $0 = handle }
                     await publication.set(track: track)
                     try await track.receiveNativeVideo(video)
@@ -138,9 +141,17 @@ extension Room {
                     await publication.set(track: nil)
                 }
             } catch {
+                await rollBackNativeAttachment(attaching, publication: publication)
                 log("Native publication projection failed: \(error)", .warning)
             }
         }
+    }
+
+    private func rollBackNativeAttachment(_ track: Track?, publication: RemoteTrackPublication) async {
+        guard let track else { return }
+        try? await track.stopCapture()
+        track.nativePublication.mutate { $0 = nil }
+        if publication.track === track { await publication.set(track: nil) }
     }
 
     private func finishNativeSubscription(_ track: Track, publication: RemoteTrackPublication,

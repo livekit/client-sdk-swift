@@ -85,15 +85,15 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         }
 
         if let native = publication.track?.nativePublication.copy() {
-            try await native.unpublish()
+            do { try await native.unpublish() } catch { throw LiveKitError.mappingNative(error) }
             publication.track?.cancelStatisticsTimer()
             if stopTrack, room._state.roomOptions.stopLocalTrackOnUnpublish, let audio = publication.track as? LocalAudioTrack {
-                try await audio.nativeAudio.copy()?.release()
+                do { try await audio.nativeAudio.copy()?.release() } catch { throw LiveKitError.mappingNative(error) }
                 audio.nativeAudio.mutate { $0 = nil }
             }
             if stopTrack, room._state.roomOptions.stopLocalTrackOnUnpublish, let video = publication.track as? LocalVideoTrack {
                 video.nativeCapture.mutate { $0 = nil }
-                try await video.nativeVideo.copy()?.release()
+                do { try await video.nativeVideo.copy()?.release() } catch { throw LiveKitError.mappingNative(error) }
                 video.nativeVideo.mutate { $0 = nil }
                 try await video.stop()
             }
@@ -230,14 +230,6 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         let room = try requireRoom()
         do { try await room.requireNativeSession().setAttributes(attributes: attributes) } catch { throw LiveKitError.mappingNative(error) }
         _state.mutate { $0.attributes = attributes }
-    }
-
-    func sendTrackSubscriptionPermissions() async throws {
-        let room = try requireRoom()
-        guard room._state.connectionState == .connected else { return }
-
-        try await room.signalClient.sendUpdateSubscriptionPermission(allParticipants: allParticipantsAllowed,
-                                                                     trackPermissions: trackPermissions)
     }
 
     @RTC

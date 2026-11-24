@@ -199,7 +199,8 @@ extension TrackPublication: TrackDelegateInternal {
             let room = try participant.requireRoom()
 
             if shouldSendSignal {
-                try await room.signalClient.sendMuteTrack(trackSid: self.sid, muted: isMuted)
+                guard let native = self.track?.nativePublication.copy() else { throw LiveKitError(.invalidState) }
+                do { try await native.setMuted(muted: isMuted) } catch { throw LiveKitError.mappingNative(error) }
             }
 
             participant.delegates.notify {
