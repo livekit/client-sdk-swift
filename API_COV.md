@@ -1,19 +1,23 @@
 # Swift API coverage over the native room backend
 
 Checkpoint: production Room and media integration against committed Rust
-`24723b41d57a0eda0a9860397aa0ce5d696bee74` (shipped FFI 0.13.4 baseline).
-Package: `/Users/blaze/livekit/research-v3/rust-ffi/room-apis-24723b41-apple/livekit-ffi-xcframework`.
-Verified framework SHA-256: `d26d2e93d960a7ac986bbeaca69ff87eb975021506ac4cd0dd7fa5e1d6b121ba`.
-The consumed XCFramework contains exact247 macOS arm64, iOS device arm64
-(minOS13) and arm64 simulator (minOS14); generated Swift/C metadata matches
-per slice. Archive SHA-256: `679c043f1cc3c6da27a3121516cddf3660994a5170ab9e92316290b1806c625a`. No stand-in exports, second Room engine or Swift peer connection.
+`b3bf27bbb6f56c67d4ff136c5c0d67d63cb48e50` (shipped FFI 0.13.4 baseline).
+Package: `/Users/blaze/livekit/research-v3/rust-ffi/room-apis-b3bf27bb/livekit-ffi-xcframework`.
+Verified framework SHA-256: `bfa3cc20eb2f3eefaaea1b7b43a202ad133d866d420a08e3233662c4d74ac9b9`.
+The combined package supplies macOS arm64 and iOS device/simulator arm64;
+all three Swift bindings are byte-identical to247. Archive SHA-256:
+`ccecaa100ab57650b69e4acd0695bc5869351d4af0f68a3ac046cb597ef8678c`.
+Device LC_BUILD_VERSION says13, but linked WebRTC archive members require14:
+**no iOS13 compatibility** despite the SDK declaration13. This is a minor-release
+blocker. No stand-in exports, second Room engine or Swift peer connection.
 
 **Conclusion:** production encrypted connection, microphone/synthetic PCM,
 buffer-video capture and remote `VideoView` rendering work through Rust.
 Original unchanged shared-key/statistics-enabled participant fixtures now pass.
 **Drop-in/minor-version compatibility remains unestablished.** Camera capture
-times out on both baseline and migration. Receive-only automatic speaker output
-is blocked by missing native PlatformAudio lifetime; decoded PCM is not playout.
+times out on both baseline and migration. Native receive-only platform output
+now has nonzero host output-buffer proof independent of microphone/PCM sinks;
+audible output and iOS runtime remain unverified.
 Complete metadata/errors/options and the full Apple target matrix remain gaps. Independent Claude review remains required.
 
 `implemented` means working-backend/PoC behavior exercised by the evidence below,
@@ -27,7 +31,7 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 
 | Gate | Current conclusion |
 |---|---|
-| Public Swift/ObjC declarations, enum values, selectors, availability | macOS Release/distribution at `217d310a` and iOS device at `96cddfb0`: digester reports zero breaking changes and zero additions. ObjC header differs only by relocating the unchanged Room.prepareConnection category; exact header line multiset is equal. Enum/selector/availability text is unchanged. This is surface evidence, not behavioral compatibility. |
+| Public Swift/ObjC declarations, enum values, selectors, availability | macOS Release/distribution at `626eecdf` and iOS device at `96cddfb0`: digester reports zero breaking changes and zero additions. ObjC header differs only by relocating the unchanged Room.prepareConnection category; exact header line multiset is equal. Enum/selector/availability text is unchanged. This is surface evidence, not behavioral compatibility. |
 | Existing unmodified public E2E | 21 existing Objective-C test methods passed unchanged, including streams/file/incremental writers, data tracks, RPC and Room delegates. Current participant identity/membership, PublishDataTests and DataTrackApiTests also pass with original unchanged shared-key/statistics-enabled fixtures; this does not imply all default/media behavior is compatible. |
 | Lifecycle/default/error/delegate/observation semantics | Two-room state/delegate/data/rejoin, invalid-token, cancellation and release proof exists. Sequential name callback ordering/getter consistency and SwiftUI notification delivery now pass. Involuntary reconnect, full error parity and default-option parity remain unproved. New unsupported throws and ineffective nonthrowing controls are **compatibility breaks**. |
 | Supported build/package/target matrix | macOS arm64 Debug/Release and iOS device Release build/API comparison pass; arm64 simulator Release build passes. Catalyst/tvOS/visionOS/Intel simulator slices absent. Absolute local artifact pin is research packaging, not a distributable minor release. |
@@ -47,7 +51,7 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 | `Room.registerRpcMethod`, `unregisterRpcMethod`, `isRpcMethodRegistered`; `LocalParticipant.performRpc(...)` | Native RPC operations **available**, production echo/rejoin **implemented**. Native reply handles preserve errors; Swift handler tasks cancel on disconnect. | Production echo/rejoin plus custom code/message/data, unsupported method, response deadline, cancellation and subsequent-call tests pass. Pending-reply disconnect remains pending. |
 | `Participant.capabilities: [ClientCapability]`, `clientProtocol` | Remote capabilities now mapped; local capabilities **compile-only** because native local snapshot is nil. Nondefault connect clientProtocol rejects: public core RoomOptions cannot override SignalOptions; the new export accepts only nil/default2. | No longer a missing remote-field/helper blocker. Core negotiates native sends. |
 | Token/log helpers (`Claims`, `TokenOptions`, inference/observability grants, `logForwardBootstrap`, `logForwardReceive`) | **available**, compatible generated 0.13.4 shapes; production compiles without replacement types. | Real token generation exercised by all integration fixtures. Old missing-export claims resolved. |
-| Media publish/subscribe and `TrackPublication.track` | **implemented working path**: native source/publication handles attach to existing NSObject tracks; remote PCM/video sinks feed AudioRenderer/VideoView; mute/unmute/unpublish/unsubscribe route native. | Swift encrypted synthetic PCM + physical microphone + buffer video/VideoView pass, including initial publication snapshot and identity across mute. Camera capture times out identically on unchanged baseline and migration with the same built-in device/authorization; no migration-specific adapter defect established. Receive-only automatic playout is blocked: native session only acquires PlatformAudio for a microphone. Request room-owned native output lifetime; no fake microphone/Swift graph workaround. Custom encoding/processing options reject pending mappings. |
+| Media publish/subscribe and `TrackPublication.track` | **implemented working path**: native source/publication handles attach to existing NSObject tracks; remote PCM/video sinks feed AudioRenderer/VideoView; mute/unmute/unpublish/unsubscribe route native. | Swift encrypted synthetic PCM + physical microphone + buffer video/VideoView pass, including initial publication snapshot and identity across mute. Camera capture times out identically on unchanged baseline and migration with the same built-in device/authorization; no migration-specific adapter defect established. Receive-only subscription now acquires a session-owned PlatformAudio lease; teardown preserves other sessions/mics. Native host proof shows nonzero CoreAudio output before/after one receiver closes, recording uninitialized. Audible output is not claimed. Custom encoding/processing options reject pending mappings. |
 | `RemoteTrackPublication.set(preferredFPS:)`, `RemoteAudioTrack.volume` | FPS control and per-track volume **blocked** on core/export support; volume is nonthrowing and **compile-only** for native media. | Requires actual controls, not fake setters. |
 | `AudioManager.setManualRenderingMode(_:)`, graph observers/mixer/custom-processing delegates | AVAudioEngine graph access **blocked** while Rust owns the device; manual-rendering activation throws. Nonthrowing graph interfaces are **compile-only**. | Exposing/owning the real graph would require a separate audio-device design; no large adapter added. |
 | `AudioManager.setPlatformVoiceProcessingAllowed(_:)`, `LocalAudioTrack.setAudioProcessingOptions(_:)`, voice processing/AGC controls | **pending mapping**, not inherently impossible. Current throwing activation rejects because this artifact supplies no native mapping. Nonthrowing controls are **compile-only** for native media. | Distinguish core-supported processing controls from graph-access blockers; validate the actual next media exports before wiring. |
@@ -57,7 +61,7 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 | `Room.connect`/stream command error types | **implemented typed mapping** for native Signal HTTP source/status/timeout, RequestFailure, RTC and stream IO/cancellation/state variants. | Exact typed permission rejection tested against server, misleading reason strings tested locally. Older reason-only cases and core-erased transport/region causes remain parity gaps; no string parsing. Other public command boundaries still need complete error audit. |
 | `Room.prepareConnection(url:token:)` and region preparation | Declaration retained; prepared-region/cache consumption is **pending** on the native connect path. | Native connection/region policy must expose the equivalent behavior; do not count retained Swift preparation code as parity. |
 | `Room.debug_simulate(scenario:)` | Unsupported activation throws. | No native simulation command exported. |
-| iOS, Catalyst, tvOS, visionOS | Exact247 iOS device/simulator slices now packaged; production iOS device Release/API check passes; arm64 simulator Release compile passes. Catalyst/tvOS/visionOS and Intel simulator slices absent. | No iOS runtime claim; simulator binary minimum14 differs from package declaration13. |
+| iOS, Catalyst, tvOS, visionOS | Current combined Apple package retains247 bindings; prior production checks: production iOS device Release/API check passes; arm64 simulator Release compile passes. Catalyst/tvOS/visionOS and Intel simulator slices absent. | No iOS runtime claim. Both WebRTC archives have2946 minimum-version commands, all14: device LC13 does NOT establish iOS13 support. SDK declaration13 is a real compatibility blocker. |
 
 ## Connection option contract
 
@@ -83,7 +87,7 @@ selected repository tests. Support fixtures are original and unchanged, includin
 shared-key E2EE and remote statistics (`c6-fixture-provenance.txt`). No stand-ins.
 Obsolete internal-manager tests are not reconstructed or counted as passing.
 
-Current source checkpoint: `217d310a`, artifact24723b41. Commands:
+Statistics checkpoint: `217d310a`, artifact24723b41. Commands:
 
 ```sh
 LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Users/blaze/livekit/research-v3/swift-native-next/production-check --filter 'NativeCompatibilityTests|NativeRoomTests|NativeRoomProtoTests|localParticipantIdentity|remoteParticipants'
@@ -133,10 +137,10 @@ Bounded finishing evidence (`finishing/` under the evidence root), source96cddfb
 | Gate | Exact result / limitation |
 |---|---|
 | Camera baseline comparison | Same public `CameraProbe.swift`, linked to cached baseline2fcaec9c source tree `6ece42a33e33298d7447ba0f5fb7b7af0a35f0ec` and current217d310a. Commands `./baseline-camera`, then `./native-camera`, each capped25s. Both authorization3, MacBook Pro Camera ID `6C707041-05AC-0010-0008-000000000001`, not in use, session running, **no dimensions after10s**. Both processes exit0; this is failed capture evidence, not passing camera tests. Capturer source unchanged. No migration-specific adapter defect or OS/hardware root cause established. Build commands/module hashes/logs retained. |
-| Automatic playout | Exact247 requires a microphone-owned PlatformAudio to enable shared platform output. `session/media.rs:259`, core `platform_audio/mod.rs:479`, `adm_proxy.cpp:85` and default-false flag explain the receive-only gap. Request session-owned activation/cleanup independent of microphone; no Swift graph/fake mic. Existing core active/initialized diagnostics are not public. |
+| Automatic playout | Exact247 requires a microphone-owned PlatformAudio to enable shared platform output. `session/media.rs:259`, core `platform_audio/mod.rs:479`, `adm_proxy.cpp:85` and default-false flag explain the receive-only gap. This historical247 gap is fixed in b3bf27bb by session-owned leases; no Swift graph/fake mic. Existing core active/initialized diagnostics remain nonpublic. |
 | Hardware callback proof | `lldb --batch -s output-after-subscribe.lldb native-audio` on saved `AudioProbe.swift`: remote audio tracks=1, then native `AudioDeviceMac::implDeviceIOProc` on CoreAudio `HALC_ProxyIOContext::IOWorkLoop`, nonnull outputData. Public setMicrophone enabled shared ADM. `output-after-subscribe-fixed.log` proves microphone-assisted hardware callback execution, **not receive-only activation, nonzero output samples or audible output**. Initial missed Swift marker retained as harness failure. No audio payloads recorded. |
 | Two WebRTC binaries | Actual product test executable links LiveKitWebRTC and RustLiveKitFFI (`linked-libraries.txt`). LiveKitWebRTC universal30,189,824 bytes / arm64 slice13,412,608; RustLiveKitFFI arm64 debug106,313,632 includes native WebRTC symbols. Artifact sizes, not distribution-overhead estimates; exact hashes in `binary-provenance.txt`. Swift camera/frame/pixel/render utilities remain. `RTC.createVideoSource` initializes the old factory/ADM despite no Swift peer/signaling; avoidable future capture work, not a single-WebRTC claim. |
-| Apple compile/API | All3 exact247 framework hashes verified (`apple-verified-hashes.txt`). Production iOS device Release/distribution build passes; `api-apple-final/iOS` has zero breaking changes/additions, ObjC header line multiset equal to baseline. Actual compiler target arm64-apple-ios15.0, native binary minimum13. Arm64 simulator Release BUILD SUCCEEDED (`simulator-confirm.log`), native minimum14. Initial quiet build returned0 with spurious SwiftCompile failure text; one incremental confirmation passed. No device/simulator runtime or lower-OS proof. |
+| Apple compile/API | All3 exact247 framework hashes verified (`apple-verified-hashes.txt`). Production iOS device Release/distribution build passes; `api-apple-final/iOS` has zero breaking changes/additions, ObjC header line multiset equal to baseline. Actual compiler target arm64-apple-ios15.0, device LC minimum13 (WebRTC members14; not iOS13 compatible). Arm64 simulator Release BUILD SUCCEEDED (`simulator-confirm.log`), native minimum14. Initial quiet build returned0 with spurious SwiftCompile failure text; one incremental confirmation passed. No device/simulator runtime or lower-OS proof. |
 | Regression after package pin | `apple-regression.log`: **3 functions / 3 cases pass**, unchanged ParticipantTests.localParticipantIdentity/remoteParticipants and NativeRoomTests.productionRoomLifecycle. Original shared-key/statistics-enabled fixtures retained. |
 
 Exact finishing build/test commands (all production Sources and generated FFI modules compiled):
@@ -146,4 +150,32 @@ JOBS=2 CACHE=/Users/blaze/livekit/research-v3/swift-native-next/api-cache .githu
 .github/api-check/api-dump.sh --diff /Users/blaze/livekit/research-v3/swift-baseline/iOS /Users/blaze/livekit/research-v3/swift-native-next/api-apple-final/iOS
 xcodebuild build -scheme LiveKit -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath /Users/blaze/livekit/research-v3/swift-native-next/api-cache/dd-iOS-Simulator -clonedSourcePackagesDirPath /Users/blaze/livekit/research-v3/swift-native-next/api-cache/spm -jobs 2 ARCHS=arm64 BUILD_LIBRARY_FOR_DISTRIBUTION=YES
 LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Users/blaze/livekit/research-v3/swift-native-next/production-check --filter 'localParticipantIdentity|remoteParticipants|productionRoomLifecycle'
+```
+
+
+Receive-only checkpoint626eecdf (`playout/` evidence): all3 framework hashes
+verified; all3 generated Swift files byte-identical to247. Native owner evidence
+`rust-ffi/room-apis-b3bf27bb/README.md` / `logs/playout-06-lldb-samples.log`:
+two encrypted receive-only sessions, no microphones/decoded sinks; CoreAudio
+returned1920 float32 samples,1916 nonzero (peak0.004974), then1918 nonzero
+(peak0.004944) after one receiver closes. Recording stayed uninitialized.
+Only aggregate metrics recorded; not audible, routing/volume or iOS runtime proof.
+Acquisition failure logs and preserves subscription/decoding; those alone still
+cannot guarantee output. Session teardown releases only its shared lease.
+No Swift source/default API changes or native rebuild in this integration.
+
+Swift regression `playout/regression.log`: **4 functions / 5 cases pass**
+(NativeMediaTests.encryptedNativeAudioPublication, both parameter cases;
+ParticipantTests.localParticipantIdentity/remoteParticipants;
+NativeRoomTests.releasingConnectedRoomReleasesNativeDriver).
+All package SHA256SUMS pass (`playout/all-hashes.log`). Fresh macOS Release/API
+at626eecdf (`api-playout-final/macOS`): zero breaking/additions; public interface
+and ObjC header byte-identical to217d310a. Prior247 iOS production build/API
+proof remains scoped to that artifact; current native owner's per-slice Swift
+compile/link checks and identical bindings establish packaging, not iOS runtime.
+
+```sh
+LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Users/blaze/livekit/research-v3/swift-native-next/production-check --filter 'encryptedNativeAudioPublication|localParticipantIdentity|remoteParticipants|releasingConnectedRoomReleasesNativeDriver'
+JOBS=2 CACHE=/Users/blaze/livekit/research-v3/swift-native-next/api-cache .github/api-check/api-dump.sh /Users/blaze/livekit/research-v3/swift-native-next/api-playout-final macOS
+.github/api-check/api-dump.sh --diff /Users/blaze/livekit/research-v3/swift-baseline/macOS /Users/blaze/livekit/research-v3/swift-native-next/api-playout-final/macOS
 ```
