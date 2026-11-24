@@ -142,3 +142,14 @@ final class FakeTextReader: TextStreamReaderProtocol {
         return text
     }
 }
+
+/// The test's handle on a stalled stream's core, in place of the removed manager.
+struct StalledCore: Sendable {
+    let push: @Sendable (Data) -> Void
+    let finish: @Sendable () -> Void
+    let count: @Sendable () async -> Int
+    let abort: @Sendable () -> Void
+
+    func openStreamCount() async -> Int { await count() }
+    func abortAllStreams() { abort() }
+}

@@ -234,7 +234,6 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                   roomOptions: RoomOptions())
     }
 
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
     public init(delegate: RoomDelegate? = nil,
                 connectOptions: ConnectOptions? = nil,
                 roomOptions: RoomOptions? = nil)

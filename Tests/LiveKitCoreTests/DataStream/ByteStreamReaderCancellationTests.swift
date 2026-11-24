@@ -354,17 +354,6 @@ extension ByteStreamReaderTests {
         }
     }
 
-    /// The test's handle on a stalled stream's core, in place of the removed manager.
-    struct StalledCore: Sendable {
-        let push: @Sendable (Data) -> Void
-        let finish: @Sendable () -> Void
-        let count: @Sendable () async -> Int
-        let abort: @Sendable () -> Void
-
-        func openStreamCount() async -> Int { await count() }
-        func abortAllStreams() { abort() }
-    }
-
     /// Opens a stream of `kind` that has only its header, so reads and progress wait in the core.
     /// Returns the capture that holds the reader, and the core handle.
     func openStalledReader(_ kind: Kind, streamID: String = UUID().uuidString, signals: Signals = Signals()) async throws -> (ReaderCapture, StalledCore) {
@@ -384,8 +373,7 @@ extension ByteStreamReaderTests {
             let core = FakeTextReader(info: info, chunks: [], endReason: nil).core
             capture.onTextStreamOpened(reader: FakeTextReader(sharing: core, info: info))
             try await capture.opened.wait()
-            return (capture, StalledCore(push: { core.push(String(decoding: $0, as: UTF8.self)) }, finish: { core.finish() },
-                                         count: { await core.openStreamCount() }, abort: { core.abortAllStreams() }))
+            return (capture, StalledCore(push: { core.push(String(bytes: $0, encoding: .utf8) ?? "") }, finish: { core.finish() }, count: { await core.openStreamCount() }, abort: { core.abortAllStreams() }))
         }
     }
 
