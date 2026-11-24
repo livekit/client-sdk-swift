@@ -29,7 +29,7 @@ actor NativeRoomDriver {
     }
 
     private var handlers: [String: RpcRegistration] = [:]
-    private var installedRpcMethods: Set<String> = []
+    private var confirmedRpcMethods: Set<String> = []
     private let rpcOperations = SerialRunnerActor<Void>()
     private var closing = false
     private var reportedPacketMetadataGap = false
@@ -117,7 +117,7 @@ actor NativeRoomDriver {
         session = nil
         cursor = nil
         projection = nil
-        installedRpcMethods.removeAll()
+        confirmedRpcMethods.removeAll()
         closing = false
         let waiters = closeWaiters
         closeWaiters.removeAll()
@@ -286,11 +286,17 @@ extension NativeRoomDriver {
 
     private func reconcileRpcMethods(on native: NativeRoomSession) async throws {
         while session === native, !closing, projection != nil {
-            if let method = installedRpcMethods.first(where: { handlers[$0] == nil }) {
-                try await native.unregisterRpcMethod(method: method)
+            if let method = confirmedRpcMethods.first(where: { handlers[$0] == nil }) {
+                do {
+                    try await native.unregisterRpcMethod(method: method)
+                } catch {
+                    Room.log("Native RPC unregister was not confirmed: \(error)", .warning)
+                }
                 guard session === native, !closing else { return }
-                installedRpcMethods.remove(method)
-            } else if let (method, registration) = handlers.first(where: { !installedRpcMethods.contains($0.key) }) {
+                // A failed removal can leave a native handler, but Swift rejects it while absent
+                // from handlers. Re-registering replaces the core handler, so require a fresh ack.
+                confirmedRpcMethods.remove(method)
+            } else if let (method, registration) = handlers.first(where: { !confirmedRpcMethods.contains($0.key) }) {
                 do {
                     try await native.registerRpcMethod(method: method)
                 } catch {
@@ -298,7 +304,7 @@ extension NativeRoomDriver {
                     throw LiveKitError.mappingNative(error)
                 }
                 guard session === native, !closing else { return }
-                installedRpcMethods.insert(method)
+                confirmedRpcMethods.insert(method)
             } else { return }
         }
     }

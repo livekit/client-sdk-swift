@@ -20,7 +20,7 @@ import Foundation
 extension LocalParticipant {
     func publishNative(track: LocalTrack, options: TrackPublishOptions?) async throws -> LocalTrackPublication {
         let room = try requireRoom()
-        let session = try room.requireNativeSession(forEncryptedPayload: true)
+        let session = try room.requireNativeSession(forMedia: true)
         if let owner = track._state.nativeSession, owner !== session {
             throw LiveKitError(.invalidState, message: "Native source belongs to a different room session")
         }
@@ -74,7 +74,7 @@ extension LocalParticipant {
 extension LocalParticipant {
     private func publishNativeVideo(_ track: LocalVideoTrack, options: VideoPublishOptions?) async throws -> LocalTrackPublication {
         let room = try requireRoom()
-        let session = try room.requireNativeSession(forEncryptedPayload: true)
+        let session = try room.requireNativeSession(forMedia: true)
         let options = options ?? room._state.roomOptions.defaultVideoPublishOptions
         guard options.encoding == nil, options.screenShareEncoding == nil,
               options.simulcastLayers.isEmpty, options.screenShareSimulcastLayers.isEmpty,

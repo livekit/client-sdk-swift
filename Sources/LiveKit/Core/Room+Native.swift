@@ -125,7 +125,6 @@ extension Room {
                     let track = RemoteAudioTrack(name: info.name, source: publication.source, track: nil, reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
                     attaching = track
                     track.nativePublication.mutate { $0 = handle }
-                    await publication.set(track: track)
                     try await track.receiveNativeAudio(audio)
                     await finishNativeSubscription(track, publication: publication, participant: participant, session: session)
                 } else if let video = try handle.remoteVideoTrack() {
@@ -133,7 +132,6 @@ extension Room {
                     let track = RemoteVideoTrack(name: info.name, source: publication.source, track: nil, reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
                     attaching = track
                     track.nativePublication.mutate { $0 = handle }
-                    await publication.set(track: track)
                     try await track.receiveNativeVideo(video)
                     await finishNativeSubscription(track, publication: publication, participant: participant, session: session)
                 } else if let track = publication.track {
@@ -141,28 +139,27 @@ extension Room {
                     await publication.set(track: nil)
                 }
             } catch {
-                await rollBackNativeAttachment(attaching, publication: publication)
+                await discardNativeAttachment(attaching)
                 log("Native publication projection failed: \(error)", .warning)
             }
         }
     }
 
-    private func rollBackNativeAttachment(_ track: Track?, publication: RemoteTrackPublication) async {
+    private func discardNativeAttachment(_ track: Track?) async {
         guard let track else { return }
         try? await track.stopCapture()
         track.nativePublication.mutate { $0 = nil }
-        if publication.track === track { await publication.set(track: nil) }
     }
 
     private func finishNativeSubscription(_ track: Track, publication: RemoteTrackPublication,
                                           participant: RemoteParticipant, session: NativeRoomSession) async
     {
-        guard nativeSession.copy() === session else {
-            try? await track.stopCapture()
-            await publication.set(track: nil)
+        await track.set(reportStatistics: track._state.reportStatistics)
+        guard nativeSession.copy() === session, publication.track == nil else {
+            await discardNativeAttachment(track)
             return
         }
-        await track.set(reportStatistics: track._state.reportStatistics)
+        await publication.set(track: track)
         track.set(trackState: .started)
         participant.delegates.notify { $0.participant?(participant, didSubscribeTrack: publication) }
         delegates.notify { $0.room?(self, participant: participant, didSubscribeTrack: publication) }

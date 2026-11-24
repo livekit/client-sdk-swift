@@ -44,7 +44,15 @@ extension NativeRoomTests {
             alice.setE2EEEnabled(false)
             try await alice.localParticipant.set(metadata: "still allowed")
             try await alice.localParticipant.set(name: "still allowed")
-            await #expect(throws: LiveKitError.self) { try await alice.localParticipant.publish(data: Data()) }
+            if legacy {
+                try await alice.localParticipant.publish(data: Data("plaintext remains available".utf8))
+                try await checkStreams(sender: alice, receiver: bob)
+                try await bob.registerRpcMethod("legacy-plaintext") { $0.payload }
+                #expect(try await alice.localParticipant.performRpc(destinationIdentity: .init(from: "bob"), method: "legacy-plaintext", payload: "plaintext") == "plaintext")
+            } else {
+                await #expect(throws: LiveKitError.self) { try await alice.localParticipant.publish(data: Data()) }
+            }
+            #expect(throws: LiveKitError.self) { try alice.requireNativeSession(forMedia: true) }
             alice.setE2EEEnabled(true)
             try await alice.localParticipant.publish(data: Data("restored".utf8))
             await alice.disconnect()
@@ -88,6 +96,7 @@ extension NativeRoomTests {
             await bob.unregisterRpcMethod("duplicate")
             try await bob.registerRpcMethod("duplicate") { _ in "final" }
             #expect(try await alice.localParticipant.performRpc(destinationIdentity: .init(from: "bob"), method: "duplicate", payload: "") == "final")
+            try await checkResidualRpcRegistration(caller: alice, receiver: bob)
             await alice.disconnect()
             await bob.disconnect()
         } catch {
@@ -95,6 +104,20 @@ extension NativeRoomTests {
             await bob.disconnect()
             throw error
         }
+    }
+
+    private func checkResidualRpcRegistration(caller: Room, receiver: Room) async throws {
+        await receiver.unregisterRpcMethod("duplicate")
+        // A native-only registration represents a handler left behind by an unconfirmed removal.
+        try await receiver.requireNativeSession().registerRpcMethod(method: "duplicate")
+        do {
+            _ = try await caller.localParticipant.performRpc(destinationIdentity: .init(from: "bob"), method: "duplicate", payload: "")
+            Issue.record("Residual native handler must not reach an unregistered Swift handler")
+        } catch let error as RpcError { #expect(error.code == 1400) }
+        try await receiver.registerRpcMethod("unrelated") { _ in "unrelated" }
+        try await receiver.registerRpcMethod("duplicate") { _ in "reinstalled" }
+        #expect(try await caller.localParticipant.performRpc(destinationIdentity: .init(from: "bob"), method: "unrelated", payload: "") == "unrelated")
+        #expect(try await caller.localParticipant.performRpc(destinationIdentity: .init(from: "bob"), method: "duplicate", payload: "") == "reinstalled")
     }
 
     @Test

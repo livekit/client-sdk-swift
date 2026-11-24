@@ -118,7 +118,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         guard e2eeManager != nil, nativeSession.copy() != nil else { return }
         nativeEncryptionRequested.mutate { $0 = !enabled }
         if !enabled {
-            log("Dynamic native encryption disable is not exported; outgoing payloads reject this request", .error)
+            log("Dynamic native encryption disable is not exported; encrypted outgoing operations reject this request", .error)
         }
     }
 
@@ -135,8 +135,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     let nativeE2EE = StateSync<E2EEManager?>(nil)
     let dataStreams = DataStreams()
 
-    func requireNativeSession(forEncryptedPayload: Bool = false) throws -> NativeRoomSession {
-        guard !forEncryptedPayload || !nativeEncryptionRequested.copy() else {
+    func requireNativeSession(forEncryptedPayload: Bool = false, forMedia: Bool = false) throws -> NativeRoomSession {
+        let encryptedOperation = forMedia || (forEncryptedPayload && _state.roomOptions.encryptionOptions != nil)
+        guard !encryptedOperation || !nativeEncryptionRequested.copy() else {
             throw LiveKitError(.invalidState, message: "Dynamic native encryption disable is not exported")
         }
         guard let session = nativeSession.copy(), connectionState == .connected || connectionState == .reconnecting else {
