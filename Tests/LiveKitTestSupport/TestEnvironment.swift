@@ -191,7 +191,25 @@ public enum TestEnvironment {
         try await Task.sleep(nanoseconds: 1_000_000_000)
     }
 
-    private struct RoomFixture {
+    /// One setup attempt: connects each room that is not connected, so a retry never reconnects a
+    /// healthy room, then requires an identity from every room, already connected ones included, so
+    /// a retry cannot accept a room whose first attempt failed that check.
+    static func connectAttempt(_ fixtures: [RoomFixture]) async throws {
+        try await withThrowingTaskGroup { group in
+            for fixture in fixtures where fixture.room.connectionState != .connected {
+                group.addTask { try await fixture.room.connect(url: fixture.url, token: fixture.token) }
+            }
+            try await group.waitForAll()
+        }
+        for fixture in fixtures {
+            guard let identity = fixture.room.localParticipant.identity else {
+                throw LiveKitError(.invalidState, message: "LocalParticipant.identity is nil after connect")
+            }
+            print("LocalParticipant.identity: \(identity)")
+        }
+    }
+
+    struct RoomFixture {
         let room: Room
         let identity: String
         let url: String
@@ -201,19 +219,7 @@ public enum TestEnvironment {
     private static func connectAndDiscover(_ rooms: [RoomFixture], sharedRoomName: String) async throws {
         // Connect all Rooms concurrently (retry on transient failure)
         try await Task.retrying(totalAttempts: 3, retryDelay: 2) { _, _ in
-            try await withThrowingTaskGroup { group in
-                // A retry reconnects only the rooms that failed, so their own error surfaces.
-                for element in rooms where element.room.connectionState != .connected {
-                    group.addTask {
-                        try await element.room.connect(url: element.url, token: element.token)
-                        guard element.room.localParticipant.identity != nil else {
-                            throw LiveKitError(.invalidState, message: "LocalParticipant.identity is nil after connect")
-                        }
-                        print("LocalParticipant.identity: \(String(describing: element.room.localParticipant.identity))")
-                    }
-                }
-                try await group.waitForAll()
-            }
+            try await connectAttempt(rooms)
         }.value
 
         let observerToken = try liveKitServerToken(for: sharedRoomName,

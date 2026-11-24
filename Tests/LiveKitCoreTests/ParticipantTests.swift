@@ -58,6 +58,18 @@ struct ParticipantTests {
                           capabilities: capabilities)
     }
 
+    /// The server mirrors each client's advertised capabilities and protocol onto its participant,
+    /// so a peer reads what the native connect advertised.
+    @Test func peerSeesAdvertisedCapabilities() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let observer = rooms[0]
+            let peer = try #require(rooms[1].localParticipant.identity)
+            let remote = try #require(observer.remoteParticipants[peer])
+            #expect(remote.capabilities.contains(.compressionDeflateRaw))
+            #expect(remote.clientProtocol == .v2)
+        }
+    }
+
     @Test func localParticipantIdentity() async throws {
         try await TestEnvironment.withRoom { room in
             #expect(room.localParticipant.identity != nil, "LocalParticipant's identity is nil")

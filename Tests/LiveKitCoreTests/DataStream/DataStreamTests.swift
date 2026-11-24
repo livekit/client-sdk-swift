@@ -133,6 +133,29 @@ struct DataStreamTests {
         }
     }
 
+    /// A disconnect fails a reader still waiting for its trailer, so `readAll()` can't return the
+    /// chunks received so far as if they were the whole payload.
+    @Test func openReaderFailsOnTeardown() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let receiver = rooms[0]
+            let opened = AsyncCompleter<LiveKit.ByteStreamReader>(label: "Stream opened", defaultTimeout: 15)
+            try await receiver.registerByteStreamHandler(for: "teardown") { reader, _ in opened.resume(returning: reader) }
+
+            let writer = try await rooms[1].localParticipant.streamBytes(options: LiveKit.StreamByteOptions(topic: "teardown"))
+            try await writer.write(Data(repeating: 0x01, count: 64))
+            let reader = try await opened.wait()
+
+            await receiver.disconnect()
+
+            let error = try #require(await #expect(throws: StreamError.self) { try await reader.readAll() })
+            guard case .abnormalEnd = error else {
+                Issue.record("Expected .abnormalEnd, got \(error)")
+                return
+            }
+            _ = writer
+        }
+    }
+
     /// Registers text and byte handlers on each of `rooms` that read a stream from `sender` to the
     /// end, as bytes (UTF-8 for text), and returns one result per room.
     private static func receiving(on rooms: [Room], from sender: Room) async throws -> [AsyncCompleter<Data>] {

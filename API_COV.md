@@ -99,15 +99,21 @@ dependency: swift-protobuf (test-only); removed submodule: `protocol`. Remaining
 capture, render and the audio device module; `LKObjCHelpers` stays because public
 `LKSampleHandler` calls its broadcast-finish helper. Source: `swift package describe` on both trees.
 
-## Prune gates (681232eb, evidence in research-v3/swift-prune)
+## Prune gates (evidence in research-v3/swift-prune)
+
+Gate head 681232eb for compile, broad runtime, ObjC, API and lint; the test follow-up head
+changes only Tests, test support and this file (production Sources identical).
 
 | Gate | Result |
 |---|---|
-| Full SwiftPM test-target compile | `swift build --build-tests --jobs 2` in a fresh scratch: exit 0, Core/Audio/ObjC bundles built, no protocol targets. |
-| Runtime, owned server | 118 tests in 17 suites (Room, Participant, data, RPC, streams, data tracks, encryption, controls, cancellation): 109 pass. All 71 issues are listed unsupported surfaces: packet encryptionType `.none` (39), nondefault clientProtocol (17), decrypt-failure callback (4), nonzero key index (2), `debug_simulate` (2), and 7 follow-on missed receipts. |
-| Unchanged ObjC suite | 21/21 pass. |
-| API digester, macOS and iOS device Release | Against 2fcaec9c and b0291abc: 0 breaking, 0 additions. ObjC header declarations are an equal multiset; text differs only in doc comments and the moved `Room` prepareConnection category. Selftest passes. |
-| iOS simulator Release, lint | Builds; SwiftLint 0 warnings, SwiftFormat clean. |
+| Full SwiftPM test-target compile | `swift build --build-tests --jobs 2` in a fresh scratch: exit 0, Core/Audio/ObjC bundles built, no protocol targets. Compilation proof, not a runtime pass. |
+| Broad runtime, owned server (681232eb, red log kept in `freeze-3a182106/gates/final-runtime.log`) | **Not green.** 118 tests in 17 suites, 71 issues. Named terminal records: 109 pass, 8 fail. 39 of the issues are `encryptionType != .none` callback expectations recorded unattributed (`«unknown»`), so they occur even while the named encryption tests report a pass. The 8 failures and other issues are nondefault clientProtocol (17), decrypt-failure callback (4), nonzero key index (2), `debug_simulate` (2), and 7 follow-on missed receipts. These causes are established from the pre-prune source paths, not from a paired pre-prune run of all 71 issues. |
+| Prior compatibility gate (22 functions / 32 cases) | All pass at the follow-up head. Participant protocol/capability constructors moved to native records; the unknown raw capability argument became `.unused` because the native enum is finite, so not every argument is identical. |
+| Restored public coverage (follow-up head) | Attachments IDs/order/content/topic, missing-file failure, cancelled multi-file send (large files keep sends in flight; transport cannot be held from Swift), peer-advertised capabilities, room default audio options on native publish, open reader failing on disconnect, unknown-sender mapping: pass. Server-stamped attribution passes for sender identity in plaintext and encrypted rooms; the encrypted `.gcm` expectation stays as a known failing regression. A forged inner identity cannot reach Swift through the public API, so that precedence is proven only by the native core. |
+| Setup retry | Every attempt validates every room's identity and connects only unconnected rooms; `TestEnvironmentTests` covers the former masking case. |
+| Unchanged ObjC suite (681232eb) | 21/21 pass. |
+| API digester, macOS and iOS device Release (681232eb) | Against 2fcaec9c and b0291abc: 0 breaking, 0 additions. ObjC header declarations are an equal multiset; text differs only in doc comments and the moved `Room` prepareConnection category. Selftest passes. |
+| iOS simulator Release, lint (681232eb) | Builds; SwiftLint 0 warnings, SwiftFormat clean. |
 
 ## Connection option contract
 

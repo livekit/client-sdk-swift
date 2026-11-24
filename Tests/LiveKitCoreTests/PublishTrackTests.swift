@@ -16,6 +16,7 @@
 
 import Foundation
 @testable import LiveKit
+import LiveKitFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -42,6 +43,23 @@ struct PublishTrackTests {
                 try await Task.sleep(nanoseconds: 200_000_000)
             }
             #expect(Set(remote.audioTracks.map(\.sid)) == [publication.sid])
+        }
+    }
+
+    /// A track published without options takes the room's default audio options; the native publish
+    /// receives their DTX setting.
+    @Test(arguments: [false, true])
+    func audioTrackWithoutOptionsKeepsRoomDefaults(singlePeerConnection: Bool) async throws {
+        let noDtx = AudioPublishOptions(dtx: false)
+        let options = RoomTestingOptions(singlePeerConnection: singlePeerConnection, defaultAudioPublishOptions: noDtx, canPublish: true)
+
+        try await TestEnvironment.withRoom(options) { room in
+            let track = await LocalAudioTrack.createTrack(reportStatistics: false)
+            let source = try await room.requireNativeSession().createAudioTrack(name: track.name, channels: 1)
+            track.nativeAudio.mutate { $0 = source }
+            _ = try await room.localParticipant.publish(audioTrack: track)
+
+            #expect(track.publishOptions as? AudioPublishOptions == noDtx)
         }
     }
 
