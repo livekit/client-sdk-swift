@@ -40,12 +40,30 @@ enum MediaServicesResetRecovery: Loggable {
 
         let availability = await RTC.run { RTC.audioDeviceModule.engineAvailability.toLKType() }
 
-        if availability.isInputAvailable || availability.isOutputAvailable {
-            await rebuildEngine(restoring: availability)
-        } else {
+        guard availability.isInputAvailable || availability.isOutputAvailable else {
             // The app keeps the engine unavailable (CallKit, for example). A new engine is created when it
             // makes the engine available again, so availability is left untouched.
             log("Media services were reset while the audio engine is unavailable, not rebuilding it")
+            return
+        }
+
+        // Releasing the engine drops its session requirement. When it holds the only one, which is the
+        // usual case in a call, that deactivates the session and tells other apps they may resume, right
+        // before the new engine activates it again. Holding the same requirement across the rebuild keeps
+        // the session active.
+        let sessionHold = await RTC.run { audioSession.acquireCurrentRequirement() }
+
+        await rebuildEngine(restoring: availability)
+
+        if let sessionHold {
+            await RTC.run {
+                do {
+                    // Deactivates the session only if the rebuild failed and nothing else requires it.
+                    try sessionHold.release()
+                } catch {
+                    log("Failed to update the audio session after the engine rebuild: \(error)", .warning)
+                }
+            }
         }
     }
 
