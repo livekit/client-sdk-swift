@@ -1,10 +1,12 @@
 # Swift API coverage over the native room backend
 
-**Review update:** native artifact `b3bf27bb` is not accepted. Its automatic
-playout lease can enable microphone capture when a PCM track is published later.
-That activation is being removed. Safe receive-only speaker output remains a
-core-API gap; the output measurements below cover only the tested event order,
-not general capture safety. The Swift and Rust reviews are not yet complete.
+**Review update:** independent reviews approve Rust `6bda549` and Swift
+`a7913381` within the tested scope. Automatic microphone activation on receive
+is removed. Safe receive-only speaker output remains a core-API gap.
+An explicitly created microphone anywhere in the process can still mix physical
+input into later PCM tracks, including tracks in other rooms. This core limitation
+prevents claiming isolated PCM input. The reviewed macOS privacy guard covers
+receive-first followed by PCM without an explicit microphone, not all capture paths.
 
 Checkpoint: production Room integration against safe Rust
 `6bda54970f8d24c845d5a1ef32bed6b8bf133c17` (shipped FFI0.13.4 baseline).
@@ -23,7 +25,9 @@ Original unchanged shared-key/statistics-enabled participant fixtures now pass.
 times out on both baseline and migration. The b3 receive-only output proof is
 not accepted after the microphone-activation privacy finding above; safe output
 needs a core API. Audible output and iOS runtime remain unverified.
-Complete metadata/errors/options and the full Apple target matrix remain gaps. Independent Claude review remains required.
+Complete metadata/errors/options and the full Apple target matrix remain gaps.
+Independent reviews passed for the frozen revisions above. The parent's Rust
+rerun awaits a runnable snapshot containing the pinned protocol submodule.
 
 `implemented` means working-backend/PoC behavior exercised by the evidence below,
 not minor-version compatibility; `pending` means
@@ -56,7 +60,7 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 | `Room.registerRpcMethod`, `unregisterRpcMethod`, `isRpcMethodRegistered`; `LocalParticipant.performRpc(...)` | Native RPC operations **available**, production echo/rejoin **implemented**. Native reply handles preserve errors; Swift handler tasks cancel on disconnect. | Production echo/rejoin plus custom code/message/data, unsupported method, response deadline, cancellation and subsequent-call tests pass. Pending-reply disconnect remains pending. |
 | `Participant.capabilities: [ClientCapability]`, `clientProtocol` | Remote capabilities now mapped; local capabilities **compile-only** because native local snapshot is nil. Nondefault connect clientProtocol rejects: public core RoomOptions cannot override SignalOptions; the new export accepts only nil/default2. | No longer a missing remote-field/helper blocker. Core negotiates native sends. |
 | Token/log helpers (`Claims`, `TokenOptions`, inference/observability grants, `logForwardBootstrap`, `logForwardReceive`) | **available**, compatible generated 0.13.4 shapes; production compiles without replacement types. | Real token generation exercised by all integration fixtures. Old missing-export claims resolved. |
-| Media publish/subscribe and `TrackPublication.track` | **implemented working path**: native source/publication handles attach to existing NSObject tracks; remote PCM/video sinks feed AudioRenderer/VideoView; mute/unmute/unpublish/unsubscribe route native. | Swift encrypted synthetic PCM + physical microphone + buffer video/VideoView pass, including initial publication snapshot and identity across mute. Camera capture times out identically on unchanged baseline and migration with the same built-in device/authorization; no migration-specific adapter defect established. The b3 automatic PlatformAudio lease is rejected after the privacy review: its tested event order did not establish general capture safety. Safe receive-only output needs a core API; no acceptance or audible-output claim. Custom encoding/processing options reject pending mappings. |
+| Media publish/subscribe and `TrackPublication.track` | **implemented working path**: native source/publication handles attach to existing NSObject tracks; remote PCM/video sinks feed AudioRenderer/VideoView; mute/unmute/unpublish/unsubscribe route native. | Swift encrypted synthetic PCM + physical microphone + buffer video/VideoView pass, including initial publication snapshot and identity across mute. Camera capture times out identically on unchanged baseline and migration with the same built-in device/authorization; no migration-specific adapter defect established. The b3 automatic PlatformAudio lease is rejected after the privacy review: its tested event order did not establish general capture safety. Safe receive-only output needs a core API; no audible-output claim. An explicit microphone anywhere in the process can mix physical input into later PCM tracks across rooms; isolated PCM input is not established. Custom encoding/processing options reject pending mappings. |
 | `RemoteTrackPublication.set(preferredFPS:)`, `RemoteAudioTrack.volume` | FPS control and per-track volume **blocked** on core/export support; volume is nonthrowing and **compile-only** for native media. | Requires actual controls, not fake setters. |
 | `AudioManager.setManualRenderingMode(_:)`, graph observers/mixer/custom-processing delegates | AVAudioEngine graph access **blocked** while Rust owns the device; manual-rendering activation throws. Nonthrowing graph interfaces are **compile-only**. | Exposing/owning the real graph would require a separate audio-device design; no large adapter added. |
 | `AudioManager.setPlatformVoiceProcessingAllowed(_:)`, `LocalAudioTrack.setAudioProcessingOptions(_:)`, voice processing/AGC controls | **pending mapping**, not inherently impossible. Current throwing activation rejects because this artifact supplies no native mapping. Nonthrowing controls are **compile-only** for native media. | Distinguish core-supported processing controls from graph-access blockers; validate the actual next media exports before wiring. |
@@ -112,7 +116,7 @@ Unregister failure clears native confirmation only: an unregistered Swift handle
 rejects residual invocations, and re-registering replaces the native core handler.
 The real-native residual/replacement test passes; no healthy-session unregister
 failure was injected. Rare pending-RPC registration failure can still fail connect
-and remove the handler. The narrow manager-options delta below remains for final review.
+and remove the handler. Independent review approved the manager-options and Apple-package follow-ups.
 
 | Gate | Evidence and scope |
 |---|---|
@@ -123,7 +127,7 @@ and remove the handler. The narrow manager-options delta below remains for final
 | Original defaults | Earlier original Participant identity/membership, PublishDataTests and DataTrackApiTests passed with unchanged shared-key/statistics-enabled support fixtures (`c6-fixture-provenance.txt`, `stats-regression.log`, `stats-compat-test.log`). No weakened fixture counted as default parity. |
 | Camera | `finishing/CameraProbe.swift` linked against baseline2fcaec9c and current-at-test217d310a; both same authorization3/deviceID `6C707041-05AC-0010-0008-000000000001`, not in use, session running, **no dimensions after10s**. Process exit0 is not capture success. `baseline-camera.log`/`native-camera.log`, module hashes and commands retained. No migration-specific adapter defect or OS/hardware cause established. |
 | Two WebRTC binaries | Historical `finishing/linked-libraries.txt`/`binary-provenance.txt`: actual executable links LiveKitWebRTC (universal30,189,824 bytes / arm64 slice13,412,608) and RustLiveKitFFI (247 arm64 debug106,313,632 bytes, bundled WebRTC). Artifact sizes, not distribution-overhead estimates. Swift camera/frame/pixel/render utilities and old factory/ADM initialization via createVideoSource remain; no Swift peer/signaling is constructed. Single-WebRTC investigation remains read-only. |
-| Output safety | Historical b3 nonzero CoreAudio-buffer proof is withdrawn as general privacy evidence; it only covered publish-before-lease order. Safe6bda549 removes automatic lease activation. Native owner's receive-first then same/other-session PCM regression records0 acquisition/recording breakpoint hits (`room-apis-6bda549-safe/README.md`). Safe independent receive-only speaker output remains blocked. No audible-output claim. |
+| Output safety | Historical b3 nonzero CoreAudio-buffer proof is withdrawn as general privacy evidence; it only covered publish-before-lease order. Safe6bda549 removes automatic lease activation. Native owner's receive-first then same/other-session PCM regression records0 acquisition/recording breakpoint hits (`room-apis-6bda549-safe/README.md`). Safe independent receive-only speaker output remains blocked. An explicit microphone in any room can mix physical input into later PCM tracks process-wide. Only the guarded LLDB run checks acquisition/recording; a plain test pass does not prove their absence. No audible-output or iOS capture-safety claim. |
 
 Current exact commands (owned server17891, at most2 jobs):
 
@@ -177,7 +181,7 @@ verification result bundles resolve initial Xcode “failed with exit code0” l
 messages; both builds succeeded. No iOS runtime claim or Swift platform-floor edit.
 iOS14 native minimum remains a minor-compatibility blocker. Native iOS signatures
 verify; unchanged macOS bundle fails strict signature validation (“ambiguous bundle
-format”), a research-packaging/distribution blocker. Native independent review pending.
+format”), a research-packaging/distribution blocker. Both Rust reviewers approved the frozen6bda549 scope; the Swift packaging/API review approveda7913381.
 Parent recovery log `manager-options/parent-recovery-tests.log` passes2functions/5cases;
 parent verified and stopped owned server85789 after the run.
 
