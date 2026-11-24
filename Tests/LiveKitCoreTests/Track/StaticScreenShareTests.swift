@@ -55,6 +55,21 @@ struct StaticScreenShareTests {
             screen.cancel()
         }
     }
+
+    @Test
+    func subscriberReceivesFrameCapturedBeforePublish() async throws {
+        let roomName = UUID().uuidString
+        let publisher = RoomTestingOptions(roomName: roomName, identity: "publisher", isE2eeEnabled: false, canPublish: true)
+        let viewer = RoomTestingOptions(roomName: roomName, identity: "viewer", isE2eeEnabled: false, canSubscribe: true)
+
+        try await TestEnvironment.withRooms([publisher, viewer]) { rooms in
+            let track = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions(dimensions: .h720_169))
+            let capturer = try #require(track.capturer as? BufferCapturer)
+            try capturer.capture(makePixelBuffer(width: 1280, height: 720))
+            try await rooms[0].localParticipant.publish(videoTrack: track, options: VideoPublishOptions(simulcast: false))
+            try await waitForFirstFrame(in: rooms[1], timeout: 10, of: "share captured before publish")
+        }
+    }
 }
 
 /// A screen share track and the task that feeds it at 15 fps while `isScreenChanging` is `true`.

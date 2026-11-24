@@ -317,7 +317,7 @@ extension VideoCapturer {
                           options: VideoCaptureOptions)
     {
         let isBusy = _state.mutate {
-            if $0.repeatsLastFrameWhileIdle, $0.startStopCounter > 0 {
+            if $0.repeatsLastFrameWhileIdle {
                 $0.lastCapture = LastCapture(frame: frame, capturer: capturer, options: options)
             }
             return $0.isFrameProcessingBusy
