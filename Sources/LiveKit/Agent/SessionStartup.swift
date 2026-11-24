@@ -44,6 +44,7 @@ final class SessionStartup {
     private var credentialsOwner: AnyTaskCancellable?
     private var capturedTrack: LocalAudioTrack?
     private var cancelled = false
+    private var hasStarted = false
     private let cancellation = AsyncStream<Void>.makeStream()
     private let finished = AsyncStream<Void>.makeStream()
 
@@ -53,6 +54,8 @@ final class SessionStartup {
              fetch: @escaping @Sendable () async throws -> TokenSourceResponse,
              recording: @escaping @MainActor @Sendable () -> Void) async throws -> Bool
     {
+        hasStarted = true
+        defer { finished.continuation.finish() }
         guard !cancelled else { throw CancellationError() }
         let inputs = startCallbacks(preConnectAudio: preConnectAudio, timeout: timeout,
                                     dependencies: dependencies, fetch: fetch, recording: recording)
@@ -61,7 +64,6 @@ final class SessionStartup {
             credentialsOwner = nil
             inputs.credentials.continuation.finish()
             inputs.capture.continuation.finish()
-            finished.continuation.finish()
         }
         do {
             let dispatchesAgent = try await Self.connectAndPublish(room: room, inputs: inputs,
@@ -97,7 +99,7 @@ final class SessionStartup {
         let capture = inputs.capture
         // These callbacks may ignore cancellation. They only produce results; connection and
         // publication remain in the joined task group below, so late results cannot retry JOIN.
-        credentialsOwner = Task {
+        credentialsOwner = Task.detached {
             do {
                 try Task.checkCancellation()
                 let response = try await fetch()
@@ -199,6 +201,8 @@ final class SessionStartup {
     }
 
     func waitForTeardown() async {
+        // An attempt cancelled before run() has no connection or publication children to join.
+        guard hasStarted else { return }
         let finished = finished.stream
         await Task { for await _ in finished {} }.value
     }

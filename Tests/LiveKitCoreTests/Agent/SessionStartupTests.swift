@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Combine
 import Foundation
 @testable import LiveKit
 import LiveKitTestSupport
@@ -313,6 +314,48 @@ extension SessionStartupTests {
             await starting.value
             throw error
         }
+        await session.end()
+    }
+}
+
+@MainActor
+extension SessionStartupTests {
+    @Test func endingAnAlreadyDisconnectedSessionDoesNotPublishAgain() async throws {
+        let session = try makeSession(room: Room())
+        var changes = 0
+        let subscription = session.objectWillChange.sink { changes += 1 }
+        defer { subscription.cancel() }
+        await session.end()
+        let afterFirstEnd = changes
+        await session.end()
+        #expect(changes == afterFirstEnd)
+        #expect(session.agent.isFinished)
+    }
+
+    @Test func cancelledBeforeRunDoesNotWaitForTeardown() async throws {
+        let attempt = SessionStartup(room: Room())
+        attempt.cancel()
+        await attempt.waitForTeardown()
+        await #expect(throws: CancellationError.self) {
+            try await attempt.run(preConnectAudio: false, timeout: 5, dependencies: .init(),
+                                  fetch: { throw CancellationError() }, recording: {})
+        }
+        await attempt.waitForTeardown()
+    }
+
+    @Test func publishFailureDisconnectsBeforeRetry() async throws {
+        let room = Room(roomOptions: RoomOptions(singlePeerConnection: true))
+        let name = UUID().uuidString
+        let token = try TestEnvironment.liveKitServerToken(for: name, identity: "not-allowed", canPublish: false)
+        let session = try Session(tokenSource: LiteralTokenSource(serverURL: #require(URL(string: TestEnvironment.liveKitServerUrl())), participantToken: token),
+                                  options: SessionOptions(room: room, preConnectAudio: false))
+        let track = await RTC.run { TestAudioTrack() }
+        session.startupDependencies.makeTrack = { _ in track }
+        await session.start()
+        #expect(session.error != nil)
+        #expect(room.connectionState == .disconnected)
+        #expect(room._state.transport == nil)
+        #expect(track.trackState == .stopped)
         await session.end()
     }
 }

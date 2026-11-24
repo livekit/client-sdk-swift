@@ -1,0 +1,24 @@
+{
+  "runDateUTC": "2026-11-24T19:10:30.784552+00:00",
+  "candidateParent": "29073b33156bbdaa918ad8494cc003aee622e845",
+  "baselineSessionRevision": "0b3ee602eadfa87ebecfd03fde0f85bf2f8cba8f",
+  "comparison": "Prior Session ordering replayed with the same current SDK transport and identical injected capture dependencies; candidate uses actual Session.start()",
+  "platform": "27.0.1 arm64",
+  "swift": "Apple Swift 6.4.2",
+  "server": "LiveKit 1.13.10, loopback ws://127.0.0.1:18880, UDP 18882",
+  "singlePeerConnection": true,
+  "credentialDelayMs": 350,
+  "captureDelayMs": [
+    0,
+    1000
+  ],
+  "preConnectAudio": [
+    false,
+    true
+  ],
+  "warmupPairsPerCondition": 1,
+  "measuredRunsPerArmPerCondition": 10,
+  "measuredRuns": 80,
+  "order": "Alternating A/B; no sample reruns or exclusions beyond declared warmups",
+  "limitations": "Controlled manual-rendered PCM, no OS permission UI, physical speaker, page/UI drawing, production networking, LLM or TTS. Existing SDK transport retry policy remains enabled."
+}

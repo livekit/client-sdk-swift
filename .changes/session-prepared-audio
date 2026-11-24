@@ -1,1 +1,3 @@
-patch type="fixed" "Start Session connection alongside microphone capture so device permission does not delay joining the room"
+patch type="fixed" "Start Session connection alongside microphone capture and credential fetching so device permission does not delay joining the room"
+patch type="changed" "Session startup failures, including publication failure after joining, now disconnect the room and stop Session-owned capture before retry"
+patch type="changed" "Session pre-connect audio buffering starts when capture becomes available and can begin after room connection; audio before capture is available cannot be buffered"

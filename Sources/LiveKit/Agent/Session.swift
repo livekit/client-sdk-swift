@@ -221,11 +221,12 @@ open class Session: ObservableObject {
     }
 
     private func updateAgent(in room: Room) {
-        connectionState = room.connectionState
-
-        if connectionState == .disconnected {
-            agent.disconnected()
-        } else if let firstAgent = room.agentParticipants.values.first {
+        if room.connectionState == .disconnected {
+            markDisconnected()
+            return
+        }
+        if connectionState != room.connectionState { connectionState = room.connectionState }
+        if let firstAgent = room.agentParticipants.values.first {
             agent.connected(participant: firstAgent)
         } else if agent.isConnected {
             agent.failed(error: .left)
@@ -256,6 +257,13 @@ open class Session: ObservableObject {
         }.store(in: &tasks)
     }
 
+    /// Room observation and explicit teardown can report the same terminal transition.
+    private func markDisconnected() {
+        let alreadyFinished = connectionState == .disconnected && agent.isFinished
+        if connectionState != .disconnected { connectionState = .disconnected }
+        if !alreadyFinished { agent.disconnected() }
+    }
+
     // MARK: - Lifecycle
 
     /// Starts the session.
@@ -268,6 +276,7 @@ open class Session: ObservableObject {
         let timeout = options.agentConnectTimeout
 
         let attempt = SessionStartup(room: room)
+        // No suspension before run(): end() must see either an unstarted or a running attempt.
         startup = attempt
         isRecordingForStartup = false
         connectionState = .connecting
@@ -298,8 +307,7 @@ open class Session: ObservableObject {
         } catch {
             guard startup === attempt else { return }
             self.error = .connection(error)
-            connectionState = .disconnected
-            agent.disconnected()
+            markDisconnected()
         }
     }
 
@@ -312,12 +320,13 @@ open class Session: ObservableObject {
         startup = nil
         waitForAgentTask = nil
         attempt?.cancel()
+        // disconnect() admits one cleanup owner; joining startup also waits for cleanup
+        // when its failure path won that race. No new attempt starts until both finish.
         await room.disconnect()
         await attempt?.waitForTeardown()
         room.preConnectBuffer.stopRecording(flush: true)
         isRecordingForStartup = false
-        connectionState = .disconnected
-        agent.disconnected()
+        markDisconnected()
     }
 
     /// Resets the last error.
