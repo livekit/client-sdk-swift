@@ -375,6 +375,15 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         await nativeDriver.disconnect(room: self)
     }
 
+    deinit {
+        let tracks = localParticipant.trackPublications.values.compactMap(\.track)
+        Task.detached {
+            for track in tracks {
+                await track.detachNativeSource()
+            }
+        }
+    }
+
     private func cancelReconnect() {
         _state.mutate {
             $0.reconnectTask = nil
@@ -392,6 +401,9 @@ extension Room {
     @nonobjc func resetNativeState(error: Error? = nil) async {
         _sidCompleter.reset(throwing: error)
         await activeParticipantCompleters.reset(throwing: error)
+        for publication in localParticipant.trackPublications.values {
+            await publication.track?.detachNativeSource()
+        }
         await cleanUpParticipants()
         nativeE2EE.mutate { $0 = nil }
         nativeEncryptionRequested.mutate { $0 = false }

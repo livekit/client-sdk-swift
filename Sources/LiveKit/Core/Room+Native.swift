@@ -125,18 +125,14 @@ extension Room {
                     track.nativePublication.mutate { $0 = handle }
                     await publication.set(track: track)
                     try await track.receiveNativeAudio(audio)
-                    track.set(trackState: .started)
-                    participant.delegates.notify { $0.participant?(participant, didSubscribeTrack: publication) }
-                    delegates.notify { $0.room?(self, participant: participant, didSubscribeTrack: publication) }
+                    await finishNativeSubscription(track, publication: publication, participant: participant, session: session)
                 } else if let video = try handle.remoteVideoTrack() {
                     guard publication.track == nil else { continue }
                     let track = RemoteVideoTrack(name: info.name, source: publication.source, track: nil, reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
                     track.nativePublication.mutate { $0 = handle }
                     await publication.set(track: track)
                     try await track.receiveNativeVideo(video)
-                    track.set(trackState: .started)
-                    participant.delegates.notify { $0.participant?(participant, didSubscribeTrack: publication) }
-                    delegates.notify { $0.room?(self, participant: participant, didSubscribeTrack: publication) }
+                    await finishNativeSubscription(track, publication: publication, participant: participant, session: session)
                 } else if let track = publication.track {
                     try await track.stopCapture()
                     await publication.set(track: nil)
@@ -145,5 +141,18 @@ extension Room {
                 log("Native publication projection failed: \(error)", .warning)
             }
         }
+    }
+
+    private func finishNativeSubscription(_ track: Track, publication: RemoteTrackPublication,
+                                          participant: RemoteParticipant, session: NativeRoomSession) async
+    {
+        guard nativeSession.copy() === session else {
+            try? await track.stopCapture()
+            await publication.set(track: nil)
+            return
+        }
+        track.set(trackState: .started)
+        participant.delegates.notify { $0.participant?(participant, didSubscribeTrack: publication) }
+        delegates.notify { $0.room?(self, participant: participant, didSubscribeTrack: publication) }
     }
 }

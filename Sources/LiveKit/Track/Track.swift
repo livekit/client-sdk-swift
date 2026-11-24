@@ -505,3 +505,16 @@ extension Track {
         }
     }
 }
+
+extension Track {
+    func detachNativeSource() async {
+        if let audio = self as? LocalAudioTrack { audio.nativeAudio.mutate { $0 = nil } }
+        if let video = self as? LocalVideoTrack {
+            video.nativeCapture.mutate { $0 = nil }
+            video.nativeVideo.mutate { $0 = nil }
+        }
+        nativePublication.mutate { $0 = nil }
+        _state.mutate { $0.nativeSession = nil }
+        try? await stop()
+    }
+}

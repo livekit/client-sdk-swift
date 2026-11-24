@@ -34,7 +34,7 @@ extension LocalParticipant {
             throw LiveKitError(.invalidParameter, message: "Native audio encoding and processing option mapping is pending")
         }
         let source: NativeLocalAudioTrack
-        if let existing = audio.nativeAudio.copy() {
+        if let existing = audio.nativeAudio.copy(), (try? existing.info()) != nil {
             source = existing
         } else {
             try await LiveKitSDK.ensureMicrophoneAccessForRecording()
@@ -43,9 +43,11 @@ extension LocalParticipant {
         }
         do {
             let native = try await source.publish(options: .init(source: .microphone, dtx: options.dtx, red: options.red, stream: options.streamName ?? ""))
+            audio.nativePublication.mutate { $0 = native }
+            try Task.checkCancellation()
+            guard room.nativeSession.copy() === session else { throw CancellationError() }
             let info = try native.info()
             let publication = LocalTrackPublication(info: info.toPBType(), participant: self)
-            audio.nativePublication.mutate { $0 = native }
             audio._state.mutate {
                 $0.nativeSession = session
                 $0.sid = Track.Sid(from: info.sid)
@@ -54,13 +56,15 @@ extension LocalParticipant {
                 $0.lastPublishOptions = options
             }
             await publication.set(track: audio)
+            guard room.nativeSession.copy() === session else { throw CancellationError() }
             add(publication: publication)
             delegates.notify { $0.participant?(self, didPublishTrack: publication) }
             room.delegates.notify { $0.room?(room, participant: self, didPublishTrack: publication) }
             return publication
         } catch {
+            try? await audio.nativePublication.copy()?.unpublish()
             try? await source.release()
-            audio.nativeAudio.mutate { $0 = nil }
+            await audio.detachNativeSource()
             throw error
         }
     }
@@ -81,7 +85,7 @@ extension LocalParticipant {
         try await track.start()
         do {
             let dimensions = try await track.capturer.dimensionsCompleter.wait()
-            let source: NativeLocalVideoTrack = if let existing = track.nativeVideo.copy() {
+            let source: NativeLocalVideoTrack = if let existing = track.nativeVideo.copy(), (try? existing.info()) != nil {
                 existing
             } else {
                 try await session.createVideoTrack(name: options.name ?? track.name, width: UInt32(dimensions.width), height: UInt32(dimensions.height), screencast: track.source == .screenShareVideo)
@@ -92,19 +96,22 @@ extension LocalParticipant {
                 track.nativeCapture.mutate { $0 = bridge }
                 track.add(videoRenderer: bridge)
                 let native = try await source.publish(options: .init(source: track.source == .screenShareVideo ? .screenshare : .camera, simulcast: options.simulcast, stream: options.streamName ?? ""))
+                track.nativePublication.mutate { $0 = native }
+                try Task.checkCancellation()
+                guard room.nativeSession.copy() === session else { throw CancellationError() }
                 let info = try native.info()
                 let publication = LocalTrackPublication(info: info.toPBType(), participant: self)
-                track.nativePublication.mutate { $0 = native }
                 track._state.mutate { $0.nativeSession = session; $0.sid = Track.Sid(from: info.sid); $0.publishState = .published; $0.lastPublishOptions = options; $0.dimensions = dimensions }
                 await publication.set(track: track)
+                guard room.nativeSession.copy() === session else { throw CancellationError() }
                 add(publication: publication)
                 delegates.notify { $0.participant?(self, didPublishTrack: publication) }
                 room.delegates.notify { $0.room?(room, participant: self, didPublishTrack: publication) }
                 return publication
             } catch {
-                track.nativeCapture.mutate { $0 = nil }
+                try? await track.nativePublication.copy()?.unpublish()
                 try? await source.release()
-                track.nativeVideo.mutate { $0 = nil }
+                await track.detachNativeSource()
                 throw error
             }
         } catch {

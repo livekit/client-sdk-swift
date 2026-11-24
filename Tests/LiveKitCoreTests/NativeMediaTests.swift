@@ -111,10 +111,14 @@ extension NativeRoomTests {
             view.track = remote
             try await eventually { remote.videoFrame != nil && view.isRendering }
             #expect(remote.dimensions == Dimensions(width: 320, height: 240))
-            try await sender.localParticipant.unpublish(publication: publication)
-            try await eventually { receiver.remoteParticipants.values.first?.videoTracks.isEmpty == true }
-            view.track = nil
+            producer.cancel()
+            await producer.value
             await sender.disconnect()
+            #expect(track.nativeVideo.copy() == nil)
+            #expect(track.nativeCapture.copy() == nil)
+            #expect(track.capturer.captureState == .stopped)
+            try await eventually { receiver.remoteParticipants.isEmpty }
+            view.track = nil
             await receiver.disconnect()
         } catch {
             await sender.disconnect()
