@@ -81,6 +81,13 @@ extension SignalClientTests {
             $0.connectionState = .connected
         }
         await client.resumeQueues()
+        // Failure before waitForTrack must release the registration so the same CID can retry.
+        await #expect(throws: CancellationError.self) {
+            try await LocalParticipant.publishTrackInfo(.with {
+                $0.cid = "immediate"
+                $0.type = .video
+            }, client: client, fast: true, negotiate: { throw CancellationError() })
+        }
         let info = try await LocalParticipant.publishTrackInfo(.with {
             $0.cid = "immediate"
             $0.name = "camera"
@@ -121,6 +128,18 @@ extension SignalClientTests {
             #expect(try await info.sid == sid)
         }
         await client.cleanUp()
+    }
+
+    @Test func resetRearmsPublicationRegistrationsAfterLeave() async throws {
+        let map = CompleterMapActor<String>(label: "leave and reconnect", defaultTimeout: 5)
+        try await map.register(for: "same")
+        await map.reset(throwing: LiveKitError(.participantRemoved), rejectingNew: true)
+        await #expect(throws: LiveKitError.self) { try await map.register(for: "same") }
+        // SignalClient.connect() starts with cleanUp(), whose reset clears the rejection.
+        await map.reset()
+        try await map.register(for: "same")
+        await map.resumeIfPresent(returning: "fresh", for: "same")
+        #expect(try await map.wait(for: "same") == "fresh")
     }
 
     @Test func duplicateRegistrationDoesNotReplaceOriginalWaiter() async throws {

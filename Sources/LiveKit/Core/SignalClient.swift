@@ -393,6 +393,7 @@ extension SignalClient {
         // not reconnect a participant the server removed.
         // In its own task: the delegate's cleanup cancels this message loop, which must not cancel the cleanup.
         // Awaiting `.value` keeps the ordering and does not forward that cancellation.
+        // Leave cleanup must not await another signal message: this loop cannot read it until cleanup returns.
         if case .leave = response.message {
             await Task { await self._process(response, encoded: rawData) }.value
             return
@@ -489,6 +490,8 @@ private extension SignalClient {
             if [.disconnect, .resume, .reconnect].contains(leave.action) {
                 await _addTrackCompleters.reset(throwing: LiveKitError.from(reason: leave.reason), rejectingNew: true)
             }
+            // The delegate is nonthrowing. notifyAsync can only fail on cancellation; the
+            // WebSocket loop shields this call, and connect() always clears rejection via cleanUp().
             try? await _delegate.notifyAsync {
                 await $0.signalClient(self,
                                       didReceiveLeave: leave.action,
@@ -684,7 +687,7 @@ extension SignalClient {
         return try await waitForTrack(cid: cid)
     }
 
-    /// Register the waiter before sending, without waiting for the publication acknowledgement.
+    /// Register before sending; the caller must consume waitForTrack or cancelTrackPublication on failure.
     func sendAddTrack(_ request: Livekit_AddTrackRequest) async throws {
         try await _addTrackCompleters.register(for: request.cid)
         do {
