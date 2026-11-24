@@ -46,6 +46,8 @@ To compare a later build with the baseline:
 The first command builds the checkout and saves its surface. The second command
 writes `breaking.txt`, `additions-reversed.txt` and `objc-header.diff`. Read all
 three reports. When the digester finds a break, its exit code is still 0.
+The compare mode stops with exit code 2 when an input file is missing.
+`api-dump.sh --selftest <saved-dir>` checks the compare mode against its own input.
 
 ## Coverage by group
 
@@ -71,30 +73,47 @@ All rows are pending at the baseline. The "Expected" column is a forecast, not a
 
 ### No Rust FFI operation
 
-| Swift signature | Location | Expected | Alternative |
+| Swift signature | Location | Expected | Note |
 |---|---|---|---|
-| `RemoteTrackPublication.set(preferredFPS newValue: UInt) async throws` | `TrackPublications/RemoteTrackPublication.swift:101` | stub | Add the field to the Rust core. That is outside the FFI crate. |
-| `RemoteAudioTrack.volume: Double { get set }` | `Track/Remote/RemoteAudioTrack.swift:36` | blocked | If Swift owns playout of the PCM stream, apply gain in Swift. |
+| `RemoteTrackPublication.set(preferredFPS newValue: UInt) async throws` | `TrackPublications/RemoteTrackPublication.swift:101` | stub | The Rust core has no field for it. The fix is outside the FFI crate. |
+| `RemoteAudioTrack.volume: Double { get set }` | `Track/Remote/RemoteAudioTrack.swift:36` | blocked | The setter cannot throw and the Rust core has no volume for one track. |
+| `Room.serverVersion`, `Room.serverRegion`, `Room.serverNodeId` | `Core/Room.swift:54` | compile-only | The Rust core keeps the server info private. The getters return `nil`. |
 
-### Connect options with no Rust field
+A possible alternative for `volume` is Swift playout of the PCM stream with gain in Swift.
+It is not proved. It moves audio playout out of Rust, which is a large change in scope and cost.
 
-Rust `RoomOptions` has `auto_subscribe`, `adaptive_stream`, `dynacast`, `encryption`, `rtc_config`, `join_retries`, `single_peer_connection`, `connect_timeout_ms` and `data_stream`.
+### Options that Rust cannot honor
 
-| Swift property | Expected |
-|---|---|
-| `ConnectOptions.reconnectAttempts: Int` | compile-only |
-| `ConnectOptions.reconnectAttemptDelay: TimeInterval` | compile-only |
-| `ConnectOptions.reconnectMaxDelay: TimeInterval` | compile-only |
-| `ConnectOptions.primaryTransportConnectTimeout: TimeInterval` | compile-only |
-| `ConnectOptions.publisherTransportConnectTimeout: TimeInterval` | compile-only |
-| `ConnectOptions.isDscpEnabled: Bool` | compile-only |
-| `ConnectOptions.protocolVersion: ProtocolVersion` | compile-only |
-| `ConnectOptions.clientProtocol: ClientProtocol` | compile-only |
-| `VideoPublishOptions.simulcastLayers: [VideoParameters]` | compile-only |
-| `VideoPublishOptions.screenShareSimulcastLayers: [VideoParameters]` | compile-only |
-| `VideoPublishOptions.preferredBackupCodec: VideoCodec?` | compile-only |
+Rule: a non-default value that has a real meaning must fail at the throwing call that uses it.
+The call throws `LiveKitError`. The option is never ignored without an error.
 
-Open decision: `Room.connect` throws, so a non-default value can fail there instead of being ignored.
+| Swift property | Default | A non-default value fails at |
+|---|---|---|
+| `ConnectOptions.reconnectAttempts: Int` | 10 | `Room.connect` |
+| `ConnectOptions.reconnectAttemptDelay: TimeInterval` | 0.3 s | `Room.connect` |
+| `ConnectOptions.reconnectMaxDelay: TimeInterval` | 7 s | `Room.connect` |
+| `ConnectOptions.primaryTransportConnectTimeout: TimeInterval` | 10 s | `Room.connect` |
+| `ConnectOptions.publisherTransportConnectTimeout: TimeInterval` | 10 s | `Room.connect` |
+| `ConnectOptions.isDscpEnabled: Bool` | `false` | `Room.connect` |
+| `ConnectOptions.protocolVersion: ProtocolVersion` | `.v16` | `Room.connect` |
+| `VideoPublishOptions.simulcastLayers: [VideoParameters]` | `[]` | `LocalParticipant.publish(videoTrack:options:)` |
+| `VideoPublishOptions.screenShareSimulcastLayers: [VideoParameters]` | `[]` | `LocalParticipant.publish(videoTrack:options:)` |
+| `VideoPublishOptions.preferredBackupCodec: VideoCodec?` | `nil` | `LocalParticipant.publish(videoTrack:options:)` |
+
+These options have a Rust field and are not in this table: `autoSubscribe`, `socketConnectTimeoutInterval`,
+`iceServers`, `iceTransportPolicy`, `clientProtocol`, `adaptiveStream`, `dynacast`, `singlePeerConnection`
+and the encryption options. Each one stays pending until the typed session exports it.
+
+### Accepted differences with default options
+
+These are behavior changes that a caller with default options gets. They are documented, not errors.
+
+| Area | v2.20.0 Swift | Rust backend |
+|---|---|---|
+| Signaling protocol | Version 16 | Version 17, fixed in the Rust core |
+| Reconnect timing | 10 attempts, 0.3 s to 7 s delay curve | Rust backoff policy, fixed in the Rust core |
+| Transport timeouts | 10 s for each transport | One fixed ICE timeout in the Rust core |
+| Network stack for signaling | Swift `WebSocket` on Network.framework | Rust socket and TLS code |
 
 ### Audio engine
 
