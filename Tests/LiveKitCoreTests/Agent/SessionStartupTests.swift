@@ -23,7 +23,8 @@ import Testing
 struct SessionStartupTests {
     @Test(arguments: [true, false], [true, false])
     @MainActor func joinsBeforeCaptureAndPublishesOnce(singlePC: Bool, preConnectAudio: Bool) async throws {
-        let room = Room(roomOptions: RoomOptions(singlePeerConnection: singlePC))
+        let room = Room(connectOptions: ConnectOptions(enableMicrophone: true),
+                        roomOptions: RoomOptions(singlePeerConnection: singlePC))
         let session = try makeSession(room: room, preConnectAudio: preConnectAudio)
         let capture = AsyncCompleter<Void>(label: "capture permission", defaultTimeout: 10)
         let track = await RTC.run { TestAudioTrack() }
@@ -43,10 +44,8 @@ struct SessionStartupTests {
             let publication = try #require(room.localParticipant.localAudioTracks.first)
             #expect(room.localParticipant.localAudioTracks.count == 1)
             #expect(publication.track === track)
-            #expect(track.publishState == .published)
-            let cid = try #require(track._state.publicationCid)
-            #expect((cid != track.mediaTrack.trackId) == singlePC)
-            #expect(room.localParticipant.publishedTracksInfo().first?.cid == cid)
+            #expect(track._state.rtpSender != nil)
+            #expect(room.localParticipant.publishedTracksInfo().first?.cid == track.mediaTrack.trackId)
             await session.end()
             #expect(track._state.rtpSender == nil)
             #expect(track.trackState == .stopped)
@@ -113,7 +112,7 @@ struct SessionStartupTests {
         }
     }
 
-    @Test @MainActor func captureFailureClosesReservation() async throws {
+    @Test @MainActor func captureFailureCompletesConnectionTeardownBeforeRetry() async throws {
         let room = Room(roomOptions: RoomOptions(singlePeerConnection: true))
         let session = try makeSession(room: room)
         session.startupDependencies.makeTrack = { _ in await RTC.run { TestAudioTrack() } }
@@ -123,10 +122,17 @@ struct SessionStartupTests {
         #expect(room.connectionState == .disconnected)
         #expect(room._state.transport == nil)
         #expect(room.localParticipant.localAudioTracks.isEmpty)
+        let retry = await RTC.run { TestAudioTrack() }
+        session.startupDependencies.makeTrack = { _ in retry }
+        session.startupDependencies.startCapture = { try await $0.start() }
+        await session.start()
+        #expect(session.error == nil)
+        #expect(room.connectionState == .connected)
+        #expect(room.localParticipant.localAudioTracks.first?.track === retry)
         await session.end()
     }
 
-    @Test @MainActor func encryptedSessionFallsBackToNormalPublication() async throws {
+    @Test @MainActor func encryptedSessionUsesNormalPublication() async throws {
         let room = Room(roomOptions: RoomOptions(encryptionOptions: EncryptionOptions(keyProvider: BaseKeyProvider()), singlePeerConnection: true))
         let session = try makeSession(room: room)
         let track = await RTC.run { TestAudioTrack() }
@@ -134,7 +140,6 @@ struct SessionStartupTests {
         await session.start()
         #expect(session.error == nil)
         #expect(room.localParticipant.localAudioTracks.first?.encryptionType == .gcm)
-        #expect(track._state.publicationCid == track.mediaTrack.trackId)
         await session.end()
     }
 
@@ -147,25 +152,20 @@ struct SessionStartupTests {
         do {
             #expect(session.error == nil)
             let original = try #require(room.localParticipant.localAudioTracks.first).sid
-            let originalCid = try #require(track._state.publicationCid)
             try await room.debug_simulate(scenario: .quickReconnect)
-            try await poll(timeout: 30, for: "quick reconnect or its full-reconnect fallback to republish") {
+            try await poll(timeout: 30, for: "quick reconnect without republishing") {
                 room.connectionState == .connected && room.localParticipant.localAudioTracks.count == 1
                     && room.localParticipant.localAudioTracks.first?.track === track
             }
             let afterQuick = try #require(room.localParticipant.localAudioTracks.first).sid
-            if afterQuick == original {
-                #expect(room.localParticipant.publishedTracksInfo().first?.cid == originalCid)
-            } else {
-                #expect(track._state.publicationCid == track.mediaTrack.trackId)
-            }
+            #expect(afterQuick == original)
+            #expect(room.localParticipant.publishedTracksInfo().first?.cid == track.mediaTrack.trackId)
             try await room.debug_simulate(scenario: .fullReconnect)
             try await poll(timeout: 30, for: "republishing the attached microphone") {
                 room.connectionState == .connected && room.localParticipant.localAudioTracks.count == 1
                     && room.localParticipant.localAudioTracks.first?.sid != afterQuick
             }
             #expect(room.localParticipant.localAudioTracks.first?.track === track)
-            #expect(track._state.publicationCid == track.mediaTrack.trackId)
         } catch {
             await session.end()
             throw error
@@ -173,32 +173,70 @@ struct SessionStartupTests {
         await session.end()
     }
 
-    @Test @MainActor func joinReservationDoesNotEnableMicrophoneRTP() async throws {
+    @Test @MainActor func quickReconnectBeforePermissionUsesNormalTrackID() async throws {
         let room = Room(roomOptions: RoomOptions(singlePeerConnection: true))
-        let preparation = PreparedAudioPublication(options: AudioPublishOptions())
-        let token = try TestEnvironment.liveKitServerToken(for: UUID().uuidString, identity: "reserved", canPublish: true, canPublishData: true)
+        let session = try makeSession(room: room, preConnectAudio: false)
+        let permission = AsyncCompleter<Void>(label: "pending capture", defaultTimeout: 15)
+        let track = await RTC.run { TestAudioTrack() }
+        session.startupDependencies.makeTrack = { _ in track }
+        session.startupDependencies.startCapture = { track in
+            try await permission.wait()
+            try await track.start()
+        }
+        let starting = Task { await session.start() }
         do {
-            try await room.connect(url: TestEnvironment.liveKitServerUrl(), token: token, preparedAudio: preparation)
-            let (context, info) = try #require(try await preparation.sender(in: room))
-            #expect(!info.sid.isEmpty)
-            await RTC.run {
-                #expect(context.sender.raw.track == nil)
-                let encodings = context.sender.raw.parameters.encodings
-                #expect(!encodings.isEmpty)
-                #expect(encodings.allSatisfy { !$0.isActive })
-            }
+            try await poll(timeout: 10, for: "JOIN before permission") { room.connectionState == .connected }
+            let transport = try room.requirePublisher()
+            try await room.debug_simulate(scenario: .quickReconnect)
+            #expect(try room.requirePublisher() === transport, "A quick reconnect must not fall back to full reconnect")
+            #expect(room.localParticipant.localAudioTracks.isEmpty)
+            permission.resume(returning: ())
+            await starting.value
+            #expect(session.error == nil)
+            #expect(room.localParticipant.publishedTracksInfo().first?.cid == track.mediaTrack.trackId)
         } catch {
-            await room.disconnect()
-            await preparation.cancel(in: room)
+            permission.resume(throwing: CancellationError())
+            await session.end()
+            await starting.value
             throw error
         }
-        await room.disconnect()
-        await preparation.cancel(in: room)
+        await session.end()
+    }
+
+    @Test @MainActor func endingDoesNotWaitForAnUncancellableCredentialProvider() async throws {
+        let room = Room(roomOptions: RoomOptions(singlePeerConnection: true))
+        var attempt: SessionStartup? = SessionStartup(room: room)
+        weak var weakAttempt = attempt
+        let permission = PermissionCallback()
+        let fetching = AsyncCompleter<Void>(label: "credential callback entered", defaultTimeout: 5)
+        let returned = AsyncCompleter<Void>(label: "late credentials returned", defaultTimeout: 5)
+        let token = try TestEnvironment.liveKitServerToken(for: UUID().uuidString, identity: "late-credentials", canPublish: true)
+        var dependencies = SessionStartup.Dependencies()
+        dependencies.makeTrack = { _ in await RTC.run { TestAudioTrack() } }
+        let starting = Task {
+            try await attempt?.run(preConnectAudio: false, timeout: 10, dependencies: dependencies, fetch: {
+                fetching.resume(returning: ())
+                await permission.wait()
+                returned.resume(returning: ())
+                return TokenSourceResponse(serverURL: URL(string: TestEnvironment.liveKitServerUrl())!, participantToken: token)
+            }, recording: {})
+        }
+        try await fetching.wait()
+        attempt?.cancel()
+        await attempt?.waitForTeardown()
+        await #expect(throws: CancellationError.self) { try await starting.value }
+        attempt = nil
+        #expect(weakAttempt == nil)
+        weakAttempt = nil
+        #expect(room.connectionState == .disconnected)
+        await permission.release()
+        try await returned.wait()
+        #expect(room.connectionState == .disconnected)
     }
 
     @Test @MainActor func completedStartupReleasesItsTaskOwner() async throws {
         let room = Room(roomOptions: RoomOptions(singlePeerConnection: true))
-        var attempt: SessionStartup? = SessionStartup(room: room, preConnectAudio: false)
+        var attempt: SessionStartup? = SessionStartup(room: room)
         weak var weakAttempt = attempt
         let token = try TestEnvironment.liveKitServerToken(for: UUID().uuidString, identity: "ownership", canPublish: true, canPublishData: true)
         var dependencies = SessionStartup.Dependencies()
@@ -217,10 +255,65 @@ struct SessionStartupTests {
         await room.disconnect()
     }
 
-    @MainActor private func makeSession(room: Room, preConnectAudio: Bool = true) throws -> Session {
-        let token = try TestEnvironment.liveKitServerToken(for: UUID().uuidString, identity: "session", canPublish: true, canPublishData: true)
+    @MainActor private func makeSession(room: Room, preConnectAudio: Bool = true, roomName: String = UUID().uuidString) throws -> Session {
+        let token = try TestEnvironment.liveKitServerToken(for: roomName, identity: "session", canPublish: true, canPublishData: true)
         return Session(tokenSource: LiteralTokenSource(serverURL: URL(string: TestEnvironment.liveKitServerUrl())!, participantToken: token),
                        options: SessionOptions(room: room, preConnectAudio: preConnectAudio))
+    }
+}
+
+extension SessionStartupTests {
+    @Test @MainActor func existingSubscriberStopsBufferAfterDelayedCapture() async throws {
+        try await SessionTestAudioSource.withAudio {
+            try await Self.withDelayedBufferPeer()
+        }
+    }
+
+    private static func withDelayedBufferPeer() async throws {
+        let name = UUID().uuidString
+        try await TestEnvironment.withRoom(RoomTestingOptions(roomName: name, isE2eeEnabled: false,
+                                                              singlePeerConnection: true, canPublishData: true, canSubscribe: true))
+        { agent in
+            try await Self.checkDelayedBuffer(agent: agent, name: name)
+        }
+    }
+
+    @MainActor private static func checkDelayedBuffer(agent: Room, name: String) async throws {
+        let room = Room(roomOptions: RoomOptions(singlePeerConnection: true))
+        let session = try SessionStartupTests().makeSession(room: room, roomName: name)
+        let captured = AsyncCompleter<Void>(label: "delayed microphone permission", defaultTimeout: 10)
+        let received = AsyncCompleter<Data>(label: "agent buffer EOF", defaultTimeout: 10)
+        try await agent.registerByteStreamHandler(for: PreConnectAudioBuffer.dataTopic) { reader, _ in
+            do {
+                let data = try await reader.readAll()
+                received.resume(returning: data)
+            } catch { received.resume(throwing: error) }
+        }
+        session.startupDependencies.makeTrack = { _ in await RTC.run { TestAudioTrack() } }
+        session.startupDependencies.startCapture = { track in
+            try await captured.wait()
+            try await track.start()
+        }
+        let starting = Task { await session.start() }
+        do {
+            try await poll(timeout: 10, for: "room connection before capture") { room.connectionState == .connected }
+            let identity = try #require(room.localParticipant.identity)
+            try await poll(timeout: 5, for: "subscriber to discover the participant") { agent.remoteParticipants[identity] != nil }
+            #expect(agent.remoteParticipants[identity]?.audioTracks.isEmpty == true, "Permission prompts must not expose phantom microphones")
+            captured.resume(returning: ())
+            await starting.value
+            #expect(session.error == nil)
+            agent.localParticipant._state.mutate { $0.kind = .agent }
+            room.preConnectBuffer.room(room, participant: agent.localParticipant, didUpdateState: .active)
+            _ = try await received.wait()
+            #expect(room.preConnectBuffer.recorder?.isRecording == false, "Subscription must stop recording before its timeout")
+        } catch {
+            captured.resume(throwing: CancellationError())
+            await session.end()
+            await starting.value
+            throw error
+        }
+        await session.end()
     }
 }
 

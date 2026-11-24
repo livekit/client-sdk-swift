@@ -108,6 +108,63 @@ extension ConnectionDependencies: Equatable {
 
 // MARK: - Early publisher
 
+/// A publisher peer connection built *before* the signal socket opens, so its offer can be
+/// bundled with the JOIN request and the server answers it in the same exchange, removing the
+/// offer→answer round trip from the connect path.
+///
+/// The WebRTC cold start (SSL init, peer connection factory, audio device module) is *not*
+/// overlapped with the TLS/WebSocket handshake: `make` is awaited to completion before
+/// `signalClient.connect`, because the offer has to be in the JOIN URL. It is serialized ahead
+/// of the handshake, so the measured win is the saved round trip alone. rust-sdks orders it the
+/// same way in `RtcSession::connect`.
+///
+/// Deliberately not a stage payload: it is owned lexically by the connect sequence, which either
+/// hands it to ``JoinDependencies/make(room:connection:joinResponse:rtcConfiguration:singlePeerConnection:earlyPublisher:)``
+/// or closes it. So the stage invariant still holds — staged transports exist if and only if the
+/// stage is `.connected`. Mirrors the `early_publisher_pc` local in rust-sdks' `RtcSession::connect`.
+struct EarlyPublisher: Sendable {
+    let transport: Transport
+    let dataChannels: PublisherDataChannels
+
+    /// The offer to bundle with the JOIN request, or `nil` when it could not be produced.
+    /// Absent means "negotiate the ordinary way", never a failed connect.
+    let offer: Livekit_SessionDescription?
+
+    /// Builds the transport, its data channels, and the deferred initial offer.
+    ///
+    /// Only ever called for single PC mode, where the publisher is primary — so the
+    /// configuration passed here carries the client-side settings only, and the server's ICE
+    /// servers are installed later by `JoinDependencies.make`.
+    static func make(room: Room, rtcConfiguration: LKRTCConfiguration) async throws -> EarlyPublisher {
+        let transport = try await Transport(config: rtcConfiguration,
+                                            target: .publisher,
+                                            primary: true,
+                                            singlePCMode: true,
+                                            delegate: room)
+
+        // Created before the offer so its `m=application` section is negotiated by the JOIN
+        // exchange rather than costing a second one.
+        let dataChannels = await PublisherDataChannels.make(on: transport)
+
+        do {
+            let initialOffer = try await transport.createInitialOffer()
+            return EarlyPublisher(transport: transport,
+                                  dataChannels: dataChannels,
+                                  offer: initialOffer.map { $0.offer.toPBType(offerId: $0.offerId) })
+        } catch {
+            // A failed offer is recoverable: drop it and let the transport negotiate normally
+            // once the JOIN response arrives.
+            room.log("Failed to create the initial publisher offer, falling back to negotiation after JOIN: \(error)", .warning)
+            await transport.clearPendingInitialOffer()
+            return EarlyPublisher(transport: transport, dataChannels: dataChannels, offer: nil)
+        }
+    }
+
+    func close() async {
+        await transport.close()
+    }
+}
+
 /// The publisher's three outbound data channels, created together so both the early and the
 /// post-JOIN publisher paths negotiate the same layout.
 /// Boxed rather than stored raw: a proxy's last release is a `BlockingCall` on a WebRTC thread,

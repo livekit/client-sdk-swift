@@ -164,9 +164,13 @@ final class Transport: NSObject, Loggable {
     /// - Note: The munges are applied here and the result is signalled as-is, so unlike
     ///   ``set(localDescription:munging:)`` a munge libwebrtc rejects cannot be dropped
     ///   and retried — the peer has already been told what we offered. These are the
-    ///   same munges every ordinary single PC mode offer carries, including the video
-    ///   start-bitrate hint for join-time senders. The hint is consumed only when the
-    ///   deferred offer is applied after the server answers it.
+    ///   same audio munges every ordinary single PC mode offer carries.
+    /// - Note: The video start bitrate is deliberately not written here. It derives from
+    ///   senders added by ``addTransceiver(with:transceiverInit:startBitrateKbps:)``, and
+    ///   none exist before the JOIN, so there is never a value to write; and the one-shot
+    ///   latch could not be set safely, since this offer may be dropped unapplied
+    ///   (``clearPendingInitialOffer()``). ``createAndSendOffer(iceRestart:)`` owns the hint
+    ///   and latches only once the offer carrying it has been accepted, as in rust-sdks.
     func createInitialOffer() async throws -> (offer: LKRTCSessionDescription, offerId: UInt32)? {
         guard singlePCMode else { return nil }
 
@@ -176,7 +180,8 @@ final class Transport: NSObject, Loggable {
         }
 
         let offer = try await createOffer()
-        let mungedSDP = offerMungers().reduce(offer.sdp) { $1($0) }
+        let mungedSDP = [Self.mungeOpusStereoForAllAudio, Self.mungeOpusNackForAllAudio]
+            .reduce(offer.sdp) { $1($0) }
         let munged = mungedSDP == offer.sdp ? offer : RTC.createSessionDescription(type: offer.type, sdp: mungedSDP)
 
         _latestOfferId += 1
@@ -204,7 +209,6 @@ final class Transport: NSObject, Loggable {
 
         log("Applying the initial offer deferred from JOIN")
         try await set(localDescription: pendingInitialOffer)
-        recordAppliedVideoStartBitrate(pendingInitialOffer)
     }
 
     func setIsRestartingIce() {
@@ -287,26 +291,6 @@ final class Transport: NSObject, Loggable {
         }
     }
 
-    /// Applies one SDP policy to the deferred JOIN offer and every ordinary publisher offer.
-    private func offerMungers() -> [(String) -> String] {
-        let kbpsBySenderId = _startBitrateKbpsBySenderId
-        let hasAppliedStartBitrate = _hasAppliedVideoStartBitrate
-        let startBitrate: (String) -> String = {
-            hasAppliedStartBitrate ? $0 : Self.mungeVideoStartBitrate($0, kbpsBySenderId: kbpsBySenderId)
-        }
-        // Repair BUNDLE fmtp consistency after all other munges.
-        return singlePCMode
-            ? [Self.mungeOpusStereoForAllAudio, Self.mungeOpusNackForAllAudio, startBitrate, Self.conformBundledCodecFmtp]
-            : [startBitrate, Self.conformBundledCodecFmtp]
-    }
-
-    /// Consumes the one-shot bitrate hint only after libwebrtc accepts the carrying offer.
-    private func recordAppliedVideoStartBitrate(_ offer: LKRTCSessionDescription) {
-        if !_hasAppliedVideoStartBitrate, Self.carriesVideoStartBitrate(offer.sdp) {
-            _hasAppliedVideoStartBitrate = true
-        }
-    }
-
     func createAndSendOffer(iceRestart: Bool = false) async throws {
         guard let _onOffer else {
             log("_onOffer is nil", .error)
@@ -333,8 +317,23 @@ final class Transport: NSObject, Loggable {
         func _negotiateSequence() async throws {
             _latestOfferId += 1
             var offer = try await createOffer(for: constraints)
-            offer = try await set(localDescription: offer, munging: offerMungers())
-            recordAppliedVideoStartBitrate(offer)
+            let kbpsBySenderId = _startBitrateKbpsBySenderId
+            let hasAppliedStartBitrate = _hasAppliedVideoStartBitrate
+            let startBitrate: (String) -> String = {
+                hasAppliedStartBitrate ? $0 : Self.mungeVideoStartBitrate($0, kbpsBySenderId: kbpsBySenderId)
+            }
+            // `conformBundledCodecFmtp` runs last in both modes: it repairs whatever the munges
+            // before it made inconsistent across the BUNDLE group, and it is a no-op on an offer
+            // with no receive-only section — which is every dual PC offer until a track is
+            // unpublished.
+            offer = try await set(localDescription: offer, munging: singlePCMode
+                ? [Self.mungeOpusStereoForAllAudio, Self.mungeOpusNackForAllAudio, startBitrate, Self.conformBundledCodecFmtp]
+                : [startBitrate, Self.conformBundledCodecFmtp])
+            // A rejected munge is dropped and the offer retried without it, so the one-shot
+            // hint is consumed only once the description that carries it has been accepted.
+            if !_hasAppliedVideoStartBitrate, Self.carriesVideoStartBitrate(offer.sdp) {
+                _hasAppliedVideoStartBitrate = true
+            }
             try await _onOffer(offer, _latestOfferId)
         }
 

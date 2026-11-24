@@ -170,23 +170,16 @@ import Testing
             $0.id = 1
         }
 
-        let request = Livekit_AddTrackRequest.with {
-            $0.cid = "microphone"
-            $0.type = .audio
-            $0.muted = true
-        }
         let url = try Utils.buildJoinRequestUrl(Self.url,
                                                 connectOptions: ConnectOptions(),
                                                 adaptiveStream: true,
-                                                publisherOffer: publisherOffer,
-                                                addTrackRequests: [request])
+                                                publisherOffer: publisherOffer)
 
         let joinRequest = try Self.decodeJoinRequest(from: url)
         #expect(joinRequest.hasPublisherOffer)
         #expect(joinRequest.publisherOffer.sdp == sdp)
         #expect(joinRequest.publisherOffer.type == "offer")
         #expect(joinRequest.publisherOffer.id == 1)
-        #expect(joinRequest.addTrackRequests == [request])
     }
 
     @Test func joinRequestOmitsTheOfferWhenThereIsNone() throws {
@@ -196,7 +189,6 @@ import Testing
 
         let joinRequest = try Self.decodeJoinRequest(from: url)
         #expect(!joinRequest.hasPublisherOffer)
-        #expect(joinRequest.addTrackRequests.isEmpty)
     }
 
     // MARK: - Helpers

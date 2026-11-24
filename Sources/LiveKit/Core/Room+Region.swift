@@ -136,8 +136,6 @@ extension Room {
         initialUrl: URL,
         initialRegion: RegionInfo?,
         token: String,
-        publishTracks: [InitialTrack] = [],
-        preparedAudio: PreparedAudioPublication? = nil,
     ) async throws -> URL {
         var nextUrl = initialUrl
         var nextRegion = initialRegion
@@ -145,7 +143,7 @@ extension Room {
 
         while true {
             do {
-                try await fullConnectSequence(nextUrl, token, publishTracks: publishTracks, preparedAudio: preparedAudio)
+                try await fullConnectSequence(nextUrl, token)
 
                 // Scope the failed set to this failover cycle. Regions excluded by `markFailed`
                 // now survive a settings refresh, so without clearing them on success a region

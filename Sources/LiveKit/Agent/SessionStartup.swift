@@ -16,7 +16,7 @@
 
 import Foundation
 
-/// Owns connection and capture separately so a pending permission prompt cannot delay JOIN.
+/// Owns concurrent startup without making end() wait for a system permission or credential callback.
 @MainActor
 final class SessionStartup {
     struct Dependencies: Sendable {
@@ -28,75 +28,142 @@ final class SessionStartup {
         var startCapture: @Sendable (LocalAudioTrack) async throws -> Void = { try await $0.start() }
     }
 
-    let room: Room
-    let preparation: PreparedAudioPublication
-    private let completion = AsyncCompleter<Bool>(label: "Session.startup", defaultTimeout: 86400)
-    private var captureOwner: AnyTaskCancellable?
-    private var connectionOwner: AnyTaskCancellable?
-    private var driverOwner: AnyTaskCancellable?
-    private var cancelled = false
-    private let connectionEntered = StateSync(false)
-    private let connectionFinished = AsyncCompleter<Void>(label: "Session.connectionFinished", defaultTimeout: 86400)
-    private let finished = AsyncCompleter<Void>(label: "Session.startupFinished", defaultTimeout: 86400)
-
-    init(room: Room, preConnectAudio: Bool) {
-        self.room = room
-        preparation = PreparedAudioPublication(options: room._state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectAudio))
+    private enum Event: Sendable {
+        case connected(Bool)
+        case captured(LocalAudioTrack)
+        case published(Bool)
     }
+
+    private struct Inputs: Sendable {
+        let credentials = AsyncThrowingStream<TokenSourceResponse, Error>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let capture = AsyncThrowingStream<LocalAudioTrack, Error>.makeStream(bufferingPolicy: .bufferingNewest(1))
+    }
+
+    let room: Room
+    private var captureOwner: AnyTaskCancellable?
+    private var credentialsOwner: AnyTaskCancellable?
+    private var capturedTrack: LocalAudioTrack?
+    private var cancelled = false
+    private let cancellation = AsyncStream<Void>.makeStream()
+    private let finished = AsyncStream<Void>.makeStream()
+
+    init(room: Room) { self.room = room }
 
     func run(preConnectAudio: Bool, timeout: TimeInterval, dependencies: Dependencies,
              fetch: @escaping @Sendable () async throws -> TokenSourceResponse,
              recording: @escaping @MainActor @Sendable () -> Void) async throws -> Bool
     {
-        let room = room
-        let preparation = preparation
-        let completion = completion
-        let connectionEntered = connectionEntered
-        let connectionFinished = connectionFinished
-        defer { finished.resume(returning: ()) }
-        // Credentials begin before media construction, which can cold-start libwebrtc.
-        let connecting = Task {
-            defer { connectionFinished.resume(returning: ()) }
-            let response = try await fetch()
-            try Task.checkCancellation()
-            connectionEntered.mutate { $0 = true }
-            try await room.connect(url: response.serverURL.absoluteString, token: response.participantToken,
-                                   preparedAudio: preparation)
-            try Task.checkCancellation()
-            return response.dispatchesAgent()
-        }
-        connectionOwner = connecting.cancellable()
-        let capturing = Task {
-            do {
-                return try await Self.capture(room: room, preConnectAudio: preConnectAudio,
-                                              timeout: timeout, dependencies: dependencies, recording: recording)
-            } catch {
-                completion.resume(throwing: error)
-                throw error
-            }
-        }
-        captureOwner = capturing.cancellable()
-        let driver = Task {
-            await Self.publish(room: room, preparation: preparation, connecting: connecting,
-                               capturing: capturing, completion: completion)
-        }
-        driverOwner = driver.cancellable()
+        guard !cancelled else { throw CancellationError() }
+        let inputs = startCallbacks(preConnectAudio: preConnectAudio, timeout: timeout,
+                                    dependencies: dependencies, fetch: fetch, recording: recording)
         defer {
             captureOwner = nil
-            connectionOwner = nil
-            driverOwner = nil
+            credentialsOwner = nil
+            inputs.credentials.continuation.finish()
+            inputs.capture.continuation.finish()
+            finished.continuation.finish()
         }
         do {
-            return try await completion.wait()
+            let dispatchesAgent = try await Self.connectAndPublish(room: room, inputs: inputs,
+                                                                   cancellation: cancellation.stream,
+                                                                   preConnectAudio: preConnectAudio)
+            try Task.checkCancellation()
+            guard !cancelled else { throw CancellationError() }
+            capturedTrack = nil
+            return dispatchesAgent
         } catch {
-            let alreadyCancelled = cancelled
             cancel()
-            if !alreadyCancelled {
+            let room = room
+            let track = capturedTrack
+            capturedTrack = nil
+            // Connection children have already finished cleanup. A retry cannot be torn down
+            // by an abandoned connection, and cancellation cannot skip stopping owned capture.
+            await Task {
                 await room.disconnect()
                 room.preConnectBuffer.stopRecording(flush: true)
-            }
-            await preparation.cancel(in: room)
+                try? await track?.stop()
+            }.value
             throw error
+        }
+    }
+
+    private func startCallbacks(preConnectAudio: Bool, timeout: TimeInterval,
+                                dependencies: Dependencies, fetch: @escaping @Sendable () async throws -> TokenSourceResponse,
+                                recording: @escaping @MainActor @Sendable () -> Void) -> Inputs
+    {
+        let inputs = Inputs()
+        let room = room
+        let credentials = inputs.credentials
+        let capture = inputs.capture
+        // These callbacks may ignore cancellation. They only produce results; connection and
+        // publication remain in the joined task group below, so late results cannot retry JOIN.
+        credentialsOwner = Task {
+            do {
+                try Task.checkCancellation()
+                let response = try await fetch()
+                try Task.checkCancellation()
+                credentials.continuation.yield(response)
+                credentials.continuation.finish()
+            } catch { credentials.continuation.finish(throwing: error) }
+        }.cancellable()
+        captureOwner = Task { [weak self] in
+            do {
+                let track = try await Self.capture(room: room, preConnectAudio: preConnectAudio,
+                                                   timeout: timeout, dependencies: dependencies, recording: recording)
+                guard let self, !cancelled else {
+                    await Task { try? await track.stop() }.value
+                    throw CancellationError()
+                }
+                capturedTrack = track
+                capture.continuation.yield(track)
+                capture.continuation.finish()
+            } catch { capture.continuation.finish(throwing: error) }
+        }.cancellable()
+        return inputs
+    }
+
+    private static func connectAndPublish(room: Room, inputs: Inputs, cancellation: AsyncStream<Void>,
+                                          preConnectAudio: Bool) async throws -> Bool
+    {
+        try await withThrowingTaskGroup(of: Event.self) { group in
+            group.addTask {
+                guard let response = try await inputs.credentials.stream.first(where: { _ in true }) else { throw CancellationError() }
+                try Task.checkCancellation()
+                try await room.connectForSession(url: response.serverURL.absoluteString, token: response.participantToken)
+                try Task.checkCancellation()
+                return .connected(response.dispatchesAgent())
+            }
+            group.addTask {
+                guard let track = try await inputs.capture.stream.first(where: { _ in true }) else { throw CancellationError() }
+                try Task.checkCancellation()
+                return .captured(track)
+            }
+            group.addTask {
+                for await _ in cancellation {}
+                throw CancellationError()
+            }
+            var dispatchesAgent: Bool?
+            var track: LocalAudioTrack?
+            var publishing = false
+            for try await event in group {
+                switch event {
+                case let .connected(value): dispatchesAgent = value
+                case let .captured(value): track = value
+                case let .published(value):
+                    group.cancelAll()
+                    return value
+                }
+                if let dispatchesAgent, let track, !publishing {
+                    publishing = true
+                    group.addTask {
+                        _ = try await room.localParticipant.publish(audioTrack: track,
+                                                                    options: room._state.roomOptions.defaultAudioPublishOptions.withPreconnect(preConnectAudio))
+                        try Task.checkCancellation()
+                        return .published(dispatchesAgent)
+                    }
+                }
+            }
+            throw CancellationError()
         }
     }
 
@@ -119,44 +186,20 @@ final class SessionStartup {
             recording()
             return track
         } catch {
-            // Track.stop() honors cancellation; cleanup must finish in a fresh task.
             await Task { try? await track.stop() }.value
             throw error
-        }
-    }
-
-    private static func publish(room: Room, preparation: PreparedAudioPublication,
-                                connecting: Task<Bool, any Error>, capturing: Task<LocalAudioTrack, any Error>,
-                                completion: AsyncCompleter<Bool>) async
-    {
-        do {
-            let dispatchesAgent = try await connecting.value
-            let track = try await capturing.value
-            try Task.checkCancellation()
-            try await room.localParticipant.publishPreparedAudio(track, preparation: preparation)
-            try Task.checkCancellation()
-            completion.resume(returning: dispatchesAgent)
-        } catch {
-            connecting.cancel()
-            capturing.cancel()
-            // The run() caller owns teardown. A late permission callback cannot
-            // disconnect or flush the buffer of a newer attempt on this Room.
-            completion.resume(throwing: error)
         }
     }
 
     func cancel() {
         cancelled = true
         captureOwner?.cancel()
-        connectionOwner?.cancel()
-        driverOwner?.cancel()
-        completion.resume(throwing: CancellationError())
+        credentialsOwner?.cancel()
+        cancellation.continuation.finish()
     }
 
     func waitForTeardown() async {
-        try? await finished.wait()
-        if connectionEntered.copy() { try? await connectionFinished.wait() }
+        let finished = finished.stream
+        await Task { for await _ in finished {} }.value
     }
-
-    func releaseReservation() async { await preparation.cancel(in: room) }
 }

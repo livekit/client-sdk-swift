@@ -156,8 +156,6 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
         // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
         let audioProcessingOptions = captureOptions.audioProcessing
         try await RTC.run {
-            // A system permission callback can arrive after Session.end().
-            try Task.checkCancellation()
             try AudioManager.shared.startLocalRecording(audioProcessingOptions: audioProcessingOptions)
         }
     }

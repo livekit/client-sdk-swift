@@ -267,7 +267,7 @@ open class Session: ObservableObject {
 
         let timeout = options.agentConnectTimeout
 
-        let attempt = SessionStartup(room: room, preConnectAudio: options.preConnectAudio)
+        let attempt = SessionStartup(room: room)
         startup = attempt
         isRecordingForStartup = false
         connectionState = .connecting
@@ -312,10 +312,9 @@ open class Session: ObservableObject {
         startup = nil
         waitForAgentTask = nil
         attempt?.cancel()
-        await attempt?.waitForTeardown()
         await room.disconnect()
+        await attempt?.waitForTeardown()
         room.preConnectBuffer.stopRecording(flush: true)
-        await attempt?.releaseReservation()
         isRecordingForStartup = false
         connectionState = .disconnected
         agent.disconnected()

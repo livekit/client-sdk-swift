@@ -106,7 +106,6 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         var reportStatistics: Bool = false
 
         // Only for LocalTracks
-        var publicationCid: String?
         var lastPublishOptions: TrackPublishOptions?
         var publishState: PublishState = .unpublished
 
@@ -179,7 +178,6 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
             // Both caches can describe this sender: the per-codec one holds the main sender's
             // entry when the track publishes its primary codec.
             if rtpSender == nil {
-                $0.publicationCid = nil
                 $0.subscribedQualities = []
                 $0.subscribedQualitiesForCodec.removeAll()
             }

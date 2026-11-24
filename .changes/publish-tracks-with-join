@@ -1,1 +1,0 @@
-minor type="added" "Publish supplied local media tracks while connecting, bundling their requests and initial offer with JOIN in single peer connection mode, with fallback for legacy signaling and encrypted rooms"

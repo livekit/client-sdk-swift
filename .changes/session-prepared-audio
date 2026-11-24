@@ -1,1 +1,1 @@
-patch type="changed" "Connect Sessions concurrently with microphone capture and prepare initial audio publication in single-PC JOIN to reduce first audio latency."
+patch type="fixed" "Start Session connection alongside microphone capture so device permission does not delay joining the room"

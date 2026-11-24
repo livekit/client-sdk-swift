@@ -240,7 +240,6 @@ class Utils: Loggable {
         participantSid: Participant.Sid? = nil,
         adaptiveStream: Bool,
         publisherOffer: Livekit_SessionDescription? = nil,
-        addTrackRequests: [Livekit_AddTrackRequest] = [],
     ) throws -> URL {
         let connectOptions = connectOptions ?? ConnectOptions()
 
@@ -267,7 +266,7 @@ class Utils: Loggable {
                                                   reconnectMode: reconnectMode,
                                                   participantSid: participantSid,
                                                   adaptiveStream: adaptiveStream,
-                                                  initialPublish: publisherOffer.map { InitialPublish(offer: $0, requests: addTrackRequests) })
+                                                  publisherOffer: publisherOffer)
 
         builder.queryItems = [URLQueryItem(name: "join_request", value: encoded)]
 
@@ -300,7 +299,7 @@ class Utils: Loggable {
         reconnectMode: ReconnectMode?,
         participantSid: Participant.Sid?,
         adaptiveStream: Bool,
-        initialPublish: InitialPublish?,
+        publisherOffer: Livekit_SessionDescription?,
     ) throws -> String {
         let joinRequest = Livekit_JoinRequest.with { request in
             request.clientInfo = Livekit_ClientInfo.with {
@@ -321,9 +320,8 @@ class Utils: Loggable {
 
             // Bundling the publisher offer lets the server answer it in the same exchange,
             // removing a round trip from the connect path.
-            if let initialPublish {
-                request.publisherOffer = initialPublish.offer
-                request.addTrackRequests = initialPublish.requests
+            if let publisherOffer {
+                request.publisherOffer = publisherOffer
             }
 
             if reconnectMode == .quick {

@@ -386,42 +386,19 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                         roomOptions: RoomOptions? = nil) async throws
     {
         try await connect(url: urlString, token: token, connectOptions: connectOptions,
-                          roomOptions: roomOptions, publishTracks: [])
+                          roomOptions: roomOptions, automaticMicrophone: true)
     }
 
-    // swiftlint:disable cyclomatic_complexity function_body_length
-    /// Connects and publishes the supplied tracks before returning.
-    ///
-    /// In single peer connection mode, unencrypted tracks travel with the JOIN request.
-    /// Other configurations publish normally after joining. A failed publication fails the
-    /// connection; supplied tracks are not retained for later connects or full reconnects.
-    ///
-    /// ```swift
-    /// let microphone = await LocalAudioTrack.createTrack()
-    /// try await room.connect(url: url, token: token,
-    ///                        publishTracks: [InitialTrack(track: microphone)])
-    /// ```
-    public func connect(url urlString: String,
-                        token: String,
-                        connectOptions: ConnectOptions? = nil,
-                        roomOptions: RoomOptions? = nil,
-                        publishTracks: [InitialTrack]) async throws
-    {
-        try await connect(url: urlString, token: token, connectOptions: connectOptions,
-                          roomOptions: roomOptions, publishTracks: publishTracks, preparedAudio: nil)
+    /// Session owns capture/publication, so joining must not start or await another microphone.
+    @nonobjc func connectForSession(url: String, token: String) async throws {
+        try await connect(url: url, token: token, connectOptions: nil,
+                          roomOptions: nil, automaticMicrophone: false)
     }
 
-    func connect(url urlString: String, token: String, connectOptions: ConnectOptions? = nil,
-                 roomOptions: RoomOptions? = nil, publishTracks: [InitialTrack] = [],
-                 preparedAudio: PreparedAudioPublication?) async throws
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    @nonobjc private func connect(url urlString: String, token: String, connectOptions: ConnectOptions?,
+                                  roomOptions: RoomOptions?, automaticMicrophone: Bool) async throws
     {
-        let cids = publishTracks.map(\.track.mediaTrack.trackId)
-        guard Set(cids).count == cids.count else {
-            throw LiveKitError(.invalidParameter, message: "The same track was supplied more than once")
-        }
-        guard publishTracks.allSatisfy({ $0.track._state.rtpSender == nil }) else {
-            throw LiveKitError(.invalidState, message: "A supplied track has already been published")
-        }
         guard let providedUrl = URL(string: urlString), providedUrl.isValidForConnect else {
             log("URL parse failed", .error)
             throw LiveKitError(.failedToParseUrl)
@@ -490,14 +467,14 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         // Concurrent mic publish mode
-        let enableMicrophone = _state.connectOptions.enableMicrophone
+        let enableMicrophone = automaticMicrophone && _state.connectOptions.enableMicrophone
         log("Concurrent enable microphone mode: \(enableMicrophone)")
 
-        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if preparedAudio == nil, let recorder = preConnectBuffer.recorder, recorder.isRecording {
+        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if automaticMicrophone, let recorder = preConnectBuffer.recorder, recorder.isRecording {
             Task {
                 recorder.track
             }
-        } else if preparedAudio == nil, enableMicrophone {
+        } else if enableMicrophone {
             Task {
                 let localTrack = await LocalAudioTrack.createTrack(options: _state.roomOptions.defaultAudioCaptureOptions,
                                                                    reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
@@ -519,10 +496,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
                                                                     initialUrl: nextUrl,
                                                                     initialRegion: nextRegion,
-                                                                    token: token,
-                                                                    publishTracks: publishTracks, preparedAudio: preparedAudio)
+                                                                    token: token)
             } else {
-                try await fullConnectSequence(nextUrl, token, publishTracks: publishTracks, preparedAudio: preparedAudio)
+                try await fullConnectSequence(nextUrl, token)
                 finalUrl = nextUrl
             }
 
@@ -555,16 +531,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             }
 
             await cleanUp(withError: error)
-            for initial in publishTracks {
-                try? await initial.track.stop()
-            }
             throw error // Re-throw the original error
         }
 
         log("Connected to \(String(describing: self))", .info)
     }
-
-    // swiftlint:enable cyclomatic_complexity function_body_length
 
     public func disconnect() async {
         let shouldDisconnect = _state.mutate {
