@@ -51,6 +51,8 @@ extension Room {
             case .connected: if $0.connectionState == .reconnecting { $0.connectionState = .connected }
             case .reconnecting: $0.connectionState = .reconnecting
             case .disconnected: break // Teardown is owned by the driver, before the terminal delegate.
+            @unknown default:
+                $0.disconnectError = LiveKitError(.invalidState, message: "Unknown native connection state")
             }
         }
     }
@@ -84,6 +86,7 @@ extension Room {
             case .good: $0.connectionQuality = .good
             case .poor: $0.connectionQuality = .poor
             case .lost: $0.connectionQuality = .lost
+            @unknown default: $0.connectionQuality = .unknown
             }
         }
     }

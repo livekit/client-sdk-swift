@@ -56,6 +56,7 @@ extension NativeParticipant {
                 case .unused: .capUnused
                 case .packetTrailer: .capPacketTrailer
                 case .compressionDeflateRaw: .capCompressionDeflateRaw
+                @unknown default: .capUnused
                 }
             }
             if let permission { $0.permission = permission.toPBType() }
@@ -103,6 +104,7 @@ extension NativeParticipantState {
         case .joined: .joined
         case .active: .active
         case .disconnected: .disconnected
+        @unknown default: .init(rawValue: -1)
         }
     }
 }
@@ -117,6 +119,7 @@ extension NativeParticipantKind {
         case .agent: .agent
         case .connector: .connector
         case .bridge: .bridge
+        @unknown default: .init(rawValue: -1)
         }
     }
 }
@@ -130,6 +133,7 @@ extension NativeParticipantKindDetail {
         case .connectorTwilio: .connectorTwilio
         case .bridgeRtsp: .bridgeRtsp
         case .simulation: .simulation
+        @unknown default: .init(rawValue: -1)
         }
     }
 }
@@ -142,6 +146,7 @@ extension NativeTrackSource {
         case .microphone: .microphone
         case .screenshare: .screenShare
         case .screenshareAudio: .screenShareAudio
+        @unknown default: .unknown
         }
     }
 }
@@ -152,6 +157,7 @@ extension NativeEncryptionType {
         case .none: .none
         case .gcm: .gcm
         case .custom: .custom
+        @unknown default: .custom
         }
     }
 }
