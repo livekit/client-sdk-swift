@@ -116,8 +116,6 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
 
     let _state: StateSync<State>
 
-    // States that do not require `objectWillChange` for Swift UI.
-
     let _publishSerialRunner = SerialRunnerActor<LocalTrackPublication?>()
 
     // swiftlint:disable:next cyclomatic_complexity function_body_length

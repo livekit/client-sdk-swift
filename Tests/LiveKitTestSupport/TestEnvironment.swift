@@ -202,7 +202,8 @@ public enum TestEnvironment {
         // Connect all Rooms concurrently (retry on transient failure)
         try await Task.retrying(totalAttempts: 3, retryDelay: 2) { _, _ in
             try await withThrowingTaskGroup { group in
-                for element in rooms {
+                // A retry reconnects only the rooms that failed, so their own error surfaces.
+                for element in rooms where element.room.connectionState != .connected {
                     group.addTask {
                         try await element.room.connect(url: element.url, token: element.token)
                         guard element.room.localParticipant.identity != nil else {
