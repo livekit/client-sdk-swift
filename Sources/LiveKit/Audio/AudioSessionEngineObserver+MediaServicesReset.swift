@@ -45,4 +45,24 @@ public extension AudioSessionEngineObserver {
     }
 }
 
+extension AudioSessionEngineObserver {
+    /// Acquires a requirement equal to what the session is currently required for, so the session stays
+    /// active and configured while the engine gives up and re-acquires its own requirement.
+    ///
+    /// - Returns: `nil` when nothing requires the session, or when the requirement could not be acquired.
+    func acquireCurrentRequirement() -> SessionRequirementHandle? {
+        let current = _state.read {
+            SessionRequirement(isPlayoutEnabled: $0.isPlayoutEnabled, isRecordingEnabled: $0.isRecordingEnabled)
+        }
+        guard current != .none else { return nil }
+
+        do {
+            return try acquire(requirement: current)
+        } catch {
+            log("Failed to hold the audio session across the engine rebuild: \(error)", .warning)
+            return nil
+        }
+    }
+}
+
 #endif

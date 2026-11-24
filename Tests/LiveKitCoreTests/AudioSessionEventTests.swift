@@ -258,6 +258,46 @@ struct AudioSessionEventTests {
         try observer.reactivateSessionIfNeeded()
         #expect(observer.takeConfigurations().isEmpty)
     }
+
+    /// The engine rebuild releases the engine, which drops its requirement, then creates a new one.
+    /// Holding the current requirement keeps every configuration in between on an active session.
+    @Test func heldRequirementKeepsTheSessionActiveAcrossAnEngineRebuild() throws {
+        let (observer, engine) = startedObserver()
+
+        let hold = try #require(observer.acquireCurrentRequirement())
+        _ = observer.takeConfigurations()
+
+        _ = observer.engineDidDisable(engine, isPlayoutEnabled: false, isRecordingEnabled: false)
+        _ = observer.engineWillEnable(AVAudioEngine(), isPlayoutEnabled: true, isRecordingEnabled: true)
+        try hold.release()
+
+        let configurations = observer.takeConfigurations()
+        #expect(!configurations.isEmpty)
+        for configuration in configurations {
+            #expect(configuration.newState.isPlayoutEnabled)
+            #expect(configuration.newState.isRecordingEnabled)
+            #expect(!configuration.activates)
+        }
+        #expect(observer._state.isPlayoutEnabled)
+        #expect(observer._state.isRecordingEnabled)
+    }
+
+    /// Without the hold, the same sequence deactivates the session in between.
+    @Test func engineRebuildWithoutAHoldDeactivatesTheSession() throws {
+        let (observer, engine) = startedObserver()
+
+        _ = observer.engineDidDisable(engine, isPlayoutEnabled: false, isRecordingEnabled: false)
+
+        let configuration = try #require(observer.takeConfigurations().first)
+        #expect(!configuration.newState.isPlayoutEnabled)
+        #expect(!configuration.newState.isRecordingEnabled)
+    }
+
+    @Test func nothingToHoldWhenTheSessionIsNotRequired() {
+        let observer = RecordingObserver()
+        #expect(observer.acquireCurrentRequirement() == nil)
+        #expect(observer.takeConfigurations().isEmpty)
+    }
 }
 
 #endif
