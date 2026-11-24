@@ -8,15 +8,18 @@ input into later PCM tracks, including tracks in other rooms. This core limitati
 prevents claiming isolated PCM input. The reviewed macOS privacy guard covers
 receive-first followed by PCM without an explicit microphone, not all capture paths.
 
-Checkpoint: production Room integration against safe Rust
-`6bda54970f8d24c845d5a1ef32bed6b8bf133c17` (shipped FFI0.13.4 baseline).
-Package: `/Users/blaze/livekit/research-v3/rust-ffi/room-apis-6bda549-safe-apple/livekit-ffi-xcframework`.
+Checkpoint: production Room integration against Rust
+`08da67f24b3c46219320f29d3415e1114a80e9dc` (safe `6bda549` plus DTMF, subscription
+permission and video quality controls; packaging-only head `d03e2063`).
+Package: `/Users/blaze/livekit/research-v3/rust-ffi/room-apis-08da67f-apple/livekit-ffi-xcframework`,
+archive SHA-256 `c9b559931a7a22255710ff3490f4329a77bfcb363f1dc4cfcd8beae4139699ce`.
 Verified macOS arm64 binary SHA-256:
-`ba4a237e1268adc8df39657f7559dbe007dae122afb64cc97c5e78647cabfde9`.
+`bc6c8fef9fa3b6c6811ef0515051309437ba3766ec6e1f8ceb2c04a90a3f779b`.
+Do not mix 6bda bindings or slices with this package: four room checksums changed.
 Automatic PlatformAudio activation is removed; safe receive-only output remains
-blocked on a capture-independent public core API. Matching safe device/simulator slices are now available; both explicitly require
-iOS14. SDK declaration13 therefore remains incompatible: **iOS13 is a
-minor-release blocker**, not established support. No stand-ins or second Room engine.
+blocked on a capture-independent public core API. Matching device/simulator slices require iOS14 and the package manifest requires
+macOS11. SDK declarations iOS13/macOS10.15 therefore remain incompatible: **these are
+minor-release blockers**, not established support. No stand-ins or second Room engine.
 
 **Conclusion:** production encrypted connection, microphone/synthetic PCM,
 buffer-video capture and remote `VideoView` rendering work through Rust.
@@ -77,9 +80,9 @@ Review-specific remaining gaps (existing declarations retained):
 
 | Signature / callback | Status |
 |---|---|
-| `LocalParticipant.publishDtmf(code:digit:) async throws` | **wired, unverified**: Rust `08da67f` `publishDtmf` with no destinations (broadcast, as baseline). Core sends it reliably without data E2EE, so no encrypted-payload guard. No public Swift DTMF receive callback exists; native `dtmfReceived` is ignored. Awaits the matching 08 Apple package. |
-| `LocalParticipant.setTrackSubscriptionPermissions(allParticipantsAllowed:trackPermissions:) async throws` | **wired, unverified**: Rust `08da67f` identity-based command. Each public participant SID resolves to an identity among current remote participants; unknown SIDs are skipped like the server does, but a participant the client has not yet seen is also skipped. Completion is desired state, not server acknowledgement; core resends on reconnect. Core can keep a stale permission status or track after revocation; native permission status is not projected to `isSubscriptionAllowed`. |
-| `RemoteTrackPublication.set(videoQuality:) async throws` | **wired, unverified**: Rust `08da67f` `setVideoQuality` for video; audio keeps the stored setting only, as the server ignores it. Request only: core ignores non-simulcast tracks, and no layer selection is claimed. Preferred FPS still rejects. |
+| `LocalParticipant.publishDtmf(code:digit:) async throws` | **implemented, send only**: native `publishDtmf` with no destinations (broadcast, as baseline). Core sends it reliably without data E2EE, so no encrypted-payload guard; an encrypted-room send passes. No public Swift DTMF receive callback exists; native `dtmfReceived` is ignored, and receipt is not verified. |
+| `LocalParticipant.setTrackSubscriptionPermissions(allParticipantsAllowed:trackPermissions:) async throws` | **implemented**: native identity-based command. Each SID resolves to a current remote identity; unknown SIDs are skipped as the server does, but so is a participant this client has not seen yet. Precedence is kept: allParticipantsAllowed sends no entries, allTracksAllowed sends no track SIDs, so ignored invalid SIDs do not throw; an applied invalid SID rejects. Completion is desired state, not server acknowledgement; core resends on reconnect. Revocation can leave a stale status or track; native permission status is not projected to `isSubscriptionAllowed`. Deny is only observed as no track within 1s; server log shows the denied and allowed updates. |
+| `RemoteTrackPublication.set(videoQuality:) async throws` | **implemented as a request**: native `setVideoQuality` for video only; audio stores the setting only, as the server ignores it. Track settings send only the changed native commands, and a failed request keeps the previous local value. Success means the core accepted the request, not that the SFU selected the layer; core ignores non-simulcast tracks. Preferred FPS still rejects. |
 | `Room.connect(...)` on an already-connected Room | Throws invalidState rather than baseline reconnect behavior; compatibility unresolved. |
 | `room(_:participant:trackPublication:didReceiveTranscriptionSegments:)`, internal `room(didReceiveTranscriptionPacket:)`, `room(_:didFailToDecryptDataWithEror:)` | No corresponding native delivery mapping; exact native transcription/decryption events needed. No fabricated callbacks. |
 | Per-publication encryption-state callbacks | Native participant/state event lacks track SID; cannot associate truthfully. |
@@ -180,9 +183,10 @@ all3 generated Swift files and the macOS binary are unchanged. Evidence:
 entries; ObjC header line multiset matches baseline. Device/simulator incremental
 verification result bundles resolve initial Xcode “failed with exit code0” log
 messages; both builds succeeded. No iOS runtime claim or Swift platform-floor edit.
-iOS14 native minimum remains a minor-compatibility blocker. Native iOS signatures
-verify; unchanged macOS bundle fails strict signature validation (“ambiguous bundle
-format”), a research-packaging/distribution blocker. Both Rust reviewers approved the frozen6bda549 scope; the Swift packaging/API review approveda7913381.
+iOS14 native minimum remains a minor-compatibility blocker. At 08da67f all three
+framework slices pass strict `codesign --verify --deep --strict`: the earlier macOS
+“ambiguous bundle format” came from copies that flattened versioned symlinks. They are
+ad-hoc debug signatures, with no release or notarization claim. Both Rust reviewers approved the frozen6bda549 scope; the Swift packaging/API review approveda7913381.
 Parent recovery log `manager-options/parent-recovery-tests.log` passes2functions/5cases;
 parent verified and stopped owned server85789 after the run.
 
@@ -193,3 +197,20 @@ PATH=/usr/bin:/bin:$PATH .github/api-check/api-dump.sh --diff /Users/blaze/livek
 ```
 Exact simulator/device xcodebuild commands and hashes are saved with the final
 review packet; only production build targets run, no runtime test cases.
+
+## Controls 08da67f (Swift `b23c1e07`)
+
+Evidence: `/Users/blaze/livekit/research-v3/swift-native-next/controls-08da67f/`.
+Owned server127.0.0.1:17941 (rtc tcp17944/udp17945), stopped after the run; at most2 jobs.
+External check package is a copy of production-check with symlinks to this worktree.
+
+| Gate | Result |
+|---|---|
+| New controls | `NativeControlsTests.swift`: **2 functions / 2 cases pass**. The permission test fails with “invalid allowed track SID” when the allTracksAllowed fix is reverted. The closed-session quality failure also passes on old code, so it covers state preservation, not the removed setEnabled call. |
+| Regressions | 20 unchanged functions in NativeRoomTests (5), NativeReviewTests (4), NativeCompatibilityTests (6 in the suite), encryptedBufferVideoRenders, PublishDataTests (2), ParticipantTests (2). With the new tests: **22 functions / 32 cases pass**. No microphone, camera or capture test ran. |
+| Objective-C | All **21** methods pass (`xcodebuild ... -only-testing:LiveKitObjCTests`). |
+| Public API | macOS and iOS: zero breaking, zero additions. The Swift interface differs from the approved checkpoint only in doc notes and the package name. ObjC headers add only doc lines; non-doc line multiset equals baseline. |
+| Apple builds | iOS device and simulator Release `xcodebuild build` succeed. No iOS runtime claim. |
+| Lint | Strict swiftlint and swiftformat pass all 6 changed Swift files. |
+
+Native 08da67f review approved. Swift `b23c1e07` fixes both Codex blockers on `fc45878e` and awaits Codex re-review.
