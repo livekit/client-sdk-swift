@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -31,16 +32,13 @@ public class LocalVideoTrack: Track, LocalTrackProtocol, @unchecked Sendable {
          videoSource: LKRTCVideoSource,
          reportStatistics: Bool)
     {
-        let rtcTrack = RTC.createVideoTrack(source: videoSource)
-        rtcTrack.isEnabled = true
-
         self.capturer = capturer
         videoSourceBox = RTCBox(videoSource)
 
         super.init(name: name,
                    kind: .video,
                    source: source,
-                   track: RTCMediaTrack(rtcTrack),
+                   track: nil,
                    reportStatistics: reportStatistics)
     }
 
@@ -51,6 +49,9 @@ public class LocalVideoTrack: Track, LocalTrackProtocol, @unchecked Sendable {
     public func unmute() async throws {
         try await super._unmute()
     }
+
+    let nativeVideo = StateSync<NativeLocalVideoTrack?>(nil)
+    let nativeCapture = StateSync<NativeVideoCapture?>(nil)
 
     // MARK: - Internal
 

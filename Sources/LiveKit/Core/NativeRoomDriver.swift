@@ -25,6 +25,7 @@ actor NativeRoomDriver {
     private var projection: NativeRoomState?
     private var handlers: [String: RpcHandler] = [:]
     private var closing = false
+    private var reportedPacketMetadataGap = false
     private var closeWaiters: [CheckedContinuation<Void, Never>] = []
     private var rpcTasks: [String: AnyTaskCancellable] = [:]
 
@@ -47,14 +48,18 @@ actor NativeRoomDriver {
         }
         let connect = connectOptions ?? room._state.connectOptions
         let options = roomOptions ?? room._state.roomOptions
+        try Task.checkCancellation()
         let nativeOptions = try Self.options(connect, options)
-        guard room.nativeE2EE.copy() == nil, !room.nativeEncryptionRequested.copy() else {
-            throw LiveKitError(.invalidState, message: "Native E2EE is not exported by this artifact")
+        if let encryption = options.encryptionOptions {
+            room.nativeE2EE.mutate { $0 = E2EEManager(options: encryption) }
+        } else if let encryption = options.e2eeOptions {
+            room.nativeE2EE.mutate { $0 = E2EEManager(e2eeOptions: encryption) }
         }
         try Task.checkCancellation()
         let native = NativeRoomSession()
         let events = native.events(options: .init())
         session = native
+        reportedPacketMetadataGap = false
         cursor = events
         room.nativeSession.mutate { $0 = native }
         room._state.mutate {
@@ -150,6 +155,10 @@ actor NativeRoomDriver {
         // Transient packets are not represented by snapshots, even when their revision precedes it.
         switch event {
         case let .dataReceived(packet):
+            if !reportedPacketMetadataGap {
+                reportedPacketMetadataGap = true
+                room.log("Native packets omit encryption metadata; the legacy delegate encryption field is not authoritative", .warning)
+            }
             room.engine(room, didReceiveUserPacket: .with { $0.payload = packet.payload; $0.topic = packet.topic ?? "" },
                         participantIdentity: packet.participantIdentity ?? "", encryptionType: .none)
             return true
@@ -311,8 +320,7 @@ private extension NativeRoomDriver {
               connect.publisherTransportConnectTimeout == defaults.publisherTransportConnectTimeout,
               connect.iceServers.isEmpty, connect.iceTransportPolicy == .all,
               !connect.isDscpEnabled, !connect.enableMicrophone,
-              connect.protocolVersion == defaults.protocolVersion, connect.clientProtocol == defaults.clientProtocol,
-              room.e2eeOptions == nil, room.encryptionOptions == nil, !room.reportRemoteTrackStatistics
+              connect.protocolVersion == defaults.protocolVersion, connect.clientProtocol == defaults.clientProtocol
         else {
             throw LiveKitError(.invalidParameter, message: "A nondefault connection/media/encryption option is not exported by the native session")
         }
@@ -320,9 +328,17 @@ private extension NativeRoomDriver {
         guard payload == nil || UInt32(exactly: payload!) != nil else {
             throw LiveKitError(.invalidParameter, message: "Stream payload limit exceeds native UInt32 range")
         }
+        let encryption: NativeEncryptionOptions?
+        if let options = room.encryptionOptions {
+            guard options.encryptionType == .gcm else { throw LiveKitError(.invalidParameter, message: "Only native AES-GCM is supported") }
+            encryption = try .init(keyProvider: options.keyProvider.nativeProvider())
+        } else if let options = room.e2eeOptions {
+            guard options.encryptionType == .gcm else { throw LiveKitError(.invalidParameter, message: "Only native AES-GCM is supported") }
+            encryption = try .init(keyProvider: options.keyProvider.nativeProvider(), legacyMediaOnly: true)
+        } else { encryption = nil }
         return try .init(autoSubscribe: connect.autoSubscribe, adaptiveStream: room.adaptiveStream,
                          dynacast: room.dynacast, singlePeerConnection: room.singlePeerConnection,
                          connectTimeoutMs: milliseconds(connect.socketConnectTimeoutInterval),
-                         sdk: "swift", sdkVersion: LiveKitSDK.version, maxStreamPayloadBytes: payload.map(UInt32.init))
+                         sdk: "swift", sdkVersion: LiveKitSDK.version, maxStreamPayloadBytes: payload.map(UInt32.init), encryption: encryption)
     }
 }

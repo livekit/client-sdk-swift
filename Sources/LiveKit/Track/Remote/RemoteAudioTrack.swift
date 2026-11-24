@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import AVFoundation
 import CoreMedia
@@ -35,10 +36,10 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
     ///   applies it; avoid calling it from a Swift Concurrency task on a latency-sensitive path.
     public var volume: Double {
         get {
-            mediaTrack.blocking { ($0 as? LKRTCAudioTrack)?.source.volume.clamped(to: Self.volumeRange) ?? 0 }
+            mediaTrack?.blocking { ($0 as? LKRTCAudioTrack)?.source.volume.clamped(to: Self.volumeRange) ?? 0 } ?? 0
         }
         set {
-            mediaTrack.blocking { ($0 as? LKRTCAudioTrack)?.source.volume = newValue.clamped(to: Self.volumeRange) }
+            mediaTrack?.blocking { ($0 as? LKRTCAudioTrack)?.source.volume = newValue.clamped(to: Self.volumeRange) }
         }
     }
 
@@ -46,7 +47,7 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
 
     init(name: String,
          source: Track.Source,
-         track: RTCMediaTrack,
+         track: RTCMediaTrack?,
          reportStatistics: Bool)
     {
         super.init(name: name,
@@ -58,14 +59,47 @@ public class RemoteAudioTrack: Track, RemoteTrackProtocol, AudioTrackProtocol, @
         // Attaching the sink blocks on the signaling thread; remote tracks are built on the RTC
         // executor, so this runs inline there rather than hopping.
         let adapter = _adapter
-        mediaTrack.blocking { ($0 as? LKRTCAudioTrack)?.add(adapter) }
+        mediaTrack?.blocking { ($0 as? LKRTCAudioTrack)?.add(adapter) }
     }
 
     deinit {
         // The symmetric detach blocks on the signaling thread; keep it off the serial RTC executor
         // and the cooperative pool.
         let adapter = _adapter
-        mediaTrack.park { ($0 as? LKRTCAudioTrack)?.remove(adapter) }
+        mediaTrack?.park { ($0 as? LKRTCAudioTrack)?.remove(adapter) }
+    }
+
+    private let nativeFrames = StateSync<AnyTaskCancellable?>(nil)
+
+    func receiveNativeAudio(_ native: NativeRemoteAudioTrack) async throws {
+        let frames = try await native.frames(channels: 1, capacity: 8)
+        let adapter = _adapter
+        nativeFrames.mutate {
+            $0 = Task {
+                do {
+                    try await withTaskCancellationHandler {
+                        while !Task.isCancelled, let frame = try await frames.next() {
+                            guard let format = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: Double(frame.sampleRate), channels: frame.numChannels, interleaved: true),
+                                  let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frame.samplesPerChannel),
+                                  let data = buffer.int16ChannelData?[0] else { continue }
+                            buffer.frameLength = frame.samplesPerChannel
+                            frame.samples.withUnsafeBufferPointer { samples in
+                                if let base = samples.baseAddress { data.update(from: base, count: samples.count) }
+                            }
+                            adapter.render(pcmBuffer: buffer)
+                        }
+                    } onCancel: {
+                        Task.detached { frames.cancel() }
+                    }
+                } catch {
+                    if !Task.isCancelled { adapter.log("Native audio sink ended: \(error)") }
+                }
+            }.cancellable()
+        }
+    }
+
+    override func stopCapture() async throws {
+        nativeFrames.mutate { $0 = nil }
     }
 
     public func add(audioRenderer: AudioRenderer) {

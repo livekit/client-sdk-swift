@@ -134,7 +134,7 @@ extension LocalTrackPublication: VideoCapturerDelegate {
 extension LocalTrackPublication {
     func sendAudioTrackFeatures() {
         // Only proceed if audio track.
-        guard let audioTrack = track as? LocalAudioTrack else { return }
+        guard let audioTrack = track as? LocalAudioTrack, audioTrack.nativePublication.copy() == nil else { return }
 
         let newFeatures = audioTrack.features(publishOptions: audioTrack.publishOptions as? AudioPublishOptions)
 

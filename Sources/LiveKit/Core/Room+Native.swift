@@ -40,6 +40,7 @@ extension Room {
                 delegates.notify { $0.room?(self, participantDidConnect: participant) }
             }
         }
+        await applyNativeMedia(snapshot)
         if restoreDataTracks { restoreNativeDataTracks(snapshot) }
         applyNativeConnection(snapshot.connection)
     }
@@ -107,5 +108,42 @@ extension Room {
         guard participant.removeDataTrack(sid: sid) != nil else { return }
         participant.delegates.notify { $0.participant?(participant, didUnpublishDataTrack: sid) }
         delegates.notify { $0.room?(self, participant: participant, didUnpublishDataTrack: sid) }
+    }
+}
+
+extension Room {
+    func applyNativeMedia(_ snapshot: NativeRoomState) async {
+        guard let session = nativeSession.copy() else { return }
+        for info in snapshot.publications {
+            guard let participant = remoteParticipants[Participant.Identity(from: info.participantIdentity)],
+                  let publication = participant.trackPublications[Track.Sid(from: info.sid)] as? RemoteTrackPublication else { continue }
+            do {
+                let handle = try session.publication(identity: info.participantIdentity, sid: info.sid)
+                if let audio = try handle.remoteAudioTrack() {
+                    guard publication.track == nil else { continue }
+                    let track = RemoteAudioTrack(name: info.name, source: publication.source, track: nil, reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+                    track.nativePublication.mutate { $0 = handle }
+                    await publication.set(track: track)
+                    try await track.receiveNativeAudio(audio)
+                    track.set(trackState: .started)
+                    participant.delegates.notify { $0.participant?(participant, didSubscribeTrack: publication) }
+                    delegates.notify { $0.room?(self, participant: participant, didSubscribeTrack: publication) }
+                } else if let video = try handle.remoteVideoTrack() {
+                    guard publication.track == nil else { continue }
+                    let track = RemoteVideoTrack(name: info.name, source: publication.source, track: nil, reportStatistics: _state.roomOptions.reportRemoteTrackStatistics)
+                    track.nativePublication.mutate { $0 = handle }
+                    await publication.set(track: track)
+                    try await track.receiveNativeVideo(video)
+                    track.set(trackState: .started)
+                    participant.delegates.notify { $0.participant?(participant, didSubscribeTrack: publication) }
+                    delegates.notify { $0.room?(self, participant: participant, didSubscribeTrack: publication) }
+                } else if let track = publication.track {
+                    try await track.stopCapture()
+                    await publication.set(track: nil)
+                }
+            } catch {
+                log("Native publication projection failed: \(error)", .warning)
+            }
+        }
     }
 }

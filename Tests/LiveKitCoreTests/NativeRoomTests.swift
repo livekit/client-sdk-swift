@@ -22,16 +22,16 @@ import Testing
 
 @Suite(.serialized, TestLimits.unit)
 struct NativeRoomTests {
-    private let url = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"] ?? "ws://127.0.0.1:17891"
+    let url = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"] ?? "ws://127.0.0.1:17891"
 
-    private func token(_ identity: String, room: String) throws -> String {
+    func token(_ identity: String, room: String) throws -> String {
         try tokenGenerate(options: .init(videoGrants: .init(roomCreate: false, roomList: false, roomRecord: false, roomAdmin: false, roomJoin: true, room: room, destinationRoom: "",
                                                             canPublish: true, canSubscribe: true, canPublishData: true,
                                                             canPublishSources: [], canUpdateOwnMetadata: true, ingressAdmin: false, hidden: false, recorder: false, agent: false), identity: identity),
                           credentials: .init(key: "devkey", secret: "secret"))
     }
 
-    private func eventually(_ condition: @escaping @Sendable () -> Bool) async throws {
+    func eventually(_ condition: @escaping @Sendable () -> Bool) async throws {
         for _ in 0 ..< 200 {
             if condition() { return }
             try await Task.sleep(nanoseconds: 50_000_000)

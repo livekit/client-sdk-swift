@@ -115,8 +115,9 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     ///
     /// - Parameter enabled: Whether to enable encryption.
     public func setE2EEEnabled(_ enabled: Bool) {
-        nativeEncryptionRequested.mutate { $0 = enabled }
-        if enabled { log("Native encryption is unavailable; outgoing commands will reject activation", .error) }
+        guard let manager = e2eeManager, nativeSession.copy() != nil, enabled != manager.isDataChannelEncryptionEnabled else { return }
+        nativeEncryptionRequested.mutate { $0 = true }
+        log("Dynamic native data encryption switching is not exported; new outgoing commands reject this unsupported request", .error)
     }
 
     public lazy var localParticipant: LocalParticipant = .init(room: self)
@@ -135,7 +136,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     let dataStreams = DataStreams()
 
     func requireNativeSession() throws -> NativeRoomSession {
-        guard !nativeEncryptionRequested.copy(), nativeE2EE.copy() == nil else {
+        guard !nativeEncryptionRequested.copy() else {
             throw LiveKitError(.invalidState, message: "Native encryption is not exported by this artifact")
         }
         guard let session = nativeSession.copy(), connectionState == .connected || connectionState == .reconnecting else {
@@ -392,6 +393,8 @@ extension Room {
         _sidCompleter.reset(throwing: error)
         await activeParticipantCompleters.reset(throwing: error)
         await cleanUpParticipants()
+        nativeE2EE.mutate { $0 = nil }
+        nativeEncryptionRequested.mutate { $0 = false }
         _state.mutate {
             $0 = State(connectOptions: $0.connectOptions, roomOptions: $0.roomOptions,
                        connectionState: .disconnected, disconnectError: LiveKitError.from(error: error))

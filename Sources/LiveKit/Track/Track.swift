@@ -16,6 +16,7 @@
 
 // swiftlint:disable file_length
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -89,13 +90,15 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
 
     let delegates = MulticastDelegate<TrackDelegate>(label: "TrackDelegate")
 
-    let mediaTrack: RTCMediaTrack
+    let mediaTrack: RTCMediaTrack?
+    let nativePublication = StateSync<NativePublicationHandle?>(nil)
 
     struct State {
         let name: String
         let kind: Kind
         let source: Source
 
+        weak var nativeSession: NativeRoomSession?
         var sid: Sid?
         var dimensions: Dimensions?
         var videoFrame: VideoFrame?
@@ -135,7 +138,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     init(name: String,
          kind: Kind,
          source: Source,
-         track: RTCMediaTrack,
+         track: RTCMediaTrack?,
          reportStatistics: Bool)
     {
         _state = StateSync(State(
@@ -259,6 +262,11 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     @discardableResult
     @RTC
     func enable() async throws -> Bool {
+        if let native = nativePublication.copy() {
+            try await native.setEnabled(enabled: true)
+            return true
+        }
+        guard let mediaTrack else { throw LiveKitError(.invalidState, message: "Track is not attached") }
         guard !mediaTrack.raw.isEnabled else { return false }
         mediaTrack.raw.isEnabled = true
         return true
@@ -268,6 +276,11 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     @discardableResult
     @RTC
     func disable() async throws -> Bool {
+        if let native = nativePublication.copy() {
+            try await native.setEnabled(enabled: false)
+            return true
+        }
+        guard let mediaTrack else { throw LiveKitError(.invalidState, message: "Track is not attached") }
         guard mediaTrack.raw.isEnabled else { return false }
         mediaTrack.raw.isEnabled = false
         return true
@@ -348,6 +361,11 @@ extension Track {
     func _mute() async throws {
         // LocalTrack only, already muted
         guard self is LocalTrack, !isMuted else { return }
+        if let native = nativePublication.copy() {
+            try await native.setMuted(muted: true)
+            set(muted: true)
+            return
+        }
         try await disable() // Disable track first
         // Only stop if VideoTrack
         if self is LocalVideoTrack {
@@ -359,6 +377,11 @@ extension Track {
     func _unmute() async throws {
         // LocalTrack only, already un-muted
         guard self is LocalTrack, isMuted else { return }
+        if let native = nativePublication.copy() {
+            try await native.setMuted(muted: false)
+            set(muted: false)
+            return
+        }
         // Only start if VideoTrack
         if self is LocalVideoTrack {
             try await start()

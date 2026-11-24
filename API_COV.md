@@ -1,23 +1,19 @@
 # Swift API coverage over the native room backend
 
-Checkpoint: production Room integration against Rust `893bc21b328adaa1d00eb036ded59bad415e8890`
-(shipped FFI 0.13.4 baseline). Package:
-`/Users/blaze/livekit/research-v3/rust-ffi/room-apis-893bc21b/livekit-ffi-xcframework`.
-Framework SHA-256: `702a7ad86fe5fa16cedcac4b747f2f1c184d7b6a569a7c53d720eca443c4dc28`.
-Only macOS arm64 is supplied. No stand-in exports or second room engine.
+Checkpoint: production Room and media integration against committed Rust
+`c6f070e0cd30bdc77fec86ca206c214941e49f73` (shipped FFI 0.13.4 baseline).
+Package: `/Users/blaze/livekit/research-v3/rust-ffi/room-apis-c6f070e0/livekit-ffi-xcframework`.
+Verified framework SHA-256: `26f6630b5bb0f25b879db407d8e1808d06da695fb7e8776a0a6aec3c594cc5fd`.
+The consumed XCFramework is macOS arm64. Owner also compiled raw iOS device
+(minOS13) and arm64 simulator (minOS14) dylibs; these are not yet packaged or
+validated in Swift. No stand-in exports, second Room engine or Swift peer connection.
 
-Next artifact verified (external compatibility build, **not integrated/pinned**):
-`c6f070e0cd30bdc77fec86ca206c214941e49f73`, package
-`/Users/blaze/livekit/research-v3/rust-ffi/room-apis-c6f070e0/livekit-ffi-xcframework`,
-SHA-256 `26f6630b5bb0f25b879db407d8e1808d06da695fb7e8776a0a6aec3c594cc5fd`.
-Native media, shared-key E2EE and reader `waitClosed()` now exist; native-only
-proof is not Swift/default-fixture acceptance. Integration is blocked by the
-exact public-core event omissions below under the FFI-only constraint.
-
-**Conclusion:** native helper exports are available and the production Room/data
-path has real two-room proof. **Drop-in/minor-version compatibility is not established
-and currently fails known behavioral/platform requirements.** Media integration is
-pending. Independent Claude review is still required before acceptance.
+**Conclusion:** production encrypted connection, microphone/synthetic PCM,
+buffer-video capture and remote `VideoView` rendering work through Rust.
+Original unchanged shared-key/statistics-enabled participant fixtures now pass.
+**Drop-in/minor-version compatibility remains unestablished.** Camera runtime
+capture timed out; speaker playback, complete metadata/errors/options and other
+Apple targets are not accepted. Independent Claude review remains required.
 
 `implemented` means working-backend/PoC behavior exercised by the evidence below,
 not minor-version compatibility; `pending` means
@@ -31,7 +27,7 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 | Gate | Current conclusion |
 |---|---|
 | Public Swift/ObjC declarations, enum values, selectors, availability | macOS Release/distribution build at `85e6f807`: digester reports zero breaking changes and zero additions. ObjC header differs only by relocating the unchanged Room.prepareConnection category; exact header line multiset is equal. Enum/selector/availability text is unchanged. This is surface evidence, not behavioral compatibility. |
-| Existing unmodified public E2E | 21 existing Objective-C test methods passed unchanged, including streams/file/incremental writers, data tracks, RPC and Room delegates. Swift subset uses explicitly adapted plaintext/no-statistics fixtures and is **not** unchanged-app acceptance. |
+| Existing unmodified public E2E | 21 existing Objective-C test methods passed unchanged, including streams/file/incremental writers, data tracks, RPC and Room delegates. Current participant identity/membership, PublishDataTests and DataTrackApiTests also pass with original unchanged shared-key/statistics-enabled fixtures; this does not imply all defaults/media statistics work. |
 | Lifecycle/default/error/delegate/observation semantics | Two-room state/delegate/data/rejoin, invalid-token, cancellation and release proof exists. Sequential name callback ordering/getter consistency and SwiftUI notification delivery now pass. Involuntary reconnect, full error parity and default-option parity remain unproved. New unsupported throws and ineffective nonthrowing controls are **compatibility breaks**. |
 | Supported build/package/target matrix | macOS arm64 Debug tests and Release/distribution build passed; iOS/Catalyst/tvOS/visionOS slices absent. Absolute local artifact pin is research packaging, not a distributable minor release. |
 
@@ -41,7 +37,7 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 |---|---|---|
 | `Room.connect(url:token:connectOptions:roomOptions:) async throws`, `disconnect() async` | **implemented**, native session is the active connection owner. Swift signaling/Transport connection orchestration removed. | `NativeRoomTests.productionRoomLifecycle`, invalid-token/cancellation and release tests. Explicit disconnect/rejoin tested; involuntary network recovery not yet proved. |
 | `Room.remoteParticipants`, `localParticipant`, metadata/state getters and delegates | **implemented** for room and participant state. Native records feed existing nanopb/entity setters and StateSync; identity retains the same RemoteParticipant across updates. | Two-room membership, name/metadata/attributes updates, departure and rejoin. Media publication records are projected; media Track handles remain absent. |
-| `LocalParticipant.publish(data:options:) async throws` | **implemented**, `NativeRoomSession.publishData(payload:options:)`. | Existing `PublishDataTests`: both permission cases, 100 reliable topics each. Native data-channel buffer-status callbacks are not exported. |
+| `LocalParticipant.publish(data:options:) async throws` | **implemented** payload delivery, `NativeRoomSession.publishData(payload:options:)`; encryption metadata remains incorrect/incomplete in the legacy callback. | Existing `PublishDataTests`: both permission cases, 100 reliable topics each. Native data-channel buffer-status callbacks are not exported. Core drops packet encryption type: legacy callback still receives `.none`, which is **not authoritative** for encrypted payloads (one warning per connection). No `.gcm` inference or metadata-parity claim. |
 | `LocalParticipant.set(name:)`, `set(metadata:)`, `set(attributes:)` | **implemented**, native typed commands. | Production two-room update/identity test. |
 | `sendText`, `sendBytes`, `sendFile`, `streamText`, `streamBytes`; byte/text reader/writer APIs | Native handles and room commands **available**; plaintext text/bytes/file/incremental variants **implemented** in production. Progress-specific Swift acceptance remains pending. | `NativeRoomTests` text and byte round trips; existing DataStreamObjCTests proves file, text and incremental byte/text writers. Native milestone README also proves all five commands. No old packet managers. |
 | Internal `DataStreams.registerTextStreamHandler(for:ordered:_:) throws` used by ordered chat/transcription consumers | **blocked**: c6 provides independent `waitClosed()` but not causal close/open order. Baseline overlapping streams must remain concurrent; all-stream serialization breaks that contract. | Core `room/mod.rs:2497` ignores `OutputEvent::StreamClosed`; requires ordered `RoomEvent::StreamClosed(id,identity)`. Independently scheduled completion tasks cannot establish wire ordering. Public unordered handlers work. |
@@ -50,11 +46,12 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 | `Room.registerRpcMethod`, `unregisterRpcMethod`, `isRpcMethodRegistered`; `LocalParticipant.performRpc(...)` | Native RPC operations **available**, production echo/rejoin **implemented**. Native reply handles preserve errors; Swift handler tasks cancel on disconnect. | Production echo/rejoin plus custom code/message/data, unsupported method, response deadline, cancellation and subsequent-call tests pass. Pending-reply disconnect remains pending. |
 | `Participant.capabilities: [ClientCapability]`, `clientProtocol` | Remote capabilities now mapped; local capabilities **compile-only** because native local snapshot is nil. Nondefault connect clientProtocol rejects (no option export). | No longer a missing remote-field/helper blocker. Core negotiates native sends. |
 | Token/log helpers (`Claims`, `TokenOptions`, inference/observability grants, `logForwardBootstrap`, `logForwardReceive`) | **available**, compatible generated 0.13.4 shapes; production compiles without replacement types. | Real token generation exercised by all integration fixtures. Old missing-export claims resolved. |
-| Media publish/subscribe and `TrackPublication.track` | **pending Swift integration**: c6 exports typed local/remote audio/video/publication handles and bounded decoded sinks. Existing NSObject hierarchy retained; current activation rejects. | Native encrypted PCM/VP8/microphone proof only. No production camera/VideoView/speaker proof; statistics export absent. No Swift peer connection is created by Room. |
+| Media publish/subscribe and `TrackPublication.track` | **implemented working path**: native source/publication handles attach to existing NSObject tracks; remote PCM/video sinks feed AudioRenderer/VideoView; mute/unmute/unpublish/unsubscribe route native. | Swift encrypted synthetic PCM + physical microphone + buffer video/VideoView pass, including initial publication snapshot and identity across mute. Camera route wired, but default and built-in camera capture both timed out before dimensions. Speaker playback unproved. Custom encoding/processing options reject pending mappings. |
 | `RemoteTrackPublication.set(preferredFPS:)`, `RemoteAudioTrack.volume` | FPS control and per-track volume **blocked** on core/export support; volume is nonthrowing and **compile-only** for native media. | Requires actual controls, not fake setters. |
 | `AudioManager.setManualRenderingMode(_:)`, graph observers/mixer/custom-processing delegates | AVAudioEngine graph access **blocked** while Rust owns the device; manual-rendering activation throws. Nonthrowing graph interfaces are **compile-only**. | Exposing/owning the real graph would require a separate audio-device design; no large adapter added. |
 | `AudioManager.setPlatformVoiceProcessingAllowed(_:)`, `LocalAudioTrack.setAudioProcessingOptions(_:)`, voice processing/AGC controls | **pending mapping**, not inherently impossible. Current throwing activation rejects because this artifact supplies no native mapping. Nonthrowing controls are **compile-only** for native media. | Distinguish core-supported processing controls from graph-access blockers; validate the actual next media exports before wiring. |
-| Room encryption options / `setE2EEEnabled(_:)` | c6 has real native key provider/configuration; **Swift integration blocked on truthful public callbacks**. Current production encryption activation still rejects. | Core `RoomEvent::DataReceived` at `room/mod.rs:207` drops per-packet encryption despite `handle_data` receiving it at 1846–1874. Core `E2eeStateChanged` at :252 lacks track SID (`e2ee/manager.rs:204–210` discards it). Require per-packet encryption and track-associated events upstream; cannot infer from mutable participant/config or fan out a guessed publication. Native current-key-index/media-data dynamic-toggle parity also absent. |
+| Room encryption options / `setE2EEEnabled(_:)` | **implemented shared-key index-zero configuration**: BaseKeyProvider retains the actual native provider across the session, forwards key updates/export/ratchet; Room connects with native data+media or legacy media-only encryption. Callbacks remain incomplete. | Core `RoomEvent::DataReceived` at `room/mod.rs:207` drops per-packet encryption despite `handle_data` receiving it at 1846–1874. Core `E2eeStateChanged` at :252 lacks track SID (`e2ee/manager.rs:204–210` discards it). Require per-packet encryption and track-associated events upstream; cannot infer from mutable participant/config or fan out a guessed publication. Independent current-key-index/media-data dynamic-toggle parity absent. Unsupported nonthrowing switches log/reject activation rather than claim a native change; these are compatibility breaks. Per-participant/multi-index custom-provider parity is unproved. |
+| `RoomOptions.reportRemoteTrackStatistics`, `Track.statistics` | Setting retained in Room/Track state and no longer blocks connections; **sample polling pending** typed native `getStatistics()` artifact. | Core get_stats is accessible; additive FFI mapping requested, not an architectural blocker. No invented samples or false statistics proof. |
 | `Room.serverVersion`, `serverRegion`, `serverNodeId` | **compile-only**, nil: native snapshots omit server info. | Needs native/core metadata access. |
 | `Room.connect`/stream command error types | **compatibility unresolved**: `NativeSessionError.Connection(reason:)` / `Request(reason:)` erase structured status/cause information. | Native structured connection/HTTP and stream-command errors are needed for exact LiveKitError/StreamError parity; no parsing of display strings. |
 | `Room.prepareConnection(url:token:)` and region preparation | Declaration retained; prepared-region/cache consumption is **pending** on the native connect path. | Native connection/region policy must expose the equivalent behavior; do not count retained Swift preparation code as parity. |
@@ -66,8 +63,7 @@ fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
 Mapped: autoSubscribe, adaptiveStream, dynacast, singlePeerConnection,
 socketConnectTimeoutInterval and dataStreamOptions.maxPayloadByteLength (validated
 UInt32 range). Nondefault retry count/delays, per-transport timeouts, ICE servers,
-ICE policy, DSCP, protocolVersion, clientProtocol, microphone activation, encryption
-and remote media-statistics activation reject until exported/mapped.
+ICE policy, DSCP, protocolVersion, clientProtocol and connect-time microphone activation reject until exported/mapped. Shared-key encryption and public setMicrophone are now mapped. Remote statistics is retained, with real polling pending the next export.
 
 Observed default behavior differences (not accepted as minor-version compatible): Rust owns retry/backoff/ICE timing and
 signaling sockets/TLS; core signaling protocol is 17 versus Swift's legacy 16.
@@ -126,15 +122,21 @@ compared read-only; no baseline runtime rerun. This is plaintext data-path proof
 Command: `LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Users/blaze/livekit/research-v3/swift-native-next/production-check --filter 'participantObservationAndCallbackOrder|rpcErrorsDeadlineAndCancellation'`.
 Evidence: `observation-rpc-final.log`, `observation-lint.log` in the evidence root.
 
-Candidate c6 unchanged-fixture check: all production sources compiled; **2 test
-functions / 2 cases failed at connect** (`ParticipantTests.localParticipantIdentity`,
-`remoteParticipants`, existing unsupported-options error). All test-support files
-were restored unchanged, including default E2EE and remote statistics; hashes in
-`c6-fixture-provenance.txt`. Command: same external `swift test --jobs 2` invocation
-with `--filter 'localParticipantIdentity|remoteParticipants'`, candidate package
-c6 in the external manifest only. Evidence: `c6-default-fixtures.log`. This is an
-activation failure, not evidence of runtime media failure. Production remains
-pinned to 893. No SDK source changed after the saved API dump, so no new digester
-or ObjC acceptance result is implied. The Rust owner confirmed all three event
-omissions above are upstream public-core gaps, not missing FFI adapters. No
-involuntary-network-recovery or camera/mic/VideoView/speaker proof was added.
+Current media evidence (same external evidence root): `media-regression-final.log`
+passed 19 executed test functions / 20 cases; camera function is separately gated
+by `LIVEKIT_TESTING_CAMERA=1` and was not counted as passing. Files: NativeRoomTests.swift,
+NativeMediaTests.swift, NativeRoomProtoTests.swift, ParticipantTests.swift (identity,
+membership), PublishDataTests.swift, DataTrackApiTests.swift. Original support
+fixtures are unchanged (`c6-fixture-provenance.txt`). Command:
+`LIVEKIT_TESTING_URL=ws://127.0.0.1:17891 swift test --jobs 2 --package-path /Users/blaze/livekit/research-v3/swift-native-next/production-check --filter 'NativeRoomTests|NativeRoomProtoTests|localParticipantIdentity|remoteParticipants|PublishDataTests|DataTrackApiTests'`.
+`media-mic.log` and `media-video.log` retain first encrypted media proofs.
+`media-camera-final.log` and `media-camera-builtin.log` preserve camera capture
+timeouts; no camera frames/images retained. Earlier `c6-default-fixtures.log`
+activation failures are superseded by the implemented encryption path, not hidden.
+
+Cancellation baseline limitation: exact shipped FFI0.13.4 reader cancellation
+reproduces the same two continuation-storage TSan signatures (120 cancellation
+iterations); matched 120 reads without task cancellation report none. This is
+not migration-specific evidence and does not establish safety/fix. Deferred
+cancellation/cleanup remains; no dependency upgrade. Evidence:
+`/Users/blaze/livekit/research-v3/current-cancellation/baseline/REPORT.md`.

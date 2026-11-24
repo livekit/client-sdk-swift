@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import AVFAudio
 import Combine
@@ -34,7 +35,7 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
 
     init(name: String,
          source: Track.Source,
-         track: RTCMediaTrack,
+         track: RTCMediaTrack?,
          reportStatistics: Bool,
          captureOptions: AudioCaptureOptions)
     {
@@ -74,34 +75,11 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
                              options: AudioCaptureOptions?,
                              reportStatistics: Bool) -> LocalAudioTrack
     {
-        let options = options ?? AudioCaptureOptions()
-
-        let constraints: [String: String] = [
-            "googEchoCancellation": options.echoCancellation.toString(),
-            "googAutoGainControl": options.autoGainControl.toString(),
-            "googNoiseSuppression": options.noiseSuppression.toString(),
-            "googTypingNoiseDetection": options.typingNoiseDetection.toString(),
-            "googHighpassFilter": options.highpassFilter.toString(),
-            "echoCancellationMode": options.echoCancellationMode.toConstraintValue(),
-            "autoGainControlMode": options.autoGainControlMode.toConstraintValue(),
-            "noiseSuppressionMode": options.noiseSuppressionMode.toConstraintValue(),
-            "highPassFilterMode": options.highpassFilterMode.toConstraintValue(),
-        ]
-
-        // Plain value object, no libwebrtc proxy: nothing to wait on.
-        let audioConstraints = LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: constraints)
-
-        let audioSource = RTC.createAudioSource(audioConstraints)
-        let rtcTrack = RTC.createAudioTrack(source: audioSource)
-        rtcTrack.isEnabled = true
-        let mediaTrack = RTCMediaTrack(rtcTrack)
-
-        return LocalAudioTrack(name: name,
-                               source: .microphone,
-                               track: mediaTrack,
-                               reportStatistics: reportStatistics,
-                               captureOptions: options)
+        LocalAudioTrack(name: name, source: .microphone, track: nil,
+                        reportStatistics: reportStatistics, captureOptions: options ?? AudioCaptureOptions())
     }
+
+    let nativeAudio = StateSync<NativeLocalAudioTrack?>(nil)
 
     public func mute() async throws {
         try await super._mute()
@@ -128,22 +106,8 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     // MARK: - Internal
 
     override func startCapture() async throws {
-        // The WebRTC audio device no longer prompts for mic permission (see webrtc-sdk#265),
-        // so request it here while foregrounded before starting recording. Manual rendering mode
-        // publishes app audio without ever opening the microphone, and disabled input availability
-        // (CallKit flows, see setEngineAvailability) defers opening it entirely, so neither needs
-        // permission. Reading these flags waits on WebRTC's worker thread, hence the RTC hop.
-        let needsMicrophonePermission = await RTC.run {
-            !AudioManager.shared.isManualRenderingMode && AudioManager.shared.engineAvailability.isInputAvailable
-        }
-        if needsMicrophonePermission {
-            try await LiveKitSDK.ensureMicrophoneAccessForRecording()
-        }
-        // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
-        // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
-        let audioProcessingOptions = captureOptions.audioProcessing
-        try await RTC.run {
-            try AudioManager.shared.startLocalRecording(audioProcessingOptions: audioProcessingOptions)
+        guard nativeAudio.copy() != nil else {
+            throw LiveKitError(.invalidState, message: "Native audio capture requires a connected room publication")
         }
     }
 

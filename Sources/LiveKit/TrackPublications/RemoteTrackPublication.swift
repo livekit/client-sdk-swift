@@ -63,7 +63,12 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
 
     /// Subscribe or unsubscribe from this track.
     public func set(subscribed newValue: Bool) async throws {
-        throw LiveKitError(.invalidState, message: "Media subscription control is not exported by this native artifact")
+        let participant = try await requireParticipant()
+        let room = try participant.requireRoom()
+        guard let identity = participant.identity else { throw LiveKitError(.invalidState) }
+        let native = try room.requireNativeSession().publication(identity: identity.stringValue, sid: sid.stringValue)
+        try await native.setSubscribed(subscribed: newValue)
+        _state.mutate { $0.isSubscribePreferred = newValue }
     }
 
     // swiftformat:enable unusedArguments
@@ -252,8 +257,20 @@ extension RemoteTrackPublication {
     }
 
     // attempt to send track settings
-    func send(trackSettings _: TrackSettings) async throws {
-        throw LiveKitError(.invalidState, message: "Native track settings (including FPS) are not exported by this artifact")
+    func send(trackSettings settings: TrackSettings) async throws {
+        let previous = _state.trackSettings
+        guard settings.preferredFPS == previous.preferredFPS, settings.videoQuality == previous.videoQuality else {
+            throw LiveKitError(.invalidParameter, message: "Native preferred FPS and explicit quality controls are not exported")
+        }
+        let participant = try await requireParticipant()
+        let room = try participant.requireRoom()
+        guard let identity = participant.identity else { throw LiveKitError(.invalidState) }
+        let native = try room.requireNativeSession().publication(identity: identity.stringValue, sid: sid.stringValue)
+        if settings.dimensions != previous.dimensions, settings.dimensions.width > 0, settings.dimensions.height > 0 {
+            try await native.setVideoDimensions(width: UInt32(settings.dimensions.width), height: UInt32(settings.dimensions.height))
+        }
+        try await native.setEnabled(enabled: settings.isEnabled)
+        _state.mutate { $0.trackSettings = settings }
     }
 }
 
