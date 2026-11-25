@@ -45,8 +45,9 @@ struct MediaProducerTests {
     @Test func captureConversionFailureHasOnlyOneCountedDiagnostic() throws {
         let output = Output()
         let frames = Frames()
-        var owner: VideoCapturer? = VideoCapturer(delegate: frames, mediaLogEmit: output.emit)
-        weak var weakOwner = owner
+        var owner: VideoCapturer? = VideoCapturer(delegate: frames, mediaLogEmit: { entry, body in output.emit(entry, body) })
+        weak var weakOwner: VideoCapturer?
+        weakOwner = owner
         try runCapture(#require(owner), frames: frames, output: output)
         owner = nil
         #expect(weakOwner == nil)
@@ -57,8 +58,9 @@ struct MediaProducerTests {
 
     @Test func mixerLogsAfterEngineStopAndReleasesOwner() throws {
         let output = Output()
-        var owner: MixerEngineObserver? = MixerEngineObserver(mediaLogEmit: output.emit)
-        weak var weakOwner = owner
+        var owner: MixerEngineObserver? = MixerEngineObserver(mediaLogEmit: { entry, body in output.emit(entry, body) })
+        weak var weakOwner: MixerEngineObserver?
+        weakOwner = owner
         let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
         let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480))
         buffer.frameLength = 480
@@ -89,7 +91,7 @@ struct MediaProducerTests {
         let output = Output()
         let frames = Frames()
         let native = LKRTCVideoCapturer(delegate: frames)
-        let capturer = VideoCapturer(delegate: frames, mediaLogEmit: output.emit)
+        let capturer = VideoCapturer(delegate: frames, mediaLogEmit: { entry, body in output.emit(entry, body) })
         var unsafeBuffer: CVPixelBuffer?
         var unsupportedBuffer: CVPixelBuffer?
         #expect(CVPixelBufferCreate(nil, 1, 1, kCVPixelFormatType_32BGRA, nil, &unsafeBuffer) == kCVReturnSuccess)
@@ -107,6 +109,90 @@ struct MediaProducerTests {
         ])
         #expect(records.allSatisfy { $0.0.event.level == .warning })
         #expect(frames.count.copy() == 0)
+    }
+
+    @Test func stopThenStartKeepsNewLifetimeActive() async throws {
+        let output = Output()
+        let capturer = VideoCapturer(delegate: Frames(), mediaLogEmit: { entry, body in output.emit(entry, body) })
+        _ = try await capturer.startCapture()
+        recordBusyFrames(capturer, count: 3)
+        try await withPausedTransition({ _ = try await capturer.stopCapture() }) {
+            #expect(capturer.captureState == .stopped)
+            _ = try await capturer.startCapture()
+            recordBusyFrames(capturer, count: 2)
+            // The old lifetime's drain is paused; the new first record is already visible.
+            #expect(output.records.copy().count == 2)
+        }
+        #expect(capturer.captureState == .started)
+        recordBusyFrames(capturer, count: 1)
+        _ = try await capturer.stopCapture()
+        #expect(output.records.copy().map { $0.0.repeats } == [0, 0, 2, 2])
+        #expect(output.records.copy().suffix(2).allSatisfy { $0.1.contains("final=true") })
+        recordBusyFrames(capturer, count: 1)
+        #expect(output.records.copy().count == 4)
+        _ = try await capturer.startCapture()
+        recordBusyFrames(capturer, count: 2)
+        _ = try await capturer.stopCapture()
+        #expect(output.records.copy().map { $0.0.repeats } == [0, 0, 2, 2, 0, 1])
+    }
+
+    @Test func startThenStopKeepsStoppedLifetimeSilent() async throws {
+        let output = Output()
+        let capturer = VideoCapturer(delegate: Frames(), mediaLogEmit: { entry, body in output.emit(entry, body) })
+        // Establish a stopped lifetime; newly constructed buffer capturers may log before first start.
+        _ = try await capturer.startCapture()
+        _ = try await capturer.stopCapture()
+        try await withPausedTransition({ _ = try await capturer.startCapture() }) {
+            #expect(capturer.captureState == .started)
+            recordBusyFrames(capturer, count: 2)
+            _ = try await capturer.stopCapture()
+        }
+        #expect(capturer.captureState == .stopped)
+        recordBusyFrames(capturer, count: 1)
+        #expect(output.records.copy().map { $0.0.repeats } == [0, 1])
+        _ = try await capturer.startCapture()
+        recordBusyFrames(capturer, count: 2)
+        _ = try await capturer.stopCapture()
+        #expect(output.records.copy().map { $0.0.repeats } == [0, 1, 0, 1])
+    }
+
+    /// Drives the real busy-frame diagnostic without enqueueing media work.
+    private func recordBusyFrames(_ capturer: VideoCapturer, count: Int) {
+        let native = LKRTCVideoCapturer(delegate: Frames())
+        let frame = LKRTCVideoFrame(buffer: LKRTCI420Buffer(width: 16, height: 16), rotation: ._0, timeStampNs: 1)
+        capturer._state.mutate { $0.isFrameProcessingBusy = true }
+        for _ in 0 ..< count {
+            capturer.capture(frame: frame, capturer: native, options: BufferCaptureOptions())
+        }
+        capturer._state.mutate { $0.isFrameProcessingBusy = false }
+    }
+
+    /// Suspends one lifecycle call after its state commit; the other completes before it resumes.
+    private func withPausedTransition(_ operation: @escaping @Sendable () async throws -> Void,
+                                      whilePaused: () async throws -> Void) async throws
+    {
+        let arrived = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let release = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await VideoCapturer.$afterLifecycleTransition.withValue({
+                    arrived.continuation.yield()
+                    for await _ in release.stream {
+                        break
+                    }
+                }, operation: operation)
+            }
+            defer {
+                arrived.continuation.finish()
+                release.continuation.finish()
+            }
+            for await _ in arrived.stream {
+                break
+            }
+            try await whilePaused()
+            release.continuation.finish()
+            try await group.waitForAll()
+        }
     }
 
     private func runCapture(_ capturer: VideoCapturer, frames: Frames, output: Output) {

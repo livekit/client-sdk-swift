@@ -207,8 +207,10 @@ final class WebRTCLogCapture: TelemetryInstrument, @unchecked Sendable {
     static func record(_ message: String) -> LogRecord {
         var record = LogRecord(severity: .error, source: .webRtc,
                                body: message.trimmingCharacters(in: .whitespacesAndNewlines), logger: "WebRTC")
-        guard let prefix = String(bytes: message.utf8.prefix(256), encoding: .utf8),
-              prefix.hasPrefix("("), let end = prefix.range(of: "): ") else { return record }
+        // The cut may split body Unicode; source fields below must still be entirely ASCII.
+        // swiftlint:disable:next optional_data_string_conversion
+        let prefix = String(decoding: message.utf8.prefix(256), as: UTF8.self)
+        guard prefix.hasPrefix("("), let end = prefix.range(of: "): ") else { return record }
         let fields = prefix[prefix.index(after: prefix.startIndex) ..< end.lowerBound].split(separator: ":", omittingEmptySubsequences: false)
         guard fields.count == 2, !fields[0].isEmpty,
               fields[0].utf8.allSatisfy({ (65 ... 90).contains($0) || (97 ... 122).contains($0) || (48 ... 57).contains($0) || [45, 46, 95].contains($0) }),

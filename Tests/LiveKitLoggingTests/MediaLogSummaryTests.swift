@@ -126,7 +126,8 @@ struct MediaLogSummaryTests {
                                                             records.mutate { $0.append(entry.repeats) }
                                                             if entry.repeats > 0 { emitted.signal() }
                                                         })
-        weak var weakSummary = summary
+        weak var weakSummary: MediaLogSummary?
+        weakSummary = summary
         queue.suspend()
         summary?.record(.unsafeDimensions, "first")
         summary?.record(.unsafeDimensions, "second")
@@ -148,7 +149,8 @@ struct MediaLogSummaryTests {
                                                         emit: { entry, body in
                                                             output.records.mutate { $0.append((entry, body)) }
                                                         })
-        weak var weakSummary = summary
+        weak var weakSummary: MediaLogSummary?
+        weakSummary = summary
         summary?.record(.unsafeDimensions, "first")
         summary?.record(.unsafeDimensions, "second")
         summary = nil

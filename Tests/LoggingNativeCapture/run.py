@@ -4,8 +4,8 @@ from pathlib import Path
 import subprocess
 
 root = Path(__file__).resolve().parent
-subprocess.run(["swift", "build", "--build-tests", "--package-path", str(root)], check=True)
+subprocess.run(["/usr/bin/swift", "build", "--build-tests", "--package-path", str(root)], check=True)
 for case in ["noConsole", "customConsole", "disabledConsole", "ffiFalse", "defaultConsole",
              "consoleBeforeTelemetry", "telemetryBeforeConsole", "concurrentInitialization", "optOutBeforeInstall"]:
-    subprocess.run(["swift", "test", "--skip-build", "--package-path", str(root),
+    subprocess.run(["/usr/bin/swift", "test", "--skip-build", "--package-path", str(root),
                     "--filter", "NativeTests." + case], check=True, timeout=30)

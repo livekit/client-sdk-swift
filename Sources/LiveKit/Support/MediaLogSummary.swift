@@ -126,8 +126,15 @@ final class MediaLogSummary: Sendable {
     /// Drains a partial window at graceful stop; core consent still gates every telemetry record.
     func finish() { flush(final: true) }
 
+    /// Stops and detaches this lifetime under the owner's lock; invoke the result after unlocking.
+    func finishDeferred() -> @Sendable () -> Void { prepareFlush(final: true) }
+
     /// Driven by one owned timer, or explicitly by deterministic tests. Never logs under the lock.
     func flush(final: Bool = false, generation: UInt64? = nil) {
+        prepareFlush(final: final, generation: generation)()
+    }
+
+    private func prepareFlush(final: Bool, generation: UInt64? = nil) -> @Sendable () -> Void {
         let entries: [Event: Entry] = state.read { value in
             guard generation == nil || generation == value.generation else { return [:] }
             value.generation &+= 1
@@ -139,8 +146,10 @@ final class MediaLogSummary: Sendable {
             return entries
         }
         let timestamp = now()
-        for entry in entries.values where entry.repeats > 0 {
-            emit(entry, entry.body(now: timestamp, final: final))
+        return { [emit] in
+            for entry in entries.values where entry.repeats > 0 {
+                emit(entry, entry.body(now: timestamp, final: final))
+            }
         }
     }
 }

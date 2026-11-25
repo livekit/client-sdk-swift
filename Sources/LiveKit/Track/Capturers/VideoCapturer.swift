@@ -136,6 +136,9 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         }
     }
 
+    /// Test seam after the count and diagnostic gate commit, with neither lock held.
+    @TaskLocal static var afterLifecycleTransition: (@Sendable () async -> Void)?
+
     /// Requests video capturer to start generating frames. ``Track/start()-dk8x`` calls this automatically.
     ///
     /// ``startCapture()`` and ``stopCapture()`` calls must be balanced. For example, if ``startCapture()`` is called 2 times, ``stopCapture()`` must be called 2 times also.
@@ -147,6 +150,7 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
             // Counter was 0, so did start capturing with this call
             let didStart = $0.startStopCounter == 0
             $0.startStopCounter += 1
+            if didStart { mediaLogs.resume() }
             return didStart
         }
 
@@ -155,7 +159,7 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
             return false
         }
 
-        mediaLogs.resume()
+        if let afterLifecycleTransition = Self.afterLifecycleTransition { await afterLifecycleTransition() }
         delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
             $0.capturer?(self, didUpdate: .started)
         }
@@ -170,25 +174,26 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     @objc
     @discardableResult
     public func stopCapture() async throws -> Bool {
-        let didStop = _state.mutate {
+        let drain: (@Sendable () -> Void)? = _state.mutate {
             // Counter was already 0, so did NOT stop capturing with this call
             if $0.startStopCounter <= 0 {
-                return false
+                return nil
             }
             $0.startStopCounter -= 1
-            return $0.startStopCounter <= 0
+            return $0.startStopCounter == 0 ? mediaLogs.finishDeferred() : nil
         }
 
-        guard didStop else {
-            // Already stopped
+        guard let drain else {
+            // No active lifetime ended
             return false
         }
 
+        if let afterLifecycleTransition = Self.afterLifecycleTransition { await afterLifecycleTransition() }
         delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
             $0.capturer?(self, didUpdate: .stopped)
         }
 
-        mediaLogs.finish()
+        drain()
         set(dimensions: nil)
 
         return true

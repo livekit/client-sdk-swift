@@ -30,6 +30,17 @@ struct NativeLogMetadataTests {
         #expect(record.severity == .error)
     }
 
+    @Test func unicodeBodyAtScanBoundaryKeepsVerifiedPrefix() {
+        let raw = "(RTCLogging.mm:33): a" + String(repeating: "é", count: 200)
+        // Byte 256 is only the leading byte of é, after the complete ASCII source prefix.
+        #expect(raw.utf8.prefix(256).last == 0xC3)
+        let record = WebRTCLogCapture.record(raw)
+        #expect(record.file == "RTCLogging.mm")
+        #expect(record.line == 33)
+        #expect(record.body == raw)
+        #expect(WebRTCLogCapture.record("(é.mm:33): " + raw).file == nil)
+    }
+
     @Test(arguments: ["plain error", "prefix (RTCLogging.mm:33): error", "[12:34] (RTCLogging.mm:33): error",
                       "(/private/source.mm:33): error", "(file.mm:0): error", "(file.mm:4294967296): error",
                       "(file.mm:-1): error", "(file.mm:+1): error", "(file.mm:): error", "(file.mm:33) error",
