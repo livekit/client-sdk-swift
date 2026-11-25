@@ -74,14 +74,17 @@ final class MediaLogSummary: Sendable {
     private let interval: TimeInterval
     private let now: @Sendable () -> UInt64
     private let emit: Emit
+    private let timerQueue: DispatchQueue
     private let automatic: Bool
 
     /// Five seconds bounds diagnostic volume without storing frame data or interpolated messages.
     init(type: Any.Type, interval: TimeInterval = 5,
          automatic: Bool = true,
+         timerQueue: DispatchQueue = .global(qos: .utility),
          now: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
          emit: Emit? = nil)
     {
+        self.timerQueue = timerQueue
         self.interval = interval
         self.automatic = automatic
         self.now = now
@@ -105,8 +108,8 @@ final class MediaLogSummary: Sendable {
             let entry = Entry(event: event, file: file, function: function, line: line, started: now())
             value.entries[event] = entry
             if automatic, value.timer == nil {
-                let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
-                timer.schedule(deadline: .now() + interval)
+                let timer = DispatchSource.makeTimerSource(queue: timerQueue)
+                timer.schedule(deadline: .now() + interval, leeway: .milliseconds(100))
                 let generation = value.generation
                 timer.setEventHandler { [weak self] in self?.flush(generation: generation) }
                 value.timer = timer

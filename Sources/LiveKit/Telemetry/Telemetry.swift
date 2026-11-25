@@ -115,15 +115,17 @@ enum Telemetry {
     static let beforeInstall = StateSync<(@Sendable () -> Void)?>(nil)
 
     /// Install the process pipeline; nothing after the opt-out, whose clean-up ``disable()`` owns.
-    static func configure() {
+    /// The internal install closure permits isolated producer tests with an in-memory transport.
+    static func configure(install: () -> Void = coreConfigure) {
         installOrder.read { _ in
             guard !disabled.copy() else { return }
+            NativeLogBootstrap.telemetry()
             beforeInstall.copy()?()
             if let parent = storageDirectory?.deletingLastPathComponent() {
                 // The core creates the directory, not its parent: without one it caches in memory only.
                 try? FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
             }
-            coreConfigure()
+            install()
         }
     }
 
@@ -197,10 +199,24 @@ final class WebRTCLogCapture: TelemetryInstrument, @unchecked Sendable {
         logger.severity = .error
         logger.start { [capturing] message, severity in
             guard capturing.copy(), severity == .error else { return }
-            telemetryLog(record: LogRecord(severity: .error, source: .webRtc,
-                                           body: message,
-                                           logger: "WebRTC"))
+            telemetryLog(record: Self.record(message))
         }
+    }
+
+    /// The shipped Apple callback prefixes a basename and line; unverified forms stay raw.
+    static func record(_ message: String) -> LogRecord {
+        var record = LogRecord(severity: .error, source: .webRtc,
+                               body: message.trimmingCharacters(in: .whitespacesAndNewlines), logger: "WebRTC")
+        guard let prefix = String(bytes: message.utf8.prefix(256), encoding: .utf8),
+              prefix.hasPrefix("("), let end = prefix.range(of: "): ") else { return record }
+        let fields = prefix[prefix.index(after: prefix.startIndex) ..< end.lowerBound].split(separator: ":", omittingEmptySubsequences: false)
+        guard fields.count == 2, !fields[0].isEmpty,
+              fields[0].utf8.allSatisfy({ (65 ... 90).contains($0) || (97 ... 122).contains($0) || (48 ... 57).contains($0) || [45, 46, 95].contains($0) }),
+              fields[1].utf8.allSatisfy({ (48 ... 57).contains($0) }),
+              let line = UInt32(fields[1]), line > 0 else { return record }
+        record.file = String(fields[0])
+        record.line = line
+        return record
     }
 
     /// Called by the core on the caller's thread under its lifecycle lock: flag and return. The

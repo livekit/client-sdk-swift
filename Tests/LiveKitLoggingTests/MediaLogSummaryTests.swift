@@ -117,32 +117,43 @@ struct MediaLogSummaryTests {
         #expect(output.records.copy().last?.0.repeats == 7999)
     }
 
-    @Test(.timeLimit(.minutes(1))) func quietTimerAndDestruction() async {
-        let emitted = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        var summary: MediaLogSummary? = MediaLogSummary(type: Self.self, interval: 0.01, emit: { entry, _ in
-            if entry.repeats > 0 { emitted.continuation.yield() }
-        })
-        weak var weakSummary: MediaLogSummary?
-        weakSummary = summary
+    @Test(arguments: 0 ..< 100) func quietTimerAndDestruction(_: Int) {
+        let queue = DispatchQueue(label: "logging-test.timer")
+        let emitted = DispatchSemaphore(value: 0)
+        let records = StateSync<[UInt64]>([])
+        var summary: MediaLogSummary? = MediaLogSummary(type: Self.self, interval: 0,
+                                                        timerQueue: queue, emit: { entry, _ in
+                                                            records.mutate { $0.append(entry.repeats) }
+                                                            if entry.repeats > 0 { emitted.signal() }
+                                                        })
+        weak var weakSummary = summary
+        queue.suspend()
         summary?.record(.unsafeDimensions, "first")
         summary?.record(.unsafeDimensions, "second")
-        for await _ in emitted.stream {
-            break
-        }
+        queue.resume()
+        #expect(emitted.wait(timeout: .now() + 2) == .success)
+        // Join the callback, including its temporary strong reference, before releasing the owner.
+        queue.sync {}
         summary = nil
         #expect(weakSummary == nil)
-        emitted.continuation.finish()
+        #expect(records.copy() == [0, 1])
     }
 
-    @Test func pendingTimerDoesNotRetainOwner() {
+    @Test(arguments: 0 ..< 100) func pendingTimerDoesNotRetainOwner(_: Int) {
+        let queue = DispatchQueue(label: "logging-test.pending")
+        queue.suspend()
+        defer { queue.resume() }
         let output = Output()
-        var summary: MediaLogSummary? = output.make(automatic: true)
-        weak var weakSummary: MediaLogSummary?
-        weakSummary = summary
+        var summary: MediaLogSummary? = MediaLogSummary(type: Self.self, timerQueue: queue,
+                                                        emit: { entry, body in
+                                                            output.records.mutate { $0.append((entry, body)) }
+                                                        })
+        weak var weakSummary = summary
         summary?.record(.unsafeDimensions, "first")
         summary?.record(.unsafeDimensions, "second")
         summary = nil
         #expect(weakSummary == nil)
+        #expect(output.records.copy().count == 2)
         #expect(output.records.copy().last?.0.repeats == 1)
         #expect(output.records.copy().last?.1.contains("final=true") == true)
     }

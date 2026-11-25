@@ -191,13 +191,29 @@ open class OSLogger: Logger, @unchecked Sendable {
     private func startFFILogForwarding(minLevel: LogLevel) {
         Task(priority: .utility) { [weak self] in
             guard let self else { return } // don't initialize global level when releasing
-            logForwardBootstrap(level: minLevel.logForwardFilter)
+            NativeLogBootstrap.console(level: minLevel.logForwardFilter)
 
             let ffiLog = OSLog(subsystem: Self.subsystem, category: "FFI")
 
             ffiTask = AsyncStream(unfolding: logForwardReceive).subscribe(self, priority: .utility) { _, entry in
                 os_log("%{public}@", log: ffiLog, type: entry.level.osLogType, "\(entry.target) \(entry.message)")
             }
+        }
+    }
+}
+
+/// Serializes native logger installation without creating or replacing a console consumer.
+enum NativeLogBootstrap {
+    private static let consoleLevel = StateSync<LogForwardFilter?>(nil)
+
+    static func telemetry() {
+        consoleLevel.read { logForwardBootstrap(level: $0 ?? .off) }
+    }
+
+    static func console(level: LogForwardFilter) {
+        consoleLevel.mutate {
+            $0 = level
+            logForwardBootstrap(level: level)
         }
     }
 }

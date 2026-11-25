@@ -46,9 +46,10 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     public let delegates = MulticastDelegate<VideoCapturerDelegate>(label: "VideoCapturerDelegate")
     public let rendererDelegates = MulticastDelegate<VideoRenderer>(label: "VideoCapturerRendererDelegate")
 
-    private let mediaLogs = MediaLogSummary(type: VideoCapturer.self)
+    private let mediaLogs: MediaLogSummary
 
-    private let processingQueue = DispatchQueue(label: "io.livekit.videocapturer.processing", autoreleaseFrequency: .workItem)
+    // Internal so producer tests can join the entire processing block, including its owner release.
+    let processingQueue = DispatchQueue(label: "io.livekit.videocapturer.processing", autoreleaseFrequency: .workItem)
 
     // Constant set, no libwebrtc proxy: nothing to wait on.
     /// Array of supported pixel formats that can be used to capture a frame.
@@ -115,7 +116,8 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         _state.startStopCounter == 0 ? .stopped : .started
     }
 
-    init(delegate: LKRTCVideoCapturerDelegate, processor: VideoProcessor? = nil) {
+    init(delegate: LKRTCVideoCapturerDelegate, processor: VideoProcessor? = nil, mediaLogEmit: MediaLogSummary.Emit? = nil) {
+        mediaLogs = MediaLogSummary(type: Self.self, emit: mediaLogEmit)
         self.delegate = delegate
         _state = StateSync(State(processor: processor))
         super.init()
@@ -318,7 +320,7 @@ extension VideoCapturer {
             var rtcFrame: LKRTCVideoFrame = frame
             // This producer owns the counted diagnostic; do not also log each failure in the converter.
             guard var lkFrame: VideoFrame = frame.toLKType(reportFailure: false) else {
-                mediaLogs.record(.conversionFailed, "Failed to convert a RTCVideoFrame to VideoFrame")
+                mediaLogs.record(.conversionFailed, "RTCVideoFrame.buffer is not a known type (\(type(of: frame.buffer)))")
                 return
             }
 

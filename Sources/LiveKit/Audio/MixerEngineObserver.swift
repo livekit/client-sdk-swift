@@ -18,7 +18,7 @@ internal import LiveKitWebRTC
 @preconcurrency import AVFoundation
 
 public final class MixerEngineObserver: AudioEngineObserver, Loggable {
-    private let mediaLogs = MediaLogSummary(type: MixerEngineObserver.self)
+    private let mediaLogs: MediaLogSummary
     public var next: (any AudioEngineObserver)? {
         get { _state.next }
         set { _state.mutate { $0.next = newValue } }
@@ -93,7 +93,14 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
 
     let _state = StateSync(State())
 
-    public init() {}
+    public init() {
+        mediaLogs = MediaLogSummary(type: Self.self)
+    }
+
+    /// Isolates producer diagnostics in tests without replacing the process logger.
+    init(mediaLogEmit: @escaping MediaLogSummary.Emit) {
+        mediaLogs = MediaLogSummary(type: Self.self, emit: mediaLogEmit)
+    }
 
     public func setNext(_ handler: any AudioEngineObserver) {
         next = handler
@@ -251,7 +258,6 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
             ($0.micNode, $0.appNode, $0.soundPlayerNodes)
         }
 
-        mediaLogs.resume()
         micNode.reset()
         appNode.reset()
         soundPlayerNodes.reset()
@@ -268,7 +274,6 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
             ($0.micNode, $0.appNode)
         }
 
-        mediaLogs.finish()
         micNode.stop()
         appNode.stop()
 

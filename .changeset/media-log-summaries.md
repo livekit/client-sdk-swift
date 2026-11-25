@@ -2,4 +2,4 @@
 "client-sdk-swift": patch
 ---
 
-Summarize repeated media diagnostics with counts, lower expected frame-drop severity, and preserve SDK source locations and native callback severity in telemetry logs.
+Capture native telemetry independently of console logging, summarize repeated media diagnostics with counts, lower expected frame-drop severity, extract source locations from the verified WebRTC Apple prefix, and include SDK source locations and sorted metadata in OSLogger output.

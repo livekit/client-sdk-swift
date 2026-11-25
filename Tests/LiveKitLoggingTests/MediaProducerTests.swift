@@ -14,21 +14,17 @@
  * limitations under the License.
  */
 
+import AVFoundation
 import Foundation
 @testable import LiveKit
 @preconcurrency import LiveKitWebRTC
 import Testing
 
-/// This suite alone uses the process logger; helper tests inject their own independent emitters.
-@Suite(.serialized)
 struct MediaProducerTests {
-    private final class Output: Logger, Sendable {
-        let errors = StateSync(0)
-        func log(_: @autoclosure () -> CustomStringConvertible, _ level: LogLevel,
-                 source _: @autoclosure () -> String?, file _: StaticString, type _: Any.Type,
-                 function _: StaticString, line _: UInt, metaData _: ScopedMetadataContainer)
-        {
-            if level == .error { errors.mutate { $0 += 1 } }
+    private final class Output: Sendable {
+        let records = StateSync<[(MediaLogSummary.Entry, String)]>([])
+        func emit(_ entry: MediaLogSummary.Entry, _ body: String) {
+            records.mutate { $0.append((entry, body)) }
         }
     }
 
@@ -45,12 +41,48 @@ struct MediaProducerTests {
         func toI420() -> any LKRTCI420BufferProtocol { LKRTCI420Buffer(width: width, height: height) }
     }
 
-    @Test func captureConversionFailureHasOnlyOneCountedDiagnostic() {
+    @Test func captureConversionFailureHasOnlyOneCountedDiagnostic() throws {
         let output = Output()
-        LiveKitSDK.setLogger(output)
         let frames = Frames()
+        var owner: VideoCapturer? = VideoCapturer(delegate: frames, mediaLogEmit: output.emit)
+        weak var weakOwner = owner
+        try runCapture(#require(owner), frames: frames, output: output)
+        owner = nil
+        #expect(weakOwner == nil)
+        #expect(output.records.copy().count == 2)
+        #expect(output.records.copy().last?.0.repeats == 19)
+        #expect(output.records.copy().last?.1.contains("final=true") == true)
+    }
+
+    @Test func mixerLogsAfterEngineStopAndReleasesOwner() throws {
+        let output = Output()
+        var owner: MixerEngineObserver? = MixerEngineObserver(mediaLogEmit: output.emit)
+        weak var weakOwner = owner
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480))
+        buffer.frameLength = 480
+        let engine = AVAudioEngine()
+        _ = owner?.engineDidStop(engine, isPlayoutEnabled: false, isRecordingEnabled: false)
+        for _ in 0 ..< 20 {
+            owner?.capture(appAudio: buffer)
+        }
+        #expect(output.records.copy().count == 1)
+        #expect(output.records.copy().first?.0.event == .converterUnavailable)
+        owner?._state.mutate { $0.playerNodeFormat = format }
+        for _ in 0 ..< 20 {
+            owner?.capture(appAudio: buffer)
+        }
+        #expect(output.records.copy().count == 2)
+        #expect(output.records.copy().last?.0.event.level == .debug)
+        #expect(owner?.appAudioNode.isPlaying == false)
+        owner = nil
+        #expect(weakOwner == nil)
+        #expect(output.records.copy().count == 4)
+        #expect(output.records.copy().suffix(2).allSatisfy { $0.0.repeats == 19 && $0.1.contains("final=true") })
+    }
+
+    private func runCapture(_ capturer: VideoCapturer, frames: Frames, output: Output) {
         let native = LKRTCVideoCapturer(delegate: frames)
-        let capturer = VideoCapturer(delegate: frames)
         let completed = DispatchSemaphore(value: 0)
         capturer._state.onDidMutate = { new, old in
             if old.isFrameProcessingBusy, !new.isFrameProcessingBusy { completed.signal() }
@@ -61,10 +93,10 @@ struct MediaProducerTests {
             // Join the dedicated capture queue before submitting the next frame, without sleeps.
             #expect(completed.wait(timeout: .now() + 2) == .success)
         }
+        capturer.processingQueue.sync {}
         #expect(frames.count.copy() == 0)
-        #expect(output.errors.copy() == 1)
-        // Other callers retain the converter's original diagnostic by default.
-        #expect(frame.toLKType() == nil)
-        #expect(output.errors.copy() == 2)
+        #expect(output.records.copy().count == 1)
+        #expect(output.records.copy().first?.0.event.level == .error)
+        #expect(output.records.copy().first?.1.contains("UnknownBuffer") == true)
     }
 }
