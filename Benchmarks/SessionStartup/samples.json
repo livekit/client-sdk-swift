@@ -1,0 +1,722 @@
+[
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 516.7541664559394,
+    "firstAudioMs": 589.8564998060465,
+    "preConnectAudio": false,
+    "publishedMs": 529.2225831653923,
+    "repetition": 0
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 377.5103334337473,
+    "firstAudioMs": 443.7130833975971,
+    "preConnectAudio": false,
+    "publishedMs": 385.2611251641065,
+    "repetition": 0
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 376.3204168062657,
+    "firstAudioMs": 442.60045839473605,
+    "preConnectAudio": false,
+    "publishedMs": 383.7152917403728,
+    "repetition": 1
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 361.9775832630694,
+    "firstAudioMs": 424.77374989539385,
+    "preConnectAudio": false,
+    "publishedMs": 375.89983316138387,
+    "repetition": 1
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 381.14195852540433,
+    "firstAudioMs": 444.00245836004615,
+    "preConnectAudio": false,
+    "publishedMs": 395.1076250523329,
+    "repetition": 2
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 365.24379160255194,
+    "firstAudioMs": 432.68379173241556,
+    "preConnectAudio": false,
+    "publishedMs": 373.78829158842564,
+    "repetition": 2
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 374.2070000153035,
+    "firstAudioMs": 443.68191668763757,
+    "preConnectAudio": false,
+    "publishedMs": 383.5925415623933,
+    "repetition": 3
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 381.9667499046773,
+    "firstAudioMs": 454.0186249651015,
+    "preConnectAudio": false,
+    "publishedMs": 396.3539164979011,
+    "repetition": 3
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 381.53404160402715,
+    "firstAudioMs": 457.9864584375173,
+    "preConnectAudio": false,
+    "publishedMs": 398.4685833565891,
+    "repetition": 4
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 370.2134999912232,
+    "firstAudioMs": 443.1041250936687,
+    "preConnectAudio": false,
+    "publishedMs": 374.62687492370605,
+    "repetition": 4
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 370.86791661567986,
+    "firstAudioMs": 444.4380833301693,
+    "preConnectAudio": false,
+    "publishedMs": 374.77920833043754,
+    "repetition": 5
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 368.6327498871833,
+    "firstAudioMs": 443.52370826527476,
+    "preConnectAudio": false,
+    "publishedMs": 385.34983340650797,
+    "repetition": 5
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 368.2239584159106,
+    "firstAudioMs": 440.33766677603126,
+    "preConnectAudio": false,
+    "publishedMs": 380.7757084723562,
+    "repetition": 6
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 372.96591652557254,
+    "firstAudioMs": 444.47591667994857,
+    "preConnectAudio": false,
+    "publishedMs": 382.35645834356546,
+    "repetition": 6
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 380.8488748036325,
+    "firstAudioMs": 450.97516663372517,
+    "preConnectAudio": false,
+    "publishedMs": 393.29879148863256,
+    "repetition": 7
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 370.1532499399036,
+    "firstAudioMs": 443.9489583019167,
+    "preConnectAudio": false,
+    "publishedMs": 384.48558328673244,
+    "repetition": 7
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 369.00745844468474,
+    "firstAudioMs": 444.51408344320953,
+    "preConnectAudio": false,
+    "publishedMs": 385.06920845247805,
+    "repetition": 8
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 375.2664166968316,
+    "firstAudioMs": 453.6275833379477,
+    "preConnectAudio": false,
+    "publishedMs": 383.1293750554323,
+    "repetition": 8
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 375.6059999577701,
+    "firstAudioMs": 453.60712497495115,
+    "preConnectAudio": false,
+    "publishedMs": 384.23841656185687,
+    "repetition": 9
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 379.4148750603199,
+    "firstAudioMs": 457.4586667586118,
+    "preConnectAudio": false,
+    "publishedMs": 397.6546667981893,
+    "repetition": 9
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 383.93383333459496,
+    "firstAudioMs": 452.60529150255024,
+    "preConnectAudio": true,
+    "publishedMs": 393.91087484546006,
+    "repetition": 0
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 391.77770842798054,
+    "firstAudioMs": 462.8481667023152,
+    "preConnectAudio": true,
+    "publishedMs": 403.2370834611356,
+    "repetition": 0
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 384.0130418539047,
+    "firstAudioMs": 452.7157084085047,
+    "preConnectAudio": true,
+    "publishedMs": 394.17545846663415,
+    "repetition": 1
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 379.57812496460974,
+    "firstAudioMs": 453.2128751743585,
+    "preConnectAudio": true,
+    "publishedMs": 381.9328334648162,
+    "repetition": 1
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 388.2608332205564,
+    "firstAudioMs": 463.48537504673004,
+    "preConnectAudio": true,
+    "publishedMs": 393.5749167576432,
+    "repetition": 2
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 390.92175010591745,
+    "firstAudioMs": 462.73354161530733,
+    "preConnectAudio": true,
+    "publishedMs": 403.82537501864135,
+    "repetition": 2
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 376.44775002263486,
+    "firstAudioMs": 444.4986248854548,
+    "preConnectAudio": true,
+    "publishedMs": 386.47616654634476,
+    "repetition": 3
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 376.62462517619133,
+    "firstAudioMs": 454.1677499655634,
+    "preConnectAudio": true,
+    "publishedMs": 383.8773751631379,
+    "repetition": 3
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 376.96116673760116,
+    "firstAudioMs": 442.6932083442807,
+    "preConnectAudio": true,
+    "publishedMs": 380.63204172067344,
+    "repetition": 4
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 373.50916652940214,
+    "firstAudioMs": 453.6755415610969,
+    "preConnectAudio": true,
+    "publishedMs": 393.59287498518825,
+    "repetition": 4
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 381.2107499688864,
+    "firstAudioMs": 462.2648332733661,
+    "preConnectAudio": true,
+    "publishedMs": 383.8645832147449,
+    "repetition": 5
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 374.02904173359275,
+    "firstAudioMs": 442.84029165282845,
+    "preConnectAudio": true,
+    "publishedMs": 380.81191666424274,
+    "repetition": 5
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 378.7900416646153,
+    "firstAudioMs": 443.7507917173207,
+    "preConnectAudio": true,
+    "publishedMs": 385.0704168435186,
+    "repetition": 6
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 382.6886247843504,
+    "firstAudioMs": 452.34849979169667,
+    "preConnectAudio": true,
+    "publishedMs": 393.73124996200204,
+    "repetition": 6
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 378.25458333827555,
+    "firstAudioMs": 452.5735001079738,
+    "preConnectAudio": true,
+    "publishedMs": 382.56495841778815,
+    "repetition": 7
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 379.1291667148471,
+    "firstAudioMs": 453.2668748870492,
+    "preConnectAudio": true,
+    "publishedMs": 384.9489581771195,
+    "repetition": 7
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 381.37025013566017,
+    "firstAudioMs": 453.3896667417139,
+    "preConnectAudio": true,
+    "publishedMs": 392.6500000525266,
+    "repetition": 8
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 376.8952500540763,
+    "firstAudioMs": 475.8260832168162,
+    "preConnectAudio": true,
+    "publishedMs": 383.15079151652753,
+    "repetition": 8
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": true,
+    "connectedMs": 375.30270824208856,
+    "firstAudioMs": 442.00654164887965,
+    "preConnectAudio": true,
+    "publishedMs": 383.5469165351242,
+    "repetition": 9
+  },
+  {
+    "captureDelayMs": 0,
+    "concurrent": false,
+    "connectedMs": 371.32983352057636,
+    "firstAudioMs": 443.0250418372452,
+    "preConnectAudio": true,
+    "publishedMs": 385.16679173335433,
+    "repetition": 9
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 374.2061664815992,
+    "firstAudioMs": 1448.8733331672847,
+    "preConnectAudio": false,
+    "publishedMs": 1391.6464583016932,
+    "repetition": 0
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 385.85195830091834,
+    "firstAudioMs": 1075.6342499516904,
+    "preConnectAudio": false,
+    "publishedMs": 1018.5080417431891,
+    "repetition": 0
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 378.1704166904092,
+    "firstAudioMs": 1085.226708324626,
+    "preConnectAudio": false,
+    "publishedMs": 1014.8281250149012,
+    "repetition": 1
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 379.72683319821954,
+    "firstAudioMs": 1456.78420830518,
+    "preConnectAudio": false,
+    "publishedMs": 1397.8611249476671,
+    "repetition": 1
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 377.1295000333339,
+    "firstAudioMs": 1456.862291553989,
+    "preConnectAudio": false,
+    "publishedMs": 1397.8570415638387,
+    "repetition": 2
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 375.0312081538141,
+    "firstAudioMs": 1082.292249891907,
+    "preConnectAudio": false,
+    "publishedMs": 1022.9518332052976,
+    "repetition": 2
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 374.2993751075119,
+    "firstAudioMs": 1079.5034584589303,
+    "preConnectAudio": false,
+    "publishedMs": 1021.0278751328588,
+    "repetition": 3
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 372.6016664877534,
+    "firstAudioMs": 1460.2155415341258,
+    "preConnectAudio": false,
+    "publishedMs": 1391.2477914709598,
+    "repetition": 3
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 443.6145001091063,
+    "firstAudioMs": 1518.7822084408253,
+    "preConnectAudio": false,
+    "publishedMs": 1462.1309167705476,
+    "repetition": 4
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 378.9381666574627,
+    "firstAudioMs": 1091.0282500553876,
+    "preConnectAudio": false,
+    "publishedMs": 1022.9988333303481,
+    "repetition": 4
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 386.3885833416134,
+    "firstAudioMs": 1087.424541823566,
+    "preConnectAudio": false,
+    "publishedMs": 1019.960000179708,
+    "repetition": 5
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 372.00537510216236,
+    "firstAudioMs": 1448.0759166181087,
+    "preConnectAudio": false,
+    "publishedMs": 1388.9953333418816,
+    "repetition": 5
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 369.73383324220777,
+    "firstAudioMs": 1451.3710415922105,
+    "preConnectAudio": false,
+    "publishedMs": 1392.0923748519272,
+    "repetition": 6
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 429.8221250064671,
+    "firstAudioMs": 1079.0190834086388,
+    "preConnectAudio": false,
+    "publishedMs": 1019.1768333315849,
+    "repetition": 6
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 384.08650015480816,
+    "firstAudioMs": 1074.447458377108,
+    "preConnectAudio": false,
+    "publishedMs": 1015.2822916861624,
+    "repetition": 7
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 479.22162478789687,
+    "firstAudioMs": 1557.689416455105,
+    "preConnectAudio": false,
+    "publishedMs": 1499.0567499771714,
+    "repetition": 7
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 372.01845832169056,
+    "firstAudioMs": 1455.6476667057723,
+    "preConnectAudio": false,
+    "publishedMs": 1385.730208363384,
+    "repetition": 8
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 387.09812494926155,
+    "firstAudioMs": 1082.2216251399368,
+    "preConnectAudio": false,
+    "publishedMs": 1024.5309583842754,
+    "repetition": 8
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 378.6530417855829,
+    "firstAudioMs": 1075.458333361894,
+    "preConnectAudio": false,
+    "publishedMs": 1016.2445001769811,
+    "repetition": 9
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 371.2917501106858,
+    "firstAudioMs": 1459.2179167084396,
+    "preConnectAudio": false,
+    "publishedMs": 1390.2697500307113,
+    "repetition": 9
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 1383.2561250310391,
+    "firstAudioMs": 1455.2166666835546,
+    "preConnectAudio": true,
+    "publishedMs": 1386.08591677621,
+    "repetition": 0
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 397.2698333673179,
+    "firstAudioMs": 1076.682333368808,
+    "preConnectAudio": true,
+    "publishedMs": 1019.5648334920406,
+    "repetition": 0
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 379.35266667045653,
+    "firstAudioMs": 1089.9455416947603,
+    "preConnectAudio": true,
+    "publishedMs": 1022.319458425045,
+    "repetition": 1
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 1385.5290417559445,
+    "firstAudioMs": 1456.773666664958,
+    "preConnectAudio": true,
+    "publishedMs": 1398.357708239928,
+    "repetition": 1
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 1472.0490002073348,
+    "firstAudioMs": 1547.030541813001,
+    "preConnectAudio": true,
+    "publishedMs": 1475.9787083603442,
+    "repetition": 2
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 375.4544584080577,
+    "firstAudioMs": 1087.3159999027848,
+    "preConnectAudio": true,
+    "publishedMs": 1018.7546249944717,
+    "repetition": 2
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 375.2687082160264,
+    "firstAudioMs": 1073.4103750437498,
+    "preConnectAudio": true,
+    "publishedMs": 1015.7427082303911,
+    "repetition": 3
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 1377.0681249443442,
+    "firstAudioMs": 1447.7914583403617,
+    "preConnectAudio": true,
+    "publishedMs": 1379.0277082007378,
+    "repetition": 3
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 1392.2869167290628,
+    "firstAudioMs": 1462.5346667598933,
+    "preConnectAudio": true,
+    "publishedMs": 1403.177166590467,
+    "repetition": 4
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 378.62987513653934,
+    "firstAudioMs": 1077.475625090301,
+    "preConnectAudio": true,
+    "publishedMs": 1016.834625042975,
+    "repetition": 4
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 384.28729167208076,
+    "firstAudioMs": 1074.2928748950362,
+    "preConnectAudio": true,
+    "publishedMs": 1018.4796249959618,
+    "repetition": 5
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 1547.4105416797101,
+    "firstAudioMs": 1615.958125097677,
+    "preConnectAudio": true,
+    "publishedMs": 1557.159416610375,
+    "repetition": 5
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 1384.2367499601096,
+    "firstAudioMs": 1458.9509584475309,
+    "preConnectAudio": true,
+    "publishedMs": 1387.9410417284817,
+    "repetition": 6
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 381.9206249900162,
+    "firstAudioMs": 1078.4026666078717,
+    "preConnectAudio": true,
+    "publishedMs": 1018.6705416999757,
+    "repetition": 6
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 383.92712501809,
+    "firstAudioMs": 1081.58745826222,
+    "preConnectAudio": true,
+    "publishedMs": 1025.9561666753143,
+    "repetition": 7
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 1384.2799998819828,
+    "firstAudioMs": 1446.3018332608044,
+    "preConnectAudio": true,
+    "publishedMs": 1397.3616666626185,
+    "repetition": 7
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 1515.72124985978,
+    "firstAudioMs": 1595.9192081354558,
+    "preConnectAudio": true,
+    "publishedMs": 1524.9169582966715,
+    "repetition": 8
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 371.9659165944904,
+    "firstAudioMs": 1076.8946250900626,
+    "preConnectAudio": true,
+    "publishedMs": 1025.0750833656639,
+    "repetition": 8
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": true,
+    "connectedMs": 373.28841676935554,
+    "firstAudioMs": 1086.966916685924,
+    "preConnectAudio": true,
+    "publishedMs": 1018.7587083783001,
+    "repetition": 9
+  },
+  {
+    "captureDelayMs": 1000,
+    "concurrent": false,
+    "connectedMs": 1382.5420832727104,
+    "firstAudioMs": 1447.5434166379273,
+    "preConnectAudio": true,
+    "publishedMs": 1386.7982500232756,
+    "repetition": 9
+  }
+]

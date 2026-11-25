@@ -380,11 +380,24 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
     }
 
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
     public func connect(url urlString: String,
                         token: String,
                         connectOptions: ConnectOptions? = nil,
                         roomOptions: RoomOptions? = nil) async throws
+    {
+        try await connect(url: urlString, token: token, connectOptions: connectOptions,
+                          roomOptions: roomOptions, automaticMicrophone: true)
+    }
+
+    /// Session owns capture/publication, so joining must not start or await another microphone.
+    @nonobjc func connectForSession(url: String, token: String) async throws {
+        try await connect(url: url, token: token, connectOptions: nil,
+                          roomOptions: nil, automaticMicrophone: false)
+    }
+
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    @nonobjc private func connect(url urlString: String, token: String, connectOptions: ConnectOptions?,
+                                  roomOptions: RoomOptions?, automaticMicrophone: Bool) async throws
     {
         guard let providedUrl = URL(string: urlString), providedUrl.isValidForConnect else {
             log("URL parse failed", .error)
@@ -454,10 +467,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         // Concurrent mic publish mode
-        let enableMicrophone = _state.connectOptions.enableMicrophone
+        let enableMicrophone = automaticMicrophone && _state.connectOptions.enableMicrophone
         log("Concurrent enable microphone mode: \(enableMicrophone)")
 
-        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if let recorder = preConnectBuffer.recorder, recorder.isRecording {
+        let createMicrophoneTrackTask: Task<LocalTrack, any Error>? = if automaticMicrophone, let recorder = preConnectBuffer.recorder, recorder.isRecording {
             Task {
                 recorder.track
             }

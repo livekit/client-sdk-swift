@@ -94,6 +94,12 @@ public final class PreConnectAudioBuffer: NSObject, Sendable, Loggable {
         }
 
         let stream = try await newRecorder.start()
+        do {
+            try Task.checkCancellation()
+        } catch {
+            newRecorder.stop()
+            throw error
+        }
         log("Started capturing audio", .info)
 
         agentCompleter.reset()
