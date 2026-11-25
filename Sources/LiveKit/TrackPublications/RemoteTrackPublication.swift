@@ -70,11 +70,17 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
 
         _state.mutate { $0.isSubscribePreferred = newValue }
 
+        if newValue, let participant = participant as? RemoteParticipant {
+            room.rtcTelemetry?.subscribeStarted(self, of: participant, in: room)
+        }
+
         if !newValue {
             // Proactively clear the track. In single PC mode the transceiver is
             // reused (direction changes) rather than removed, so the WebRTC
             // didRemove(rtpReceiver:) callback may never fire.
-            await set(track: nil)
+            let attached = await set(track: nil)
+            // Nothing was attached yet, so no didUnsubscribe follows: the pending subscribe ends here.
+            if attached == nil { room.rtcTelemetry?.subscribeCancelled(self) }
         }
 
         try await room.signalClient.sendUpdateSubscription(participantSid: participantSid,

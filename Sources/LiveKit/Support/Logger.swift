@@ -218,14 +218,16 @@ extension Loggable {
                  level,
                  file: file,
                  function: function,
-                 line: line)
+                 line: line,
+                 scope: level >= .warning ? (self as? TelemetryScoped)?.telemetryScope : nil)
     }
 
     static func log(_ message: CustomStringConvertible? = nil,
                     _ level: LogLevel = .debug,
                     file: StaticString = #fileID,
                     function: StaticString = #function,
-                    line: UInt = #line)
+                    line: UInt = #line,
+                    scope: TelemetryScope? = nil)
     {
         sharedLogger.log(message ?? "",
                          level,
@@ -233,6 +235,13 @@ extension Loggable {
                          type: Self.self,
                          function: function,
                          line: line)
+        // The core's default floor, checked here so nothing below it crosses the FFI.
+        if level >= .warning {
+            Telemetry.log(LogRecord(severity: level.severity, source: .sdk, body: message?.description ?? "",
+                                    logger: String(describing: Self.self), function: "\(function)", file: "\(file)",
+                                    line: UInt32(clamping: line)),
+                          scope: scope)
+        }
     }
 }
 

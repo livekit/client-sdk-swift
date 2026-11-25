@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -59,7 +60,8 @@ extension Room: TransportDelegate {
         {
             Task {
                 do {
-                    try await startReconnect(reason: .transport)
+                    try await startReconnect(reason: .transport,
+                                             telemetryReason: transport.target == .publisher ? .publisherFailed : .subscriberFailed)
                 } catch {
                     log("Failed calling startReconnect, error: \(error)", .error)
                 }

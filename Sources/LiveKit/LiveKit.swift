@@ -55,6 +55,26 @@ public class LiveKitSDK: NSObject, Loggable {
         state.mutate { $0.tracing = tracing }
     }
 
+    /// Opts this process out of client telemetry, for the rest of the process.
+    ///
+    /// Collection stops when this returns, in existing Rooms too, and Rooms created afterwards
+    /// collect nothing. Telemetry cannot be turned on again in this process.
+    ///
+    /// Deleting everything not yet sent (queued, open, or cached on disk by this launch or an
+    /// earlier one) then starts in the background. The deletion is best effort: this call does
+    /// not wait for it or report its result, and it can fail, leaving files behind. An upload
+    /// already in progress can still reach the server, and data already sent cannot be recalled.
+    ///
+    /// The choice is not remembered across launches.
+    ///
+    /// - Note: Call this at every launch, before creating any Room,
+    /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`.
+    /// A later call still stops collection in the Rooms that exist.
+    /// Creating a Room never waits for the deletion.
+    public static func disableTelemetry() {
+        Telemetry.disable()
+    }
+
     /// Set a custom logger for the SDK
     /// - Note: This method must be called before any other logging is done
     /// e.g. in the `App.init()` or `AppDelegate/SceneDelegate`

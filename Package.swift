@@ -21,7 +21,7 @@ let package = Package(
     dependencies: [
         // LK-Prefixed Dynamic WebRTC XCFramework
         .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "150.7871.08"),
-        .package(url: "https://github.com/livekit/livekit-ffi-xcframework.git", exact: "0.13.4"),
+        .package(url: "https://github.com/livekit/livekit-ffi-xcframework.git", exact: "0.15.0"),
         // Test-only: conformance oracle for the nanopb facades.
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.31.0"),
         // Only used for DocC generation
@@ -87,6 +87,7 @@ let package = Package(
                 "LiveKitTestSupport",
                 .product(name: "LiveKitFFI", package: "livekit-ffi-xcframework"),
             ],
+            exclude: ["Telemetry/otelcol.yaml"], // the e2e collector's configuration, read by otelcol
         ),
         .testTarget(
             name: "LiveKitAudioTests",

@@ -19,6 +19,7 @@
 #if !COCOAPODS && !LK_XCFRAMEWORK
 import LiveKitNanopb
 #endif
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -63,7 +64,7 @@ extension Room: SignalClientDelegate {
             // Abort current attempt
             await signalClient.cleanUp(withError: error)
         case .disconnect:
-            await cleanUp(withError: error)
+            await cleanUp(withError: error, telemetryReason: telemetryDisconnectReason(proto: Int32(reason.rawValue)))
         default:
             log("Unknown leave action: \(action), ignoring", .warning)
         }
@@ -126,6 +127,8 @@ extension Room: SignalClientDelegate {
                     }
                 }
             }
+            updateTelemetryRoom() // a full reconnect keeps the Room's sid but not the participant's
+            rtcTelemetry?.joined(self)
         }
     }
 
@@ -145,6 +148,7 @@ extension Room: SignalClientDelegate {
 
         if response.hasParticipant {
             localParticipant.set(info: response.participant, connectionState: _state.connectionState)
+            updateTelemetryRoom()
         }
 
         _republishLocalTracks()

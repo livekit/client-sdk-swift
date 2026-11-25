@@ -107,6 +107,16 @@ jobs:
             # Data track schema definitions are stored as participant data blobs.
             enable_participant_data_blob: true
 
+      # The telemetry end-to-end test posts OTLP to 127.0.0.1:4319 and reads back what the
+      # collector wrote (Tests/LiveKitCoreTests/Telemetry/otelcol.yaml). A plain binary, like the
+      # dev server above: macOS runners have no container runtime.
+      - name: Run OpenTelemetry Collector
+        run: |
+          arch="$(uname -m | sed 's/x86_64/amd64/')"
+          curl -sSfL -o otelcol.tar.gz "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.160.0/otelcol-contrib_0.160.0_darwin_${arch}.tar.gz"
+          tar -xzf otelcol.tar.gz otelcol-contrib
+          nohup ./otelcol-contrib --config Tests/LiveKitCoreTests/Telemetry/otelcol.yaml > "$RUNNER_TEMP/otelcol.log" 2>&1 &
+
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: ${{ matrix.xcode }}
@@ -162,6 +172,7 @@ jobs:
       # Xcode 27 hands swiftc the Clang-only -fapplication-extension when it links the test bundles
       # under APPLICATION_EXTENSION_API_ONLY; linking through clang keeps that row on the primary toolchain.
       - name: Build & Test
+        id: test
         timeout-minutes: 45
         run: |
           test_platform='${{ matrix.platform }}'
@@ -200,9 +211,63 @@ jobs:
               || { echo "::error::$module was not compiled in Swift $EXPECTED mode"; exit 1; }
           done
 
+      # The telemetry lifecycle cases need telemetry on from start to end. The run above is one
+      # process, and an opt-out in it lasts for that process, so these cases get a process of
+      # their own, with the variable that turns them on. It reuses the build above, and it also
+      # runs when a test above failed: only a skipped or cancelled run above skips it.
+      - name: Test Telemetry Lifecycle
+        if: ${{ !cancelled() && steps.test.conclusion != 'skipped' }}
+        timeout-minutes: 10
+        env:
+          TEST_RUNNER_LK_TELEMETRY_LIFECYCLE: "1"
+        run: |
+          set -o pipefail && xcodebuild test-without-building \
+            -scheme LiveKitCI \
+            -destination '${{ steps.boot.outputs.udid && format('id={0}', steps.boot.outputs.udid) || format('platform={0}', matrix.platform) }}' \
+            -only-testing:LiveKitCoreTests/TelemetryLifecycleTests \
+            -resultBundlePath "$RUNNER_TEMP/test-results-lifecycle.xcresult" \
+            -collect-test-diagnostics on-failure \
+            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+            -parallel-testing-enabled NO 2>&1 \
+            | tee "$RUNNER_TEMP/xcodebuild-lifecycle.log" \
+            | xcbeautify --renderer github-actions
+          # A run that selects the suite and runs no case must not pass for one that ran them:
+          # every test function of the suite has to report that it passed.
+          expected=$(grep -c '^ *@Test' Tests/LiveKitCoreTests/Telemetry/TelemetryLifecycleTests.swift)
+          passed=$(grep -o -E 'Test [A-Za-z]+\(\) passed' "$RUNNER_TEMP/xcodebuild-lifecycle.log" | sort -u || true)
+          echo "$passed"
+          count=$(printf '%s' "$passed" | grep -c . || true)
+          [ "$expected" -gt 0 ] && [ "$count" -eq "$expected" ] \
+            || { echo "::error::$count of $expected telemetry lifecycle tests reported that they passed"; exit 1; }
+
+      # The telemetry end-to-end test reads back the file that the collector wrote. For a failed
+      # job, say whether the collector had data and under which names the core sent it: names
+      # only, so no room, participant or log text leaves the runner.
+      - name: Summarize Collector Output
+        if: ${{ failure() }}
+        run: |
+          out=/tmp/livekit-telemetry-otlp.jsonl
+          {
+            if [ -f "$out" ]; then
+              echo "batches: $(wc -l < "$out" | tr -d ' ')"
+              jq -r '
+                (.resourceSpans[]?.scopeSpans[]?.spans[]?
+                  | "span \(.name)", (.attributes[]? | "span attribute \(.key)"), (.events[]? | "span event \(.name)")),
+                (.resourceLogs[]?.scopeLogs[]?.logRecords[]?
+                  | "log \(.eventName // "")", (.attributes[]? | "log attribute \(.key)")),
+                ((.resourceSpans[]?, .resourceLogs[]?) | .resource.attributes[]? | "resource attribute \(.key)")
+              ' "$out" | sort | uniq -c
+            else
+              echo "batches: the collector wrote no file"
+            fi
+          } > "$RUNNER_TEMP/otelcol-names.txt" 2>&1 || true
+
       # xcbeautify's github-actions renderer collapses a parameterized Swift Testing
       # failure to "Recorded an issue (1) argument(s)" — no message, no failing
       # argument. xcodebuild's own output has both, so keep it for post-mortems.
+      # The collector's own log and the summary above say whether the telemetry
+      # end-to-end test had a collector, and what the core sent to it.
       - name: Upload Test Log
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
@@ -210,9 +275,13 @@ jobs:
           name: test-log-${{ strategy.job-index }}
           path: |
             ${{ runner.temp }}/xcodebuild.log
+            ${{ runner.temp }}/xcodebuild-lifecycle.log
             ${{ runner.temp }}/stall-dump
             ${{ runner.temp }}/test-results.xcresult
+            ${{ runner.temp }}/test-results-lifecycle.xcresult
             ${{ runner.temp }}/simulator-metadata.log
+            ${{ runner.temp }}/otelcol.log
+            ${{ runner.temp }}/otelcol-names.txt
             ~/Library/Logs/DiagnosticReports
             /Library/Logs/DiagnosticReports
             ~/Library/Developer/CoreSimulator/Devices/${{ steps.boot.outputs.udid }}/data/Library/Logs/CrashReporter

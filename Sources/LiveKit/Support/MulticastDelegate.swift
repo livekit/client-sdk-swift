@@ -48,6 +48,8 @@ public class MulticastDelegate<T: Sendable>: NSObject, @unchecked Sendable, Logg
 
     private struct State {
         let delegates = NSHashTable<AnyObject>.weakObjects()
+        /// The SDK's own observers: notified like the others, never listed or removed with them.
+        let internals = NSHashTable<AnyObject>.weakObjects()
     }
 
     private let _queue: DispatchQueue
@@ -80,6 +82,12 @@ public class MulticastDelegate<T: Sendable>: NSObject, @unchecked Sendable, Logg
         _state.mutate { $0.delegates.remove(delegate) }
     }
 
+    /// Add an SDK-internal observer that ``removeAllDelegates()`` leaves in place.
+    func add(internalDelegate delegate: T) {
+        guard let delegate = delegate as AnyObject? else { return }
+        _state.mutate { $0.internals.add(delegate) }
+    }
+
     /// Remove all delegates.
     public func removeAllDelegates() {
         _state.mutate { $0.delegates.removeAllObjects() }
@@ -87,7 +95,7 @@ public class MulticastDelegate<T: Sendable>: NSObject, @unchecked Sendable, Logg
 
     /// Notify delegates inside the queue.
     func notify(label _: (() -> String)? = nil, _ fnc: @Sendable @escaping (T) -> Void) {
-        let delegates = _state.read { $0.delegates.allObjects.compactMap { $0 as? T } }
+        let delegates = _state.read { ($0.delegates.allObjects + $0.internals.allObjects).compactMap { $0 as? T } }
 
         _queue.async {
             for delegate in delegates {
@@ -99,7 +107,7 @@ public class MulticastDelegate<T: Sendable>: NSObject, @unchecked Sendable, Logg
     /// Awaitable version of notify
     func notifyAsync(_ fnc: @Sendable @escaping (T) -> Void) async {
         // Read a copy of delegates
-        let delegates = _state.read { $0.delegates.allObjects.compactMap { $0 as? T } }
+        let delegates = _state.read { ($0.delegates.allObjects + $0.internals.allObjects).compactMap { $0 as? T } }
 
         // Convert to async
         await withCheckedContinuation { continuation in

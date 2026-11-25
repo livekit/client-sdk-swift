@@ -321,6 +321,30 @@ self.timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true, block: {
 
 For the full example, see 👉 [UIKit Minimal Example](https://github.com/livekit/client-example-collection-swift/tree/main/uikit-minimal)
 
+### Telemetry and data collection
+
+The SDK records client telemetry to help diagnose connection and media quality problems. By default, it uploads telemetry over HTTPS, and only to a LiveKit Cloud project (`*.livekit.cloud`). The Room's participant token must carry an observability grant. By default, it does not upload telemetry for Rooms on other servers.
+
+The environment variable `LK_TELEMETRY_ENDPOINT` changes this. If it holds an HTTP or HTTPS URL when the SDK starts telemetry, the SDK sends all telemetry of the process to that URL. It sends no token, and it does not apply the Cloud and grant rules. The variable exists for test collectors, but release builds also read it. Do not set it in production apps.
+
+Telemetry records can contain:
+
+- Timing and outcome of connect, reconnect, publish and subscribe operations, and the disconnect reason.
+- WebRTC quality statistics per track, for example bitrate, packet loss, jitter, round-trip time, frame rate, freezes and audio level. The audio level is a measured number, not a recording.
+- Device and network state: thermal state, Low Power Mode, memory pressure, foreground or background state, network type, battery level and charging state, and audio route changes and interruptions.
+- Warning and error logs from the SDK, the Rust core and WebRTC, with their known source file, line and function.
+- SDK version, OS name and version, and device model identifier.
+- Identifiers: room name and room ID, local participant identity and ID, remote participant identities, track IDs, and session and trace IDs.
+- Custom events and attributes that your app supplies with `Room.emitTelemetryEvent(_:attributes:)` and `Room.setTelemetryAttribute(_:value:)`, unchanged.
+
+Room names and participant identities come from your tokens and can identify a person. Before upload, the telemetry core replaces credential patterns (JWTs, bearer tokens and `token` values) in log text. This is not general personal-data redaction, and it does not change custom events or attributes. Do not put secrets or unnecessary personal data in room names, participant identities, custom events or attributes.
+
+The SDK keeps telemetry in the app's Caches directory (`Caches/livekit-telemetry/<bundle ID>`) until it uploads it. On the default path, the participant token authorizes each upload. When the SDK processes the cache, it deletes cached telemetry that is older than 24 hours. It does not delete files at an exact time, for example while the app does not run. This limit applies only to the cache on the device. It is not the retention period of uploaded data.
+
+To turn telemetry off, call `LiveKitSDK.disableTelemetry()`. The SDK does not remember this choice, so call it at every launch, before you create a `Room`. When the call returns, collection stops in all Rooms, including existing ones, and you cannot turn telemetry on again in that process. The SDK then tries to delete pending telemetry in the background, including cached files from earlier launches. The call does not wait for this deletion and does not report its result. Creating a `Room` does not wait for it either. The deletion can fail, and then files can stay on the device. An upload already in progress can still reach the server, and the SDK cannot recall data that it already sent. The logging functions in [How to adjust the log level?](#how-to-adjust-the-log-level) do not turn telemetry off.
+
+Apple requires your app's privacy details to include data that integrated SDKs collect. To complete [the App Store privacy details](https://developer.apple.com/app-store/app-privacy-details/) and your [privacy manifest](https://developer.apple.com/documentation/bundleresources/privacy-manifest-files), use this section and your own configuration.
+
 # Frequently asked questions
 
 ### How to adjust the log level?
