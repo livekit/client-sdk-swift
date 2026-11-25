@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.20.1
+
+### Patch Changes
+
+- Negotiate Opus NACK on every audio section in single peer connection mode, including send-only offers created before any subscriptions, enabling retransmission of lost audio in both publish and subscribe directions when RED is disabled - [#1230](https://github.com/livekit/client-sdk-swift/pull/1230) ([@lukasIO](https://github.com/lukasIO))
+
 ## [2.20.0] - 2026-11-23
 
 ### Added
