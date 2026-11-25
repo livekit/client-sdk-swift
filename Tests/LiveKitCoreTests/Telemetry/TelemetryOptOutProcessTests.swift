@@ -35,9 +35,11 @@ import LiveKitTestSupport
 /// `roomDuringOptOut`; `concurrentDisable` needs neither; `duringRequest` and `duringSubmit`
 /// connect to `livekit-server --dev`.
 ///
-/// A case that fails must still end: every hook that holds a thread lets go after ``hold``, each
-/// case clears its hooks on the way out, and the suite's time limit ends a case that stalls.
-@Suite(.serialized, .timeLimit(.minutes(1))) struct TelemetryOptOutProcessTests {
+/// A case that fails should still end: every hook that holds a thread lets go after ``hold``,
+/// and each case clears its hooks on the way out. The suite's time limit cancels a case that
+/// stalls, which ends a wait that honors cancellation; it cannot stop a synchronous call into
+/// the core, so the script that starts a case is the place for a hard deadline.
+@Suite(.serialized, TestLimits.unit) struct TelemetryOptOutProcessTests {
     private static let selected = ProcessInfo.processInfo.environment["LK_TELEMETRY_OPT_OUT_CASE"]
     private static let recorder = ProcessInfo.processInfo.environment["LK_TELEMETRY_ENDPOINT"].flatMap(URL.init(string:))
 

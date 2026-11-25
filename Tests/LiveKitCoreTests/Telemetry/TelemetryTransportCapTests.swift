@@ -74,7 +74,7 @@ final class WeakReference<Value: AnyObject>: @unchecked Sendable {
 /// answer up to 65,536 decoded bytes comes back whole, a longer one is cut one byte past the
 /// limit (the core's overflow signal) with status and `Retry-After` kept, and every read ends
 /// exactly once: answered, failed or cancelled, with nothing left registered.
-@Suite(.serialized) struct TelemetryTransportCapTests {
+@Suite(.serialized, TestLimits.unit) struct TelemetryTransportCapTests {
     private static func transport() -> URLSessionTelemetryTransport {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ChunkedCollector.self, StalledCollector.self, EndlessCollector.self]
@@ -111,7 +111,7 @@ final class WeakReference<Value: AnyObject>: @unchecked Sendable {
     }
 
     /// The answer never ends: only a read that stops itself returns.
-    @Test(.timeLimit(.minutes(1))) func anEndlessAnswerIsCutAndItsTaskCancelled() async throws {
+    @Test func anEndlessAnswerIsCutAndItsTaskCancelled() async throws {
         EndlessCollector.stopped.mutate { $0 = false }
         let transport = Self.transport()
         let response = try await transport.send(request: Self.request("endless.test"))
