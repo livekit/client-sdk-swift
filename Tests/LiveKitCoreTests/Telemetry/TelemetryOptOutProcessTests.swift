@@ -31,8 +31,9 @@ import LiveKitTestSupport
 ///     LK_TELEMETRY_OPT_OUT_CASE=capture LK_TELEMETRY_ENDPOINT=http://127.0.0.1:<port> \
 ///         swift test --filter TelemetryOptOutProcessTests
 ///
-/// `seed` (endpoint unreachable) leaves batches in this process name's cache for `beforeRoom`;
-/// `concurrentDisable` needs neither; `duringRequest` and `duringSubmit` connect to `livekit-server --dev`.
+/// `seed` (endpoint unreachable) leaves batches in this process name's cache for `beforeRoom` and
+/// `roomDuringOptOut`; `concurrentDisable` needs neither; `duringRequest` and `duringSubmit`
+/// connect to `livekit-server --dev`.
 @Suite(.serialized) struct TelemetryOptOutProcessTests {
     private static let selected = ProcessInfo.processInfo.environment["LK_TELEMETRY_OPT_OUT_CASE"]
     private static let recorder = ProcessInfo.processInfo.environment["LK_TELEMETRY_ENDPOINT"].flatMap(URL.init(string:))
@@ -57,13 +58,23 @@ import LiveKitTestSupport
         return files.allObjects.count
     }
 
-    /// Whether `semaphore` is signalled within 5 s, waited for off the cooperative pool.
-    private static func signalled(_ semaphore: DispatchSemaphore) async -> Bool {
+    /// Whether `semaphore` is signalled within `seconds`, waited for off the cooperative pool.
+    private static func signalled(_ semaphore: DispatchSemaphore, within seconds: Double = 5) async -> Bool {
         await withCheckedContinuation { continuation in
             DispatchQueue.global().async {
-                continuation.resume(returning: semaphore.wait(timeout: .now() + 5) == .success)
+                continuation.resume(returning: semaphore.wait(timeout: .now() + seconds) == .success)
             }
         }
+    }
+
+    /// Creates a Room off this task; signalled once the Room exists.
+    private static func creatingRoom() -> DispatchSemaphore {
+        let created = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            _ = Room()
+            created.signal()
+        }
+        return created
     }
 
     /// Calls the opt-out off this task and reports whether it returned within 5 s.
@@ -126,6 +137,41 @@ import LiveKitTestSupport
         #expect(room.rtcTelemetry == nil)
 
         release.signal()
+        await Telemetry.cleanUpFinished()
+        #expect(Self.cachedFiles() == 0)
+    }
+
+    /// The first Room racing the opt-out. Its install is held right after its opt-out check: the
+    /// opt-out then waits behind that install instead of revoking under it, so the install never
+    /// reaches a core that makes it wait for the purge. With the clean-up held as well, that Room
+    /// and a later one are both created, and once released the clean-up still deletes the cache.
+    @Test(.enabled(if: selected == "roomDuringOptOut"))
+    func roomDuringOptOut() async {
+        #expect(Self.cachedFiles() > 0, "run the seed case first")
+        let installing = DispatchSemaphore(value: 0), install = DispatchSemaphore(value: 0)
+        Telemetry.beforeInstall.mutate { $0 = { installing.signal(); install.wait() } }
+        let cleaning = DispatchSemaphore(value: 0), clean = DispatchSemaphore(value: 0)
+        Telemetry.beforeCleanUp.mutate { $0 = { cleaning.signal(); clean.wait() } }
+
+        let first = Self.creatingRoom()
+        #expect(await Self.signalled(installing))
+        let optedOut = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            LiveKitSDK.disableTelemetry()
+            optedOut.signal()
+        }
+        #expect(await !Self.signalled(optedOut, within: 1))
+        #expect(!telemetryIsDisabled())
+
+        install.signal()
+        #expect(await Self.signalled(first))
+        #expect(await Self.signalled(optedOut))
+        #expect(await Self.signalled(cleaning))
+        #expect(telemetryIsDisabled())
+        #expect(await Self.signalled(Self.creatingRoom()))
+        #expect(Telemetry.scope() == nil)
+
+        clean.signal()
         await Telemetry.cleanUpFinished()
         #expect(Self.cachedFiles() == 0)
     }

@@ -30,9 +30,11 @@ enum Telemetry {
 
     /// Opt-out, in effect when this returns: no scope, no capture, configures refused; the core
     /// purges what it holds in the background. A cache left by an earlier launch belongs to no
-    /// pipeline yet: the clean-up's refused configure deletes it, off the caller's thread.
+    /// pipeline yet: the clean-up's refused configure deletes it, off the caller's thread. Waits
+    /// only for an install in flight (see ``installOrder``), never for the purge or the clean-up.
     static func disable() {
-        disabled.mutate { $0 = true } // released before calling the core: never held across it
+        // Both locks are released before calling the core: never held across it.
+        installOrder.mutate { _ in disabled.mutate { $0 = true } }
         telemetryDisable()
         for rtc in rtcInstruments.read({ $0.allObjects }) {
             rtc.stop()
@@ -60,7 +62,7 @@ enum Telemetry {
             scheduled = true
             cleanUpQueue.async {
                 beforeCleanUp.copy()?()
-                install()
+                coreConfigure()
             }
             return true
         }
@@ -101,26 +103,38 @@ enum Telemetry {
     /// Installed synchronously on first use, so a Room never misses its scope.
     private static let installed: Void = configure()
 
-    /// Install the process pipeline; after the opt-out, the clean-up instead. A configure racing
-    /// the opt-out can still reach the core after it and wait there for the refusal.
+    /// Orders an install against the opt-out: held from the opt-out check to the end of the core's
+    /// configure, and taken by ``disable()`` before it revokes. The core makes a configure that
+    /// reaches it after the opt-out wait for the purge; with this, none does, so creating a Room
+    /// never waits for the purge or the clean-up. The opt-out waits instead, for an install in
+    /// flight: local work, with nothing to purge ahead of it.
+    private static let installOrder = StateSync(())
+
+    /// Test seam: runs in ``configure()`` after its opt-out check, right before the install.
+    static let beforeInstall = StateSync<(@Sendable () -> Void)?>(nil)
+
+    /// Install the process pipeline; nothing after the opt-out, whose clean-up ``disable()`` owns.
     static func configure() {
-        guard !disabled.copy() else { return cleanUp() }
-        install()
+        installOrder.read { _ in
+            guard !disabled.copy() else { return }
+            beforeInstall.copy()?()
+            if let parent = storageDirectory?.deletingLastPathComponent() {
+                // The core creates the directory, not its parent: without one it caches in memory only.
+                try? FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+            }
+            coreConfigure()
+        }
     }
 
-    /// The core's configure: installs, or after the opt-out refuses and erases `storageDir`.
-    private static func install() {
+    /// The core's configure: installs, or after the opt-out refuses, waits for the purge and
+    /// erases `storageDir`.
+    private static func coreConfigure() {
         let sdk = TelemetryResource(sdk: .swift,
                                     sdkVersion: LiveKitSDK.version,
                                     osName: String(describing: Utils.os()),
                                     osVersion: Utils.osVersionString(),
                                     deviceModel: Utils.modelIdentifier())
-        let storage = storageDirectory
-        if !disabled.copy(), let parent = storage?.deletingLastPathComponent() {
-            // The core creates the directory, not its parent: without one it caches in memory only.
-            try? FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-        }
-        let config = TelemetryConfig(sdk: sdk, storageDir: storage?.path)
+        let config = TelemetryConfig(sdk: sdk, storageDir: storageDirectory?.path)
         // Fail-open: the app runs without telemetry rather than not at all.
         try? telemetryConfigure(config: config, transport: URLSessionTelemetryTransport(), instruments: [DeviceTelemetry(), WebRTCLogCapture()])
     }
