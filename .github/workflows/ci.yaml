@@ -213,6 +213,8 @@ jobs:
       # xcbeautify's github-actions renderer collapses a parameterized Swift Testing
       # failure to "Recorded an issue (1) argument(s)" — no message, no failing
       # argument. xcodebuild's own output has both, so keep it for post-mortems.
+      # The collector's own log and the file it wrote say whether the telemetry
+      # end-to-end test had a collector, and what the core sent to it.
       - name: Upload Test Log
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
@@ -223,6 +225,8 @@ jobs:
             ${{ runner.temp }}/stall-dump
             ${{ runner.temp }}/test-results.xcresult
             ${{ runner.temp }}/simulator-metadata.log
+            ${{ runner.temp }}/otelcol.log
+            /tmp/livekit-telemetry-otlp.jsonl
             ~/Library/Logs/DiagnosticReports
             /Library/Logs/DiagnosticReports
             ~/Library/Developer/CoreSimulator/Devices/${{ steps.boot.outputs.udid }}/data/Library/Logs/CrashReporter
