@@ -10,8 +10,17 @@ on:
         description: Build only, skip draft release / PR
         default: true
         type: boolean
-  release:
-    types: [published]
+  # Called by release.yaml after the tag.
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to build from (defaults to version, then main)
+        type: string
+      version:
+        type: string
+      dry_run:
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -32,7 +41,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.version || 'main' }}
+          ref: ${{ inputs.ref || inputs.version || 'main' }}
           submodules: recursive
           # Needed to reach github.sha below, which is not an ancestor of the
           # checked-out tag.
@@ -44,10 +53,9 @@ jobs:
       # must come from the tag, since that is the artifact's identity; the tooling
       # that packages them must not.
       #
-      # On a release event github.sha IS the tag's commit, so it cannot serve as
-      # the tooling ref -- that is exactly the stale script we are avoiding. Use
-      # the default branch there. A dispatch keeps github.sha so that changes to
-      # scripts/ can be exercised from a PR branch before they are merged.
+      # After a release PR merges, take the tooling from the default branch. A
+      # dispatch (of this workflow or of release.yml) keeps github.sha so that
+      # changes to scripts/ can be exercised from a PR branch before they are merged.
       - name: Use current build tooling
         env:
           TOOLING_REF: ${{ github.event_name == 'workflow_dispatch' && github.sha || format('origin/{0}', github.event.repository.default_branch) }}
@@ -64,20 +72,46 @@ jobs:
       - name: Resolve version
         id: ver
         run: |
-          VERSION="${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.version }}"
+          VERSION="${{ inputs.version }}"
           [ -z "$VERSION" ] && VERSION="$(cat .version)"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # A second run for a version the hosting repo has skips the build and the
+      # publish. The action refuses an existing release, so a repair run would fail.
+      - name: Check the hosting repo
+        id: done
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.XCFRAMEWORK_PAT }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          assets=$(gh release view "$VERSION" --repo "$HOSTING_REPO" --json assets --jq '.assets[].name' 2>/dev/null) || exit 0
+          if ! grep -qx LiveKit.xcframework.zip <<< "$assets"; then
+            echo "::error::$HOSTING_REPO has release $VERSION without LiveKit.xcframework.zip. If it is a draft, delete it with 'gh release delete $VERSION --repo $HOSTING_REPO --cleanup-tag', then run again."
+            exit 1
+          fi
+          # A PR closed without merge does not count: the hosting repo then lacks the manifests.
+          prs=$(gh pr list --repo "$HOSTING_REPO" --head "release/$VERSION" --state all --json state --jq '[.[] | select(.state != "CLOSED")] | length')
+          if [ "$prs" -eq 0 ]; then
+            echo "::error::$HOSTING_REPO has release $VERSION, but no open or merged PR from release/$VERSION. Reopen the closed PR, or open one from that branch if none exists. Then run again."
+            exit 1
+          fi
+          echo "::notice::$HOSTING_REPO has release $VERSION and its PR. Skipping."
+          echo "complete=true" >> "$GITHUB_OUTPUT"
+
       - name: Install swiftly
+        if: steps.done.outputs.complete != 'true'
         run: |
           brew install swiftly swift-sh
           swiftly init --quiet-shell-followup --skip-install -y
 
       - name: Build XCFramework
+        if: steps.done.outputs.complete != 'true'
         run: swiftly run +xcode swift-sh scripts/xcframework.swift --version "${{ steps.ver.outputs.version }}"
 
       - name: Publish to hosting repo
-        if: ${{ github.event_name == 'release' || github.event.inputs.dry_run != 'true' }}
+        if: ${{ !inputs.dry_run && steps.done.outputs.complete != 'true' }}
         uses: livekit/publish-xcframework-action@3b8645334fb62b0fd1d7067067819bcd111db157 # main
         with:
           xcframework-zip: .build/xcframework/LiveKit.xcframework.zip
