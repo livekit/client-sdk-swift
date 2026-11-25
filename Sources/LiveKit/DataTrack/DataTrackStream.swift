@@ -22,6 +22,11 @@ import Foundation
 /// An `AsyncSequence`: Swift callers iterate with `for await frame in stream`; Objective-C
 /// callers use ``read(onFrame:)``. The sequence ends when the track is unpublished or the
 /// subscription is cancelled.
+///
+/// To cancel the task that reads the stream also ends the sequence: the stream closes, and every
+/// later ``next()`` returns `nil`. A loop that exits with `break` leaves the stream open, so a
+/// later loop continues with the next frame. To read again after a cancellation, call
+/// ``RemoteDataTrack/subscribe(bufferSize:)`` for a new stream.
 public final class DataTrackStream: NSObject, Sendable {
     private let stream: LiveKitFFI.DataTrackStream
 
@@ -30,10 +35,11 @@ public final class DataTrackStream: NSObject, Sendable {
         super.init()
     }
 
-    /// Returns the next frame, or `nil` once the stream ends (the track is unpublished or the
-    /// subscription is cancelled).
+    /// Returns the next frame, or `nil` once the stream ends (the track is unpublished, the
+    /// subscription is cancelled, or the calling task is cancelled).
     public func next() async -> DataTrackFrame? {
-        guard let frame = await stream.next() else { return nil }
+        // The native wait ignores task cancellation, so a cancelled reader closes the stream.
+        guard let frame = try? await cancellingNative(stream.close, { [stream] in await stream.next() }) else { return nil }
         return DataTrackFrame(frame)
     }
 

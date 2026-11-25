@@ -156,6 +156,31 @@ struct DataTrackApiTests {
         }
     }
 
+    @Test(arguments: [false, true])
+    func cancelledStreamReadEndsWithEOF(preCancelled: Bool) async throws {
+        try await TestEnvironment.withPublishedDataTrack(named: "cancel-stream") { fixture in
+            let stream = try await fixture.remoteTrack.subscribe()
+            let entered = AsyncCompleter<Void>(label: "Frame read started", defaultTimeout: 5)
+            let ended = AsyncCompleter<Bool>(label: "Frame read ended", defaultTimeout: 5)
+            let task = Task {
+                if preCancelled { withUnsafeCurrentTask { $0?.cancel() } }
+                entered.resume(returning: ())
+                await ended.resume(returning: stream.next() == nil)
+            }
+            defer { task.cancel() }
+            try await entered.wait()
+            task.cancel()
+            #expect(try await ended.wait())
+            await task.value
+            #expect(await stream.next() == nil)
+            // Cancelling this cursor must not cancel the track or the room's event cursor.
+            let replacement = try await fixture.remoteTrack.subscribe()
+            let payload = Data([42])
+            try fixture.track.tryPush(frame: DataTrackFrame(payload: payload))
+            #expect(await replacement.firstFrame(within: 5)?.payload == payload)
+        }
+    }
+
     // MARK: - Pipeline Options
 
     /// `maxPartialFrames` can be set before and after subscribing, and a multi-packet frame still
