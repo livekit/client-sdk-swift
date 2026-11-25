@@ -42,10 +42,10 @@ public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
         state.continuation != nil
     }
 
+    private let mediaLogs = MediaLogSummary(type: LocalAudioTrackRecorder.self)
     private let state = StateSync<State>(State())
     private struct State {
         var continuation: Stream.Continuation?
-        var didLogConversionError: Bool = false
     }
 
     /// Initialize the audio recorder with a local audio track.
@@ -69,13 +69,13 @@ public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
         stop()
 
         try await track.startCapture()
+        mediaLogs.resume()
         track.add(audioRenderer: self)
 
         let buffer: Stream.Continuation.BufferingPolicy = maxSize > 0 ? .bufferingNewest(maxSize) : .unbounded
         let stream = Stream(bufferingPolicy: buffer) { continuation in
             self.state.mutate {
                 $0.continuation = continuation
-                $0.didLogConversionError = false
             }
         }
 
@@ -91,6 +91,7 @@ public final class LocalAudioTrackRecorder: NSObject, Sendable, AudioRenderer {
 
     /// Stops capturing audio from the local track.
     public func stop() {
+        mediaLogs.finish()
         state.continuation?.finish()
     }
 
@@ -112,15 +113,7 @@ public extension LocalAudioTrackRecorder {
         {
             state.continuation?.yield(data)
         } else {
-            // render() runs per audio buffer; log the failure only once per recording
-            let shouldLog = state.mutate { state in
-                let isFirst = !state.didLogConversionError
-                state.didLogConversionError = true
-                return isFirst
-            }
-            if shouldLog {
-                sharedLogger.log("Failed to convert PCM buffer to data", .error, type: LocalAudioTrackRecorder.self)
-            }
+            mediaLogs.record(.recordConversionFailed, "Failed to convert PCM buffer to data")
         }
     }
 }

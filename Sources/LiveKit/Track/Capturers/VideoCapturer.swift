@@ -46,6 +46,8 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     public let delegates = MulticastDelegate<VideoCapturerDelegate>(label: "VideoCapturerDelegate")
     public let rendererDelegates = MulticastDelegate<VideoRenderer>(label: "VideoCapturerRendererDelegate")
 
+    private let mediaLogs = MediaLogSummary(type: VideoCapturer.self)
+
     private let processingQueue = DispatchQueue(label: "io.livekit.videocapturer.processing", autoreleaseFrequency: .workItem)
 
     // Constant set, no libwebrtc proxy: nothing to wait on.
@@ -151,6 +153,7 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
             return false
         }
 
+        mediaLogs.resume()
         delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
             $0.capturer?(self, didUpdate: .started)
         }
@@ -183,6 +186,7 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
             $0.capturer?(self, didUpdate: .stopped)
         }
 
+        mediaLogs.finish()
         set(dimensions: nil)
 
         return true
@@ -223,7 +227,7 @@ extension VideoCapturer {
             // kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
             // kCVPixelFormatType_32BGRA
             // kCVPixelFormatType_32ARGB
-            log("Skipping capture for unsupported pixel format: \(pixelFormat.toString())", .warning)
+            mediaLogs.record(.unsupportedFormat, "Skipping capture for unsupported pixel format: \(pixelFormat.toString())")
             return
         }
 
@@ -231,7 +235,7 @@ extension VideoCapturer {
                                           height: Int32(CVPixelBufferGetHeight(pixelBuffer)))
 
         guard sourceDimensions.isEncodeSafe else {
-            log("Skipping capture for dimensions: \(sourceDimensions)", .warning)
+            mediaLogs.record(.unsafeDimensions, "Skipping capture for dimensions: \(sourceDimensions)")
             return
         }
 
@@ -252,10 +256,14 @@ extension VideoCapturer {
     {
         // Check if buffer is ready
         guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
-              CMSampleBufferIsValid(sampleBuffer),
-              CMSampleBufferDataIsReady(sampleBuffer)
+              CMSampleBufferIsValid(sampleBuffer)
         else {
-            log("Failed to capture, buffer is not ready", .warning)
+            mediaLogs.record(.invalidSample, "Failed to capture, invalid sample buffer")
+            return
+        }
+
+        guard CMSampleBufferDataIsReady(sampleBuffer) else {
+            mediaLogs.record(.bufferNotReady, "Skipping capture, sample buffer is not ready")
             return
         }
 
@@ -271,7 +279,7 @@ extension VideoCapturer {
         }
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-            log("Failed to capture, pixel buffer not found", .warning)
+            mediaLogs.record(.missingPixelBuffer, "Failed to capture, pixel buffer not found")
             return
         }
 
@@ -292,7 +300,7 @@ extension VideoCapturer {
                           options: VideoCaptureOptions)
     {
         if _state.isFrameProcessingBusy {
-            log("Frame processing hasn't completed yet, skipping frame...", .warning)
+            mediaLogs.record(.processingBusy, "Frame processing is busy, skipping frame")
             return
         }
 
@@ -309,14 +317,14 @@ extension VideoCapturer {
 
             var rtcFrame: LKRTCVideoFrame = frame
             guard var lkFrame: VideoFrame = frame.toLKType() else {
-                log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
+                mediaLogs.record(.conversionFailed, "Failed to convert a RTCVideoFrame to VideoFrame")
                 return
             }
 
             // Apply processing if we have a processor attached.
             if let processor = _state.processor {
                 guard let processedFrame = processor.process(frame: lkFrame) else {
-                    log("VideoProcessor didn't return a frame, skipping frame.", .warning)
+                    mediaLogs.record(.processorDrop, "VideoProcessor returned no frame, skipping frame")
                     return
                 }
                 lkFrame = processedFrame

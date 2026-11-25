@@ -195,10 +195,10 @@ final class WebRTCLogCapture: TelemetryInstrument, @unchecked Sendable {
 
     func start() {
         logger.severity = .error
-        logger.start { [capturing] message in
-            guard capturing.copy() else { return }
+        logger.start { [capturing] message, severity in
+            guard capturing.copy(), severity == .error else { return }
             telemetryLog(record: LogRecord(severity: .error, source: .webRtc,
-                                           body: message.trimmingCharacters(in: .whitespacesAndNewlines),
+                                           body: message,
                                            logger: "WebRTC"))
         }
     }

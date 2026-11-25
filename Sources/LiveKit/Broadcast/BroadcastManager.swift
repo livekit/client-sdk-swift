@@ -129,7 +129,7 @@ extension RPSystemBroadcastPickerView {
     /// Simulates a tap on the picker's button using only public API.
     func triggerPicker() {
         guard let button = subviews.compactMap({ $0 as? UIButton }).first else {
-            sharedLogger.log("Unable to find button in RPSystemBroadcastPickerView", .warning, type: RPSystemBroadcastPickerView.self)
+            SDKLog.log("Unable to find button in RPSystemBroadcastPickerView", .warning, type: RPSystemBroadcastPickerView.self)
             return
         }
         button.sendActions(for: .touchUpInside)

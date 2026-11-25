@@ -105,7 +105,7 @@ public extension RPSystemBroadcastPickerView {
                      showsMicrophoneButton: Bool = true)
     {
         if !Thread.current.isMainThread {
-            sharedLogger.log("Must be called on main thread", .error, type: RPSystemBroadcastPickerView.self)
+            SDKLog.log("Must be called on main thread", .error, type: RPSystemBroadcastPickerView.self)
         }
 
         let view = RPSystemBroadcastPickerView()

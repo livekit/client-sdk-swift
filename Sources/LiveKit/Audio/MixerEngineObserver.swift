@@ -18,6 +18,7 @@ internal import LiveKitWebRTC
 @preconcurrency import AVFoundation
 
 public final class MixerEngineObserver: AudioEngineObserver, Loggable {
+    private let mediaLogs = MediaLogSummary(type: MixerEngineObserver.self)
     public var next: (any AudioEngineObserver)? {
         get { _state.next }
         set { _state.mutate { $0.next = newValue } }
@@ -250,6 +251,7 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
             ($0.micNode, $0.appNode, $0.soundPlayerNodes)
         }
 
+        mediaLogs.resume()
         micNode.reset()
         appNode.reset()
         soundPlayerNodes.reset()
@@ -266,6 +268,7 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
             ($0.micNode, $0.appNode)
         }
 
+        mediaLogs.finish()
         micNode.stop()
         appNode.stop()
 
@@ -335,7 +338,7 @@ extension MixerEngineObserver {
     // Capture appAudio and apply conversion automatically suitable for internal audio engine.
     public func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
         guard let converter = converter(for: inputBuffer.format) else {
-            log("Failed to get converter for input buffer format: \(inputBuffer.format)", .warning)
+            mediaLogs.record(.converterUnavailable, "Failed to get converter for input buffer format: \(inputBuffer.format)")
             return
         }
 
@@ -345,8 +348,16 @@ extension MixerEngineObserver {
             ($0.isInputConnected, $0.appNode)
         }
 
-        guard isInputConnected, let engine = appNode.engine, engine.isRunning else {
-            log("Engine is not running", .warning)
+        guard isInputConnected else {
+            mediaLogs.record(.engineUnavailable, "Audio input is disconnected")
+            return
+        }
+        guard let engine = appNode.engine else {
+            mediaLogs.record(.engineMissing, "Connected audio input has no engine")
+            return
+        }
+        guard engine.isRunning else {
+            mediaLogs.record(.engineUnavailable, "Audio engine is stopped")
             return
         }
 

@@ -90,6 +90,10 @@ let package = Package(
             exclude: ["Telemetry/otelcol.yaml"], // the e2e collector's configuration, read by otelcol
         ),
         .testTarget(
+            name: "LiveKitLoggingTests",
+            dependencies: ["LiveKit"],
+        ),
+        .testTarget(
             name: "LiveKitAudioTests",
             dependencies: [
                 "LiveKit",

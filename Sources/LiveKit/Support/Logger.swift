@@ -145,10 +145,10 @@ open class OSLogger: Logger, @unchecked Sendable {
         _ message: @autoclosure () -> CustomStringConvertible,
         _ level: LogLevel,
         source _: @autoclosure () -> String?,
-        file _: StaticString,
+        file: StaticString,
         type: Any.Type,
         function: StaticString,
-        line _: UInt,
+        line: UInt,
         metaData: ScopedMetadataContainer,
     ) {
         guard level >= minLevel else { return }
@@ -157,7 +157,7 @@ open class OSLogger: Logger, @unchecked Sendable {
 
         func buildScopedMetadataString() -> String {
             guard !metaData.isEmpty else { return "" }
-            return " [\(metaData.map { "\($0): \($1)" }.joined(separator: ", "))]"
+            return " [\(metaData.sorted { $0.key < $1.key }.map { "\($0): \($1)" }.joined(separator: ", "))]"
         }
 
         let metadata = buildScopedMetadataString()
@@ -175,7 +175,7 @@ open class OSLogger: Logger, @unchecked Sendable {
                 return newLog
             }
 
-            os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, "\(type).\(function) \(message)\(metadata)")
+            os_log("%{public}@", log: getOSLog(for: type), type: level.osLogType, "\(type).\(function) [\(file):\(line)] \(message)\(metadata)")
         }
     }
 
@@ -229,18 +229,25 @@ extension Loggable {
                     line: UInt = #line,
                     scope: TelemetryScope? = nil)
     {
-        sharedLogger.log(message ?? "",
-                         level,
-                         file: file,
-                         type: Self.self,
-                         function: function,
-                         line: line)
-        // The core's default floor, checked here so nothing below it crosses the FFI.
+        SDKLog.log(message ?? "", level, type: Self.self, file: file, function: function, line: line, scope: scope)
+    }
+}
+
+/// Shared SDK emission path; public application loggers remain console-only.
+enum SDKLog {
+    static func log(_ message: CustomStringConvertible,
+                    _ level: LogLevel,
+                    type: Any.Type,
+                    file: StaticString = #fileID,
+                    function: StaticString = #function,
+                    line: UInt = #line,
+                    scope: TelemetryScope? = nil)
+    {
+        sharedLogger.log(message, level, file: file, type: type, function: function, line: line)
         if level >= .warning {
-            Telemetry.log(LogRecord(severity: level.severity, source: .sdk, body: message?.description ?? "",
-                                    logger: String(describing: Self.self), function: "\(function)", file: "\(file)",
-                                    line: UInt32(clamping: line)),
-                          scope: scope)
+            Telemetry.log(LogRecord(severity: level.severity, source: .sdk, body: message.description,
+                                    logger: String(describing: type), function: "\(function)", file: "\(file)",
+                                    line: UInt32(clamping: line)), scope: scope)
         }
     }
 }
