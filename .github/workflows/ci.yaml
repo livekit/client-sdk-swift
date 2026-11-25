@@ -241,10 +241,32 @@ jobs:
           [ "$expected" -gt 0 ] && [ "$count" -eq "$expected" ] \
             || { echo "::error::$count of $expected telemetry lifecycle tests reported that they passed"; exit 1; }
 
+      # The telemetry end-to-end test reads back the file that the collector wrote. For a failed
+      # job, say whether the collector had data and under which names the core sent it: names
+      # only, so no room, participant or log text leaves the runner.
+      - name: Summarize Collector Output
+        if: ${{ failure() }}
+        run: |
+          out=/tmp/livekit-telemetry-otlp.jsonl
+          {
+            if [ -f "$out" ]; then
+              echo "batches: $(wc -l < "$out" | tr -d ' ')"
+              jq -r '
+                (.resourceSpans[]?.scopeSpans[]?.spans[]?
+                  | "span \(.name)", (.attributes[]? | "span attribute \(.key)"), (.events[]? | "span event \(.name)")),
+                (.resourceLogs[]?.scopeLogs[]?.logRecords[]?
+                  | "log \(.eventName // "")", (.attributes[]? | "log attribute \(.key)")),
+                ((.resourceSpans[]?, .resourceLogs[]?) | .resource.attributes[]? | "resource attribute \(.key)")
+              ' "$out" | sort | uniq -c
+            else
+              echo "batches: the collector wrote no file"
+            fi
+          } > "$RUNNER_TEMP/otelcol-names.txt" 2>&1 || true
+
       # xcbeautify's github-actions renderer collapses a parameterized Swift Testing
       # failure to "Recorded an issue (1) argument(s)" — no message, no failing
       # argument. xcodebuild's own output has both, so keep it for post-mortems.
-      # The collector's own log and the file it wrote say whether the telemetry
+      # The collector's own log and the summary above say whether the telemetry
       # end-to-end test had a collector, and what the core sent to it.
       - name: Upload Test Log
         if: ${{ failure() }}
@@ -259,7 +281,7 @@ jobs:
             ${{ runner.temp }}/test-results-lifecycle.xcresult
             ${{ runner.temp }}/simulator-metadata.log
             ${{ runner.temp }}/otelcol.log
-            /tmp/livekit-telemetry-otlp.jsonl
+            ${{ runner.temp }}/otelcol-names.txt
             ~/Library/Logs/DiagnosticReports
             /Library/Logs/DiagnosticReports
             ~/Library/Developer/CoreSimulator/Devices/${{ steps.boot.outputs.udid }}/data/Library/Logs/CrashReporter
