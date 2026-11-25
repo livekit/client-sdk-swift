@@ -1,0 +1,1 @@
+patch type="fixed" "A screen share of a static screen now reaches a subscriber that arrives after the last captured frame. The 1 fps resend of the last frame moved from the ScreenCaptureKit capturer to every screen share capturer, including broadcast, in-app and buffer capture"

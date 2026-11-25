@@ -35,6 +35,7 @@ public class LocalVideoTrack: Track, LocalTrackProtocol, @unchecked Sendable {
         rtcTrack.isEnabled = true
 
         self.capturer = capturer
+        capturer.set(repeatsLastFrameWhileIdle: source == .screenShareVideo)
         videoSourceBox = RTCBox(videoSource)
 
         super.init(name: name,
