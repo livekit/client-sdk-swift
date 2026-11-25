@@ -151,17 +151,8 @@ struct TransportRegistryTests {
             LiveKitTransport.initialize() // Losing registrations must leave the original clients in place.
             _ = try await selfTestHttpGet(url: url)
             #expect(http.calls == 2)
-        } else if mode == "pending-connect" {
-            let native = NativeRoomSession()
-            let connect = Task { try await native.connect(url: "ws://127.0.0.1:1", token: "test", options: .init()) }
-            try await ws.started.value()
-            let start = ContinuousClock.now
-            await Task.detached { native.cancel() }.value
-            try await ws.cancelled.value()
-            #expect(start.duration(to: .now) < .seconds(1))
-            _ = await connect.result
-            #expect(ws.calls == 1)
-            await native.disconnect()
+        } else if mode == "pending-connect" || mode == "foreign-timeout" {
+            try await checkPendingConnect(ws, cancelSession: mode == "pending-connect")
         } else {
             let native = NativeRoomSession()
             do {
@@ -172,6 +163,37 @@ struct TransportRegistryTests {
             }
             await native.disconnect()
         }
+    }
+
+    private func checkPendingConnect(_ ws: CountingWSClient, cancelSession: Bool) async throws {
+        let native = NativeRoomSession()
+        let options = NativeConnectOptions(joinRetries: 0, connectTimeoutMs: CountingWSClient.connectTimeoutMs)
+        let connect = Task { try await native.connect(url: "ws://127.0.0.1:1", token: "test", options: options) }
+        let callbackStarted = try await ws.started.value()
+        if cancelSession {
+            let requested = ContinuousClock.now
+            await Task.detached { native.cancel() }.value
+            await #expect(throws: NativeSessionError.Cancelled) { _ = try await connect.value }
+            let publicLatency = requested.duration(to: .now)
+            print("Session cancel to public connect result: \(publicLatency)")
+            #expect(publicLatency < .seconds(1))
+        }
+
+        // Session cancellation deliberately leaves core connect alive. Its signaling deadline
+        // drops the foreign future; that drop must cancel the generated Swift callback Task.
+        // foreign-timeout exercises the same drop without calling native.cancel() at all.
+        let callbackCancelled = try await ws.cancelled.value()
+        let callbackLatency = callbackStarted.duration(to: callbackCancelled)
+        let signalingDeadline = Duration.milliseconds(Int64(CountingWSClient.connectTimeoutMs))
+        let schedulingTolerance = Duration.seconds(1)
+        print("Foreign callback cancellation: \(callbackLatency); deadline: \(signalingDeadline); tolerance: \(schedulingTolerance)")
+        #expect(callbackLatency < signalingDeadline + schedulingTolerance)
+        if !cancelSession {
+            await #expect(throws: NativeSessionError.self) { _ = try await connect.value }
+        }
+        // Join the session's owned work, not an asserted all-descendant destruction barrier.
+        await native.disconnect()
+        #expect(ws.calls == 1)
     }
 }
 
@@ -190,18 +212,24 @@ private final class CountingWSClient: WsClient, @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
     var calls: Int { lock.withLock { count } }
-    let started = Completion<Void>()
-    let cancelled = Completion<Void>()
+    // Longer than the public-return bound, so that bound cannot pass by waiting for timeout.
+    static let connectTimeoutMs: UInt64 = 2000
+    let started = Completion<ContinuousClock.Instant>()
+    let cancelled = Completion<ContinuousClock.Instant>()
     func connect(url: String, headers: [Header], timeoutMs: UInt64) async throws -> WsConnectResult {
         lock.withLock { count += 1 }
-        if ProcessInfo.processInfo.environment["LIVEKIT_TRANSPORT_REGISTRY_CASE"] == "pending-connect" {
+        let mode = ProcessInfo.processInfo.environment["LIVEKIT_TRANSPORT_REGISTRY_CASE"]
+        if mode == "pending-connect" || mode == "foreign-timeout" {
+            #expect(timeoutMs == Self.connectTimeoutMs)
+            // Deliberately suspended foreign callback: unlike the production adapter, this
+            // fake has no timer. Rust's signaling timeout owns the drop under test.
             let pending = Completion<WsConnectResult>()
             return try await withTaskCancellationHandler {
-                started.resolve(.success(()))
+                started.resolve(.success(.now))
                 return try await pending.value()
             } onCancel: {
                 pending.resolve(.failure(TransportError.Closed))
-                cancelled.resolve(.success(()))
+                cancelled.resolve(.success(.now))
             }
         }
         return try await NativeWebSocketClient().connect(url: url, headers: headers, timeoutMs: timeoutMs)
