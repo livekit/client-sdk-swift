@@ -163,8 +163,8 @@ final class Transport: NSObject, Loggable {
     ///   (the dual-PC subscriber-primary flow has the server offer first).
     /// - Note: The munges are applied here and the result is signalled as-is, so unlike
     ///   ``set(localDescription:munging:)`` a munge libwebrtc rejects cannot be dropped
-    ///   and retried — the peer has already been told what we offered. Both munges on
-    ///   this path are the ones every single PC mode offer already carries.
+    ///   and retried — the peer has already been told what we offered. These are the
+    ///   same audio munges every ordinary single PC mode offer carries.
     /// - Note: The video start bitrate is deliberately not written here. It derives from
     ///   senders added by ``addTransceiver(with:transceiverInit:startBitrateKbps:)``, and
     ///   none exist before the JOIN, so there is never a value to write; and the one-shot
@@ -180,7 +180,7 @@ final class Transport: NSObject, Loggable {
         }
 
         let offer = try await createOffer()
-        let mungedSDP = [Self.mungeOpusStereoForAllAudio]
+        let mungedSDP = [Self.mungeOpusStereoForAllAudio, Self.mungeOpusNackForAllAudio]
             .reduce(offer.sdp) { $1($0) }
         let munged = mungedSDP == offer.sdp ? offer : RTC.createSessionDescription(type: offer.type, sdp: mungedSDP)
 
@@ -327,7 +327,7 @@ final class Transport: NSObject, Loggable {
             // with no receive-only section — which is every dual PC offer until a track is
             // unpublished.
             offer = try await set(localDescription: offer, munging: singlePCMode
-                ? [Self.mungeOpusStereoForAllAudio, startBitrate, Self.conformBundledCodecFmtp]
+                ? [Self.mungeOpusStereoForAllAudio, Self.mungeOpusNackForAllAudio, startBitrate, Self.conformBundledCodecFmtp]
                 : [startBitrate, Self.conformBundledCodecFmtp])
             // A rejected munge is dropped and the offer retried without it, so the one-shot
             // hint is consumed only once the description that carries it has been accepted.
@@ -447,6 +447,25 @@ extension Transport {
             guard section.mediaType == "audio",
                   let payload = section.payload(forCodec: "opus") else { continue }
             document.mediaSections[index].appendFmtpParameter("stereo=1", forPayload: payload)
+        }
+        return document.write()
+    }
+
+    /// Adds plain NACK to every Opus payload in every single-PC audio offer section.
+    ///
+    /// The SFU negotiates audio feedback from the first audio section, so send-only
+    /// sections must advertise it even before any subscriptions exist. Existing plain
+    /// or wildcard NACK is preserved; `nack pli` does not imply plain NACK. Dual-PC
+    /// offers keep their defaults and negotiate receive feedback in the subscriber answer.
+    nonisolated static func mungeOpusNackForAllAudio(_ sdp: String) -> String {
+        var document = SDP(parsing: sdp)
+        for index in document.mediaSections.indices {
+            let section = document.mediaSections[index]
+            guard section.mediaType == "audio",
+                  !section.hasRtcpFeedback("nack", forPayload: "*") else { continue }
+            for mapping in section.rtpmaps where mapping.codec.caseInsensitiveCompare("opus") == .orderedSame {
+                document.mediaSections[index].appendRtcpFeedback("nack", forPayload: mapping.payload)
+            }
         }
         return document.write()
     }
