@@ -46,6 +46,33 @@ struct PublishTrackTests {
         }
     }
 
+    /// The server turns Opus DTX on in its answer unless the track carries `TF_NO_DTX`.
+    @Test(arguments: [false, true])
+    func audioTrackWithoutOptionsKeepsRoomDefaults(singlePeerConnection: Bool) async throws {
+        let noDtx = AudioPublishOptions(dtx: false)
+        let options = RoomTestingOptions(singlePeerConnection: singlePeerConnection, defaultAudioPublishOptions: noDtx, canPublish: true)
+
+        try await TestEnvironment.withRoom(options) { room in
+            let track = TestAudioTrack()
+            let publication = try await room.localParticipant.publish(audioTrack: track)
+
+            #expect(track.publishOptions as? AudioPublishOptions == noDtx)
+            #expect(publication._state.audioTrackFeatures?.contains(.tfNoDtx) == true)
+
+            let publisher = try #require(room._state.transport?.publisher)
+            var answered: String?
+            let deadline = Date().addingTimeInterval(15)
+            while answered == nil, Date() < deadline {
+                answered = await publisher.remoteDescription?.sdp.components(separatedBy: "m=")
+                    .first { $0.hasPrefix("audio") && $0.contains("a=recvonly") }
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            let section = try #require(answered, "the server never answered the audio section")
+            #expect(section.contains("a=fmtp:111"))
+            #expect(!section.contains("usedtx=1"))
+        }
+    }
+
     @Test func publishWithoutPermissions() async throws {
         try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: false)) { room in
             let audioTrack = await LocalAudioTrack.createTrack()
