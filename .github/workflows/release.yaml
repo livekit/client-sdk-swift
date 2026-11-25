@@ -1,0 +1,125 @@
+# After a release PR merges: tag and create the GitHub release, then publish
+# the podspec, the XCFramework and the docs.
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+  # A failed job is re-run with "Re-run failed jobs" on the run itself:
+  # that keeps the merge commit. This trigger is for a run that needs a
+  # fixed workflow file from the branch. `verwalter release` resumes from
+  # the current state and skips what is done. The XCFramework and podspec
+  # jobs run on every release run and skip a version that their target has.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit or tag to build and publish. Set it to the release tag when the tag exists. Empty is the branch head.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  # Only a run by hand, or a merged release PR or rc PR that the tool opened:
+  # the branch name alone would let any pushed `release/*` branch trigger a
+  # release. The author is `[release].author`, by default verwalter-release[bot].
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.verwalter.outputs.release }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+      - id: verwalter
+        uses: livekit/verwalter@9da894a1e4f7d298095a961be60c818afd47905b # v0.32.0-rc.1
+        with:
+          command: gate
+
+  release:
+    needs: gate
+    if: needs.gate.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    # One release at a time: a second run waits, and `queue: max` keeps every waiting run.
+    concurrency:
+      group: release
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: write
+    outputs:
+      released: ${{ steps.verwalter.outputs.released }}
+      final: ${{ steps.final.outputs.final }}
+      version: ${{ steps.final.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The merge commit itself: a push to main right after the merge
+          # must not move the tag.
+          ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+          fetch-depth: 0
+      - id: verwalter
+        uses: livekit/verwalter@9da894a1e4f7d298095a961be60c818afd47905b # v0.32.0-rc.1
+        with:
+          command: release
+      # The version names the concurrency groups. The docs site holds one version: only a final version that this run released on main replaces it.
+      - id: final
+        run: |
+          echo "version=$(cat .version)" >> "$GITHUB_OUTPUT"
+          [[ "$(cat .version)" == *-* ]] || echo "final=true" >> "$GITHUB_OUTPUT"
+
+  xcframework:
+    needs: release
+    # One writer per version: a second run for it waits.
+    concurrency:
+      group: release-${{ needs.release.outputs.version }}-xcframework
+      cancel-in-progress: false
+    uses: ./.github/workflows/publish-xcframework.yaml
+    with:
+      ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+      dry_run: false
+    secrets: inherit
+
+  podspec:
+    needs: release
+    # One writer per version: a second run for it waits.
+    concurrency:
+      group: release-${{ needs.release.outputs.version }}-podspec
+      cancel-in-progress: false
+    uses: ./.github/workflows/publish-podspec.yaml
+    with:
+      ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+      dry_run: false
+    secrets: inherit
+
+  docs:
+    needs: release
+    # One writer per version: a second run for it waits.
+    concurrency:
+      group: release-${{ needs.release.outputs.version }}-docs
+      cancel-in-progress: false
+    if: needs.release.outputs.released == 'true' && needs.release.outputs.final == 'true' && (github.event.pull_request.base.ref || github.ref_name) == 'main'
+    uses: ./.github/workflows/publish-docs.yaml
+    with:
+      ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+      dry_run: false
+    secrets: inherit
+
+  # The end state, asserted: `status --check` fails when the tag is not on
+  # the remote or the GitHub release is missing or still a draft.
+  verify:
+    needs: [release, xcframework, podspec, docs]
+    if: ${{ !cancelled() && !failure() && needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # reads only. A draft release is visible only with write access
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
+          fetch-depth: 0
+      - uses: livekit/verwalter@9da894a1e4f7d298095a961be60c818afd47905b # v0.32.0-rc.1
+        with:
+          command: status
+          args: --check
