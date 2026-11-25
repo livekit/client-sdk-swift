@@ -174,7 +174,13 @@ struct DataTrackApiTests {
             await task.value
             #expect(await stream.next() == nil)
             // Cancelling this cursor must not cancel the track or the room's event cursor.
-            let replacement = try await fixture.remoteTrack.subscribe()
+            let replacement: DataTrackStream
+            do {
+                replacement = try await fixture.remoteTrack.subscribe()
+            } catch {
+                Issue.record(error, "New subscription after cancellation and EOF failed")
+                return
+            }
             let payload = Data([42])
             try fixture.track.tryPush(frame: DataTrackFrame(payload: payload))
             #expect(await replacement.firstFrame(within: 5)?.payload == payload)
