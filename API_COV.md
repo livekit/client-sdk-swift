@@ -11,7 +11,7 @@ receive-first followed by PCM without an explicit microphone, not all capture pa
 Checkpoint: production Room integration against Rust
 `08da67f24b3c46219320f29d3415e1114a80e9dc` (safe `6bda549` plus DTMF, subscription
 permission and video quality controls; packaging-only head `d03e2063`).
-Package: `/Users/blaze/livekit/research-v3/rust-ffi/room-apis-08da67f-apple/livekit-ffi-xcframework`,
+Package: a local `livekit-ffi-xcframework` build of that revision (see "Local build"),
 archive SHA-256 `c9b559931a7a22255710ff3490f4329a77bfcb363f1dc4cfcd8beae4139699ce`.
 Verified macOS arm64 binary SHA-256:
 `bc6c8fef9fa3b6c6811ef0515051309437ba3766ec6e1f8ceb2c04a90a3f779b`.
@@ -39,6 +39,29 @@ native support still needs Swift integration/verification; `compile-only` means
 the public declaration remains without equivalent native behavior; `blocked`
 means the required native/core access is absent. Throwing unsupported activation
 fails with LiveKitError; nonthrowing APIs cannot provide that failure contract.
+
+## Local build
+
+TODO: When a `livekit-ffi-xcframework` release ships the room API, replace the local
+package in `Package.swift` with that release.
+
+No published LiveKitFFI package has the room API. `Package.swift` reads the package
+from `../livekit-ffi-xcframework`, a directory next to this checkout. To use a
+different directory, set the environment variable `LIVEKIT_FFI_PACKAGE_PATH` to its path.
+
+To build the macOS package, you need Rust, Xcode and `tera` (`cargo install tera-cli`).
+
+1. Get the Rust branch from https://github.com/livekit/rust-sdks/pull/1739 with its submodules.
+2. In the Rust checkout, build the host library:
+   `cargo build -p livekit-ffi --no-default-features --features room-apis,rustls-tls-webpki-roots`
+3. Assemble the package. The script deletes the output directory first:
+   `sh livekit-ffi/support/swift/package-room-macos.sh . target/debug/liblivekit_ffi.dylib <output directory>`
+4. Move the output directory to `../livekit-ffi-xcframework`, or set `LIVEKIT_FFI_PACKAGE_PATH`.
+5. In this checkout, build the SDK:
+   `xcodebuild build -scheme LiveKit -destination 'platform=macOS'`
+
+This package has only the macOS arm64 slice. For the iOS slices, see
+`build-room-ios.sh` and `package-room-apple.sh` in `livekit-ffi/README.md` of the Rust branch.
 
 ## Acceptance gates (separate from working-backend proof)
 

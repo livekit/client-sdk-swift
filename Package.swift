@@ -21,7 +21,12 @@ let package = Package(
     dependencies: [
         // LK-Prefixed Dynamic WebRTC XCFramework
         .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "150.7871.08"),
-        .package(path: "/Users/blaze/livekit/research-v3/rust-ffi/room-apis-08da67f-apple/livekit-ffi-xcframework"),
+        // TODO: Use a versioned livekit-ffi-xcframework release when one ships the room API.
+        // Until then this is a local package. See "Local build" in API_COV.md.
+        .package(
+            name: "livekit-ffi-xcframework",
+            path: Context.environment["LIVEKIT_FFI_PACKAGE_PATH"] ?? "../livekit-ffi-xcframework",
+        ),
         // Only used for DocC generation
         .package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.3.0"),
     ],
