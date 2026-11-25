@@ -316,7 +316,8 @@ extension VideoCapturer {
             }
 
             var rtcFrame: LKRTCVideoFrame = frame
-            guard var lkFrame: VideoFrame = frame.toLKType() else {
+            // This producer owns the counted diagnostic; do not also log each failure in the converter.
+            guard var lkFrame: VideoFrame = frame.toLKType(reportFailure: false) else {
                 mediaLogs.record(.conversionFailed, "Failed to convert a RTCVideoFrame to VideoFrame")
                 return
             }

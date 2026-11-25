@@ -91,7 +91,10 @@ let package = Package(
         ),
         .testTarget(
             name: "LiveKitLoggingTests",
-            dependencies: ["LiveKit"],
+            dependencies: [
+                "LiveKit",
+                .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
+            ],
         ),
         .testTarget(
             name: "LiveKitAudioTests",
