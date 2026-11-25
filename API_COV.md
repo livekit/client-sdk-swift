@@ -122,6 +122,16 @@ dependency: swift-protobuf (test-only); removed submodule: `protocol`. Remaining
 capture, render and the audio device module; `LKObjCHelpers` stays because public
 `LKSampleHandler` calls its broadcast-finish helper. Source: `swift package describe` on both trees.
 
+## Upstream engine changes after the prune
+
+Upstream #1222 (`406af9e2`) adds plain NACK to every Opus payload in single peer connection
+audio offers. It changes the removed Swift `Transport` and tests its SDP functions.
+The Rust core owns that negotiation now. rust-sdks #1683 (`840215dc`) applies the same rule
+in `munge_offer` and tests it there. `Transport.swift` stays deleted. The two upstream
+`OpusNack*` test files call the removed engine and are not kept. The changelog entry stays.
+The behavior needs a LiveKitFFI package built from a Rust revision that contains #1683.
+The 08da67f package named above does not contain it. No Swift test reads the negotiated SDP.
+
 ## Prune gates (evidence in research-v3/swift-prune)
 
 Gate head 681232eb for compile, broad runtime, ObjC, API and lint; the test follow-up head
