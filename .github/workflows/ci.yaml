@@ -172,6 +172,7 @@ jobs:
       # Xcode 27 hands swiftc the Clang-only -fapplication-extension when it links the test bundles
       # under APPLICATION_EXTENSION_API_ONLY; linking through clang keeps that row on the primary toolchain.
       - name: Build & Test
+        id: test
         timeout-minutes: 45
         run: |
           test_platform='${{ matrix.platform }}'
@@ -210,6 +211,36 @@ jobs:
               || { echo "::error::$module was not compiled in Swift $EXPECTED mode"; exit 1; }
           done
 
+      # The telemetry lifecycle cases need telemetry on from start to end. The run above is one
+      # process, and an opt-out in it lasts for that process, so these cases get a process of
+      # their own, with the variable that turns them on. It reuses the build above, and it also
+      # runs when a test above failed: only a skipped or cancelled run above skips it.
+      - name: Test Telemetry Lifecycle
+        if: ${{ !cancelled() && steps.test.conclusion != 'skipped' }}
+        timeout-minutes: 10
+        env:
+          TEST_RUNNER_LK_TELEMETRY_LIFECYCLE: "1"
+        run: |
+          set -o pipefail && xcodebuild test-without-building \
+            -scheme LiveKitCI \
+            -destination '${{ steps.boot.outputs.udid && format('id={0}', steps.boot.outputs.udid) || format('platform={0}', matrix.platform) }}' \
+            -only-testing:LiveKitCoreTests/TelemetryLifecycleTests \
+            -resultBundlePath "$RUNNER_TEMP/test-results-lifecycle.xcresult" \
+            -collect-test-diagnostics on-failure \
+            -enableAddressSanitizer ${{ matrix.asan == true && 'YES' || 'NO' }} \
+            -enableThreadSanitizer ${{ matrix.tsan == true && 'YES' || 'NO' }} \
+            -parallel-testing-enabled NO 2>&1 \
+            | tee "$RUNNER_TEMP/xcodebuild-lifecycle.log" \
+            | xcbeautify --renderer github-actions
+          # A run that selects the suite and runs no case must not pass for one that ran them:
+          # every test function of the suite has to report that it passed.
+          expected=$(grep -c '^ *@Test' Tests/LiveKitCoreTests/Telemetry/TelemetryLifecycleTests.swift)
+          passed=$(grep -o -E 'Test [A-Za-z]+\(\) passed' "$RUNNER_TEMP/xcodebuild-lifecycle.log" | sort -u || true)
+          echo "$passed"
+          count=$(printf '%s' "$passed" | grep -c . || true)
+          [ "$expected" -gt 0 ] && [ "$count" -eq "$expected" ] \
+            || { echo "::error::$count of $expected telemetry lifecycle tests reported that they passed"; exit 1; }
+
       # xcbeautify's github-actions renderer collapses a parameterized Swift Testing
       # failure to "Recorded an issue (1) argument(s)" — no message, no failing
       # argument. xcodebuild's own output has both, so keep it for post-mortems.
@@ -222,8 +253,10 @@ jobs:
           name: test-log-${{ strategy.job-index }}
           path: |
             ${{ runner.temp }}/xcodebuild.log
+            ${{ runner.temp }}/xcodebuild-lifecycle.log
             ${{ runner.temp }}/stall-dump
             ${{ runner.temp }}/test-results.xcresult
+            ${{ runner.temp }}/test-results-lifecycle.xcresult
             ${{ runner.temp }}/simulator-metadata.log
             ${{ runner.temp }}/otelcol.log
             /tmp/livekit-telemetry-otlp.jsonl
