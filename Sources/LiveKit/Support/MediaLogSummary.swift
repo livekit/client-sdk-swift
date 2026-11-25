@@ -56,7 +56,7 @@ final class MediaLogSummary: Sendable {
         }
 
         func body(now: UInt64, final: Bool) -> String {
-            "event=\(event.rawValue) repeated_count=\(repeats) window_ms=\((now &- started) / 1_000_000) final=\(final) count_saturated=\(saturated)"
+            "media diagnostic repeated: event=\(event.rawValue) repeated_count=\(repeats) window_ms=\((now &- started) / 1_000_000) final=\(final) count_saturated=\(saturated)"
         }
     }
 

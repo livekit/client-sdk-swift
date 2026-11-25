@@ -343,7 +343,7 @@ extension MixerEngineObserver {
     // Capture appAudio and apply conversion automatically suitable for internal audio engine.
     public func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
         guard let converter = converter(for: inputBuffer.format) else {
-            mediaLogs.record(.converterUnavailable, "Failed to get converter for input buffer format: \(inputBuffer.format)")
+            mediaLogs.record(.converterUnavailable, "dropping audio buffer: reason=converter_unavailable sample_rate_hz=\(inputBuffer.format.sampleRate) channel_count=\(inputBuffer.format.channelCount)")
             return
         }
 
@@ -354,15 +354,15 @@ extension MixerEngineObserver {
         }
 
         guard isInputConnected else {
-            mediaLogs.record(.engineUnavailable, "Audio input is disconnected")
+            mediaLogs.record(.engineUnavailable, "dropping audio buffer: reason=input_disconnected")
             return
         }
         guard let engine = appNode.engine else {
-            mediaLogs.record(.engineMissing, "Connected audio input has no engine")
+            mediaLogs.record(.engineMissing, "dropping audio buffer: reason=missing_audio_engine")
             return
         }
         guard engine.isRunning else {
-            mediaLogs.record(.engineUnavailable, "Audio engine is stopped")
+            mediaLogs.record(.engineUnavailable, "dropping audio buffer: reason=engine_stopped")
             return
         }
 

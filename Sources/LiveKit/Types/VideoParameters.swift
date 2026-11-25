@@ -22,11 +22,11 @@ extension Collection<VideoParameters> {
     {
         if isEmpty {
             // Must have at least 1 element
-            SDKLog.log("isEmpty", .error, type: (any Collection).self)
+            SDKLog.log("returning video preset index zero; provide at least one preset: reason=empty_presets", .error, type: (any Collection).self)
         }
 
         if dimensions == nil, videoEncoding == nil {
-            SDKLog.log("dimensions or videoEncoding parameter is required", .error, type: (any Collection).self)
+            SDKLog.log("returning video preset index zero; provide dimensions or video encoding: reason=missing_selection_parameters", .error, type: (any Collection).self)
         }
 
         var result = 0

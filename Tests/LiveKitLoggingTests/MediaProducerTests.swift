@@ -38,6 +38,7 @@ struct MediaProducerTests {
     private final class UnknownBuffer: NSObject, LKRTCVideoFrameBuffer {
         let width: Int32 = 16
         let height: Int32 = 16
+        override var description: String { "token=synthetic-fixture-secret\nraw_buffer_payload" }
         func toI420() -> any LKRTCI420BufferProtocol { LKRTCI420Buffer(width: width, height: height) }
     }
 
@@ -68,17 +69,44 @@ struct MediaProducerTests {
         }
         #expect(output.records.copy().count == 1)
         #expect(output.records.copy().first?.0.event == .converterUnavailable)
+        #expect(output.records.copy().first?.1 == "dropping audio buffer: reason=converter_unavailable sample_rate_hz=48000.0 channel_count=1")
+        #expect(output.records.copy().first?.0.event.level == .warning)
         owner?._state.mutate { $0.playerNodeFormat = format }
         for _ in 0 ..< 20 {
             owner?.capture(appAudio: buffer)
         }
         #expect(output.records.copy().count == 2)
         #expect(output.records.copy().last?.0.event.level == .debug)
+        #expect(output.records.copy().last?.1 == "dropping audio buffer: reason=input_disconnected")
         #expect(owner?.appAudioNode.isPlaying == false)
         owner = nil
         #expect(weakOwner == nil)
         #expect(output.records.copy().count == 4)
         #expect(output.records.copy().suffix(2).allSatisfy { $0.0.repeats == 19 && $0.1.contains("final=true") })
+    }
+
+    @Test func invalidPixelInputsUseOnlyScalarDetails() throws {
+        let output = Output()
+        let frames = Frames()
+        let native = LKRTCVideoCapturer(delegate: frames)
+        let capturer = VideoCapturer(delegate: frames, mediaLogEmit: output.emit)
+        var unsafeBuffer: CVPixelBuffer?
+        var unsupportedBuffer: CVPixelBuffer?
+        #expect(CVPixelBufferCreate(nil, 1, 1, kCVPixelFormatType_32BGRA, nil, &unsafeBuffer) == kCVReturnSuccess)
+        #expect(CVPixelBufferCreate(nil, 16, 16, kCVPixelFormatType_OneComponent8, nil, &unsupportedBuffer) == kCVReturnSuccess)
+        let unsafeInput = try #require(unsafeBuffer)
+        let unsupportedInput = try #require(unsupportedBuffer)
+        for _ in 0 ..< 20 {
+            capturer.capture(pixelBuffer: unsafeInput, capturer: native, options: BufferCaptureOptions())
+            capturer.capture(pixelBuffer: unsupportedInput, capturer: native, options: BufferCaptureOptions())
+        }
+        let records = output.records.copy()
+        #expect(records.map(\.1) == [
+            "dropping video frame: reason=unsafe_dimensions width_px=1 height_px=1",
+            "dropping video frame: reason=unsupported_pixel_format pixel_format=\(kCVPixelFormatType_OneComponent8)",
+        ])
+        #expect(records.allSatisfy { $0.0.event.level == .warning })
+        #expect(frames.count.copy() == 0)
     }
 
     private func runCapture(_ capturer: VideoCapturer, frames: Frames, output: Output) {
@@ -97,6 +125,6 @@ struct MediaProducerTests {
         #expect(frames.count.copy() == 0)
         #expect(output.records.copy().count == 1)
         #expect(output.records.copy().first?.0.event.level == .error)
-        #expect(output.records.copy().first?.1.contains("UnknownBuffer") == true)
+        #expect(output.records.copy().first?.1 == "dropping video frame: reason=unsupported_buffer_type buffer_type=UnknownBuffer")
     }
 }

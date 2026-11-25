@@ -45,7 +45,7 @@ struct MediaLogSummaryTests {
         let records = output.records.copy()
         #expect(records.count == 2)
         #expect(records.last?.0.repeats == 119)
-        #expect(records.last?.1.contains("window_ms=5000") == true)
+        #expect(records.last?.1 == "media diagnostic repeated: event=video.unsafe_dimensions repeated_count=119 window_ms=5000 final=false count_saturated=false")
         #expect(records.last?.0.file.description == "Capture.swift")
         #expect(records.last?.0.line == 42)
     }

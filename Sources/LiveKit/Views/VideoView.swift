@@ -728,7 +728,7 @@ extension VideoView: VideoRenderer {
         let dimensions = frame.dimensions.apply(rotation: rotation.toRTCType())
 
         guard dimensions.isRenderSafe else {
-            mediaLogs.record(.renderUnsafeDimensions, "Skipping render for dimensions \(dimensions)")
+            mediaLogs.record(.renderUnsafeDimensions, "skipping video frame render: reason=unsafe_dimensions width_px=\(dimensions.width) height_px=\(dimensions.height)")
             // renderState.insert(.didSkipUnsafeFrame)
             return
         }

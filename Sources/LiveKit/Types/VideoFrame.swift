@@ -216,7 +216,7 @@ extension LKRTCVideoFrame: Loggable {
             lkBuffer = I420VideoBuffer(rtcI420Buffer: rtcI420Buffer)
         } else {
             if reportFailure {
-                log("RTCVideoFrame.buffer is not a known type (\(type(of: buffer)))", .error)
+                log("video frame conversion returned no frame: reason=unsupported_buffer_type buffer_type=\(type(of: buffer))", .error)
             }
             return nil
         }

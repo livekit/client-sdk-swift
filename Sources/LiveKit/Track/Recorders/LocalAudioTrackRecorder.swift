@@ -113,7 +113,7 @@ public extension LocalAudioTrackRecorder {
         {
             state.continuation?.yield(data)
         } else {
-            mediaLogs.record(.recordConversionFailed, "Failed to convert PCM buffer to data")
+            mediaLogs.record(.recordConversionFailed, "dropping recorded audio buffer: reason=pcm_conversion_failed")
         }
     }
 }

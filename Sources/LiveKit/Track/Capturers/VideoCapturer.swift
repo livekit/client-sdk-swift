@@ -229,7 +229,7 @@ extension VideoCapturer {
             // kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
             // kCVPixelFormatType_32BGRA
             // kCVPixelFormatType_32ARGB
-            mediaLogs.record(.unsupportedFormat, "Skipping capture for unsupported pixel format: \(pixelFormat.toString())")
+            mediaLogs.record(.unsupportedFormat, "dropping video frame: reason=unsupported_pixel_format pixel_format=\(pixelFormat)")
             return
         }
 
@@ -237,7 +237,7 @@ extension VideoCapturer {
                                           height: Int32(CVPixelBufferGetHeight(pixelBuffer)))
 
         guard sourceDimensions.isEncodeSafe else {
-            mediaLogs.record(.unsafeDimensions, "Skipping capture for dimensions: \(sourceDimensions)")
+            mediaLogs.record(.unsafeDimensions, "dropping video frame: reason=unsafe_dimensions width_px=\(sourceDimensions.width) height_px=\(sourceDimensions.height)")
             return
         }
 
@@ -260,12 +260,12 @@ extension VideoCapturer {
         guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
               CMSampleBufferIsValid(sampleBuffer)
         else {
-            mediaLogs.record(.invalidSample, "Failed to capture, invalid sample buffer")
+            mediaLogs.record(.invalidSample, "dropping video frame: reason=invalid_sample_buffer")
             return
         }
 
         guard CMSampleBufferDataIsReady(sampleBuffer) else {
-            mediaLogs.record(.bufferNotReady, "Skipping capture, sample buffer is not ready")
+            mediaLogs.record(.bufferNotReady, "dropping video frame: reason=sample_buffer_not_ready")
             return
         }
 
@@ -281,7 +281,7 @@ extension VideoCapturer {
         }
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-            mediaLogs.record(.missingPixelBuffer, "Failed to capture, pixel buffer not found")
+            mediaLogs.record(.missingPixelBuffer, "dropping video frame: reason=missing_pixel_buffer")
             return
         }
 
@@ -302,7 +302,7 @@ extension VideoCapturer {
                           options: VideoCaptureOptions)
     {
         if _state.isFrameProcessingBusy {
-            mediaLogs.record(.processingBusy, "Frame processing is busy, skipping frame")
+            mediaLogs.record(.processingBusy, "dropping video frame: reason=processing_busy")
             return
         }
 
@@ -320,14 +320,14 @@ extension VideoCapturer {
             var rtcFrame: LKRTCVideoFrame = frame
             // This producer owns the counted diagnostic; do not also log each failure in the converter.
             guard var lkFrame: VideoFrame = frame.toLKType(reportFailure: false) else {
-                mediaLogs.record(.conversionFailed, "RTCVideoFrame.buffer is not a known type (\(type(of: frame.buffer)))")
+                mediaLogs.record(.conversionFailed, "dropping video frame: reason=unsupported_buffer_type buffer_type=\(type(of: frame.buffer))")
                 return
             }
 
             // Apply processing if we have a processor attached.
             if let processor = _state.processor {
                 guard let processedFrame = processor.process(frame: lkFrame) else {
-                    mediaLogs.record(.processorDrop, "VideoProcessor returned no frame, skipping frame")
+                    mediaLogs.record(.processorDrop, "dropping video frame: reason=processor_returned_no_frame")
                     return
                 }
                 lkFrame = processedFrame
