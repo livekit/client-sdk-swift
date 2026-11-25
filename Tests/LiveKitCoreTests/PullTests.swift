@@ -91,7 +91,11 @@ struct PullTests {
         let second = session.events(options: .init())
         defer { second.cancel(); session.cancel() }
         await #expect(throws: NativeSessionError.Cancelled) {
-            try await Pull(first.next, cancel: first.cancel).next()
+            try await Pull {
+                try await first.next()
+            } cancel: {
+                first.cancel()
+            }.next()
         }
     }
 }

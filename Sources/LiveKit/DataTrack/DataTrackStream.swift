@@ -39,7 +39,7 @@ public final class DataTrackStream: NSObject, Sendable {
     /// subscription is cancelled, or the calling task is cancelled).
     public func next() async -> DataTrackFrame? {
         // The native wait ignores task cancellation, so a cancelled reader closes the stream.
-        guard let frame = try? await cancellingNative(stream.close, { [stream] in await stream.next() }) else { return nil }
+        guard let frame = try? await cancellingNative({ [stream] in stream.close() }, { [stream] in await stream.next() }) else { return nil }
         return DataTrackFrame(frame)
     }
 

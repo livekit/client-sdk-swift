@@ -77,7 +77,7 @@ actor NativeRoomDriver {
             $0.connectionState = .connecting
         }
         do {
-            let snapshot = try await cancellingNative(native.cancel) {
+            let snapshot = try await cancellingNative({ native.cancel() }) {
                 try await native.connect(url: url, token: token, options: nativeOptions)
             }
             try Task.checkCancellation()
@@ -130,7 +130,7 @@ actor NativeRoomDriver {
         eventLoop = Task { [weak self, weak room] in
             var failure: Error?
             do {
-                for try await update in Pull(events.next, cancel: events.cancel) {
+                for try await update in Pull({ try await events.next() }, cancel: { events.cancel() }) {
                     guard let self, let room else { break }
                     await receive(update, session: native, room: room)
                 }
