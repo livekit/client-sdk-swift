@@ -77,10 +77,8 @@ actor NativeRoomDriver {
             $0.connectionState = .connecting
         }
         do {
-            let snapshot = try await withTaskCancellationHandler {
-                try await abandoningOnCancel { try await native.connect(url: url, token: token, options: nativeOptions) }
-            } onCancel: {
-                Task.detached { native.cancel() }
+            let snapshot = try await cancellingNative(native.cancel) {
+                try await native.connect(url: url, token: token, options: nativeOptions)
             }
             try Task.checkCancellation()
             guard session === native, !closing else { throw CancellationError() }
@@ -128,19 +126,21 @@ actor NativeRoomDriver {
 
     private func startEvents(_ events: NativeRoomEventCursor, session native: NativeRoomSession, room: Room) {
         cursor = events
+        // events() replaces the session's previous cursor; this loop owns this cursor only.
         eventLoop = Task { [weak self, weak room] in
+            var failure: Error?
             do {
-                try await withTaskCancellationHandler {
-                    while !Task.isCancelled, let update = try await events.next() {
-                        guard let self, let room else { return }
-                        await self.receive(update, session: native, room: room)
-                    }
-                } onCancel: {
-                    Task.detached { events.cancel() }
+                for try await update in Pull(events.next, cancel: events.cancel) {
+                    guard let self, let room else { break }
+                    await receive(update, session: native, room: room)
                 }
             } catch {
-                guard !Task.isCancelled, let self, let room else { return }
-                await eventFailure(error, session: native, room: room)
+                failure = error
+            }
+            // Also close on EOF or early exit. Join outside Swift's cancellation handler lock.
+            await Task.detached { events.cancel() }.value
+            if let failure, !Task.isCancelled, let self, let room {
+                await eventFailure(failure, session: native, room: room)
             }
         }.cancellable()
     }
@@ -163,6 +163,7 @@ actor NativeRoomDriver {
         // Transient packets are not represented by snapshots, even when their revision precedes it.
         switch event {
         case let .dataReceived(packet):
+            #warning("TODO: Preserve per-packet encryption metadata in native data events")
             if !reportedPacketMetadataGap {
                 reportedPacketMetadataGap = true
                 room.log("Native packets omit encryption metadata; the legacy delegate encryption field is not authoritative", .warning)
@@ -362,6 +363,7 @@ extension NativeRoomDriver {
 
     static func options(_ connect: ConnectOptions, _ room: RoomOptions) throws -> NativeConnectOptions {
         let defaults = ConnectOptions()
+        #warning("TODO: Export nondefault connection options from the native session before accepting them here")
         guard connect.reconnectAttempts == defaults.reconnectAttempts,
               connect.reconnectAttemptDelay == defaults.reconnectAttemptDelay,
               connect.reconnectMaxDelay == defaults.reconnectMaxDelay,
