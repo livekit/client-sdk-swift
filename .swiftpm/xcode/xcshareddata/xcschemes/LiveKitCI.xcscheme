@@ -14,6 +14,17 @@
             testExecutionOrdering = "random">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "LiveKitLoggingTests"
+               BuildableName = "LiveKitLoggingTests"
+               BlueprintName = "LiveKitLoggingTests"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            testExecutionOrdering = "random">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "LiveKitCoreTests"
                BuildableName = "LiveKitCoreTests"
                BlueprintName = "LiveKitCoreTests"

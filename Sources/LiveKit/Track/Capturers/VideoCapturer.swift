@@ -46,7 +46,10 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     public let delegates = MulticastDelegate<VideoCapturerDelegate>(label: "VideoCapturerDelegate")
     public let rendererDelegates = MulticastDelegate<VideoRenderer>(label: "VideoCapturerRendererDelegate")
 
-    private let processingQueue = DispatchQueue(label: "io.livekit.videocapturer.processing", autoreleaseFrequency: .workItem)
+    private let mediaLogs: MediaLogSummary
+
+    // Internal so producer tests can join the entire processing block, including its owner release.
+    let processingQueue = DispatchQueue(label: "io.livekit.videocapturer.processing", autoreleaseFrequency: .workItem)
 
     // Constant set, no libwebrtc proxy: nothing to wait on.
     /// Array of supported pixel formats that can be used to capture a frame.
@@ -113,7 +116,8 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         _state.startStopCounter == 0 ? .stopped : .started
     }
 
-    init(delegate: LKRTCVideoCapturerDelegate, processor: VideoProcessor? = nil) {
+    init(delegate: LKRTCVideoCapturerDelegate, processor: VideoProcessor? = nil, mediaLogEmit: MediaLogSummary.Emit? = nil) {
+        mediaLogs = MediaLogSummary(type: Self.self, emit: mediaLogEmit)
         self.delegate = delegate
         _state = StateSync(State(processor: processor))
         super.init()
@@ -132,6 +136,9 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
         }
     }
 
+    /// Test seam after the count and diagnostic gate commit, with neither lock held.
+    @TaskLocal static var afterLifecycleTransition: (@Sendable () async -> Void)?
+
     /// Requests video capturer to start generating frames. ``Track/start()-dk8x`` calls this automatically.
     ///
     /// ``startCapture()`` and ``stopCapture()`` calls must be balanced. For example, if ``startCapture()`` is called 2 times, ``stopCapture()`` must be called 2 times also.
@@ -143,6 +150,7 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
             // Counter was 0, so did start capturing with this call
             let didStart = $0.startStopCounter == 0
             $0.startStopCounter += 1
+            if didStart { mediaLogs.resume() }
             return didStart
         }
 
@@ -151,6 +159,7 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
             return false
         }
 
+        if let afterLifecycleTransition = Self.afterLifecycleTransition { await afterLifecycleTransition() }
         delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.started)" }) {
             $0.capturer?(self, didUpdate: .started)
         }
@@ -165,24 +174,26 @@ public class VideoCapturer: NSObject, @unchecked Sendable, Loggable, VideoCaptur
     @objc
     @discardableResult
     public func stopCapture() async throws -> Bool {
-        let didStop = _state.mutate {
+        let drain: (@Sendable () -> Void)? = _state.mutate {
             // Counter was already 0, so did NOT stop capturing with this call
             if $0.startStopCounter <= 0 {
-                return false
+                return nil
             }
             $0.startStopCounter -= 1
-            return $0.startStopCounter <= 0
+            return $0.startStopCounter == 0 ? mediaLogs.finishDeferred() : nil
         }
 
-        guard didStop else {
-            // Already stopped
+        guard let drain else {
+            // No active lifetime ended
             return false
         }
 
+        if let afterLifecycleTransition = Self.afterLifecycleTransition { await afterLifecycleTransition() }
         delegates.notify(label: { "capturer.didUpdate state: \(CapturerState.stopped)" }) {
             $0.capturer?(self, didUpdate: .stopped)
         }
 
+        drain()
         set(dimensions: nil)
 
         return true
@@ -223,7 +234,7 @@ extension VideoCapturer {
             // kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
             // kCVPixelFormatType_32BGRA
             // kCVPixelFormatType_32ARGB
-            log("Skipping capture for unsupported pixel format: \(pixelFormat.toString())", .warning)
+            mediaLogs.record(.unsupportedFormat, "dropping video frame: reason=unsupported_pixel_format pixel_format=\(pixelFormat)")
             return
         }
 
@@ -231,7 +242,7 @@ extension VideoCapturer {
                                           height: Int32(CVPixelBufferGetHeight(pixelBuffer)))
 
         guard sourceDimensions.isEncodeSafe else {
-            log("Skipping capture for dimensions: \(sourceDimensions)", .warning)
+            mediaLogs.record(.unsafeDimensions, "dropping video frame: reason=unsafe_dimensions width_px=\(sourceDimensions.width) height_px=\(sourceDimensions.height)")
             return
         }
 
@@ -252,10 +263,14 @@ extension VideoCapturer {
     {
         // Check if buffer is ready
         guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
-              CMSampleBufferIsValid(sampleBuffer),
-              CMSampleBufferDataIsReady(sampleBuffer)
+              CMSampleBufferIsValid(sampleBuffer)
         else {
-            log("Failed to capture, buffer is not ready", .warning)
+            mediaLogs.record(.invalidSample, "dropping video frame: reason=invalid_sample_buffer")
+            return
+        }
+
+        guard CMSampleBufferDataIsReady(sampleBuffer) else {
+            mediaLogs.record(.bufferNotReady, "dropping video frame: reason=sample_buffer_not_ready")
             return
         }
 
@@ -271,7 +286,7 @@ extension VideoCapturer {
         }
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-            log("Failed to capture, pixel buffer not found", .warning)
+            mediaLogs.record(.missingPixelBuffer, "dropping video frame: reason=missing_pixel_buffer")
             return
         }
 
@@ -292,7 +307,7 @@ extension VideoCapturer {
                           options: VideoCaptureOptions)
     {
         if _state.isFrameProcessingBusy {
-            log("Frame processing hasn't completed yet, skipping frame...", .warning)
+            mediaLogs.record(.processingBusy, "dropping video frame: reason=processing_busy")
             return
         }
 
@@ -308,15 +323,16 @@ extension VideoCapturer {
             }
 
             var rtcFrame: LKRTCVideoFrame = frame
-            guard var lkFrame: VideoFrame = frame.toLKType() else {
-                log("Failed to convert a RTCVideoFrame to VideoFrame.", .error)
+            // This producer owns the counted diagnostic; do not also log each failure in the converter.
+            guard var lkFrame: VideoFrame = frame.toLKType(reportFailure: false) else {
+                mediaLogs.record(.conversionFailed, "dropping video frame: reason=unsupported_buffer_type buffer_type=\(type(of: frame.buffer))")
                 return
             }
 
             // Apply processing if we have a processor attached.
             if let processor = _state.processor {
                 guard let processedFrame = processor.process(frame: lkFrame) else {
-                    log("VideoProcessor didn't return a frame, skipping frame.", .warning)
+                    mediaLogs.record(.processorDrop, "dropping video frame: reason=processor_returned_no_frame")
                     return
                 }
                 lkFrame = processedFrame

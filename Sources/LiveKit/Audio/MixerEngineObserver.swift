@@ -18,6 +18,7 @@ internal import LiveKitWebRTC
 @preconcurrency import AVFoundation
 
 public final class MixerEngineObserver: AudioEngineObserver, Loggable {
+    private let mediaLogs: MediaLogSummary
     public var next: (any AudioEngineObserver)? {
         get { _state.next }
         set { _state.mutate { $0.next = newValue } }
@@ -92,7 +93,14 @@ public final class MixerEngineObserver: AudioEngineObserver, Loggable {
 
     let _state = StateSync(State())
 
-    public init() {}
+    public init() {
+        mediaLogs = MediaLogSummary(type: Self.self)
+    }
+
+    /// Isolates producer diagnostics in tests without replacing the process logger.
+    init(mediaLogEmit: @escaping MediaLogSummary.Emit) {
+        mediaLogs = MediaLogSummary(type: Self.self, emit: mediaLogEmit)
+    }
 
     public func setNext(_ handler: any AudioEngineObserver) {
         next = handler
@@ -335,7 +343,7 @@ extension MixerEngineObserver {
     // Capture appAudio and apply conversion automatically suitable for internal audio engine.
     public func capture(appAudio inputBuffer: AVAudioPCMBuffer) {
         guard let converter = converter(for: inputBuffer.format) else {
-            log("Failed to get converter for input buffer format: \(inputBuffer.format)", .warning)
+            mediaLogs.record(.converterUnavailable, "dropping audio buffer: reason=converter_unavailable sample_rate_hz=\(inputBuffer.format.sampleRate) channel_count=\(inputBuffer.format.channelCount)")
             return
         }
 
@@ -345,8 +353,16 @@ extension MixerEngineObserver {
             ($0.isInputConnected, $0.appNode)
         }
 
-        guard isInputConnected, let engine = appNode.engine, engine.isRunning else {
-            log("Engine is not running", .warning)
+        guard isInputConnected else {
+            mediaLogs.record(.engineUnavailable, "dropping audio buffer: reason=input_disconnected")
+            return
+        }
+        guard let engine = appNode.engine else {
+            mediaLogs.record(.engineMissing, "dropping audio buffer: reason=missing_audio_engine")
+            return
+        }
+        guard engine.isRunning else {
+            mediaLogs.record(.engineUnavailable, "dropping audio buffer: reason=engine_stopped")
             return
         }
 

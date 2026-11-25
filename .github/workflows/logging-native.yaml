@@ -1,0 +1,42 @@
+name: Native Logging
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, blaze/telemetry]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-logging:
+    name: Native capture
+    # Reuse the older supported macOS/toolchain pair from ci.yaml.
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 26.6
+      - name: Verify selected toolchain
+        run: /usr/bin/swift --version
+      # Each case needs a fresh process: native logger installation and opt-out are global.
+      # This standalone package uses an in-memory transport, with no server or collector.
+      - name: Test native logging
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 Tests/LoggingNativeCapture/run.py 2>&1 | tee "$RUNNER_TEMP/native-logging.log"
+      - name: Upload native logging results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-logging-macos
+          path: ${{ runner.temp }}/native-logging.log

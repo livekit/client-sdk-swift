@@ -26,6 +26,8 @@ typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType
 @objc
 // swiftlint:disable:next type_body_length
 public class VideoView: NativeView, Loggable {
+    private nonisolated let mediaLogs = MediaLogSummary(type: VideoView.self)
+
     // MARK: - MulticastDelegate
 
     public let delegates = MulticastDelegate<VideoViewDelegate>(label: "VideoViewDelegate")
@@ -719,7 +721,6 @@ extension VideoView: VideoRenderer {
 
         // prevent any extra rendering if already !isEnabled etc.
         guard state.shouldRender, let pr = _primaryRenderer else {
-            log("canRender is false, skipping render...")
             return
         }
 
@@ -727,7 +728,7 @@ extension VideoView: VideoRenderer {
         let dimensions = frame.dimensions.apply(rotation: rotation.toRTCType())
 
         guard dimensions.isRenderSafe else {
-            log("skipping render for dimension \(dimensions)", .warning)
+            mediaLogs.record(.renderUnsafeDimensions, "skipping video frame render: reason=unsafe_dimensions width_px=\(dimensions.width) height_px=\(dimensions.height)")
             // renderState.insert(.didSkipUnsafeFrame)
             return
         }

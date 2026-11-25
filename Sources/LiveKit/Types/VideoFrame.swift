@@ -206,7 +206,8 @@ public class VideoFrame: NSObject, @unchecked Sendable {
 }
 
 extension LKRTCVideoFrame: Loggable {
-    func toLKType() -> VideoFrame? {
+    /// Lets a producer that aggregates failures own its diagnostic instead of logging twice.
+    func toLKType(reportFailure: Bool = true) -> VideoFrame? {
         let lkBuffer: VideoBuffer
 
         if let rtcBuffer = buffer as? LKRTCCVPixelBuffer {
@@ -214,7 +215,9 @@ extension LKRTCVideoFrame: Loggable {
         } else if let rtcI420Buffer = buffer as? any LKRTCI420BufferProtocol {
             lkBuffer = I420VideoBuffer(rtcI420Buffer: rtcI420Buffer)
         } else {
-            log("RTCVideoFrame.buffer is not a known type (\(type(of: buffer)))", .error)
+            if reportFailure {
+                log("video frame conversion returned no frame: reason=unsupported_buffer_type buffer_type=\(type(of: buffer))", .error)
+            }
             return nil
         }
 
