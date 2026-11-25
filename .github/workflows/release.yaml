@@ -1,6 +1,5 @@
-# After a release PR merges: build the XCFramework, then tag and create the
-# GitHub release, then publish the podspec, the XCFramework and the docs.
-# The steps that cannot be undone come last.
+# After a release PR merges: tag and create the GitHub release, then publish
+# the podspec, the XCFramework and the docs.
 name: Release
 
 on:
@@ -37,18 +36,9 @@ jobs:
         with:
           command: gate
 
-  # Builds only. A build that fails stops the release before the tag.
-  build:
+  release:
     needs: gate
     if: needs.gate.outputs.release == 'true'
-    uses: ./.github/workflows/publish-xcframework.yaml
-    with:
-      ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
-      dry_run: true
-    secrets: inherit
-
-  release:
-    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write

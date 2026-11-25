@@ -10,7 +10,7 @@ on:
         description: Build only, skip draft release / PR
         default: true
         type: boolean
-  # Called by release.yml: once with dry_run before the tag, once to publish after it.
+  # Called by release.yaml after the tag.
   workflow_call:
     inputs:
       ref:
