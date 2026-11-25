@@ -53,7 +53,7 @@ To build the macOS package, you need Rust, Xcode and `tera` (`cargo install tera
 
 1. Get the Rust branch from https://github.com/livekit/rust-sdks/pull/1739 with its submodules.
 2. In the Rust checkout, build the host library:
-   `cargo build -p livekit-ffi --no-default-features --features room-apis,rustls-tls-webpki-roots`
+   `cargo rustc -p livekit-ffi --lib --crate-type cdylib --no-default-features --features room-apis-host-transport`
 3. Assemble the package. The script deletes the output directory first:
    `sh livekit-ffi/support/swift/package-room-macos.sh . target/debug/liblivekit_ffi.dylib <output directory>`
 4. Move the output directory to `../livekit-ffi-xcframework`, or set `LIVEKIT_FFI_PACKAGE_PATH`.
@@ -62,6 +62,34 @@ To build the macOS package, you need Rust, Xcode and `tera` (`cargo install tera
 
 This package has only the macOS arm64 slice. For the iOS slices, see
 `build-room-ios.sh` and `package-room-apple.sh` in `livekit-ffi/README.md` of the Rust branch.
+
+## Host network transport
+
+The current Swift source requires matching host-transport bindings and binary, including
+`livekit_net.swift`, from Rust `20f8ae7fa746caf48bce8e7e808389f52b549860`.
+The earlier artifact/checkpoint above records prior room validation, not this transport build.
+Only the supplied macOS arm64 host slice has been validated; matching iOS slices are pending.
+Do not combine bindings or binaries from the older bundled-network package.
+
+Module graph: `LiveKit → LiveKitTransport → LiveKitFFI`; transport otherwise uses
+Foundation only and imports no LiveKit public models. Rust still owns signaling,
+reconnection and WebRTC. The host artifact has no bundled HTTP/WebSocket/TLS fallback.
+
+V2 registers the Foundation HTTP and WebSocket defaults once when its room driver is
+created, or before token/prewarm networking. No new application connect step is needed.
+Direct FFI consumers can use `import LiveKitTransport; LiveKitTransport.initialize()`
+before networking. Custom transports must register **both** clients before v2 creates a room
+or performs networking. Choose a single startup owner: Rust has two independent process-wide
+first-wins slots, with no reset, overwrite, atomic pair registration, or identity query.
+`initialize()` makes one registration attempt; it cannot prove that its clients won.
+Registered clients retain no rooms. Requests and connections own their cleanup independently.
+
+The socket fixture and separate-process registry tests are in `Tests/LiveKitTransportTests`.
+Set `LIVEKIT_TRANSPORT_TEST_URL` and `LIVEKIT_TRANSPORT_TLS_URL` for socket tests.
+Run `TransportRegistryTests` separately for each `LIVEKIT_TRANSPORT_REGISTRY_CASE`:
+`roundtrip`, `pending-connect`, `ws-only`, `http-only`. Never run registry scenarios by
+replacing clients in one process. The pending-connect scenario checks Rust cancellation
+while a foreign Swift callback is suspended.
 
 ## Acceptance gates (separate from working-backend proof)
 

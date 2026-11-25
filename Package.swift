@@ -13,6 +13,7 @@ let package = Package(
         .visionOS(.v26),
     ],
     products: [
+        .library(name: "LiveKitTransport", targets: ["LiveKitTransport"]),
         .library(
             name: "LiveKit",
             targets: ["LiveKit"],
@@ -31,6 +32,9 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.3.0"),
     ],
     targets: [
+        .target(name: "LiveKitTransport", dependencies: [
+            .product(name: "LiveKitFFI", package: "livekit-ffi-xcframework"),
+        ]),
         .target(
             name: "LKObjCHelpers",
             publicHeadersPath: "include",
@@ -41,6 +45,7 @@ let package = Package(
                 .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
                 .product(name: "LiveKitFFI", package: "livekit-ffi-xcframework"),
                 "LKObjCHelpers",
+                "LiveKitTransport",
             ],
             exclude: [
                 "Broadcast/NOTICE",

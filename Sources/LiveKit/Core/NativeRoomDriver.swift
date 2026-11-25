@@ -15,6 +15,7 @@
  */
 
 internal import LiveKitFFI
+internal import LiveKitTransport
 import Foundation
 
 /// Owns the native lifecycle and ordered event projection. Public getters remain in Room.StateSync.
@@ -35,6 +36,8 @@ actor NativeRoomDriver {
     private var reportedPacketMetadataGap = false
     private var closeWaiters: [CheckedContinuation<Void, Never>] = []
     private var rpcTasks: [String: AnyTaskCancellable] = [:]
+
+    init() { LiveKitTransport.initialize() }
 
     deinit {
         let session = session

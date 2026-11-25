@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitTransport
 import Foundation
 
 enum HTTP {
@@ -24,6 +25,7 @@ enum HTTP {
                                                    delegateQueue: operationQueue)
 
     static func prewarmConnection(url: URL) async {
+        LiveKitTransport.initialize()
         // Convert WebSocket URL to HTTP for warming
         let httpUrl = url.toHTTPUrl()
         do {
