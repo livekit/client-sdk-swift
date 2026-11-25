@@ -1,0 +1,1 @@
+patch type="fixed" "Fix broadcast screen share showing black to new subscribers while the shared screen is static. ReplayKit delivers no frames while the screen is idle, so the broadcast capturer now resends the last frame at 1 fps until a new one arrives, as the ScreenCaptureKit capturer already does"
