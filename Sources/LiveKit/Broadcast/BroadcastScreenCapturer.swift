@@ -124,7 +124,14 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
                 capture(buffer, rotation: rotation)
             }
         }.cancellable()
-        resendTimer.mutate { $0 = newTimer }
+        // `stopReceiver` cancels this task before clearing the timer, so checking under the lock
+        // keeps a frame decoded during stop from leaving one behind.
+        let didSchedule = resendTimer.mutate {
+            guard !Task.isCancelled else { return false }
+            $0 = newTimer
+            return true
+        }
+        guard didSchedule else { return }
 
         capture(buffer, rotation: rotation)
     }
@@ -138,7 +145,6 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
 
         // Already stopped
         guard didStop else { return false }
-        resendTimer.mutate { $0 = nil }
         if let receiver = receiverTask.mutate({ receiver in
             let current = receiver
             receiver = nil
@@ -147,6 +153,7 @@ class BroadcastScreenCapturer: BufferCapturer, @unchecked Sendable {
             Self.activeReceivers.mutate { $0.remove(receiver.id) }
             receiver.task.cancel()
         }
+        resendTimer.mutate { $0 = nil }
         return true
     }
 

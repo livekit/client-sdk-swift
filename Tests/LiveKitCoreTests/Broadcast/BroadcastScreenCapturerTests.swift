@@ -166,7 +166,7 @@ struct BroadcastScreenCapturerTests {
         let (metadata, imageData) = try BroadcastImageCodec().encode(#require(pixelBuffer))
         try await channel.send(header: BroadcastIPCHeader.image(metadata, ._0), payload: imageData)
 
-        for _ in 0 ..< 150 where renderer.timeStamps.count < 3 {
+        for _ in 0 ..< 500 where renderer.timeStamps.count < 3 {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         let timeStamps = renderer.timeStamps
@@ -178,6 +178,46 @@ struct BroadcastScreenCapturerTests {
         let countAfterStop = renderer.timeStamps.count
         try await Task.sleep(nanoseconds: 1_500_000_000)
         #expect(renderer.timeStamps.count == countAfterStop)
+    }
+
+    @Test func restartDoesNotResendPreviousFrame() async throws {
+        let socketPath = try temporarySocketPath()
+        let capturer = await makeCapturer(socketPath: socketPath)
+        let renderer = FrameCounter()
+        capturer.rendererDelegates.add(delegate: renderer)
+        #expect(try await capturer.startCapture())
+
+        let uploader = Task { try await IPCChannel(connectingTo: socketPath) }
+        let timeout = Task {
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+            uploader.cancel()
+        }
+        let channel = try await uploader.value
+        timeout.cancel()
+
+        // Screen-sized frames sent back to back, so that stop lands while one is being decoded.
+        var pixelBuffer: CVPixelBuffer?
+        CVPixelBufferCreate(kCFAllocatorDefault, 1290, 2796, kCVPixelFormatType_32BGRA, nil, &pixelBuffer)
+        let (metadata, imageData) = try BroadcastImageCodec().encode(#require(pixelBuffer))
+        let sender = Task {
+            while !Task.isCancelled {
+                try await channel.send(header: BroadcastIPCHeader.image(metadata, ._0), payload: imageData)
+            }
+        }
+        for _ in 0 ..< 500 where renderer.timeStamps.count < 3 {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        #expect(renderer.timeStamps.count >= 3)
+
+        _ = try await capturer.stopCapture()
+        #expect(try await capturer.startCapture())
+        sender.cancel()
+        channel.close()
+        try await Task.sleep(nanoseconds: 500_000_000)
+        let countAfterRestart = renderer.timeStamps.count
+        try await Task.sleep(nanoseconds: 2_500_000_000)
+        #expect(renderer.timeStamps.count == countAfterRestart)
+        _ = try await capturer.stopCapture()
     }
 
     @Test func startWithoutSocketPathIsNotCounted() async throws {
