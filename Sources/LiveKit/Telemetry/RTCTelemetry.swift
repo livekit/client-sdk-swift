@@ -32,6 +32,15 @@ final class RTCTelemetry: NSObject, Sendable {
     private let scope: TelemetryScope
     private let polling = StateSync(Polling())
 
+    /// Orders what this Room tells the core about a subscribe intent. An intent starts on the
+    /// delegate queue (a remote publish) or on the app's thread (a manual subscribe), and the
+    /// app can take it back on its own thread at any time, so a start can arrive after the
+    /// cancellation it should have preceded, and a cancellation after a later subscribe. Each
+    /// report therefore reads what the publication wants now and tells the core, in one step
+    /// under this lock: a start reports only a wanted subscription, a cancellation only an
+    /// unwanted one, whichever arrives first.
+    private let intents = StateSync(())
+
     init(room: Room, scope: TelemetryScope) {
         self.scope = scope
         super.init()
@@ -54,24 +63,37 @@ final class RTCTelemetry: NSObject, Sendable {
         guard room._state.connectOptions.autoSubscribe else { return }
         for participant in room.remoteParticipants.values {
             for case let publication as RemoteTrackPublication in participant.trackPublications.values where publication.track == nil {
-                guard let track = SpanTrack(publication, remoteIdentity: participant.identity?.stringValue) else { continue }
-                scope.subscribeStarted(track: track)
+                start(publication, of: participant)
             }
         }
         poll(room)
     }
 
     /// Intent to subscribe: the core polls faster until first media, so start a fresh wait.
+    /// Nothing after the app took the subscription back: see ``intents``.
     func subscribeStarted(_ publication: RemoteTrackPublication, of participant: RemoteParticipant, in room: Room) {
-        guard let track = SpanTrack(publication, remoteIdentity: participant.identity?.stringValue) else { return }
-        scope.subscribeStarted(track: track)
-        poll(room)
+        if start(publication, of: participant) { poll(room) }
+    }
+
+    /// Opens `lk.subscribe` for a publication the app still wants; false when it does not.
+    @discardableResult
+    private func start(_ publication: RemoteTrackPublication, of participant: RemoteParticipant) -> Bool {
+        guard let track = SpanTrack(publication, remoteIdentity: participant.identity?.stringValue) else { return false }
+        return intents.mutate { _ in
+            guard publication.isDesired else { return false }
+            scope.subscribeStarted(track: track)
+            return true
+        }
     }
 
     /// The app took its subscribe back before the track attached. No delegate callback reports
-    /// that, and a subscribe left open ends as `timed_out` 30 s later.
+    /// that, and a subscribe left open ends as `timed_out` 30 s later. Nothing when the app
+    /// wants the subscription again by the time this report arrives: see ``intents``.
     func subscribeCancelled(_ publication: RemoteTrackPublication) {
-        scope.trackEnded(sid: publication.sid.stringValue)
+        intents.mutate { _ in
+            guard !publication.isDesired else { return }
+            scope.trackEnded(sid: publication.sid.stringValue)
+        }
     }
 
     /// Makes the next reading come no later than the core's current interval from now: a wait
