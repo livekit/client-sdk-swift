@@ -87,9 +87,23 @@ Registered clients retain no rooms. Requests and connections own their cleanup i
 The socket fixture and separate-process registry tests are in `Tests/LiveKitTransportTests`.
 Set `LIVEKIT_TRANSPORT_TEST_URL` and `LIVEKIT_TRANSPORT_TLS_URL` for socket tests.
 Run `TransportRegistryTests` separately for each `LIVEKIT_TRANSPORT_REGISTRY_CASE`:
-`roundtrip`, `pending-connect`, `ws-only`, `http-only`. Never run registry scenarios by
-replacing clients in one process. The pending-connect scenario checks Rust cancellation
-while a foreign Swift callback is suspended.
+`roundtrip`, `pending-connect`, `foreign-timeout`, `ws-only`, `http-only`. Never run registry
+scenarios by replacing clients in one process. Pending connect checks prompt public return
+with actual `NativeSessionError.Cancelled`; foreign callback cancellation is bounded separately
+by Rust's signaling deadline. Neither proves destruction of all descendant tasks within one second.
+
+Swift remains the v2 compatibility façade over the authoritative Rust contracts; future direct
+UniFFI v3 consumers can reuse `LiveKitTransport` independently. The small internal
+`Pull`/`cancellingNative` helper stays with existing `StateSync` in LiveKit. Public-model/error
+conversions and ordered room state projection remain here; extracting them requires coordinated
+state/identity reconciliation, not deleting the projection or introducing another DTO layer.
+
+The deterministic `DataTrackSendTests` sequence gate checks ordered forwarding to the sink,
+not network delivery. The original burst integration failure (one received frame versus four
+expected on both bundled and host packages) remains enabled and retained. Immediate data-track
+resubscription is also unresolved; a static late-unsubscribe race does not prove its runtime cause.
+Combined integration evidence lives in `research-v3/native-integration` outside the repository;
+it is not acceptance or independent source review. All existing compatibility/platform gaps remain.
 
 ## Acceptance gates (separate from working-backend proof)
 
