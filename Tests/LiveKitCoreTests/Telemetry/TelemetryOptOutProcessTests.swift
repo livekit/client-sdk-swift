@@ -34,7 +34,10 @@ import LiveKitTestSupport
 /// `seed` (endpoint unreachable) leaves batches in this process name's cache for `beforeRoom` and
 /// `roomDuringOptOut`; `concurrentDisable` needs neither; `duringRequest` and `duringSubmit`
 /// connect to `livekit-server --dev`.
-@Suite(.serialized) struct TelemetryOptOutProcessTests {
+///
+/// A case that fails must still end: every hook that holds a thread lets go after ``hold``, each
+/// case clears its hooks on the way out, and the suite's time limit ends a case that stalls.
+@Suite(.serialized, .timeLimit(.minutes(1))) struct TelemetryOptOutProcessTests {
     private static let selected = ProcessInfo.processInfo.environment["LK_TELEMETRY_OPT_OUT_CASE"]
     private static let recorder = ProcessInfo.processInfo.environment["LK_TELEMETRY_ENDPOINT"].flatMap(URL.init(string:))
 
@@ -51,14 +54,31 @@ import LiveKitTestSupport
         "optout-\(name)-\(UUID().uuidString.prefix(8))"
     }
 
-    /// Batch files in the cache this process name uses (an earlier launch's, before a pipeline).
-    private static func cachedFiles() -> Int {
-        guard let directory = Telemetry.storageDirectory,
-              let files = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil) else { return 0 }
-        return files.allObjects.count
+    /// Entries in the cache directory this process name uses (an earlier launch's, before a
+    /// pipeline); `nil` when the directory does not exist. Any other failure to list it throws,
+    /// so an unreadable cache never passes for an empty one.
+    private static func cachedFiles() throws -> Int? {
+        let directory = try #require(Telemetry.storageDirectory)
+        do {
+            return try FileManager.default.contentsOfDirectory(atPath: directory.path).count
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return nil
+        }
+    }
+
+    /// The longest a test hook holds the thread it runs on, so a failed case cannot hang it.
+    private static let hold = 30.0
+
+    /// A hook that signals `reached` and then holds its thread until `release`, at most ``hold``.
+    private static func holding(_ reached: DispatchSemaphore, until release: DispatchSemaphore) -> @Sendable () -> Void {
+        {
+            reached.signal()
+            _ = release.wait(timeout: .now() + hold)
+        }
     }
 
     /// Whether `semaphore` is signalled within `seconds`, waited for off the cooperative pool.
+    /// Consumes the signal.
     private static func signalled(_ semaphore: DispatchSemaphore, within seconds: Double = 5) async -> Bool {
         await withCheckedContinuation { continuation in
             DispatchQueue.global().async {
@@ -67,24 +87,39 @@ import LiveKitTestSupport
         }
     }
 
-    /// Creates a Room off this task; signalled once the Room exists.
-    private static func creatingRoom() -> DispatchSemaphore {
-        let created = DispatchSemaphore(value: 0)
+    /// Runs `work` off this task. The group empties once `work` returned; see ``finished(_:within:)``.
+    private static func run(_ work: @escaping @Sendable () -> Void) -> DispatchGroup {
+        let running = DispatchGroup()
+        running.enter()
         DispatchQueue.global().async {
-            _ = Room()
-            created.signal()
+            work()
+            running.leave()
         }
-        return created
+        return running
+    }
+
+    /// Whether the work behind `running` returned within `seconds`. Asking again gives the same answer.
+    private static func finished(_ running: DispatchGroup, within seconds: Double = 5) async -> Bool {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                continuation.resume(returning: running.wait(timeout: .now() + seconds) == .success)
+            }
+        }
     }
 
     /// Calls the opt-out off this task and reports whether it returned within 5 s.
     private static func disableReturns() async -> Bool {
-        let returned = DispatchSemaphore(value: 0)
-        DispatchQueue.global().async {
-            LiveKitSDK.disableTelemetry()
-            returned.signal()
+        await finished(run { LiveKitSDK.disableTelemetry() })
+    }
+
+    /// Lets go of every thread a hook may hold and removes the hooks.
+    private static func letGo(_ held: DispatchSemaphore...) {
+        Telemetry.beforeInstall.mutate { $0 = nil }
+        Telemetry.beforeCleanUp.mutate { $0 = nil }
+        Telemetry.afterCleanUpScheduled.mutate { $0 = nil }
+        for semaphore in held {
+            semaphore.signal()
         }
-        return await signalled(returned)
     }
 
     private static func assertRevoked(_ oldScope: TelemetryScope) async throws {
@@ -114,21 +149,22 @@ import LiveKitTestSupport
         let room = Room()
         try #require(room.telemetryScope).emitCustom(name: Self.marker("seed"), attributes: [:])
         await telemetryFlush()
-        #expect(Self.cachedFiles() > 0)
+        #expect(try #require(try Self.cachedFiles()) > 0)
     }
 
     /// Before any Room: the call returns while the clean-up is held, nothing is collected, and
     /// once released the clean-up deletes the earlier launch's cache.
     @Test(.enabled(if: selected == "beforeRoom"))
-    func beforeRoom() async {
-        let seeded = Self.cachedFiles()
+    func beforeRoom() async throws {
+        let seeded = try #require(try Self.cachedFiles(), "run the seed case first")
         #expect(seeded > 0, "run the seed case first")
         let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
-        Telemetry.beforeCleanUp.mutate { $0 = { entered.signal(); release.wait() } }
+        Telemetry.beforeCleanUp.mutate { $0 = Self.holding(entered, until: release) }
+        defer { Self.letGo(release) }
 
         #expect(await Self.disableReturns())
         #expect(await Self.signalled(entered))
-        #expect(Self.cachedFiles() == seeded) // held: nothing deleted yet
+        #expect(try Self.cachedFiles() == seeded) // held: nothing deleted yet
 
         #expect(telemetryIsDisabled())
         #expect(Telemetry.scope() == nil)
@@ -138,42 +174,55 @@ import LiveKitTestSupport
 
         release.signal()
         await Telemetry.cleanUpFinished()
-        #expect(Self.cachedFiles() == 0)
+        #expect(try Self.cachedFiles() ?? 0 == 0) // deleted with or without its directory
     }
 
-    /// The first Room racing the opt-out. Its install is held right after its opt-out check: the
-    /// opt-out then waits behind that install instead of revoking under it, so the install never
-    /// reaches a core that makes it wait for the purge. With the clean-up held as well, that Room
-    /// and a later one are both created, and once released the clean-up still deletes the cache.
+    /// The first Room racing the opt-out. The Room's install is held right after its opt-out
+    /// check, an opt-out is started and given a second to overtake it, and the install is let go.
+    ///
+    /// Whatever order the SDK then picks, the install must reach a core that is not opted out:
+    /// an opted-out core refuses the configure and makes it, and the Room, wait for its purge.
+    /// The released core gives its host no way to hold that purge, so the case checks this
+    /// invariant where the wait would start, not the wait itself. Both calls must return, a
+    /// later Room is created while the clean-up is held, and once let go the clean-up deletes
+    /// the earlier launch's cache.
     @Test(.enabled(if: selected == "roomDuringOptOut"))
-    func roomDuringOptOut() async {
-        #expect(Self.cachedFiles() > 0, "run the seed case first")
+    func roomDuringOptOut() async throws {
+        #expect(try #require(try Self.cachedFiles(), "run the seed case first") > 0, "run the seed case first")
         let installing = DispatchSemaphore(value: 0), install = DispatchSemaphore(value: 0)
-        Telemetry.beforeInstall.mutate { $0 = { installing.signal(); install.wait() } }
-        let cleaning = DispatchSemaphore(value: 0), clean = DispatchSemaphore(value: 0)
-        Telemetry.beforeCleanUp.mutate { $0 = { cleaning.signal(); clean.wait() } }
-
-        let first = Self.creatingRoom()
-        #expect(await Self.signalled(installing))
-        let optedOut = DispatchSemaphore(value: 0)
-        DispatchQueue.global().async {
-            LiveKitSDK.disableTelemetry()
-            optedOut.signal()
+        let optedOutAtInstall = StateSync<Bool?>(nil)
+        Telemetry.beforeInstall.mutate {
+            $0 = {
+                Self.holding(installing, until: install)()
+                optedOutAtInstall.mutate { $0 = telemetryIsDisabled() }
+            }
         }
-        #expect(await !Self.signalled(optedOut, within: 1))
-        #expect(!telemetryIsDisabled())
+        let cleaning = DispatchSemaphore(value: 0), clean = DispatchSemaphore(value: 0)
+        Telemetry.beforeCleanUp.mutate { $0 = Self.holding(cleaning, until: clean) }
+        defer { Self.letGo(install, clean) }
 
+        let first = Self.run { _ = Room() }
+        #expect(await Self.signalled(installing))
+        let entering = DispatchSemaphore(value: 0)
+        let optOut = Self.run {
+            entering.signal()
+            LiveKitSDK.disableTelemetry()
+        }
+        #expect(await Self.signalled(entering))
+        let overtook = await Self.finished(optOut, within: 1) // its chance; not an expectation
         install.signal()
-        #expect(await Self.signalled(first))
-        #expect(await Self.signalled(optedOut))
+
+        #expect(await Self.finished(first))
+        #expect(await Self.finished(optOut))
+        #expect(optedOutAtInstall.copy() == false, "the opt-out returned under the held install: \(overtook)")
         #expect(await Self.signalled(cleaning))
         #expect(telemetryIsDisabled())
-        #expect(await Self.signalled(Self.creatingRoom()))
+        #expect(await Self.finished(Self.run { _ = Room() }))
         #expect(Telemetry.scope() == nil)
 
         clean.signal()
         await Telemetry.cleanUpFinished()
-        #expect(Self.cachedFiles() == 0)
+        #expect(try Self.cachedFiles() ?? 0 == 0) // deleted with or without its directory
     }
 
     /// Overlapping opt-outs: the first caller is held right after it scheduled the clean-up, a
@@ -184,12 +233,9 @@ import LiveKitTestSupport
         let runs = StateSync(0)
         Telemetry.beforeCleanUp.mutate { $0 = { runs.mutate { $0 += 1 } } }
         let scheduled = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
-        Telemetry.afterCleanUpScheduled.mutate { $0 = { scheduled.signal(); release.wait() } }
-        let firstReturned = DispatchSemaphore(value: 0)
-        DispatchQueue.global().async {
-            LiveKitSDK.disableTelemetry()
-            firstReturned.signal()
-        }
+        Telemetry.afterCleanUpScheduled.mutate { $0 = Self.holding(scheduled, until: release) }
+        defer { Self.letGo(release) }
+        let first = Self.run { LiveKitSDK.disableTelemetry() }
         #expect(await Self.signalled(scheduled))
 
         #expect(await Self.disableReturns())
@@ -197,7 +243,7 @@ import LiveKitTestSupport
         #expect(runs.copy() == 1)
 
         release.signal()
-        #expect(await Self.signalled(firstReturned))
+        #expect(await Self.finished(first))
         await withTaskGroup(of: Bool.self) { group in
             for _ in 0 ..< 8 {
                 group.addTask { await Self.disableReturns() }
@@ -237,6 +283,7 @@ import LiveKitTestSupport
             #expect(first.answered >= 1 && first.submitted == first.answered)
 
             let pause = Pause(at: step)
+            defer { pause.resume() } // the held reading ends on every way out
             let reading = Task { await Telemetry.$beforeGate.withValue(pause.hook) { await connected.recordPeerStats(into: scope) } }
             await pause.reached()
             #expect(await Self.disableReturns())

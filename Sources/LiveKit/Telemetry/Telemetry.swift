@@ -107,7 +107,8 @@ enum Telemetry {
     /// configure, and taken by ``disable()`` before it revokes. The core makes a configure that
     /// reaches it after the opt-out wait for the purge; with this, none does, so creating a Room
     /// never waits for the purge or the clean-up. The opt-out waits instead, for an install in
-    /// flight: local work, with nothing to purge ahead of it.
+    /// flight; that wait has no bound of its own. It covers the SDK's installs only: a host that
+    /// configures or disables the core directly is outside it.
     private static let installOrder = StateSync(())
 
     /// Test seam: runs in ``configure()`` after its opt-out check, right before the install.
