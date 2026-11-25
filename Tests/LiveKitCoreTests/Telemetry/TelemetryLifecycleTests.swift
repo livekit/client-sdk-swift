@@ -22,11 +22,11 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-/// What the Room tells the telemetry core at the edges of a reconnect, through the released
-/// core, against `livekit-server --dev`.
+/// What the Room tells the telemetry core at the edges of a reconnect and of a manual subscribe,
+/// through the released core, against `livekit-server --dev`.
 ///
-/// The case needs telemetry on from start to end, and an opt-out anywhere in the process ends
-/// it for good. A full test run is one process, so it runs only on request:
+/// Both cases need telemetry on from start to end, and an opt-out anywhere in the process ends
+/// it for good. A full test run is one process, so they run only on request:
 ///
 ///     LK_TELEMETRY_LIFECYCLE=1 swift test --filter TelemetryLifecycleTests
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["LK_TELEMETRY_LIFECYCLE"] != nil), .tags(.e2e), TestLimits.e2e)
@@ -47,6 +47,41 @@ struct TelemetryLifecycleTests {
             try await room.startReconnect(reason: .debug)
 
             #expect(room.connectionState == .connected)
+        }
+    }
+
+    /// A subscribe taken back before its track attaches. No `didUnsubscribe` follows, so the
+    /// publication itself must end the pending `lk.subscribe`: left open, the core keeps polling
+    /// at its fast interval and ends the span as `timed_out` 30 s later. The core's poll interval
+    /// is the observable: fast while a subscribe is pending, slow once none is. A subscribe after
+    /// that opens a new span.
+    @Test func aSubscribeTakenBackBeforeItAttachesIsNotLeftPending() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
+            let publisher = rooms[0], subscriber = rooms[1]
+            let scope = try #require(subscriber.telemetryScope)
+            let pending: @Sendable () -> Bool = { scope.statsPollIntervalMs() <= 1000 }
+
+            try await publisher.localParticipant.publish(audioTrack: TestAudioTrack())
+            let identity = try #require(publisher.localParticipant.identity)
+            try await poll(timeout: 10, for: "the subscriber sees the publication") {
+                subscriber.remoteParticipants[identity]?.trackPublications.isEmpty == false
+            }
+            let publication = try #require(subscriber.remoteParticipants[identity]?.trackPublications.values.first as? RemoteTrackPublication)
+
+            // Leave the automatic subscription once it is attached: that unsubscribe is reported
+            // through the delegate, and the next subscribe is the app's own.
+            try await poll(timeout: 10, for: "the automatic subscription attaches") { publication.track != nil }
+            try await publication.set(subscribed: false)
+            try await poll(timeout: 10, for: "no subscribe is pending after the unsubscribe") { !pending() }
+
+            try await publication.set(subscribed: true)
+            #expect(pending())
+            try #require(publication.track == nil, "the track attached before the subscribe was taken back")
+            try await publication.set(subscribed: false)
+            #expect(!pending())
+
+            try await publication.set(subscribed: true)
+            #expect(pending())
         }
     }
 }

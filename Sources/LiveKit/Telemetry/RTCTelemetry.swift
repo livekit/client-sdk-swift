@@ -68,6 +68,12 @@ final class RTCTelemetry: NSObject, Sendable {
         poll(room)
     }
 
+    /// The app took its subscribe back before the track attached. No delegate callback reports
+    /// that, and a subscribe left open ends as `timed_out` 30 s later.
+    func subscribeCancelled(_ publication: RemoteTrackPublication) {
+        scope.trackEnded(sid: publication.sid.stringValue)
+    }
+
     /// Makes the next reading come no later than the core's current interval from now: a wait
     /// it just shortened (a subscribe awaiting first media, a track awaiting its first outbound
     /// reading) starts now, a sooner reading already due is kept. The loop lives as long as the
