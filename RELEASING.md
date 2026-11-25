@@ -67,17 +67,21 @@ break. A PR without a user-facing change gets the `internal` label instead.
 | `release.yaml` | The release PR merges. | Tags, creates the GitHub release, then calls the three workflows below. |
 | `publish-xcframework.yaml` | Called by `release.yaml`, or run by hand. | Builds the XCFramework, opens a draft release and a PR in `livekit/client-sdk-swift-xcframework`. |
 | `publish-podspec.yaml` | Called by `release.yaml`, or run by hand. | Opens a PR with the podspec in `livekit/podspecs`. |
-| `publish-docs.yaml` | Called by `release.yaml` for a final version, or run by hand. | Uploads the DocC site to S3. |
+| `publish-docs.yaml` | Called by `release.yaml` when the run released a final version on `main`, or run by hand. | Uploads the DocC site to S3. |
 
 ## Release
 
-1. Merge the release PR.
-2. Watch the run of `release.yaml`: `gh run list --workflow release.yaml --limit 1`.
-3. In `livekit/podspecs`, merge the PR from `publish/LiveKitClient-<version>`.
-4. In `livekit/client-sdk-swift-xcframework`, merge the PR from `release/<version>`.
-   Then publish the draft release `<version>`. Keep this order: GitHub creates
-   the tag of a draft release when the release becomes public, on the head of `main`.
-5. The public release starts `publish-podspec.yaml` in `livekit/client-sdk-swift-xcframework`.
+1. Start a test build of the XCFramework: `gh workflow run publish-xcframework.yaml`.
+   It builds the head of `main` and writes nothing.
+2. Merge the release PR when that run and the checks of the PR are green.
+   `main` requires no check, so GitHub does not block a red PR.
+3. Watch the run of `release.yaml`: `gh run list --workflow release.yaml --limit 1`.
+4. In `livekit/podspecs`, merge the PR from `publish/LiveKitClient-<version>`.
+5. In `livekit/client-sdk-swift-xcframework`, merge the PR from `release/<version>`.
+   Then publish the draft release `<version>`, before the PR of a later version merges there.
+   Keep this order: GitHub creates the tag of a draft release when the release
+   becomes public, on the head of `main`.
+6. The public release starts `publish-podspec.yaml` in `livekit/client-sdk-swift-xcframework`.
    That run opens a PR from `publish/LiveKitClient-XCFramework-<version>` in `livekit/podspecs`. Merge it.
 
 A complete release has these results:
@@ -96,6 +100,12 @@ Not used. If this repository needs an rc, add `pre-release.yaml` from the verwal
 Find the cause first. The paths by cause are in the
 [recovery section][recovery].
 
+Only a code owner starts `release.yaml`, or a publish workflow with
+`dry_run=false`, by hand. Set `ref` to the release tag or to a commit of
+`main`. GitHub does not enforce this: each account with write access can start
+such a run. Do not start a publish workflow by hand while the run of
+`release.yaml` for that version is active.
+
 | Situation | Command |
 |---|---|
 | A job failed for a transient reason. | `gh run rerun <run-id> --failed` |
@@ -103,10 +113,11 @@ Find the cause first. The paths by cause are in the
 | Only the XCFramework failed, and the fix to `scripts/` is on `main`, with the `internal` label and no changeset. | `gh workflow run publish-xcframework.yaml -f version=<tag> -f dry_run=false` |
 | Only the podspec failed. | `gh workflow run publish-podspec.yaml -f ref=<tag> -f dry_run=false` |
 | Only the docs failed. | `gh workflow run publish-docs.yaml -f ref=<tag> -f dry_run=false` |
-| The PR of step 5 did not open. | `gh workflow run publish-podspec.yaml --repo livekit/client-sdk-swift-xcframework -f ref=<tag> -f dry_run=false` |
+| The PR of step 6 did not open. | `gh workflow run publish-podspec.yaml --repo livekit/client-sdk-swift-xcframework -f ref=<tag> -f dry_run=false` |
+| The tag in `livekit/client-sdk-swift-xcframework` holds the `Package.swift` of another version, because step 5 ran in the wrong order. | Merge the PR from `release/<version>` there. Then move the tag to its merge commit at once: `git push --force origin <merge commit>:refs/tags/<version>`. Then run the command of the row above. |
 | The released commit is wrong. | `verwalter release --abandon <tag>`, then a changeset and the next version. |
 
-The XCFramework builds one time, after the tag. If that build fails, the
+The XCFramework of a release builds one time, after the tag. If that build fails, the
 SwiftPM release and the `LiveKitClient` pod are complete, and the XCFramework
 and its pod are missing until the build passes.
 `publish-xcframework.yaml` takes `scripts/` from `main`, so a fix to the build
@@ -115,7 +126,7 @@ tooling reaches a tag that exists. A fix to the SDK sources needs the next versi
 ## After a release
 
 Nothing in other repositories updates on its own. This repository opens the
-PRs of steps 3 and 4. The hosting repository opens the PR of step 5.
+PRs of steps 4 and 5. The hosting repository opens the PR of step 6.
 
 [verwalter]: https://github.com/livekit/verwalter
 [cheat]: https://github.com/livekit/verwalter/blob/main/docs/cheat-sheet.md

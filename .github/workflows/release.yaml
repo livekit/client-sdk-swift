@@ -8,7 +8,8 @@ on:
   # A failed job is re-run with "Re-run failed jobs" on the run itself:
   # that keeps the merge commit. This trigger is for a run that needs a
   # fixed workflow file from the branch. `verwalter release` resumes from
-  # the current state and skips what is done; the publish jobs run again.
+  # the current state and skips what is done. The XCFramework and podspec
+  # jobs run on every release run and skip a version that their target has.
   workflow_dispatch:
     inputs:
       ref:
@@ -40,6 +41,11 @@ jobs:
     needs: gate
     if: needs.gate.outputs.release == 'true'
     runs-on: ubuntu-latest
+    # One release at a time: a second run waits, and `queue: max` keeps every waiting run.
+    concurrency:
+      group: release
+      cancel-in-progress: false
+      queue: max
     permissions:
       contents: write
     outputs:
@@ -57,7 +63,7 @@ jobs:
         uses: livekit/verwalter@9da894a1e4f7d298095a961be60c818afd47905b # v0.32.0-rc.1
         with:
           command: release
-      # The version names the concurrency groups. The docs site holds one version: an rc must not replace the docs of the last final release.
+      # The version names the concurrency groups. The docs site holds one version: only a final version that this run released on main replaces it.
       - id: final
         run: |
           echo "version=$(cat .version)" >> "$GITHUB_OUTPUT"
@@ -69,7 +75,6 @@ jobs:
     concurrency:
       group: release-${{ needs.release.outputs.version }}-xcframework
       cancel-in-progress: false
-    if: needs.release.outputs.released == 'true' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/publish-xcframework.yaml
     with:
       ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
@@ -82,7 +87,6 @@ jobs:
     concurrency:
       group: release-${{ needs.release.outputs.version }}-podspec
       cancel-in-progress: false
-    if: needs.release.outputs.released == 'true' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/publish-podspec.yaml
     with:
       ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
@@ -95,7 +99,7 @@ jobs:
     concurrency:
       group: release-${{ needs.release.outputs.version }}-docs
       cancel-in-progress: false
-    if: (needs.release.outputs.released == 'true' || github.event_name == 'workflow_dispatch') && needs.release.outputs.final == 'true'
+    if: needs.release.outputs.released == 'true' && needs.release.outputs.final == 'true' && (github.event.pull_request.base.ref || github.ref_name) == 'main'
     uses: ./.github/workflows/publish-docs.yaml
     with:
       ref: ${{ github.event.pull_request.merge_commit_sha || inputs.ref || github.sha }}
@@ -106,7 +110,7 @@ jobs:
   # the remote or the GitHub release is missing or still a draft.
   verify:
     needs: [release, xcframework, podspec, docs]
-    if: ${{ !cancelled() && !failure() && (needs.release.outputs.released == 'true' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !cancelled() && !failure() && needs.release.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # reads only. A draft release is visible only with write access

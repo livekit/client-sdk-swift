@@ -94,7 +94,7 @@ jobs:
           # A PR closed without merge does not count: the hosting repo then lacks the manifests.
           prs=$(gh pr list --repo "$HOSTING_REPO" --head "release/$VERSION" --state all --json state --jq '[.[] | select(.state != "CLOSED")] | length')
           if [ "$prs" -eq 0 ]; then
-            echo "::error::$HOSTING_REPO has release $VERSION, but no open or merged PR from release/$VERSION. Reopen the closed PR, then run again."
+            echo "::error::$HOSTING_REPO has release $VERSION, but no open or merged PR from release/$VERSION. Reopen the closed PR, or open one from that branch if none exists. Then run again."
             exit 1
           fi
           echo "::notice::$HOSTING_REPO has release $VERSION and its PR. Skipping."
