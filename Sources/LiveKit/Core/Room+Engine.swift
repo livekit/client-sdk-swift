@@ -570,7 +570,7 @@ extension Room {
                         return mode
                     }
 
-                    reconnectSpan?.step(step: .attempt(number: UInt32(currentAttempt), full: mode == .full))
+                    reconnectSpan?.step(step: .attempt(number: UInt32(clamping: currentAttempt), full: mode == .full))
 
                     do {
                         if case .quick = mode {
