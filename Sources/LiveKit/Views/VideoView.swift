@@ -16,10 +16,9 @@
 
 // swiftlint:disable file_length
 
+internal import LiveKitWebRTC
 @preconcurrency import AVFoundation
 import MetalKit
-
-internal import LiveKitWebRTC
 
 /// A ``NativeViewType`` that conforms to ``RTCVideoRenderer``.
 typealias NativeRendererView = LKRTCVideoRenderer & Mirrorable & NativeViewType
@@ -142,6 +141,10 @@ public class VideoView: NativeView, Loggable {
                     $0.didRenderFirstFrame = false
                     $0.isRendering = false
                     $0.rendererSize = nil
+                    // Belongs to the outgoing track. Reusing a view across tracks is supported,
+                    // and keeping this would size the next track's renderer from the last one's
+                    // resolution until something replaced it.
+                    $0.nativeVideoSize = nil
                 }
                 $0.track = newValue
             }
@@ -247,6 +250,9 @@ public class VideoView: NativeView, Loggable {
         // layout related
         var viewSize: CGSize
         var rendererSize: CGSize?
+        /// The frame's native pixel size, as reported by WebRTC, kept so a recreated renderer can
+        /// be sized before its first frame.
+        var nativeVideoSize: CGSize?
         var didLayout: Bool = false
         var layoutMode: LayoutMode = .fill
         var mirrorMode: MirrorMode = .auto
@@ -285,10 +291,17 @@ public class VideoView: NativeView, Loggable {
 
     let _state: StateSync<State>
 
+    /// Owns the sink that is registered with the track and applies track / enabled changes to it.
+    nonisolated let _binder = VideoRendererBinder()
+
     // MARK: - Private
 
     private nonisolated(unsafe) var _primaryRenderer: NativeRendererView?
     private nonisolated(unsafe) var _secondaryRenderer: NativeRendererView?
+
+    // What the native renderer currently shows, so a reconcile can tell a no-op from a change.
+    private weak var _renderedTrack: Track?
+    private var _renderedMode: RenderMode?
 
     private var _debugTextView: TextView?
 
@@ -310,6 +323,7 @@ public class VideoView: NativeView, Loggable {
         _state = StateSync(State(viewSize: frame.size))
 
         super.init(frame: frame)
+        _binder.sink.target = self
 
         if !Thread.current.isMainThread {
             log("Must be called on main thread", .error)
@@ -327,56 +341,17 @@ public class VideoView: NativeView, Loggable {
             let renderModeDidUpdate = newState.renderMode != oldState.renderMode
             let trackDidUpdate = !Self.track(oldState.track as? VideoTrack, isEqualWith: newState.track as? VideoTrack)
 
-            // Always add/remove from the track asynchronously - even when called on @MainActor.
-            // Both hop to the RTC executor: attaching a sink to a remote video track is a
-            // worker-thread BlockingCall, and a grid re-layout would otherwise fire one per tile
-            // onto the cooperative pool. One hop keeps remove-then-add ordered.
+            // Attaching a sink to a remote track is a worker-thread BlockingCall, so it never runs on
+            // the caller. The binder coalesces a burst to its last value and applies on the RTC
+            // executor in order; the main-actor side reads the state when it runs, so neither can
+            // apply a snapshot that a later mutation already superseded.
             if trackDidUpdate || shouldRenderDidUpdate {
-                Task {
-                    await RTC.run {
-                        if let track = oldState.track as? VideoTrack {
-                            track.remove(videoRenderer: self)
-                        }
-                        if let track = newState.track as? VideoTrack, newState.shouldRender {
-                            track.add(videoRenderer: self)
-                        }
-                    }
-                }
+                _binder.request(newState.shouldRender ? newState.track as? VideoTrack : nil)
             }
 
-            // Recreate renderers if necessary on @MainActor
             if trackDidUpdate || shouldRenderDidUpdate || renderModeDidUpdate {
                 Task { @MainActor in
-                    var didReCreateNativeRenderer = false
-
-                    if trackDidUpdate || shouldRenderDidUpdate {
-                        // Clean up old renderers
-                        if let r = self._primaryRenderer {
-                            r.removeFromSuperview()
-                            self._primaryRenderer = nil
-                        }
-
-                        if let r = self._secondaryRenderer {
-                            r.removeFromSuperview()
-                            self._secondaryRenderer = nil
-                        }
-
-                        // Set up new renderer if needed
-                        if let track = newState.track as? VideoTrack, newState.shouldRender {
-                            let nr = self.recreatePrimaryRenderer(for: newState.renderMode)
-                            didReCreateNativeRenderer = true
-
-                            if let frame = track._state.videoFrame {
-                                self.log("rendering cached frame track: \(String(describing: track._state.sid))")
-                                nr.renderFrame(frame.toRTCType())
-                                self.setNeedsLayout()
-                            }
-                        }
-                    }
-
-                    if renderModeDidUpdate, !didReCreateNativeRenderer {
-                        self.recreatePrimaryRenderer(for: newState.renderMode)
-                    }
+                    self.reconcileNativeRenderer()
                 }
             }
 
@@ -525,11 +500,9 @@ public class VideoView: NativeView, Loggable {
             debugView.layer!.borderWidth = 3
             #endif
             bringSubviewToFront(debugView)
-        } else {
-            if let debugView = _debugTextView {
-                debugView.removeFromSuperview()
-                _debugTextView = nil
-            }
+        } else if let debugView = _debugTextView {
+            debugView.removeFromSuperview()
+            _debugTextView = nil
         }
 
         guard let track = state.track else {
@@ -607,6 +580,47 @@ private extension VideoView {
         return view
     }
 
+    /// Brings the native renderer views in line with the current state. Reads the state when it
+    /// runs and skips when nothing changed, so queued calls can neither reorder nor go stale.
+    func reconcileNativeRenderer() {
+        let (track, shouldRender, renderMode) = _state.read { ($0.track as? VideoTrack, $0.shouldRender, $0.renderMode) }
+
+        guard let track, shouldRender else {
+            _primaryRenderer?.removeFromSuperview()
+            _primaryRenderer = nil
+            _secondaryRenderer?.removeFromSuperview()
+            _secondaryRenderer = nil
+            _renderedTrack = nil
+            _renderedMode = nil
+            return
+        }
+
+        if _primaryRenderer != nil, _renderedTrack === track, _renderedMode == renderMode { return }
+        _renderedTrack = track
+        _renderedMode = renderMode
+
+        let renderer = recreatePrimaryRenderer(for: renderMode)
+
+        // A replayed frame goes straight to the renderer and never passes through
+        // `render(frame:)`, so this is the only point at which it can set the native size. It
+        // matters when the track's capture has stopped: nothing further arrives to correct the
+        // target, and an unsized `MTKView` still has `autoResizeDrawable` set, so it would size
+        // itself to `bounds x scale` — far past a source smaller than the view.
+        let cachedFrame = track._state.videoFrame
+        if let cachedFrame {
+            _state.mutate { $0.nativeVideoSize = cachedFrame.nativeVideoSize }
+        }
+
+        // A fresh renderer starts with no size. Give it the known one before the first frame.
+        applyNativeVideoSize()
+
+        if let cachedFrame {
+            log("rendering cached frame track: \(String(describing: track._state.sid))")
+            renderer.renderFrame(cachedFrame.toRTCType())
+        }
+        setNeedsLayout()
+    }
+
     @discardableResult
     func recreatePrimaryRenderer(for renderMode: VideoView.RenderMode) -> NativeRendererView {
         if !Thread.current.isMainThread { log("Must be called on main thread", .error) }
@@ -650,8 +664,20 @@ private extension VideoView {
         newView.frame = _primaryRenderer.frame
         // Store reference
         _secondaryRenderer = newView
+        // Same reason as in `reconcileNativeRenderer`: a renderer that has never been given a size
+        // falls back to sizing its drawable from its own bounds, which overshoots a source smaller
+        // than the view. This one becomes the primary after the swap, so it has to be sized too.
+        applyNativeVideoSize()
 
         return newView
+    }
+
+    /// Hands the native video size to the renderers. `RTCMTLVideoView` sizes its drawables from it,
+    /// clamped to the pixels the view displays.
+    func applyNativeVideoSize() {
+        guard let nativeVideoSize = _state.nativeVideoSize else { return }
+        _primaryRenderer?.setSize(nativeVideoSize)
+        _secondaryRenderer?.setSize(nativeVideoSize)
     }
 
     func _shouldMirror() -> Bool {
@@ -681,9 +707,9 @@ extension VideoView: VideoRenderer {
     }
 
     public func set(size: CGSize) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self, let nr = _primaryRenderer else { return }
-            nr.setSize(size)
+        _state.mutate { $0.nativeVideoSize = size }
+        Task { @MainActor in
+            self.applyNativeVideoSize()
         }
     }
 
@@ -711,6 +737,12 @@ extension VideoView: VideoRenderer {
             Task { @MainActor in self.setNeedsLayout() }
         }
 
+        // Remote tracks learn their native size from `VideoRendererAdapter`, which calls
+        // `set(size:)`. Local capture delivers straight to the renderer and never does, so for a
+        // local track the frame is the only source.
+        let nativeVideoSize = frame.nativeVideoSize
+
+        var didUpdateNativeVideoSize = false
         let newState = _state.mutate {
             // Keep previous capture position
             let oldCaptureDevicePosition = $0.captureDevice?.position
@@ -721,6 +753,11 @@ extension VideoView: VideoRenderer {
             $0.isRendering = true
             $0.renderDate = Date()
 
+            if $0.nativeVideoSize != nativeVideoSize {
+                $0.nativeVideoSize = nativeVideoSize
+                didUpdateNativeVideoSize = true
+            }
+
             // Update renderTarget if capture position changes
             if let oldCaptureDevicePosition, oldCaptureDevicePosition != captureDevice?.position {
                 $0.renderTarget = .secondary
@@ -728,6 +765,10 @@ extension VideoView: VideoRenderer {
             }
 
             return $0
+        }
+
+        if didUpdateNativeVideoSize {
+            Task { @MainActor in self.applyNativeVideoSize() }
         }
 
         let rtcFrame = frame.toRTCType()
@@ -823,6 +864,15 @@ extension VideoView: VideoRenderer {
 
 // MARK: - Internal
 
+private extension VideoFrame {
+    /// The size `VideoRendererAdapter` reports to `set(size:)`: rotated by the frame's own
+    /// rotation, not by ``VideoView/rotationOverride``, which the renderer applies itself.
+    var nativeVideoSize: CGSize {
+        let dimensions = dimensions.apply(rotation: rotation.toRTCType())
+        return CGSize(width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
+    }
+}
+
 extension VideoView {
     nonisolated static func track(_ track1: VideoTrack?, isEqualWith track2: VideoTrack?) -> Bool {
         // equal if both tracks are nil
@@ -887,9 +937,9 @@ extension VideoView {
                 #elseif os(macOS)
                 mtkView.layerContentsPlacement = .scaleProportionallyToFit
                 #endif
-                // ensure it's capable of rendering 60fps
+                // Note: `RTCMTLRenderer.setupWithView:` resets this to 30 when it attaches, which
+                // happens lazily on the first frame — so this assignment only holds until then.
                 // https://developer.apple.com/documentation/metalkit/mtkview/1536027-preferredframespersecond
-                log("preferredFramesPerSecond = 60")
                 mtkView.preferredFramesPerSecond = 60
             }
 

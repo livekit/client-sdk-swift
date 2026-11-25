@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 import Foundation
-
-internal import LiveKitUniFFI
 
 /// A data track published by the local participant. Obtain one from
 /// ``LocalParticipant/publishDataTrack(name:)``, then push frames with ``tryPush(frame:)``.
@@ -24,9 +23,9 @@ internal import LiveKitUniFFI
 /// The publication follows this object's lifetime: releasing the last reference unpublishes the
 /// track, as does calling ``unpublish()``.
 public final class LocalDataTrack: NSObject, Sendable {
-    private let track: LiveKitUniFFI.LocalDataTrack
+    private let track: LiveKitFFI.LocalDataTrack
 
-    init(_ track: LiveKitUniFFI.LocalDataTrack) {
+    init(_ track: LiveKitFFI.LocalDataTrack) {
         self.track = track
         super.init()
     }

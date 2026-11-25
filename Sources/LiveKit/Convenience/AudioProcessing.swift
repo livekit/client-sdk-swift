@@ -169,8 +169,7 @@ public actor AudioVisualizeProcessor {
     }
 
     public func process(pcmBuffer: AVAudioPCMBuffer) -> [Float]? {
-        guard let pcmBuffer = pcmBuffer.convert(toCommonFormat: .pcmFormatFloat32) else { return nil }
-        guard let floatChannelData = pcmBuffer.floatChannelData else { return nil }
+        guard let pcmBuffer = pcmBuffer.convert(toCommonFormat: .pcmFormatFloat32), let floatChannelData = pcmBuffer.floatChannelData else { return nil }
 
         // Get the float array.
         let floats = Array(UnsafeBufferPointer(start: floatChannelData[0], count: Int(pcmBuffer.frameLength)))

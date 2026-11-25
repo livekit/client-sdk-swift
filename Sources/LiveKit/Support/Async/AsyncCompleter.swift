@@ -26,6 +26,7 @@ actor CompleterMapActor<T: Sendable> {
 
     private let _defaultTimeout: TimeInterval
     private var _completerMap = [String: AsyncCompleter<T>]()
+    private var _rejection: Error?
 
     init(label: String, defaultTimeout: TimeInterval) {
         self.label = label
@@ -39,6 +40,10 @@ actor CompleterMapActor<T: Sendable> {
         }
 
         let newCompleter = AsyncCompleter<T>(label: label, defaultTimeout: _defaultTimeout)
+        if let _rejection {
+            newCompleter.resume(throwing: _rejection)
+            return newCompleter
+        }
         _completerMap[key] = newCompleter
         return newCompleter
     }
@@ -53,13 +58,21 @@ actor CompleterMapActor<T: Sendable> {
         completer.resume(throwing: error)
     }
 
-    func reset(throwing error: Error? = nil) {
+    /// Fails the waits on every completer with `error`. With `rejectingNew`, every completer fails with it for good: those
+    /// already handed out, whose waits may come later, and those made until the next reset.
+    func reset(throwing error: Error? = nil, rejectingNew: Bool = false) {
+        let rejection = rejectingNew ? error ?? LiveKitError(.cancelled) : nil
         // Reset call completers...
         for (_, value) in _completerMap {
-            value.reset(throwing: error)
+            if let rejection {
+                value.resume(with: .failure(rejection))
+            } else {
+                value.reset(throwing: error)
+            }
         }
         // Clear all completers...
         _completerMap.removeAll()
+        _rejection = rejection
     }
 }
 
@@ -189,7 +202,27 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                     _lock.sync { self._entries.removeValue(forKey: entryId) }?.timeout()
                 }
 
-                _lock.sync {
+                // Two things are decided under the lock that registers the waiter, because both
+                // are races against that registration:
+                //
+                // `_result` — the read above is only a fast path, and a `resume` landing between
+                // the two caches its result and finds no waiter to hand it to, stranding this
+                // continuation on an already-resolved completer until its timeout.
+                //
+                // `Task.isCancelled` — `withTaskCancellationHandler` runs `onCancel` immediately
+                // for a task that is already cancelled, so it looks for an entry that does not
+                // exist yet and never runs again. Checking here closes both orderings: either this
+                // sees the cancellation, or `onCancel` runs after registration and finds the entry.
+                //
+                // Both outcomes are carried out of the lock and resumed after it. Resuming takes
+                // the task's status-record lock, and cancellation takes that lock before running
+                // `onCancel`, which takes `_lock` — resuming under `_lock` is the inversion that
+                // deadlocked this type on CI. Every other resume here settles outside the lock; so
+                // does this.
+                let settled: Result<T, Error>? = _lock.sync {
+                    if let _result { return _result }
+                    if Task.isCancelled { return .failure(LiveKitError(.cancelled)) }
+
                     // Schedule time-out block
                     let computedTimeout = (timeout?.toDispatchTimeInterval ?? _defaultTimeout)
                     _timerQueue.asyncAfter(deadline: .now() + computedTimeout, execute: timeoutBlock)
@@ -197,7 +230,11 @@ final class AsyncCompleter<T: Sendable>: @unchecked Sendable, Loggable {
                     _entries[entryId] = WaitEntry(continuation: continuation, timeoutBlock: timeoutBlock)
 
                     log("\(label) id: \(entryId) waiting for \(computedTimeout)")
+                    return nil
                 }
+                // No entry was stored and the timer was never scheduled on this path, so nothing
+                // else can reach this continuation.
+                if let settled { continuation.resume(with: settled) }
             }
         } onCancel: {
             // Cancel only this completer when Task gets cancelled

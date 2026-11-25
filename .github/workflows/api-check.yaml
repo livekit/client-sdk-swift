@@ -28,7 +28,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [macOS, iOS]
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 45
     steps:
       # The base commit has to be a local object for the worktree checkout.

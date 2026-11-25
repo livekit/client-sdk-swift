@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 // Invoked on WebRTC's worker thread, do not block.
 class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate, Loggable {

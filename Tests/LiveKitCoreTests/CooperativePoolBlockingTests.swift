@@ -244,7 +244,9 @@ private final class SignalingThreadWedge: NSObject, LKRTCPeerConnectionDelegate,
         }
         let offer = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
             peerConnection.offer(for: .defaultPCConstraints) { sd, error in
-                if let sd { continuation.resume(returning: sd) } else {
+                if let sd {
+                    continuation.resume(returning: sd)
+                } else {
                     continuation.resume(throwing: error ?? LiveKitError(.invalidState, message: "no offer"))
                 }
             }

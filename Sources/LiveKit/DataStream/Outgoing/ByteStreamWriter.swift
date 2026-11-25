@@ -14,59 +14,82 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 import Foundation
 
 /// Asynchronously write to an open byte stream.
+///
+/// - Important: Call and await ``close(reason:)`` when you are done. Releasing a writer without
+///   closing it does not send the end of the stream, so receivers keep waiting for it until you
+///   disconnect.
 @objcMembers
 public final class ByteStreamWriter: NSObject, Sendable {
     /// Information about the outgoing byte stream.
     public let info: ByteStreamInfo
 
-    private let destination: StreamWriterDestination
+    private let writer: LiveKitFFI.ByteStreamWriter
 
-    /// Whether or not the stream is still open.
+    /// Whether or not the stream is still open. Reflects the FFI writer's state, so it becomes
+    /// `false` once the stream is closed locally or a send fails (e.g. the room disconnected).
     public var isOpen: Bool {
-        get async { await destination.isOpen }
+        get async { await writer.isOpen() }
     }
 
     /// Write data to the stream.
     ///
     /// - Parameter data: Data to be sent.
-    /// - Throws: Throws an error if the stream has been closed or data
-    ///   cannot be sent to remote participants.
+    /// - Throws: ``StreamError/alreadyClosed`` if the stream is closed, or
+    ///   ``StreamError/sendFailed`` or another ``StreamError`` if the data cannot be delivered, for
+    ///   example because the room disconnected. Then ``isOpen`` is `false`. `CancellationError` at
+    ///   once if the calling task is cancelled, but the write can still go out.
     ///
     public func write(_ data: Data) async throws {
-        try await destination.write(data)
+        do {
+            try await abandoningOnCancel { [writer] in try await writer.write(data: data) }
+        } catch let error as LiveKitFFI.DataStreamError {
+            throw StreamError(error)
+        }
     }
 
+    // Retains the existing Swift symbol and Objective-C selector for binary compatibility.
     /// Close the stream.
     ///
     /// - Parameter reason: A textual description of why the stream is being closed. Absense
     ///   of a reason indicates a normal closure.
-    /// - Throws: Throws an error if the stream has already been closed or closure
-    ///   cannot be communicated to remote participants.
-    ///
+    /// - Throws: ``StreamError/alreadyClosed`` if the stream is already closed, or another
+    ///   ``StreamError`` if the end of the stream cannot be delivered. `CancellationError` at once
+    ///   if the calling task is cancelled, but the stream can still close.
     public func close(reason: String? = nil) async throws {
-        try await destination.close(reason: reason)
+        try await close(reason: reason, attributes: [:])
     }
 
-    init(info: ByteStreamInfo, destination: StreamWriterDestination) {
-        self.info = info
-        self.destination = destination
+    /// Close the stream, sending `attributes` with its end.
+    ///
+    /// Once the stream has ended, receivers find the attributes in ``StreamInfo/attributes`` of
+    /// the reader's info. They replace header attributes with the same key.
+    ///
+    /// ```swift
+    /// try await writer.close(attributes: ["status": "complete"])
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - reason: A textual description of why the stream is being closed. Absence of a reason
+    ///     indicates a normal closure.
+    ///   - attributes: Attributes to send with the end of the stream.
+    /// - Throws: ``StreamError/alreadyClosed`` if the stream is already closed, or another
+    ///   ``StreamError`` if the end of the stream cannot be delivered. `CancellationError` at once
+    ///   if the calling task is cancelled, but the stream can still close.
+    ///
+    public func close(reason: String? = nil, attributes: [String: String] = [:]) async throws {
+        do {
+            try await abandoningOnCancel { [writer] in try await writer.close(reason: reason, attributes: attributes) }
+        } catch let error as LiveKitFFI.DataStreamError {
+            throw StreamError(error)
+        }
     }
-}
 
-extension ByteStreamWriter {
-    /// Write the contents of the file located at the given URL to the stream.
-    func write(contentsOf fileURL: URL) async throws {
-        try await Task { [weak self] in
-            guard let self else { return }
-            let reader = try AsyncFileStream(readingFrom: fileURL)
-            for try await chunk in reader.chunks() {
-                try await write(chunk)
-            }
-        }.value
+    init(_ writer: LiveKitFFI.ByteStreamWriter, encryptionType: EncryptionType) {
+        self.writer = writer
+        info = ByteStreamInfo(writer.info(), encryptionType: encryptionType)
     }
-
-    private static let fileReadChunkSize = 4096
 }

@@ -15,6 +15,7 @@
  */
 
 import Benchmark
+import Foundation
 import LiveKit
 
 /// Shared tracer that retains completed spans for benchmark analysis.
@@ -46,6 +47,7 @@ let benchmarks: @Sendable () -> Void = {
     // Register all benchmark suites
     connectionBenchmarks()
     sessionLifecycleBenchmarks()
+    lateJoinerBenchmarks()
     dataChannelBenchmarks()
     rpcBenchmarks()
 }

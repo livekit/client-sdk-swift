@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 import AVFAudio
 import Combine
 import Foundation
-
-internal import LiveKitWebRTC
 
 @objcMembers
 public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @unchecked Sendable {
@@ -163,6 +162,18 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
 
     override func stopCapture() async throws {
         cleanUpFrameWatcher()
+    }
+}
+
+extension LocalAudioTrack {
+    /// Everything the server is told about this track: capture processing, publish options and Krisp.
+    func features(publishOptions: AudioPublishOptions?) -> Set<Livekit_AudioTrackFeature> {
+        var features = captureOptions.toFeatures()
+        features.formUnion(publishOptions?.toFeatures() ?? [])
+        if AudioManager.shared.capturePostProcessingDelegate?.audioProcessingName == kLiveKitKrispAudioProcessorName {
+            features.insert(.tfEnhancedNoiseCancellation)
+        }
+        return features
     }
 }
 

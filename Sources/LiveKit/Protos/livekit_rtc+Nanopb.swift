@@ -51,119 +51,165 @@ extension livekit_SignalRequest: NanopbStorage {
 typealias Livekit_SignalRequest = NanopbMsg<livekit_SignalRequest>
 extension Livekit_SignalRequest {
     var message: Livekit_SignalRequest_OneOf_Message? {
-        switch _pointer.pointee.which_message {
-        case lk_pb_size_t(livekit_SignalRequest_offer_tag):
-            return .offer(_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
-        case lk_pb_size_t(livekit_SignalRequest_answer_tag):
-            return .answer(_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
-        case lk_pb_size_t(livekit_SignalRequest_trickle_tag):
-            return .trickle(_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty)
-        case lk_pb_size_t(livekit_SignalRequest_add_track_tag):
-            return .addTrack(_pointer.pointee.message.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty)
-        case lk_pb_size_t(livekit_SignalRequest_mute_tag):
-            return .mute(_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty)
-        case lk_pb_size_t(livekit_SignalRequest_subscription_tag):
-            return .subscription(_pointer.pointee.message.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateSubscription._empty)
-        case lk_pb_size_t(livekit_SignalRequest_track_setting_tag):
-            return .trackSetting(_pointer.pointee.message.track_setting.map { Livekit_UpdateTrackSettings(_sharing: $0, owner: _owner) } ?? Livekit_UpdateTrackSettings._empty)
-        case lk_pb_size_t(livekit_SignalRequest_leave_tag):
-            return .leave(_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty)
-        case lk_pb_size_t(livekit_SignalRequest_update_layers_tag):
-            return .updateLayers(_pointer.pointee.message.update_layers.map { Livekit_UpdateVideoLayers(_sharing: $0, owner: _owner) } ?? Livekit_UpdateVideoLayers._empty)
-        case lk_pb_size_t(livekit_SignalRequest_subscription_permission_tag):
-            return .subscriptionPermission(_pointer.pointee.message.subscription_permission.map { Livekit_SubscriptionPermission(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermission._empty)
-        case lk_pb_size_t(livekit_SignalRequest_sync_state_tag):
-            return .syncState(_pointer.pointee.message.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _owner) } ?? Livekit_SyncState._empty)
-        case lk_pb_size_t(livekit_SignalRequest_simulate_tag):
-            return .simulate(_pointer.pointee.message.simulate.map { Livekit_SimulateScenario(_sharing: $0, owner: _owner) } ?? Livekit_SimulateScenario._empty)
-        case lk_pb_size_t(livekit_SignalRequest_ping_tag):
-            return .ping(_pointer.pointee.message.ping?.pointee ?? 0)
-        case lk_pb_size_t(livekit_SignalRequest_update_metadata_tag):
-            return .updateMetadata(_pointer.pointee.message.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty)
-        case lk_pb_size_t(livekit_SignalRequest_ping_req_tag):
-            return .pingReq(_pointer.pointee.message.ping_req.map { Livekit_Ping(_sharing: $0, owner: _owner) } ?? Livekit_Ping._empty)
-        case lk_pb_size_t(livekit_SignalRequest_update_audio_track_tag):
-            return .updateAudioTrack(_pointer.pointee.message.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty)
-        case lk_pb_size_t(livekit_SignalRequest_update_video_track_tag):
-            return .updateVideoTrack(_pointer.pointee.message.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty)
-        case lk_pb_size_t(livekit_SignalRequest_publish_data_track_request_tag):
-            return .publishDataTrackRequest(_pointer.pointee.message.publish_data_track_request.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty)
-        case lk_pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag):
-            return .unpublishDataTrackRequest(_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty)
-        case lk_pb_size_t(livekit_SignalRequest_update_data_subscription_tag):
-            return .updateDataSubscription(_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateDataSubscription._empty)
-        case lk_pb_size_t(livekit_SignalRequest_store_data_blob_request_tag):
-            return .storeDataBlobRequest(_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobRequest._empty)
-        case lk_pb_size_t(livekit_SignalRequest_get_data_blob_request_tag):
-            return .getDataBlobRequest(_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobRequest._empty)
-        default: return nil
+        withExtendedLifetime(_owner) {
+            switch _pointer.pointee.which_message {
+            case lk_pb_size_t(livekit_SignalRequest_offer_tag):
+                return .offer(_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
+            case lk_pb_size_t(livekit_SignalRequest_answer_tag):
+                return .answer(_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
+            case lk_pb_size_t(livekit_SignalRequest_trickle_tag):
+                return .trickle(_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty)
+            case lk_pb_size_t(livekit_SignalRequest_add_track_tag):
+                return .addTrack(_pointer.pointee.message.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty)
+            case lk_pb_size_t(livekit_SignalRequest_mute_tag):
+                return .mute(_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty)
+            case lk_pb_size_t(livekit_SignalRequest_subscription_tag):
+                return .subscription(_pointer.pointee.message.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateSubscription._empty)
+            case lk_pb_size_t(livekit_SignalRequest_track_setting_tag):
+                return .trackSetting(_pointer.pointee.message.track_setting.map { Livekit_UpdateTrackSettings(_sharing: $0, owner: _owner) } ?? Livekit_UpdateTrackSettings._empty)
+            case lk_pb_size_t(livekit_SignalRequest_leave_tag):
+                return .leave(_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty)
+            case lk_pb_size_t(livekit_SignalRequest_update_layers_tag):
+                return .updateLayers(_pointer.pointee.message.update_layers.map { Livekit_UpdateVideoLayers(_sharing: $0, owner: _owner) } ?? Livekit_UpdateVideoLayers._empty)
+            case lk_pb_size_t(livekit_SignalRequest_subscription_permission_tag):
+                return .subscriptionPermission(_pointer.pointee.message.subscription_permission.map { Livekit_SubscriptionPermission(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermission._empty)
+            case lk_pb_size_t(livekit_SignalRequest_sync_state_tag):
+                return .syncState(_pointer.pointee.message.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _owner) } ?? Livekit_SyncState._empty)
+            case lk_pb_size_t(livekit_SignalRequest_simulate_tag):
+                return .simulate(_pointer.pointee.message.simulate.map { Livekit_SimulateScenario(_sharing: $0, owner: _owner) } ?? Livekit_SimulateScenario._empty)
+            case lk_pb_size_t(livekit_SignalRequest_ping_tag):
+                return .ping(_pointer.pointee.message.ping?.pointee ?? 0)
+            case lk_pb_size_t(livekit_SignalRequest_update_metadata_tag):
+                return .updateMetadata(_pointer.pointee.message.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty)
+            case lk_pb_size_t(livekit_SignalRequest_ping_req_tag):
+                return .pingReq(_pointer.pointee.message.ping_req.map { Livekit_Ping(_sharing: $0, owner: _owner) } ?? Livekit_Ping._empty)
+            case lk_pb_size_t(livekit_SignalRequest_update_audio_track_tag):
+                return .updateAudioTrack(_pointer.pointee.message.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty)
+            case lk_pb_size_t(livekit_SignalRequest_update_video_track_tag):
+                return .updateVideoTrack(_pointer.pointee.message.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty)
+            case lk_pb_size_t(livekit_SignalRequest_publish_data_track_request_tag):
+                return .publishDataTrackRequest(_pointer.pointee.message.publish_data_track_request.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty)
+            case lk_pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag):
+                return .unpublishDataTrackRequest(_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty)
+            case lk_pb_size_t(livekit_SignalRequest_update_data_subscription_tag):
+                return .updateDataSubscription(_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateDataSubscription._empty)
+            case lk_pb_size_t(livekit_SignalRequest_store_data_blob_request_tag):
+                return .storeDataBlobRequest(_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobRequest._empty)
+            case lk_pb_size_t(livekit_SignalRequest_get_data_blob_request_tag):
+                return .getDataBlobRequest(_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobRequest._empty)
+            default: return nil
+            }
         }
     }
     var offer: Livekit_SessionDescription {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        }
     }
     var answer: Livekit_SessionDescription {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        }
     }
     var trickle: Livekit_TrickleRequest {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
+        }
     }
     var addTrack: Livekit_AddTrackRequest {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_add_track_tag) ? (_pointer.pointee.message.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_add_track_tag) ? (_pointer.pointee.message.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest()
+        }
     }
     var mute: Livekit_MuteTrackRequest {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
+        }
     }
     var subscription: Livekit_UpdateSubscription {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_subscription_tag) ? (_pointer.pointee.message.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateSubscription._empty) : Livekit_UpdateSubscription()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_subscription_tag) ? (_pointer.pointee.message.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateSubscription._empty) : Livekit_UpdateSubscription()
+        }
     }
     var trackSetting: Livekit_UpdateTrackSettings {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_track_setting_tag) ? (_pointer.pointee.message.track_setting.map { Livekit_UpdateTrackSettings(_sharing: $0, owner: _owner) } ?? Livekit_UpdateTrackSettings._empty) : Livekit_UpdateTrackSettings()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_track_setting_tag) ? (_pointer.pointee.message.track_setting.map { Livekit_UpdateTrackSettings(_sharing: $0, owner: _owner) } ?? Livekit_UpdateTrackSettings._empty) : Livekit_UpdateTrackSettings()
+        }
     }
     var leave: Livekit_LeaveRequest {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest()
+        }
     }
     var updateLayers: Livekit_UpdateVideoLayers {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_layers_tag) ? (_pointer.pointee.message.update_layers.map { Livekit_UpdateVideoLayers(_sharing: $0, owner: _owner) } ?? Livekit_UpdateVideoLayers._empty) : Livekit_UpdateVideoLayers()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_layers_tag) ? (_pointer.pointee.message.update_layers.map { Livekit_UpdateVideoLayers(_sharing: $0, owner: _owner) } ?? Livekit_UpdateVideoLayers._empty) : Livekit_UpdateVideoLayers()
+        }
     }
     var subscriptionPermission: Livekit_SubscriptionPermission {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_subscription_permission_tag) ? (_pointer.pointee.message.subscription_permission.map { Livekit_SubscriptionPermission(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermission._empty) : Livekit_SubscriptionPermission()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_subscription_permission_tag) ? (_pointer.pointee.message.subscription_permission.map { Livekit_SubscriptionPermission(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermission._empty) : Livekit_SubscriptionPermission()
+        }
     }
     var syncState: Livekit_SyncState {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_sync_state_tag) ? (_pointer.pointee.message.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _owner) } ?? Livekit_SyncState._empty) : Livekit_SyncState()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_sync_state_tag) ? (_pointer.pointee.message.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _owner) } ?? Livekit_SyncState._empty) : Livekit_SyncState()
+        }
     }
     var simulate: Livekit_SimulateScenario {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_simulate_tag) ? (_pointer.pointee.message.simulate.map { Livekit_SimulateScenario(_sharing: $0, owner: _owner) } ?? Livekit_SimulateScenario._empty) : Livekit_SimulateScenario()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_simulate_tag) ? (_pointer.pointee.message.simulate.map { Livekit_SimulateScenario(_sharing: $0, owner: _owner) } ?? Livekit_SimulateScenario._empty) : Livekit_SimulateScenario()
+        }
     }
     var ping: Int64 {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_ping_tag) ? (_pointer.pointee.message.ping?.pointee ?? 0) : 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_ping_tag) ? (_pointer.pointee.message.ping?.pointee ?? 0) : 0
+        }
     }
     var updateMetadata: Livekit_UpdateParticipantMetadata {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_metadata_tag) ? (_pointer.pointee.message.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_metadata_tag) ? (_pointer.pointee.message.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata()
+        }
     }
     var pingReq: Livekit_Ping {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_ping_req_tag) ? (_pointer.pointee.message.ping_req.map { Livekit_Ping(_sharing: $0, owner: _owner) } ?? Livekit_Ping._empty) : Livekit_Ping()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_ping_req_tag) ? (_pointer.pointee.message.ping_req.map { Livekit_Ping(_sharing: $0, owner: _owner) } ?? Livekit_Ping._empty) : Livekit_Ping()
+        }
     }
     var updateAudioTrack: Livekit_UpdateLocalAudioTrack {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_audio_track_tag) ? (_pointer.pointee.message.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_audio_track_tag) ? (_pointer.pointee.message.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack()
+        }
     }
     var updateVideoTrack: Livekit_UpdateLocalVideoTrack {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_video_track_tag) ? (_pointer.pointee.message.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_video_track_tag) ? (_pointer.pointee.message.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack()
+        }
     }
     var publishDataTrackRequest: Livekit_PublishDataTrackRequest {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_publish_data_track_request_tag) ? (_pointer.pointee.message.publish_data_track_request.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_publish_data_track_request_tag) ? (_pointer.pointee.message.publish_data_track_request.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest()
+        }
     }
     var unpublishDataTrackRequest: Livekit_UnpublishDataTrackRequest {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag) ? (_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_unpublish_data_track_request_tag) ? (_pointer.pointee.message.unpublish_data_track_request.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest()
+        }
     }
     var updateDataSubscription: Livekit_UpdateDataSubscription {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_data_subscription_tag) ? (_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateDataSubscription._empty) : Livekit_UpdateDataSubscription()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_update_data_subscription_tag) ? (_pointer.pointee.message.update_data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateDataSubscription._empty) : Livekit_UpdateDataSubscription()
+        }
     }
     var storeDataBlobRequest: Livekit_StoreDataBlobRequest {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_store_data_blob_request_tag) ? (_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobRequest._empty) : Livekit_StoreDataBlobRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_store_data_blob_request_tag) ? (_pointer.pointee.message.store_data_blob_request.map { Livekit_StoreDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobRequest._empty) : Livekit_StoreDataBlobRequest()
+        }
     }
     var getDataBlobRequest: Livekit_GetDataBlobRequest {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_get_data_blob_request_tag) ? (_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobRequest._empty) : Livekit_GetDataBlobRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalRequest_get_data_blob_request_tag) ? (_pointer.pointee.message.get_data_blob_request.map { Livekit_GetDataBlobRequest(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobRequest._empty) : Livekit_GetDataBlobRequest()
+        }
     }
 
 }
@@ -609,159 +655,221 @@ extension livekit_SignalResponse: NanopbStorage {
 typealias Livekit_SignalResponse = NanopbMsg<livekit_SignalResponse>
 extension Livekit_SignalResponse {
     var message: Livekit_SignalResponse_OneOf_Message? {
-        switch _pointer.pointee.which_message {
-        case lk_pb_size_t(livekit_SignalResponse_join_tag):
-            return .join(_pointer.pointee.message.join.map { Livekit_JoinResponse(_sharing: $0, owner: _owner) } ?? Livekit_JoinResponse._empty)
-        case lk_pb_size_t(livekit_SignalResponse_answer_tag):
-            return .answer(_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
-        case lk_pb_size_t(livekit_SignalResponse_offer_tag):
-            return .offer(_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
-        case lk_pb_size_t(livekit_SignalResponse_trickle_tag):
-            return .trickle(_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty)
-        case lk_pb_size_t(livekit_SignalResponse_update_tag):
-            return .update(_pointer.pointee.message.update.map { Livekit_ParticipantUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantUpdate._empty)
-        case lk_pb_size_t(livekit_SignalResponse_track_published_tag):
-            return .trackPublished(_pointer.pointee.message.track_published.map { Livekit_TrackPublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackPublishedResponse._empty)
-        case lk_pb_size_t(livekit_SignalResponse_leave_tag):
-            return .leave(_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty)
-        case lk_pb_size_t(livekit_SignalResponse_mute_tag):
-            return .mute(_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty)
-        case lk_pb_size_t(livekit_SignalResponse_speakers_changed_tag):
-            return .speakersChanged(_pointer.pointee.message.speakers_changed.map { Livekit_SpeakersChanged(_sharing: $0, owner: _owner) } ?? Livekit_SpeakersChanged._empty)
-        case lk_pb_size_t(livekit_SignalResponse_room_update_tag):
-            return .roomUpdate(_pointer.pointee.message.room_update.map { Livekit_RoomUpdate(_sharing: $0, owner: _owner) } ?? Livekit_RoomUpdate._empty)
-        case lk_pb_size_t(livekit_SignalResponse_connection_quality_tag):
-            return .connectionQuality(_pointer.pointee.message.connection_quality.map { Livekit_ConnectionQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ConnectionQualityUpdate._empty)
-        case lk_pb_size_t(livekit_SignalResponse_stream_state_update_tag):
-            return .streamStateUpdate(_pointer.pointee.message.stream_state_update.map { Livekit_StreamStateUpdate(_sharing: $0, owner: _owner) } ?? Livekit_StreamStateUpdate._empty)
-        case lk_pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag):
-            return .subscribedQualityUpdate(_pointer.pointee.message.subscribed_quality_update.map { Livekit_SubscribedQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedQualityUpdate._empty)
-        case lk_pb_size_t(livekit_SignalResponse_subscription_permission_update_tag):
-            return .subscriptionPermissionUpdate(_pointer.pointee.message.subscription_permission_update.map { Livekit_SubscriptionPermissionUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermissionUpdate._empty)
-        case lk_pb_size_t(livekit_SignalResponse_refresh_token_tag):
-            return .refreshToken(lkString(_pointer.pointee.message.refresh_token) ?? "")
-        case lk_pb_size_t(livekit_SignalResponse_track_unpublished_tag):
-            return .trackUnpublished(_pointer.pointee.message.track_unpublished.map { Livekit_TrackUnpublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackUnpublishedResponse._empty)
-        case lk_pb_size_t(livekit_SignalResponse_pong_tag):
-            return .pong(_pointer.pointee.message.pong?.pointee ?? 0)
-        case lk_pb_size_t(livekit_SignalResponse_reconnect_tag):
-            return .reconnect(_pointer.pointee.message.reconnect.map { Livekit_ReconnectResponse(_sharing: $0, owner: _owner) } ?? Livekit_ReconnectResponse._empty)
-        case lk_pb_size_t(livekit_SignalResponse_pong_resp_tag):
-            return .pongResp(_pointer.pointee.message.pong_resp.map { Livekit_Pong(_sharing: $0, owner: _owner) } ?? Livekit_Pong._empty)
-        case lk_pb_size_t(livekit_SignalResponse_subscription_response_tag):
-            return .subscriptionResponse(_pointer.pointee.message.subscription_response.map { Livekit_SubscriptionResponse(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionResponse._empty)
-        case lk_pb_size_t(livekit_SignalResponse_request_response_tag):
-            return .requestResponse(_pointer.pointee.message.request_response.map { Livekit_RequestResponse(_sharing: $0, owner: _owner) } ?? Livekit_RequestResponse._empty)
-        case lk_pb_size_t(livekit_SignalResponse_track_subscribed_tag):
-            return .trackSubscribed(_pointer.pointee.message.track_subscribed.map { Livekit_TrackSubscribed(_sharing: $0, owner: _owner) } ?? Livekit_TrackSubscribed._empty)
-        case lk_pb_size_t(livekit_SignalResponse_room_moved_tag):
-            return .roomMoved(_pointer.pointee.message.room_moved.map { Livekit_RoomMovedResponse(_sharing: $0, owner: _owner) } ?? Livekit_RoomMovedResponse._empty)
-        case lk_pb_size_t(livekit_SignalResponse_media_sections_requirement_tag):
-            return .mediaSectionsRequirement(_pointer.pointee.message.media_sections_requirement.map { Livekit_MediaSectionsRequirement(_sharing: $0, owner: _owner) } ?? Livekit_MediaSectionsRequirement._empty)
-        case lk_pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag):
-            return .subscribedAudioCodecUpdate(_pointer.pointee.message.subscribed_audio_codec_update.map { Livekit_SubscribedAudioCodecUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedAudioCodecUpdate._empty)
-        case lk_pb_size_t(livekit_SignalResponse_publish_data_track_response_tag):
-            return .publishDataTrackResponse(_pointer.pointee.message.publish_data_track_response.map { Livekit_PublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackResponse._empty)
-        case lk_pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag):
-            return .unpublishDataTrackResponse(_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackResponse._empty)
-        case lk_pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag):
-            return .dataTrackSubscriberHandles(_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles._empty)
-        case lk_pb_size_t(livekit_SignalResponse_store_data_blob_response_tag):
-            return .storeDataBlobResponse(_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobResponse._empty)
-        case lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
-            return .getDataBlobResponse(_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobResponse._empty)
-        default: return nil
+        withExtendedLifetime(_owner) {
+            switch _pointer.pointee.which_message {
+            case lk_pb_size_t(livekit_SignalResponse_join_tag):
+                return .join(_pointer.pointee.message.join.map { Livekit_JoinResponse(_sharing: $0, owner: _owner) } ?? Livekit_JoinResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_answer_tag):
+                return .answer(_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
+            case lk_pb_size_t(livekit_SignalResponse_offer_tag):
+                return .offer(_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty)
+            case lk_pb_size_t(livekit_SignalResponse_trickle_tag):
+                return .trickle(_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty)
+            case lk_pb_size_t(livekit_SignalResponse_update_tag):
+                return .update(_pointer.pointee.message.update.map { Livekit_ParticipantUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantUpdate._empty)
+            case lk_pb_size_t(livekit_SignalResponse_track_published_tag):
+                return .trackPublished(_pointer.pointee.message.track_published.map { Livekit_TrackPublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackPublishedResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_leave_tag):
+                return .leave(_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty)
+            case lk_pb_size_t(livekit_SignalResponse_mute_tag):
+                return .mute(_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty)
+            case lk_pb_size_t(livekit_SignalResponse_speakers_changed_tag):
+                return .speakersChanged(_pointer.pointee.message.speakers_changed.map { Livekit_SpeakersChanged(_sharing: $0, owner: _owner) } ?? Livekit_SpeakersChanged._empty)
+            case lk_pb_size_t(livekit_SignalResponse_room_update_tag):
+                return .roomUpdate(_pointer.pointee.message.room_update.map { Livekit_RoomUpdate(_sharing: $0, owner: _owner) } ?? Livekit_RoomUpdate._empty)
+            case lk_pb_size_t(livekit_SignalResponse_connection_quality_tag):
+                return .connectionQuality(_pointer.pointee.message.connection_quality.map { Livekit_ConnectionQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ConnectionQualityUpdate._empty)
+            case lk_pb_size_t(livekit_SignalResponse_stream_state_update_tag):
+                return .streamStateUpdate(_pointer.pointee.message.stream_state_update.map { Livekit_StreamStateUpdate(_sharing: $0, owner: _owner) } ?? Livekit_StreamStateUpdate._empty)
+            case lk_pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag):
+                return .subscribedQualityUpdate(_pointer.pointee.message.subscribed_quality_update.map { Livekit_SubscribedQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedQualityUpdate._empty)
+            case lk_pb_size_t(livekit_SignalResponse_subscription_permission_update_tag):
+                return .subscriptionPermissionUpdate(_pointer.pointee.message.subscription_permission_update.map { Livekit_SubscriptionPermissionUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermissionUpdate._empty)
+            case lk_pb_size_t(livekit_SignalResponse_refresh_token_tag):
+                return .refreshToken(lkString(_pointer.pointee.message.refresh_token) ?? "")
+            case lk_pb_size_t(livekit_SignalResponse_track_unpublished_tag):
+                return .trackUnpublished(_pointer.pointee.message.track_unpublished.map { Livekit_TrackUnpublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackUnpublishedResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_pong_tag):
+                return .pong(_pointer.pointee.message.pong?.pointee ?? 0)
+            case lk_pb_size_t(livekit_SignalResponse_reconnect_tag):
+                return .reconnect(_pointer.pointee.message.reconnect.map { Livekit_ReconnectResponse(_sharing: $0, owner: _owner) } ?? Livekit_ReconnectResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_pong_resp_tag):
+                return .pongResp(_pointer.pointee.message.pong_resp.map { Livekit_Pong(_sharing: $0, owner: _owner) } ?? Livekit_Pong._empty)
+            case lk_pb_size_t(livekit_SignalResponse_subscription_response_tag):
+                return .subscriptionResponse(_pointer.pointee.message.subscription_response.map { Livekit_SubscriptionResponse(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_request_response_tag):
+                return .requestResponse(_pointer.pointee.message.request_response.map { Livekit_RequestResponse(_sharing: $0, owner: _owner) } ?? Livekit_RequestResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_track_subscribed_tag):
+                return .trackSubscribed(_pointer.pointee.message.track_subscribed.map { Livekit_TrackSubscribed(_sharing: $0, owner: _owner) } ?? Livekit_TrackSubscribed._empty)
+            case lk_pb_size_t(livekit_SignalResponse_room_moved_tag):
+                return .roomMoved(_pointer.pointee.message.room_moved.map { Livekit_RoomMovedResponse(_sharing: $0, owner: _owner) } ?? Livekit_RoomMovedResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_media_sections_requirement_tag):
+                return .mediaSectionsRequirement(_pointer.pointee.message.media_sections_requirement.map { Livekit_MediaSectionsRequirement(_sharing: $0, owner: _owner) } ?? Livekit_MediaSectionsRequirement._empty)
+            case lk_pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag):
+                return .subscribedAudioCodecUpdate(_pointer.pointee.message.subscribed_audio_codec_update.map { Livekit_SubscribedAudioCodecUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedAudioCodecUpdate._empty)
+            case lk_pb_size_t(livekit_SignalResponse_publish_data_track_response_tag):
+                return .publishDataTrackResponse(_pointer.pointee.message.publish_data_track_response.map { Livekit_PublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag):
+                return .unpublishDataTrackResponse(_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag):
+                return .dataTrackSubscriberHandles(_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles._empty)
+            case lk_pb_size_t(livekit_SignalResponse_store_data_blob_response_tag):
+                return .storeDataBlobResponse(_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
+                return .getDataBlobResponse(_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobResponse._empty)
+            default: return nil
+            }
         }
     }
     var join: Livekit_JoinResponse {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_join_tag) ? (_pointer.pointee.message.join.map { Livekit_JoinResponse(_sharing: $0, owner: _owner) } ?? Livekit_JoinResponse._empty) : Livekit_JoinResponse()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_join_tag) ? (_pointer.pointee.message.join.map { Livekit_JoinResponse(_sharing: $0, owner: _owner) } ?? Livekit_JoinResponse._empty) : Livekit_JoinResponse()
+        }
     }
     var answer: Livekit_SessionDescription {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_answer_tag) ? (_pointer.pointee.message.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        }
     }
     var offer: Livekit_SessionDescription {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_offer_tag) ? (_pointer.pointee.message.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty) : Livekit_SessionDescription()
+        }
     }
     var trickle: Livekit_TrickleRequest {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_trickle_tag) ? (_pointer.pointee.message.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
+        }
     }
     var update: Livekit_ParticipantUpdate {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_update_tag) ? (_pointer.pointee.message.update.map { Livekit_ParticipantUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantUpdate._empty) : Livekit_ParticipantUpdate()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_update_tag) ? (_pointer.pointee.message.update.map { Livekit_ParticipantUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantUpdate._empty) : Livekit_ParticipantUpdate()
+        }
     }
     var trackPublished: Livekit_TrackPublishedResponse {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_published_tag) ? (_pointer.pointee.message.track_published.map { Livekit_TrackPublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackPublishedResponse._empty) : Livekit_TrackPublishedResponse()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_published_tag) ? (_pointer.pointee.message.track_published.map { Livekit_TrackPublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackPublishedResponse._empty) : Livekit_TrackPublishedResponse()
+        }
     }
     var leave: Livekit_LeaveRequest {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_leave_tag) ? (_pointer.pointee.message.leave.map { Livekit_LeaveRequest(_sharing: $0, owner: _owner) } ?? Livekit_LeaveRequest._empty) : Livekit_LeaveRequest()
+        }
     }
     var mute: Livekit_MuteTrackRequest {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_mute_tag) ? (_pointer.pointee.message.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
+        }
     }
     var speakersChanged: Livekit_SpeakersChanged {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_speakers_changed_tag) ? (_pointer.pointee.message.speakers_changed.map { Livekit_SpeakersChanged(_sharing: $0, owner: _owner) } ?? Livekit_SpeakersChanged._empty) : Livekit_SpeakersChanged()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_speakers_changed_tag) ? (_pointer.pointee.message.speakers_changed.map { Livekit_SpeakersChanged(_sharing: $0, owner: _owner) } ?? Livekit_SpeakersChanged._empty) : Livekit_SpeakersChanged()
+        }
     }
     var roomUpdate: Livekit_RoomUpdate {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_room_update_tag) ? (_pointer.pointee.message.room_update.map { Livekit_RoomUpdate(_sharing: $0, owner: _owner) } ?? Livekit_RoomUpdate._empty) : Livekit_RoomUpdate()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_room_update_tag) ? (_pointer.pointee.message.room_update.map { Livekit_RoomUpdate(_sharing: $0, owner: _owner) } ?? Livekit_RoomUpdate._empty) : Livekit_RoomUpdate()
+        }
     }
     var connectionQuality: Livekit_ConnectionQualityUpdate {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_connection_quality_tag) ? (_pointer.pointee.message.connection_quality.map { Livekit_ConnectionQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ConnectionQualityUpdate._empty) : Livekit_ConnectionQualityUpdate()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_connection_quality_tag) ? (_pointer.pointee.message.connection_quality.map { Livekit_ConnectionQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_ConnectionQualityUpdate._empty) : Livekit_ConnectionQualityUpdate()
+        }
     }
     var streamStateUpdate: Livekit_StreamStateUpdate {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_stream_state_update_tag) ? (_pointer.pointee.message.stream_state_update.map { Livekit_StreamStateUpdate(_sharing: $0, owner: _owner) } ?? Livekit_StreamStateUpdate._empty) : Livekit_StreamStateUpdate()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_stream_state_update_tag) ? (_pointer.pointee.message.stream_state_update.map { Livekit_StreamStateUpdate(_sharing: $0, owner: _owner) } ?? Livekit_StreamStateUpdate._empty) : Livekit_StreamStateUpdate()
+        }
     }
     var subscribedQualityUpdate: Livekit_SubscribedQualityUpdate {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag) ? (_pointer.pointee.message.subscribed_quality_update.map { Livekit_SubscribedQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedQualityUpdate._empty) : Livekit_SubscribedQualityUpdate()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscribed_quality_update_tag) ? (_pointer.pointee.message.subscribed_quality_update.map { Livekit_SubscribedQualityUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedQualityUpdate._empty) : Livekit_SubscribedQualityUpdate()
+        }
     }
     var subscriptionPermissionUpdate: Livekit_SubscriptionPermissionUpdate {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscription_permission_update_tag) ? (_pointer.pointee.message.subscription_permission_update.map { Livekit_SubscriptionPermissionUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermissionUpdate._empty) : Livekit_SubscriptionPermissionUpdate()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscription_permission_update_tag) ? (_pointer.pointee.message.subscription_permission_update.map { Livekit_SubscriptionPermissionUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionPermissionUpdate._empty) : Livekit_SubscriptionPermissionUpdate()
+        }
     }
     var refreshToken: String {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_refresh_token_tag) ? (lkString(_pointer.pointee.message.refresh_token) ?? "") : ""
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_refresh_token_tag) ? (lkString(_pointer.pointee.message.refresh_token) ?? "") : ""
+        }
     }
     var trackUnpublished: Livekit_TrackUnpublishedResponse {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_unpublished_tag) ? (_pointer.pointee.message.track_unpublished.map { Livekit_TrackUnpublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackUnpublishedResponse._empty) : Livekit_TrackUnpublishedResponse()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_unpublished_tag) ? (_pointer.pointee.message.track_unpublished.map { Livekit_TrackUnpublishedResponse(_sharing: $0, owner: _owner) } ?? Livekit_TrackUnpublishedResponse._empty) : Livekit_TrackUnpublishedResponse()
+        }
     }
     var pong: Int64 {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_pong_tag) ? (_pointer.pointee.message.pong?.pointee ?? 0) : 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_pong_tag) ? (_pointer.pointee.message.pong?.pointee ?? 0) : 0
+        }
     }
     var reconnect: Livekit_ReconnectResponse {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_reconnect_tag) ? (_pointer.pointee.message.reconnect.map { Livekit_ReconnectResponse(_sharing: $0, owner: _owner) } ?? Livekit_ReconnectResponse._empty) : Livekit_ReconnectResponse()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_reconnect_tag) ? (_pointer.pointee.message.reconnect.map { Livekit_ReconnectResponse(_sharing: $0, owner: _owner) } ?? Livekit_ReconnectResponse._empty) : Livekit_ReconnectResponse()
+        }
     }
     var pongResp: Livekit_Pong {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_pong_resp_tag) ? (_pointer.pointee.message.pong_resp.map { Livekit_Pong(_sharing: $0, owner: _owner) } ?? Livekit_Pong._empty) : Livekit_Pong()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_pong_resp_tag) ? (_pointer.pointee.message.pong_resp.map { Livekit_Pong(_sharing: $0, owner: _owner) } ?? Livekit_Pong._empty) : Livekit_Pong()
+        }
     }
     var subscriptionResponse: Livekit_SubscriptionResponse {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscription_response_tag) ? (_pointer.pointee.message.subscription_response.map { Livekit_SubscriptionResponse(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionResponse._empty) : Livekit_SubscriptionResponse()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscription_response_tag) ? (_pointer.pointee.message.subscription_response.map { Livekit_SubscriptionResponse(_sharing: $0, owner: _owner) } ?? Livekit_SubscriptionResponse._empty) : Livekit_SubscriptionResponse()
+        }
     }
     var requestResponse: Livekit_RequestResponse {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_request_response_tag) ? (_pointer.pointee.message.request_response.map { Livekit_RequestResponse(_sharing: $0, owner: _owner) } ?? Livekit_RequestResponse._empty) : Livekit_RequestResponse()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_request_response_tag) ? (_pointer.pointee.message.request_response.map { Livekit_RequestResponse(_sharing: $0, owner: _owner) } ?? Livekit_RequestResponse._empty) : Livekit_RequestResponse()
+        }
     }
     var trackSubscribed: Livekit_TrackSubscribed {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_subscribed_tag) ? (_pointer.pointee.message.track_subscribed.map { Livekit_TrackSubscribed(_sharing: $0, owner: _owner) } ?? Livekit_TrackSubscribed._empty) : Livekit_TrackSubscribed()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_track_subscribed_tag) ? (_pointer.pointee.message.track_subscribed.map { Livekit_TrackSubscribed(_sharing: $0, owner: _owner) } ?? Livekit_TrackSubscribed._empty) : Livekit_TrackSubscribed()
+        }
     }
     var roomMoved: Livekit_RoomMovedResponse {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_room_moved_tag) ? (_pointer.pointee.message.room_moved.map { Livekit_RoomMovedResponse(_sharing: $0, owner: _owner) } ?? Livekit_RoomMovedResponse._empty) : Livekit_RoomMovedResponse()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_room_moved_tag) ? (_pointer.pointee.message.room_moved.map { Livekit_RoomMovedResponse(_sharing: $0, owner: _owner) } ?? Livekit_RoomMovedResponse._empty) : Livekit_RoomMovedResponse()
+        }
     }
     var mediaSectionsRequirement: Livekit_MediaSectionsRequirement {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_media_sections_requirement_tag) ? (_pointer.pointee.message.media_sections_requirement.map { Livekit_MediaSectionsRequirement(_sharing: $0, owner: _owner) } ?? Livekit_MediaSectionsRequirement._empty) : Livekit_MediaSectionsRequirement()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_media_sections_requirement_tag) ? (_pointer.pointee.message.media_sections_requirement.map { Livekit_MediaSectionsRequirement(_sharing: $0, owner: _owner) } ?? Livekit_MediaSectionsRequirement._empty) : Livekit_MediaSectionsRequirement()
+        }
     }
     var subscribedAudioCodecUpdate: Livekit_SubscribedAudioCodecUpdate {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag) ? (_pointer.pointee.message.subscribed_audio_codec_update.map { Livekit_SubscribedAudioCodecUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedAudioCodecUpdate._empty) : Livekit_SubscribedAudioCodecUpdate()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_subscribed_audio_codec_update_tag) ? (_pointer.pointee.message.subscribed_audio_codec_update.map { Livekit_SubscribedAudioCodecUpdate(_sharing: $0, owner: _owner) } ?? Livekit_SubscribedAudioCodecUpdate._empty) : Livekit_SubscribedAudioCodecUpdate()
+        }
     }
     var publishDataTrackResponse: Livekit_PublishDataTrackResponse {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_publish_data_track_response_tag) ? (_pointer.pointee.message.publish_data_track_response.map { Livekit_PublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackResponse._empty) : Livekit_PublishDataTrackResponse()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_publish_data_track_response_tag) ? (_pointer.pointee.message.publish_data_track_response.map { Livekit_PublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackResponse._empty) : Livekit_PublishDataTrackResponse()
+        }
     }
     var unpublishDataTrackResponse: Livekit_UnpublishDataTrackResponse {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag) ? (_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackResponse._empty) : Livekit_UnpublishDataTrackResponse()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_unpublish_data_track_response_tag) ? (_pointer.pointee.message.unpublish_data_track_response.map { Livekit_UnpublishDataTrackResponse(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackResponse._empty) : Livekit_UnpublishDataTrackResponse()
+        }
     }
     var dataTrackSubscriberHandles: Livekit_DataTrackSubscriberHandles {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag) ? (_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles._empty) : Livekit_DataTrackSubscriberHandles()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_data_track_subscriber_handles_tag) ? (_pointer.pointee.message.data_track_subscriber_handles.map { Livekit_DataTrackSubscriberHandles(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles._empty) : Livekit_DataTrackSubscriberHandles()
+        }
     }
     var storeDataBlobResponse: Livekit_StoreDataBlobResponse {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_store_data_blob_response_tag) ? (_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobResponse._empty) : Livekit_StoreDataBlobResponse()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_store_data_blob_response_tag) ? (_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobResponse._empty) : Livekit_StoreDataBlobResponse()
+        }
     }
     var getDataBlobResponse: Livekit_GetDataBlobResponse {
-        _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag) ? (_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobResponse._empty) : Livekit_GetDataBlobResponse()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag) ? (_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobResponse._empty) : Livekit_GetDataBlobResponse()
+        }
     }
 
 }
@@ -1308,23 +1416,31 @@ extension livekit_SimulcastCodec: NanopbStorage {
 typealias Livekit_SimulcastCodec = NanopbMsg<livekit_SimulcastCodec>
 extension Livekit_SimulcastCodec {
     var codec: String {
-        lkString(_pointer.pointee.codec) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.codec) ?? ""
+        }
     }
-    var hasCodec: Bool { _pointer.pointee.codec != nil }
+    var hasCodec: Bool { withExtendedLifetime(_owner) { _pointer.pointee.codec != nil } }
 
     var cid: String {
-        lkString(_pointer.pointee.cid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.cid) ?? ""
+        }
     }
-    var hasCid: Bool { _pointer.pointee.cid != nil }
+    var hasCid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.cid != nil } }
 
     var layers: [Livekit_VideoLayer] {
-        lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner)
+        }
     }
 
     var videoLayerMode: Livekit_VideoLayer_Mode {
-        _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer_Mode()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.video_layer_mode.map { lkEnum($0.pointee) } ?? Livekit_VideoLayer_Mode()
+        }
     }
-    var hasVideoLayerMode: Bool { _pointer.pointee.video_layer_mode != nil }
+    var hasVideoLayerMode: Bool { withExtendedLifetime(_owner) { _pointer.pointee.video_layer_mode != nil } }
 
 }
 
@@ -1362,89 +1478,125 @@ extension livekit_AddTrackRequest: NanopbStorage {
 typealias Livekit_AddTrackRequest = NanopbMsg<livekit_AddTrackRequest>
 extension Livekit_AddTrackRequest {
     var cid: String {
-        lkString(_pointer.pointee.cid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.cid) ?? ""
+        }
     }
-    var hasCid: Bool { _pointer.pointee.cid != nil }
+    var hasCid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.cid != nil } }
 
     var name: String {
-        lkString(_pointer.pointee.name) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.name) ?? ""
+        }
     }
-    var hasName: Bool { _pointer.pointee.name != nil }
+    var hasName: Bool { withExtendedLifetime(_owner) { _pointer.pointee.name != nil } }
 
     var type: Livekit_TrackType {
-        _pointer.pointee.type.map { lkEnum($0.pointee) } ?? Livekit_TrackType()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.type.map { lkEnum($0.pointee) } ?? Livekit_TrackType()
+        }
     }
-    var hasType: Bool { _pointer.pointee.type != nil }
+    var hasType: Bool { withExtendedLifetime(_owner) { _pointer.pointee.type != nil } }
 
     var width: UInt32 {
-        _pointer.pointee.width?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.width?.pointee ?? 0
+        }
     }
-    var hasWidth: Bool { _pointer.pointee.width != nil }
+    var hasWidth: Bool { withExtendedLifetime(_owner) { _pointer.pointee.width != nil } }
 
     var height: UInt32 {
-        _pointer.pointee.height?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.height?.pointee ?? 0
+        }
     }
-    var hasHeight: Bool { _pointer.pointee.height != nil }
+    var hasHeight: Bool { withExtendedLifetime(_owner) { _pointer.pointee.height != nil } }
 
     var muted: Bool {
-        _pointer.pointee.muted?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.muted?.pointee ?? false
+        }
     }
-    var hasMuted: Bool { _pointer.pointee.muted != nil }
+    var hasMuted: Bool { withExtendedLifetime(_owner) { _pointer.pointee.muted != nil } }
 
     var disableDtx: Bool {
-        _pointer.pointee.disable_dtx?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.disable_dtx?.pointee ?? false
+        }
     }
-    var hasDisableDtx: Bool { _pointer.pointee.disable_dtx != nil }
+    var hasDisableDtx: Bool { withExtendedLifetime(_owner) { _pointer.pointee.disable_dtx != nil } }
 
     var source: Livekit_TrackSource {
-        _pointer.pointee.source.map { lkEnum($0.pointee) } ?? Livekit_TrackSource()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.source.map { lkEnum($0.pointee) } ?? Livekit_TrackSource()
+        }
     }
-    var hasSource: Bool { _pointer.pointee.source != nil }
+    var hasSource: Bool { withExtendedLifetime(_owner) { _pointer.pointee.source != nil } }
 
     var layers: [Livekit_VideoLayer] {
-        lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner)
+        }
     }
 
     var simulcastCodecs: [Livekit_SimulcastCodec] {
-        lkViews(_pointer.pointee.simulcast_codecs_count, _pointer.pointee.simulcast_codecs, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.simulcast_codecs_count, _pointer.pointee.simulcast_codecs, owner: _owner)
+        }
     }
 
     var sid: String {
-        lkString(_pointer.pointee.sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.sid) ?? ""
+        }
     }
-    var hasSid: Bool { _pointer.pointee.sid != nil }
+    var hasSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.sid != nil } }
 
     var stereo: Bool {
-        _pointer.pointee.stereo?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.stereo?.pointee ?? false
+        }
     }
-    var hasStereo: Bool { _pointer.pointee.stereo != nil }
+    var hasStereo: Bool { withExtendedLifetime(_owner) { _pointer.pointee.stereo != nil } }
 
     var disableRed: Bool {
-        _pointer.pointee.disable_red?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.disable_red?.pointee ?? false
+        }
     }
-    var hasDisableRed: Bool { _pointer.pointee.disable_red != nil }
+    var hasDisableRed: Bool { withExtendedLifetime(_owner) { _pointer.pointee.disable_red != nil } }
 
     var encryption: Livekit_Encryption_TypeEnum {
-        _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum()
+        }
     }
-    var hasEncryption: Bool { _pointer.pointee.encryption != nil }
+    var hasEncryption: Bool { withExtendedLifetime(_owner) { _pointer.pointee.encryption != nil } }
 
     var stream: String {
-        lkString(_pointer.pointee.stream) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.stream) ?? ""
+        }
     }
-    var hasStream: Bool { _pointer.pointee.stream != nil }
+    var hasStream: Bool { withExtendedLifetime(_owner) { _pointer.pointee.stream != nil } }
 
     var backupCodecPolicy: Livekit_BackupCodecPolicy {
-        _pointer.pointee.backup_codec_policy.map { lkEnum($0.pointee) } ?? Livekit_BackupCodecPolicy()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.backup_codec_policy.map { lkEnum($0.pointee) } ?? Livekit_BackupCodecPolicy()
+        }
     }
-    var hasBackupCodecPolicy: Bool { _pointer.pointee.backup_codec_policy != nil }
+    var hasBackupCodecPolicy: Bool { withExtendedLifetime(_owner) { _pointer.pointee.backup_codec_policy != nil } }
 
     var audioFeatures: [Livekit_AudioTrackFeature] {
-        lkRepeatedEnum(_pointer.pointee.audio_features_count, _pointer.pointee.audio_features)
+        withExtendedLifetime(_owner) {
+            lkRepeatedEnum(_pointer.pointee.audio_features_count, _pointer.pointee.audio_features)
+        }
     }
 
     var packetTrailerFeatures: [Livekit_PacketTrailerFeature] {
-        lkRepeatedEnum(_pointer.pointee.packet_trailer_features_count, _pointer.pointee.packet_trailer_features)
+        withExtendedLifetime(_owner) {
+            lkRepeatedEnum(_pointer.pointee.packet_trailer_features_count, _pointer.pointee.packet_trailer_features)
+        }
     }
 
 }
@@ -1565,29 +1717,39 @@ extension livekit_PublishDataTrackRequest: NanopbStorage {
 typealias Livekit_PublishDataTrackRequest = NanopbMsg<livekit_PublishDataTrackRequest>
 extension Livekit_PublishDataTrackRequest {
     var pubHandle: UInt32 {
-        _pointer.pointee.pub_handle?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.pub_handle?.pointee ?? 0
+        }
     }
-    var hasPubHandle: Bool { _pointer.pointee.pub_handle != nil }
+    var hasPubHandle: Bool { withExtendedLifetime(_owner) { _pointer.pointee.pub_handle != nil } }
 
     var name: String {
-        lkString(_pointer.pointee.name) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.name) ?? ""
+        }
     }
-    var hasName: Bool { _pointer.pointee.name != nil }
+    var hasName: Bool { withExtendedLifetime(_owner) { _pointer.pointee.name != nil } }
 
     var encryption: Livekit_Encryption_TypeEnum {
-        _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.encryption.map { lkEnum($0.pointee) } ?? Livekit_Encryption_TypeEnum()
+        }
     }
-    var hasEncryption: Bool { _pointer.pointee.encryption != nil }
+    var hasEncryption: Bool { withExtendedLifetime(_owner) { _pointer.pointee.encryption != nil } }
 
     var frameEncoding: Livekit_DataTrackFrameEncoding {
-        _pointer.pointee.frame_encoding.map { Livekit_DataTrackFrameEncoding(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackFrameEncoding._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.frame_encoding.map { Livekit_DataTrackFrameEncoding(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackFrameEncoding._empty
+        }
     }
-    var hasFrameEncoding: Bool { _pointer.pointee.frame_encoding != nil }
+    var hasFrameEncoding: Bool { withExtendedLifetime(_owner) { _pointer.pointee.frame_encoding != nil } }
 
     var schema: Livekit_DataTrackSchemaId {
-        _pointer.pointee.schema.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSchemaId._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.schema.map { Livekit_DataTrackSchemaId(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSchemaId._empty
+        }
     }
-    var hasSchema: Bool { _pointer.pointee.schema != nil }
+    var hasSchema: Bool { withExtendedLifetime(_owner) { _pointer.pointee.schema != nil } }
 
 }
 
@@ -1626,9 +1788,11 @@ extension livekit_PublishDataTrackResponse: NanopbStorage {
 typealias Livekit_PublishDataTrackResponse = NanopbMsg<livekit_PublishDataTrackResponse>
 extension Livekit_PublishDataTrackResponse {
     var info: Livekit_DataTrackInfo {
-        _pointer.pointee.info.map { Livekit_DataTrackInfo(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackInfo._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.info.map { Livekit_DataTrackInfo(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackInfo._empty
+        }
     }
-    var hasInfo: Bool { _pointer.pointee.info != nil }
+    var hasInfo: Bool { withExtendedLifetime(_owner) { _pointer.pointee.info != nil } }
 
 }
 
@@ -1647,9 +1811,11 @@ extension livekit_UnpublishDataTrackRequest: NanopbStorage {
 typealias Livekit_UnpublishDataTrackRequest = NanopbMsg<livekit_UnpublishDataTrackRequest>
 extension Livekit_UnpublishDataTrackRequest {
     var pubHandle: UInt32 {
-        _pointer.pointee.pub_handle?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.pub_handle?.pointee ?? 0
+        }
     }
-    var hasPubHandle: Bool { _pointer.pointee.pub_handle != nil }
+    var hasPubHandle: Bool { withExtendedLifetime(_owner) { _pointer.pointee.pub_handle != nil } }
 
 }
 
@@ -1668,9 +1834,11 @@ extension livekit_UnpublishDataTrackResponse: NanopbStorage {
 typealias Livekit_UnpublishDataTrackResponse = NanopbMsg<livekit_UnpublishDataTrackResponse>
 extension Livekit_UnpublishDataTrackResponse {
     var info: Livekit_DataTrackInfo {
-        _pointer.pointee.info.map { Livekit_DataTrackInfo(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackInfo._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.info.map { Livekit_DataTrackInfo(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackInfo._empty
+        }
     }
-    var hasInfo: Bool { _pointer.pointee.info != nil }
+    var hasInfo: Bool { withExtendedLifetime(_owner) { _pointer.pointee.info != nil } }
 
 }
 
@@ -1689,11 +1857,13 @@ extension livekit_DataTrackSubscriberHandles: NanopbStorage {
 typealias Livekit_DataTrackSubscriberHandles = NanopbMsg<livekit_DataTrackSubscriberHandles>
 extension Livekit_DataTrackSubscriberHandles {
     var subHandles: [UInt32: Livekit_DataTrackSubscriberHandles_PublishedDataTrack] {
-        var out: [UInt32: Livekit_DataTrackSubscriberHandles_PublishedDataTrack] = [:]
-        for entry in lkViews(_pointer.pointee.sub_handles_count, _pointer.pointee.sub_handles, owner: _owner) as [Livekit_DataTrackSubscriberHandles_SubHandlesEntry] {
-            out[entry.key] = entry.value
+        withExtendedLifetime(_owner) {
+            var out: [UInt32: Livekit_DataTrackSubscriberHandles_PublishedDataTrack] = [:]
+            for entry in lkViews(_pointer.pointee.sub_handles_count, _pointer.pointee.sub_handles, owner: _owner) as [Livekit_DataTrackSubscriberHandles_SubHandlesEntry] {
+                out[entry.key] = entry.value
+            }
+            return out
         }
-        return out
     }
 
 }
@@ -1705,19 +1875,25 @@ extension livekit_DataTrackSubscriberHandles_PublishedDataTrack: NanopbStorage {
 typealias Livekit_DataTrackSubscriberHandles_PublishedDataTrack = NanopbMsg<livekit_DataTrackSubscriberHandles_PublishedDataTrack>
 extension Livekit_DataTrackSubscriberHandles_PublishedDataTrack {
     var publisherIdentity: String {
-        lkString(_pointer.pointee.publisher_identity) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.publisher_identity) ?? ""
+        }
     }
-    var hasPublisherIdentity: Bool { _pointer.pointee.publisher_identity != nil }
+    var hasPublisherIdentity: Bool { withExtendedLifetime(_owner) { _pointer.pointee.publisher_identity != nil } }
 
     var publisherSid: String {
-        lkString(_pointer.pointee.publisher_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.publisher_sid) ?? ""
+        }
     }
-    var hasPublisherSid: Bool { _pointer.pointee.publisher_sid != nil }
+    var hasPublisherSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.publisher_sid != nil } }
 
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
 }
 
@@ -1746,14 +1922,18 @@ extension livekit_DataTrackSubscriberHandles_SubHandlesEntry: NanopbStorage {
 typealias Livekit_DataTrackSubscriberHandles_SubHandlesEntry = NanopbMsg<livekit_DataTrackSubscriberHandles_SubHandlesEntry>
 extension Livekit_DataTrackSubscriberHandles_SubHandlesEntry {
     var key: UInt32 {
-        _pointer.pointee.key?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.key?.pointee ?? 0
+        }
     }
-    var hasKey: Bool { _pointer.pointee.key != nil }
+    var hasKey: Bool { withExtendedLifetime(_owner) { _pointer.pointee.key != nil } }
 
     var value: Livekit_DataTrackSubscriberHandles_PublishedDataTrack {
-        _pointer.pointee.value.map { Livekit_DataTrackSubscriberHandles_PublishedDataTrack(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles_PublishedDataTrack._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.value.map { Livekit_DataTrackSubscriberHandles_PublishedDataTrack(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriberHandles_PublishedDataTrack._empty
+        }
     }
-    var hasValue: Bool { _pointer.pointee.value != nil }
+    var hasValue: Bool { withExtendedLifetime(_owner) { _pointer.pointee.value != nil } }
 
 }
 
@@ -1799,19 +1979,25 @@ extension livekit_TrickleRequest: NanopbStorage {
 typealias Livekit_TrickleRequest = NanopbMsg<livekit_TrickleRequest>
 extension Livekit_TrickleRequest {
     var candidateInit: String {
-        lkString(_pointer.pointee.candidateInit) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.candidateInit) ?? ""
+        }
     }
-    var hasCandidateInit: Bool { _pointer.pointee.candidateInit != nil }
+    var hasCandidateInit: Bool { withExtendedLifetime(_owner) { _pointer.pointee.candidateInit != nil } }
 
     var target: Livekit_SignalTarget {
-        _pointer.pointee.target.map { lkEnum($0.pointee) } ?? Livekit_SignalTarget()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.target.map { lkEnum($0.pointee) } ?? Livekit_SignalTarget()
+        }
     }
-    var hasTarget: Bool { _pointer.pointee.target != nil }
+    var hasTarget: Bool { withExtendedLifetime(_owner) { _pointer.pointee.target != nil } }
 
     var final: Bool {
-        _pointer.pointee.final?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.final?.pointee ?? false
+        }
     }
-    var hasFinal: Bool { _pointer.pointee.final != nil }
+    var hasFinal: Bool { withExtendedLifetime(_owner) { _pointer.pointee.final != nil } }
 
 }
 
@@ -1840,14 +2026,18 @@ extension livekit_MuteTrackRequest: NanopbStorage {
 typealias Livekit_MuteTrackRequest = NanopbMsg<livekit_MuteTrackRequest>
 extension Livekit_MuteTrackRequest {
     var sid: String {
-        lkString(_pointer.pointee.sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.sid) ?? ""
+        }
     }
-    var hasSid: Bool { _pointer.pointee.sid != nil }
+    var hasSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.sid != nil } }
 
     var muted: Bool {
-        _pointer.pointee.muted?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.muted?.pointee ?? false
+        }
     }
-    var hasMuted: Bool { _pointer.pointee.muted != nil }
+    var hasMuted: Bool { withExtendedLifetime(_owner) { _pointer.pointee.muted != nil } }
 
 }
 
@@ -1871,76 +2061,106 @@ extension livekit_JoinResponse: NanopbStorage {
 typealias Livekit_JoinResponse = NanopbMsg<livekit_JoinResponse>
 extension Livekit_JoinResponse {
     var room: Livekit_Room {
-        _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _owner) } ?? Livekit_Room._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _owner) } ?? Livekit_Room._empty
+        }
     }
-    var hasRoom: Bool { _pointer.pointee.room != nil }
+    var hasRoom: Bool { withExtendedLifetime(_owner) { _pointer.pointee.room != nil } }
 
     var participant: Livekit_ParticipantInfo {
-        _pointer.pointee.participant.map { Livekit_ParticipantInfo(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantInfo._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.participant.map { Livekit_ParticipantInfo(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantInfo._empty
+        }
     }
-    var hasParticipant: Bool { _pointer.pointee.participant != nil }
+    var hasParticipant: Bool { withExtendedLifetime(_owner) { _pointer.pointee.participant != nil } }
 
     var otherParticipants: [Livekit_ParticipantInfo] {
-        lkViews(_pointer.pointee.other_participants_count, _pointer.pointee.other_participants, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.other_participants_count, _pointer.pointee.other_participants, owner: _owner)
+        }
     }
 
     var serverVersion: String {
-        lkString(_pointer.pointee.server_version) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.server_version) ?? ""
+        }
     }
-    var hasServerVersion: Bool { _pointer.pointee.server_version != nil }
+    var hasServerVersion: Bool { withExtendedLifetime(_owner) { _pointer.pointee.server_version != nil } }
 
     var iceServers: [Livekit_ICEServer] {
-        lkViews(_pointer.pointee.ice_servers_count, _pointer.pointee.ice_servers, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.ice_servers_count, _pointer.pointee.ice_servers, owner: _owner)
+        }
     }
 
     var subscriberPrimary: Bool {
-        _pointer.pointee.subscriber_primary?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.subscriber_primary?.pointee ?? false
+        }
     }
-    var hasSubscriberPrimary: Bool { _pointer.pointee.subscriber_primary != nil }
+    var hasSubscriberPrimary: Bool { withExtendedLifetime(_owner) { _pointer.pointee.subscriber_primary != nil } }
 
     var alternativeURL: String {
-        lkString(_pointer.pointee.alternative_url) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.alternative_url) ?? ""
+        }
     }
-    var hasAlternativeURL: Bool { _pointer.pointee.alternative_url != nil }
+    var hasAlternativeURL: Bool { withExtendedLifetime(_owner) { _pointer.pointee.alternative_url != nil } }
 
     var clientConfiguration: Livekit_ClientConfiguration {
-        _pointer.pointee.client_configuration.map { Livekit_ClientConfiguration(_sharing: $0, owner: _owner) } ?? Livekit_ClientConfiguration._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.client_configuration.map { Livekit_ClientConfiguration(_sharing: $0, owner: _owner) } ?? Livekit_ClientConfiguration._empty
+        }
     }
-    var hasClientConfiguration: Bool { _pointer.pointee.client_configuration != nil }
+    var hasClientConfiguration: Bool { withExtendedLifetime(_owner) { _pointer.pointee.client_configuration != nil } }
 
     var serverRegion: String {
-        lkString(_pointer.pointee.server_region) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.server_region) ?? ""
+        }
     }
-    var hasServerRegion: Bool { _pointer.pointee.server_region != nil }
+    var hasServerRegion: Bool { withExtendedLifetime(_owner) { _pointer.pointee.server_region != nil } }
 
     var pingTimeout: Int32 {
-        _pointer.pointee.ping_timeout?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.ping_timeout?.pointee ?? 0
+        }
     }
-    var hasPingTimeout: Bool { _pointer.pointee.ping_timeout != nil }
+    var hasPingTimeout: Bool { withExtendedLifetime(_owner) { _pointer.pointee.ping_timeout != nil } }
 
     var pingInterval: Int32 {
-        _pointer.pointee.ping_interval?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.ping_interval?.pointee ?? 0
+        }
     }
-    var hasPingInterval: Bool { _pointer.pointee.ping_interval != nil }
+    var hasPingInterval: Bool { withExtendedLifetime(_owner) { _pointer.pointee.ping_interval != nil } }
 
     var serverInfo: Livekit_ServerInfo {
-        _pointer.pointee.server_info.map { Livekit_ServerInfo(_sharing: $0, owner: _owner) } ?? Livekit_ServerInfo._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.server_info.map { Livekit_ServerInfo(_sharing: $0, owner: _owner) } ?? Livekit_ServerInfo._empty
+        }
     }
-    var hasServerInfo: Bool { _pointer.pointee.server_info != nil }
+    var hasServerInfo: Bool { withExtendedLifetime(_owner) { _pointer.pointee.server_info != nil } }
 
     var sifTrailer: Data {
-        lkData(_pointer.pointee.sif_trailer)
+        withExtendedLifetime(_owner) {
+            lkData(_pointer.pointee.sif_trailer)
+        }
     }
-    var hasSifTrailer: Bool { _pointer.pointee.sif_trailer != nil }
+    var hasSifTrailer: Bool { withExtendedLifetime(_owner) { _pointer.pointee.sif_trailer != nil } }
 
     var enabledPublishCodecs: [Livekit_Codec] {
-        lkViews(_pointer.pointee.enabled_publish_codecs_count, _pointer.pointee.enabled_publish_codecs, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.enabled_publish_codecs_count, _pointer.pointee.enabled_publish_codecs, owner: _owner)
+        }
     }
 
     var fastPublish: Bool {
-        _pointer.pointee.fast_publish?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.fast_publish?.pointee ?? false
+        }
     }
-    var hasFastPublish: Bool { _pointer.pointee.fast_publish != nil }
+    var hasFastPublish: Bool { withExtendedLifetime(_owner) { _pointer.pointee.fast_publish != nil } }
 
 }
 
@@ -2041,23 +2261,31 @@ extension livekit_ReconnectResponse: NanopbStorage {
 typealias Livekit_ReconnectResponse = NanopbMsg<livekit_ReconnectResponse>
 extension Livekit_ReconnectResponse {
     var iceServers: [Livekit_ICEServer] {
-        lkViews(_pointer.pointee.ice_servers_count, _pointer.pointee.ice_servers, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.ice_servers_count, _pointer.pointee.ice_servers, owner: _owner)
+        }
     }
 
     var clientConfiguration: Livekit_ClientConfiguration {
-        _pointer.pointee.client_configuration.map { Livekit_ClientConfiguration(_sharing: $0, owner: _owner) } ?? Livekit_ClientConfiguration._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.client_configuration.map { Livekit_ClientConfiguration(_sharing: $0, owner: _owner) } ?? Livekit_ClientConfiguration._empty
+        }
     }
-    var hasClientConfiguration: Bool { _pointer.pointee.client_configuration != nil }
+    var hasClientConfiguration: Bool { withExtendedLifetime(_owner) { _pointer.pointee.client_configuration != nil } }
 
     var serverInfo: Livekit_ServerInfo {
-        _pointer.pointee.server_info.map { Livekit_ServerInfo(_sharing: $0, owner: _owner) } ?? Livekit_ServerInfo._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.server_info.map { Livekit_ServerInfo(_sharing: $0, owner: _owner) } ?? Livekit_ServerInfo._empty
+        }
     }
-    var hasServerInfo: Bool { _pointer.pointee.server_info != nil }
+    var hasServerInfo: Bool { withExtendedLifetime(_owner) { _pointer.pointee.server_info != nil } }
 
     var lastMessageSeq: UInt32 {
-        _pointer.pointee.last_message_seq?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.last_message_seq?.pointee ?? 0
+        }
     }
-    var hasLastMessageSeq: Bool { _pointer.pointee.last_message_seq != nil }
+    var hasLastMessageSeq: Bool { withExtendedLifetime(_owner) { _pointer.pointee.last_message_seq != nil } }
 
 }
 
@@ -2095,14 +2323,18 @@ extension livekit_TrackPublishedResponse: NanopbStorage {
 typealias Livekit_TrackPublishedResponse = NanopbMsg<livekit_TrackPublishedResponse>
 extension Livekit_TrackPublishedResponse {
     var cid: String {
-        lkString(_pointer.pointee.cid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.cid) ?? ""
+        }
     }
-    var hasCid: Bool { _pointer.pointee.cid != nil }
+    var hasCid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.cid != nil } }
 
     var track: Livekit_TrackInfo {
-        _pointer.pointee.track.map { Livekit_TrackInfo(_sharing: $0, owner: _owner) } ?? Livekit_TrackInfo._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.track.map { Livekit_TrackInfo(_sharing: $0, owner: _owner) } ?? Livekit_TrackInfo._empty
+        }
     }
-    var hasTrack: Bool { _pointer.pointee.track != nil }
+    var hasTrack: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track != nil } }
 
 }
 
@@ -2126,9 +2358,11 @@ extension livekit_TrackUnpublishedResponse: NanopbStorage {
 typealias Livekit_TrackUnpublishedResponse = NanopbMsg<livekit_TrackUnpublishedResponse>
 extension Livekit_TrackUnpublishedResponse {
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
 }
 
@@ -2147,26 +2381,34 @@ extension livekit_SessionDescription: NanopbStorage {
 typealias Livekit_SessionDescription = NanopbMsg<livekit_SessionDescription>
 extension Livekit_SessionDescription {
     var type: String {
-        lkString(_pointer.pointee.type) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.type) ?? ""
+        }
     }
-    var hasType: Bool { _pointer.pointee.type != nil }
+    var hasType: Bool { withExtendedLifetime(_owner) { _pointer.pointee.type != nil } }
 
     var sdp: String {
-        lkString(_pointer.pointee.sdp) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.sdp) ?? ""
+        }
     }
-    var hasSdp: Bool { _pointer.pointee.sdp != nil }
+    var hasSdp: Bool { withExtendedLifetime(_owner) { _pointer.pointee.sdp != nil } }
 
     var id: UInt32 {
-        _pointer.pointee.id?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.id?.pointee ?? 0
+        }
     }
-    var hasID: Bool { _pointer.pointee.id != nil }
+    var hasID: Bool { withExtendedLifetime(_owner) { _pointer.pointee.id != nil } }
 
     var midToTrackID: [String: String] {
-        var out: [String: String] = [:]
-        for entry in lkViews(_pointer.pointee.mid_to_track_id_count, _pointer.pointee.mid_to_track_id, owner: _owner) as [Livekit_SessionDescription_MidToTrackIdEntry] {
-            out[entry.key] = entry.value
+        withExtendedLifetime(_owner) {
+            var out: [String: String] = [:]
+            for entry in lkViews(_pointer.pointee.mid_to_track_id_count, _pointer.pointee.mid_to_track_id, owner: _owner) as [Livekit_SessionDescription_MidToTrackIdEntry] {
+                out[entry.key] = entry.value
+            }
+            return out
         }
-        return out
     }
 
 }
@@ -2178,14 +2420,18 @@ extension livekit_SessionDescription_MidToTrackIdEntry: NanopbStorage {
 typealias Livekit_SessionDescription_MidToTrackIdEntry = NanopbMsg<livekit_SessionDescription_MidToTrackIdEntry>
 extension Livekit_SessionDescription_MidToTrackIdEntry {
     var key: String {
-        lkString(_pointer.pointee.key) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.key) ?? ""
+        }
     }
-    var hasKey: Bool { _pointer.pointee.key != nil }
+    var hasKey: Bool { withExtendedLifetime(_owner) { _pointer.pointee.key != nil } }
 
     var value: String {
-        lkString(_pointer.pointee.value) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.value) ?? ""
+        }
     }
-    var hasValue: Bool { _pointer.pointee.value != nil }
+    var hasValue: Bool { withExtendedLifetime(_owner) { _pointer.pointee.value != nil } }
 
 }
 
@@ -2246,7 +2492,9 @@ extension livekit_ParticipantUpdate: NanopbStorage {
 typealias Livekit_ParticipantUpdate = NanopbMsg<livekit_ParticipantUpdate>
 extension Livekit_ParticipantUpdate {
     var participants: [Livekit_ParticipantInfo] {
-        lkViews(_pointer.pointee.participants_count, _pointer.pointee.participants, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.participants_count, _pointer.pointee.participants, owner: _owner)
+        }
     }
 
 }
@@ -2270,16 +2518,22 @@ extension livekit_UpdateSubscription: NanopbStorage {
 typealias Livekit_UpdateSubscription = NanopbMsg<livekit_UpdateSubscription>
 extension Livekit_UpdateSubscription {
     var trackSids: [String] {
-        lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids)
+        withExtendedLifetime(_owner) {
+            lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids)
+        }
     }
 
     var subscribe: Bool {
-        _pointer.pointee.subscribe?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.subscribe?.pointee ?? false
+        }
     }
-    var hasSubscribe: Bool { _pointer.pointee.subscribe != nil }
+    var hasSubscribe: Bool { withExtendedLifetime(_owner) { _pointer.pointee.subscribe != nil } }
 
     var participantTracks: [Livekit_ParticipantTracks] {
-        lkViews(_pointer.pointee.participant_tracks_count, _pointer.pointee.participant_tracks, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.participant_tracks_count, _pointer.pointee.participant_tracks, owner: _owner)
+        }
     }
 
 }
@@ -2317,7 +2571,9 @@ extension livekit_UpdateDataSubscription: NanopbStorage {
 typealias Livekit_UpdateDataSubscription = NanopbMsg<livekit_UpdateDataSubscription>
 extension Livekit_UpdateDataSubscription {
     var updates: [Livekit_UpdateDataSubscription_Update] {
-        lkViews(_pointer.pointee.updates_count, _pointer.pointee.updates, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.updates_count, _pointer.pointee.updates, owner: _owner)
+        }
     }
 
 }
@@ -2329,19 +2585,25 @@ extension livekit_UpdateDataSubscription_Update: NanopbStorage {
 typealias Livekit_UpdateDataSubscription_Update = NanopbMsg<livekit_UpdateDataSubscription_Update>
 extension Livekit_UpdateDataSubscription_Update {
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
     var subscribe: Bool {
-        _pointer.pointee.subscribe?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.subscribe?.pointee ?? false
+        }
     }
-    var hasSubscribe: Bool { _pointer.pointee.subscribe != nil }
+    var hasSubscribe: Bool { withExtendedLifetime(_owner) { _pointer.pointee.subscribe != nil } }
 
     var options: Livekit_DataTrackSubscriptionOptions {
-        _pointer.pointee.options.map { Livekit_DataTrackSubscriptionOptions(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriptionOptions._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.options.map { Livekit_DataTrackSubscriptionOptions(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackSubscriptionOptions._empty
+        }
     }
-    var hasOptions: Bool { _pointer.pointee.options != nil }
+    var hasOptions: Bool { withExtendedLifetime(_owner) { _pointer.pointee.options != nil } }
 
 }
 
@@ -2382,14 +2644,18 @@ extension livekit_StoreDataBlobRequest: NanopbStorage {
 typealias Livekit_StoreDataBlobRequest = NanopbMsg<livekit_StoreDataBlobRequest>
 extension Livekit_StoreDataBlobRequest {
     var requestID: UInt32 {
-        _pointer.pointee.request_id?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.request_id?.pointee ?? 0
+        }
     }
-    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
+    var hasRequestID: Bool { withExtendedLifetime(_owner) { _pointer.pointee.request_id != nil } }
 
     var blob: Livekit_DataBlob {
-        _pointer.pointee.blob.map { Livekit_DataBlob(_sharing: $0, owner: _owner) } ?? Livekit_DataBlob._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.blob.map { Livekit_DataBlob(_sharing: $0, owner: _owner) } ?? Livekit_DataBlob._empty
+        }
     }
-    var hasBlob: Bool { _pointer.pointee.blob != nil }
+    var hasBlob: Bool { withExtendedLifetime(_owner) { _pointer.pointee.blob != nil } }
 
 }
 
@@ -2413,14 +2679,18 @@ extension livekit_StoreDataBlobResponse: NanopbStorage {
 typealias Livekit_StoreDataBlobResponse = NanopbMsg<livekit_StoreDataBlobResponse>
 extension Livekit_StoreDataBlobResponse {
     var requestID: UInt32 {
-        _pointer.pointee.request_id?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.request_id?.pointee ?? 0
+        }
     }
-    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
+    var hasRequestID: Bool { withExtendedLifetime(_owner) { _pointer.pointee.request_id != nil } }
 
     var key: Livekit_DataBlobKey {
-        _pointer.pointee.key.map { Livekit_DataBlobKey(_sharing: $0, owner: _owner) } ?? Livekit_DataBlobKey._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.key.map { Livekit_DataBlobKey(_sharing: $0, owner: _owner) } ?? Livekit_DataBlobKey._empty
+        }
     }
-    var hasKey: Bool { _pointer.pointee.key != nil }
+    var hasKey: Bool { withExtendedLifetime(_owner) { _pointer.pointee.key != nil } }
 
 }
 
@@ -2444,19 +2714,25 @@ extension livekit_GetDataBlobRequest: NanopbStorage {
 typealias Livekit_GetDataBlobRequest = NanopbMsg<livekit_GetDataBlobRequest>
 extension Livekit_GetDataBlobRequest {
     var requestID: UInt32 {
-        _pointer.pointee.request_id?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.request_id?.pointee ?? 0
+        }
     }
-    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
+    var hasRequestID: Bool { withExtendedLifetime(_owner) { _pointer.pointee.request_id != nil } }
 
     var participantIdentity: String {
-        lkString(_pointer.pointee.participant_identity) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.participant_identity) ?? ""
+        }
     }
-    var hasParticipantIdentity: Bool { _pointer.pointee.participant_identity != nil }
+    var hasParticipantIdentity: Bool { withExtendedLifetime(_owner) { _pointer.pointee.participant_identity != nil } }
 
     var key: Livekit_DataBlobKey {
-        _pointer.pointee.key.map { Livekit_DataBlobKey(_sharing: $0, owner: _owner) } ?? Livekit_DataBlobKey._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.key.map { Livekit_DataBlobKey(_sharing: $0, owner: _owner) } ?? Livekit_DataBlobKey._empty
+        }
     }
-    var hasKey: Bool { _pointer.pointee.key != nil }
+    var hasKey: Bool { withExtendedLifetime(_owner) { _pointer.pointee.key != nil } }
 
 }
 
@@ -2485,14 +2761,18 @@ extension livekit_GetDataBlobResponse: NanopbStorage {
 typealias Livekit_GetDataBlobResponse = NanopbMsg<livekit_GetDataBlobResponse>
 extension Livekit_GetDataBlobResponse {
     var requestID: UInt32 {
-        _pointer.pointee.request_id?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.request_id?.pointee ?? 0
+        }
     }
-    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
+    var hasRequestID: Bool { withExtendedLifetime(_owner) { _pointer.pointee.request_id != nil } }
 
     var blob: Livekit_DataBlob {
-        _pointer.pointee.blob.map { Livekit_DataBlob(_sharing: $0, owner: _owner) } ?? Livekit_DataBlob._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.blob.map { Livekit_DataBlob(_sharing: $0, owner: _owner) } ?? Livekit_DataBlob._empty
+        }
     }
-    var hasBlob: Bool { _pointer.pointee.blob != nil }
+    var hasBlob: Bool { withExtendedLifetime(_owner) { _pointer.pointee.blob != nil } }
 
 }
 
@@ -2516,38 +2796,52 @@ extension livekit_UpdateTrackSettings: NanopbStorage {
 typealias Livekit_UpdateTrackSettings = NanopbMsg<livekit_UpdateTrackSettings>
 extension Livekit_UpdateTrackSettings {
     var trackSids: [String] {
-        lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids)
+        withExtendedLifetime(_owner) {
+            lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids)
+        }
     }
 
     var disabled: Bool {
-        _pointer.pointee.disabled?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.disabled?.pointee ?? false
+        }
     }
-    var hasDisabled: Bool { _pointer.pointee.disabled != nil }
+    var hasDisabled: Bool { withExtendedLifetime(_owner) { _pointer.pointee.disabled != nil } }
 
     var quality: Livekit_VideoQuality {
-        _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality()
+        }
     }
-    var hasQuality: Bool { _pointer.pointee.quality != nil }
+    var hasQuality: Bool { withExtendedLifetime(_owner) { _pointer.pointee.quality != nil } }
 
     var width: UInt32 {
-        _pointer.pointee.width?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.width?.pointee ?? 0
+        }
     }
-    var hasWidth: Bool { _pointer.pointee.width != nil }
+    var hasWidth: Bool { withExtendedLifetime(_owner) { _pointer.pointee.width != nil } }
 
     var height: UInt32 {
-        _pointer.pointee.height?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.height?.pointee ?? 0
+        }
     }
-    var hasHeight: Bool { _pointer.pointee.height != nil }
+    var hasHeight: Bool { withExtendedLifetime(_owner) { _pointer.pointee.height != nil } }
 
     var fps: UInt32 {
-        _pointer.pointee.fps?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.fps?.pointee ?? 0
+        }
     }
-    var hasFps: Bool { _pointer.pointee.fps != nil }
+    var hasFps: Bool { withExtendedLifetime(_owner) { _pointer.pointee.fps != nil } }
 
     var priority: UInt32 {
-        _pointer.pointee.priority?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.priority?.pointee ?? 0
+        }
     }
-    var hasPriority: Bool { _pointer.pointee.priority != nil }
+    var hasPriority: Bool { withExtendedLifetime(_owner) { _pointer.pointee.priority != nil } }
 
 }
 
@@ -2600,12 +2894,16 @@ extension livekit_UpdateLocalAudioTrack: NanopbStorage {
 typealias Livekit_UpdateLocalAudioTrack = NanopbMsg<livekit_UpdateLocalAudioTrack>
 extension Livekit_UpdateLocalAudioTrack {
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
     var features: [Livekit_AudioTrackFeature] {
-        lkRepeatedEnum(_pointer.pointee.features_count, _pointer.pointee.features)
+        withExtendedLifetime(_owner) {
+            lkRepeatedEnum(_pointer.pointee.features_count, _pointer.pointee.features)
+        }
     }
 
 }
@@ -2634,19 +2932,25 @@ extension livekit_UpdateLocalVideoTrack: NanopbStorage {
 typealias Livekit_UpdateLocalVideoTrack = NanopbMsg<livekit_UpdateLocalVideoTrack>
 extension Livekit_UpdateLocalVideoTrack {
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
     var width: UInt32 {
-        _pointer.pointee.width?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.width?.pointee ?? 0
+        }
     }
-    var hasWidth: Bool { _pointer.pointee.width != nil }
+    var hasWidth: Bool { withExtendedLifetime(_owner) { _pointer.pointee.width != nil } }
 
     var height: UInt32 {
-        _pointer.pointee.height?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.height?.pointee ?? 0
+        }
     }
-    var hasHeight: Bool { _pointer.pointee.height != nil }
+    var hasHeight: Bool { withExtendedLifetime(_owner) { _pointer.pointee.height != nil } }
 
 }
 
@@ -2675,24 +2979,32 @@ extension livekit_LeaveRequest: NanopbStorage {
 typealias Livekit_LeaveRequest = NanopbMsg<livekit_LeaveRequest>
 extension Livekit_LeaveRequest {
     var canReconnect: Bool {
-        _pointer.pointee.can_reconnect?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.can_reconnect?.pointee ?? false
+        }
     }
-    var hasCanReconnect: Bool { _pointer.pointee.can_reconnect != nil }
+    var hasCanReconnect: Bool { withExtendedLifetime(_owner) { _pointer.pointee.can_reconnect != nil } }
 
     var reason: Livekit_DisconnectReason {
-        _pointer.pointee.reason.map { lkEnum($0.pointee) } ?? Livekit_DisconnectReason()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.reason.map { lkEnum($0.pointee) } ?? Livekit_DisconnectReason()
+        }
     }
-    var hasReason: Bool { _pointer.pointee.reason != nil }
+    var hasReason: Bool { withExtendedLifetime(_owner) { _pointer.pointee.reason != nil } }
 
     var action: Livekit_LeaveRequest_Action {
-        _pointer.pointee.action.map { lkEnum($0.pointee) } ?? Livekit_LeaveRequest_Action()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.action.map { lkEnum($0.pointee) } ?? Livekit_LeaveRequest_Action()
+        }
     }
-    var hasAction: Bool { _pointer.pointee.action != nil }
+    var hasAction: Bool { withExtendedLifetime(_owner) { _pointer.pointee.action != nil } }
 
     var regions: Livekit_RegionSettings {
-        _pointer.pointee.regions.map { Livekit_RegionSettings(_sharing: $0, owner: _owner) } ?? Livekit_RegionSettings._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.regions.map { Livekit_RegionSettings(_sharing: $0, owner: _owner) } ?? Livekit_RegionSettings._empty
+        }
     }
-    var hasRegions: Bool { _pointer.pointee.regions != nil }
+    var hasRegions: Bool { withExtendedLifetime(_owner) { _pointer.pointee.regions != nil } }
 
 }
 
@@ -2736,12 +3048,16 @@ extension livekit_UpdateVideoLayers: NanopbStorage {
 typealias Livekit_UpdateVideoLayers = NanopbMsg<livekit_UpdateVideoLayers>
 extension Livekit_UpdateVideoLayers {
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
     var layers: [Livekit_VideoLayer] {
-        lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.layers_count, _pointer.pointee.layers, owner: _owner)
+        }
     }
 
 }
@@ -2770,27 +3086,35 @@ extension livekit_UpdateParticipantMetadata: NanopbStorage {
 typealias Livekit_UpdateParticipantMetadata = NanopbMsg<livekit_UpdateParticipantMetadata>
 extension Livekit_UpdateParticipantMetadata {
     var metadata: String {
-        lkString(_pointer.pointee.metadata) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.metadata) ?? ""
+        }
     }
-    var hasMetadata: Bool { _pointer.pointee.metadata != nil }
+    var hasMetadata: Bool { withExtendedLifetime(_owner) { _pointer.pointee.metadata != nil } }
 
     var name: String {
-        lkString(_pointer.pointee.name) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.name) ?? ""
+        }
     }
-    var hasName: Bool { _pointer.pointee.name != nil }
+    var hasName: Bool { withExtendedLifetime(_owner) { _pointer.pointee.name != nil } }
 
     var attributes: [String: String] {
-        var out: [String: String] = [:]
-        for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_UpdateParticipantMetadata_AttributesEntry] {
-            out[entry.key] = entry.value
+        withExtendedLifetime(_owner) {
+            var out: [String: String] = [:]
+            for entry in lkViews(_pointer.pointee.attributes_count, _pointer.pointee.attributes, owner: _owner) as [Livekit_UpdateParticipantMetadata_AttributesEntry] {
+                out[entry.key] = entry.value
+            }
+            return out
         }
-        return out
     }
 
     var requestID: UInt32 {
-        _pointer.pointee.request_id?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.request_id?.pointee ?? 0
+        }
     }
-    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
+    var hasRequestID: Bool { withExtendedLifetime(_owner) { _pointer.pointee.request_id != nil } }
 
 }
 
@@ -2801,14 +3125,18 @@ extension livekit_UpdateParticipantMetadata_AttributesEntry: NanopbStorage {
 typealias Livekit_UpdateParticipantMetadata_AttributesEntry = NanopbMsg<livekit_UpdateParticipantMetadata_AttributesEntry>
 extension Livekit_UpdateParticipantMetadata_AttributesEntry {
     var key: String {
-        lkString(_pointer.pointee.key) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.key) ?? ""
+        }
     }
-    var hasKey: Bool { _pointer.pointee.key != nil }
+    var hasKey: Bool { withExtendedLifetime(_owner) { _pointer.pointee.key != nil } }
 
     var value: String {
-        lkString(_pointer.pointee.value) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.value) ?? ""
+        }
     }
-    var hasValue: Bool { _pointer.pointee.value != nil }
+    var hasValue: Bool { withExtendedLifetime(_owner) { _pointer.pointee.value != nil } }
 
 }
 
@@ -2869,18 +3197,24 @@ extension livekit_ICEServer: NanopbStorage {
 typealias Livekit_ICEServer = NanopbMsg<livekit_ICEServer>
 extension Livekit_ICEServer {
     var urls: [String] {
-        lkRepeated(_pointer.pointee.urls_count, _pointer.pointee.urls)
+        withExtendedLifetime(_owner) {
+            lkRepeated(_pointer.pointee.urls_count, _pointer.pointee.urls)
+        }
     }
 
     var username: String {
-        lkString(_pointer.pointee.username) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.username) ?? ""
+        }
     }
-    var hasUsername: Bool { _pointer.pointee.username != nil }
+    var hasUsername: Bool { withExtendedLifetime(_owner) { _pointer.pointee.username != nil } }
 
     var credential: String {
-        lkString(_pointer.pointee.credential) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.credential) ?? ""
+        }
     }
-    var hasCredential: Bool { _pointer.pointee.credential != nil }
+    var hasCredential: Bool { withExtendedLifetime(_owner) { _pointer.pointee.credential != nil } }
 
 }
 
@@ -2913,7 +3247,9 @@ extension livekit_SpeakersChanged: NanopbStorage {
 typealias Livekit_SpeakersChanged = NanopbMsg<livekit_SpeakersChanged>
 extension Livekit_SpeakersChanged {
     var speakers: [Livekit_SpeakerInfo] {
-        lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.speakers_count, _pointer.pointee.speakers, owner: _owner)
+        }
     }
 
 }
@@ -2937,9 +3273,11 @@ extension livekit_RoomUpdate: NanopbStorage {
 typealias Livekit_RoomUpdate = NanopbMsg<livekit_RoomUpdate>
 extension Livekit_RoomUpdate {
     var room: Livekit_Room {
-        _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _owner) } ?? Livekit_Room._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _owner) } ?? Livekit_Room._empty
+        }
     }
-    var hasRoom: Bool { _pointer.pointee.room != nil }
+    var hasRoom: Bool { withExtendedLifetime(_owner) { _pointer.pointee.room != nil } }
 
 }
 
@@ -2958,19 +3296,25 @@ extension livekit_ConnectionQualityInfo: NanopbStorage {
 typealias Livekit_ConnectionQualityInfo = NanopbMsg<livekit_ConnectionQualityInfo>
 extension Livekit_ConnectionQualityInfo {
     var participantSid: String {
-        lkString(_pointer.pointee.participant_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.participant_sid) ?? ""
+        }
     }
-    var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
+    var hasParticipantSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.participant_sid != nil } }
 
     var quality: Livekit_ConnectionQuality {
-        _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_ConnectionQuality()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_ConnectionQuality()
+        }
     }
-    var hasQuality: Bool { _pointer.pointee.quality != nil }
+    var hasQuality: Bool { withExtendedLifetime(_owner) { _pointer.pointee.quality != nil } }
 
     var score: Float {
-        _pointer.pointee.score?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.score?.pointee ?? 0
+        }
     }
-    var hasScore: Bool { _pointer.pointee.score != nil }
+    var hasScore: Bool { withExtendedLifetime(_owner) { _pointer.pointee.score != nil } }
 
 }
 
@@ -2999,7 +3343,9 @@ extension livekit_ConnectionQualityUpdate: NanopbStorage {
 typealias Livekit_ConnectionQualityUpdate = NanopbMsg<livekit_ConnectionQualityUpdate>
 extension Livekit_ConnectionQualityUpdate {
     var updates: [Livekit_ConnectionQualityInfo] {
-        lkViews(_pointer.pointee.updates_count, _pointer.pointee.updates, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.updates_count, _pointer.pointee.updates, owner: _owner)
+        }
     }
 
 }
@@ -3023,19 +3369,25 @@ extension livekit_StreamStateInfo: NanopbStorage {
 typealias Livekit_StreamStateInfo = NanopbMsg<livekit_StreamStateInfo>
 extension Livekit_StreamStateInfo {
     var participantSid: String {
-        lkString(_pointer.pointee.participant_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.participant_sid) ?? ""
+        }
     }
-    var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
+    var hasParticipantSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.participant_sid != nil } }
 
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
     var state: Livekit_StreamState {
-        _pointer.pointee.state.map { lkEnum($0.pointee) } ?? Livekit_StreamState()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.state.map { lkEnum($0.pointee) } ?? Livekit_StreamState()
+        }
     }
-    var hasState: Bool { _pointer.pointee.state != nil }
+    var hasState: Bool { withExtendedLifetime(_owner) { _pointer.pointee.state != nil } }
 
 }
 
@@ -3064,7 +3416,9 @@ extension livekit_StreamStateUpdate: NanopbStorage {
 typealias Livekit_StreamStateUpdate = NanopbMsg<livekit_StreamStateUpdate>
 extension Livekit_StreamStateUpdate {
     var streamStates: [Livekit_StreamStateInfo] {
-        lkViews(_pointer.pointee.stream_states_count, _pointer.pointee.stream_states, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.stream_states_count, _pointer.pointee.stream_states, owner: _owner)
+        }
     }
 
 }
@@ -3088,14 +3442,18 @@ extension livekit_SubscribedQuality: NanopbStorage {
 typealias Livekit_SubscribedQuality = NanopbMsg<livekit_SubscribedQuality>
 extension Livekit_SubscribedQuality {
     var quality: Livekit_VideoQuality {
-        _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.quality.map { lkEnum($0.pointee) } ?? Livekit_VideoQuality()
+        }
     }
-    var hasQuality: Bool { _pointer.pointee.quality != nil }
+    var hasQuality: Bool { withExtendedLifetime(_owner) { _pointer.pointee.quality != nil } }
 
     var enabled: Bool {
-        _pointer.pointee.enabled?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.enabled?.pointee ?? false
+        }
     }
-    var hasEnabled: Bool { _pointer.pointee.enabled != nil }
+    var hasEnabled: Bool { withExtendedLifetime(_owner) { _pointer.pointee.enabled != nil } }
 
 }
 
@@ -3119,12 +3477,16 @@ extension livekit_SubscribedCodec: NanopbStorage {
 typealias Livekit_SubscribedCodec = NanopbMsg<livekit_SubscribedCodec>
 extension Livekit_SubscribedCodec {
     var codec: String {
-        lkString(_pointer.pointee.codec) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.codec) ?? ""
+        }
     }
-    var hasCodec: Bool { _pointer.pointee.codec != nil }
+    var hasCodec: Bool { withExtendedLifetime(_owner) { _pointer.pointee.codec != nil } }
 
     var qualities: [Livekit_SubscribedQuality] {
-        lkViews(_pointer.pointee.qualities_count, _pointer.pointee.qualities, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.qualities_count, _pointer.pointee.qualities, owner: _owner)
+        }
     }
 
 }
@@ -3153,16 +3515,22 @@ extension livekit_SubscribedQualityUpdate: NanopbStorage {
 typealias Livekit_SubscribedQualityUpdate = NanopbMsg<livekit_SubscribedQualityUpdate>
 extension Livekit_SubscribedQualityUpdate {
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
     var subscribedQualities: [Livekit_SubscribedQuality] {
-        lkViews(_pointer.pointee.subscribed_qualities_count, _pointer.pointee.subscribed_qualities, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.subscribed_qualities_count, _pointer.pointee.subscribed_qualities, owner: _owner)
+        }
     }
 
     var subscribedCodecs: [Livekit_SubscribedCodec] {
-        lkViews(_pointer.pointee.subscribed_codecs_count, _pointer.pointee.subscribed_codecs, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.subscribed_codecs_count, _pointer.pointee.subscribed_codecs, owner: _owner)
+        }
     }
 
 }
@@ -3200,12 +3568,16 @@ extension livekit_SubscribedAudioCodecUpdate: NanopbStorage {
 typealias Livekit_SubscribedAudioCodecUpdate = NanopbMsg<livekit_SubscribedAudioCodecUpdate>
 extension Livekit_SubscribedAudioCodecUpdate {
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
     var subscribedAudioCodecs: [Livekit_SubscribedAudioCodec] {
-        lkViews(_pointer.pointee.subscribed_audio_codecs_count, _pointer.pointee.subscribed_audio_codecs, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.subscribed_audio_codecs_count, _pointer.pointee.subscribed_audio_codecs, owner: _owner)
+        }
     }
 
 }
@@ -3234,23 +3606,31 @@ extension livekit_TrackPermission: NanopbStorage {
 typealias Livekit_TrackPermission = NanopbMsg<livekit_TrackPermission>
 extension Livekit_TrackPermission {
     var participantSid: String {
-        lkString(_pointer.pointee.participant_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.participant_sid) ?? ""
+        }
     }
-    var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
+    var hasParticipantSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.participant_sid != nil } }
 
     var allTracks: Bool {
-        _pointer.pointee.all_tracks?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.all_tracks?.pointee ?? false
+        }
     }
-    var hasAllTracks: Bool { _pointer.pointee.all_tracks != nil }
+    var hasAllTracks: Bool { withExtendedLifetime(_owner) { _pointer.pointee.all_tracks != nil } }
 
     var trackSids: [String] {
-        lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids)
+        withExtendedLifetime(_owner) {
+            lkRepeated(_pointer.pointee.track_sids_count, _pointer.pointee.track_sids)
+        }
     }
 
     var participantIdentity: String {
-        lkString(_pointer.pointee.participant_identity) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.participant_identity) ?? ""
+        }
     }
-    var hasParticipantIdentity: Bool { _pointer.pointee.participant_identity != nil }
+    var hasParticipantIdentity: Bool { withExtendedLifetime(_owner) { _pointer.pointee.participant_identity != nil } }
 
 }
 
@@ -3288,12 +3668,16 @@ extension livekit_SubscriptionPermission: NanopbStorage {
 typealias Livekit_SubscriptionPermission = NanopbMsg<livekit_SubscriptionPermission>
 extension Livekit_SubscriptionPermission {
     var allParticipants: Bool {
-        _pointer.pointee.all_participants?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.all_participants?.pointee ?? false
+        }
     }
-    var hasAllParticipants: Bool { _pointer.pointee.all_participants != nil }
+    var hasAllParticipants: Bool { withExtendedLifetime(_owner) { _pointer.pointee.all_participants != nil } }
 
     var trackPermissions: [Livekit_TrackPermission] {
-        lkViews(_pointer.pointee.track_permissions_count, _pointer.pointee.track_permissions, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.track_permissions_count, _pointer.pointee.track_permissions, owner: _owner)
+        }
     }
 
 }
@@ -3322,19 +3706,25 @@ extension livekit_SubscriptionPermissionUpdate: NanopbStorage {
 typealias Livekit_SubscriptionPermissionUpdate = NanopbMsg<livekit_SubscriptionPermissionUpdate>
 extension Livekit_SubscriptionPermissionUpdate {
     var participantSid: String {
-        lkString(_pointer.pointee.participant_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.participant_sid) ?? ""
+        }
     }
-    var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
+    var hasParticipantSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.participant_sid != nil } }
 
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
     var allowed: Bool {
-        _pointer.pointee.allowed?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.allowed?.pointee ?? false
+        }
     }
-    var hasAllowed: Bool { _pointer.pointee.allowed != nil }
+    var hasAllowed: Bool { withExtendedLifetime(_owner) { _pointer.pointee.allowed != nil } }
 
 }
 
@@ -3363,22 +3753,30 @@ extension livekit_RoomMovedResponse: NanopbStorage {
 typealias Livekit_RoomMovedResponse = NanopbMsg<livekit_RoomMovedResponse>
 extension Livekit_RoomMovedResponse {
     var room: Livekit_Room {
-        _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _owner) } ?? Livekit_Room._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.room.map { Livekit_Room(_sharing: $0, owner: _owner) } ?? Livekit_Room._empty
+        }
     }
-    var hasRoom: Bool { _pointer.pointee.room != nil }
+    var hasRoom: Bool { withExtendedLifetime(_owner) { _pointer.pointee.room != nil } }
 
     var token: String {
-        lkString(_pointer.pointee.token) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.token) ?? ""
+        }
     }
-    var hasToken: Bool { _pointer.pointee.token != nil }
+    var hasToken: Bool { withExtendedLifetime(_owner) { _pointer.pointee.token != nil } }
 
     var participant: Livekit_ParticipantInfo {
-        _pointer.pointee.participant.map { Livekit_ParticipantInfo(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantInfo._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.participant.map { Livekit_ParticipantInfo(_sharing: $0, owner: _owner) } ?? Livekit_ParticipantInfo._empty
+        }
     }
-    var hasParticipant: Bool { _pointer.pointee.participant != nil }
+    var hasParticipant: Bool { withExtendedLifetime(_owner) { _pointer.pointee.participant != nil } }
 
     var otherParticipants: [Livekit_ParticipantInfo] {
-        lkViews(_pointer.pointee.other_participants_count, _pointer.pointee.other_participants, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.other_participants_count, _pointer.pointee.other_participants, owner: _owner)
+        }
     }
 
 }
@@ -3417,38 +3815,54 @@ extension livekit_SyncState: NanopbStorage {
 typealias Livekit_SyncState = NanopbMsg<livekit_SyncState>
 extension Livekit_SyncState {
     var answer: Livekit_SessionDescription {
-        _pointer.pointee.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.answer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty
+        }
     }
-    var hasAnswer: Bool { _pointer.pointee.answer != nil }
+    var hasAnswer: Bool { withExtendedLifetime(_owner) { _pointer.pointee.answer != nil } }
 
     var subscription: Livekit_UpdateSubscription {
-        _pointer.pointee.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateSubscription._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.subscription.map { Livekit_UpdateSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateSubscription._empty
+        }
     }
-    var hasSubscription: Bool { _pointer.pointee.subscription != nil }
+    var hasSubscription: Bool { withExtendedLifetime(_owner) { _pointer.pointee.subscription != nil } }
 
     var publishTracks: [Livekit_TrackPublishedResponse] {
-        lkViews(_pointer.pointee.publish_tracks_count, _pointer.pointee.publish_tracks, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.publish_tracks_count, _pointer.pointee.publish_tracks, owner: _owner)
+        }
     }
 
     var dataChannels: [Livekit_DataChannelInfo] {
-        lkViews(_pointer.pointee.data_channels_count, _pointer.pointee.data_channels, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.data_channels_count, _pointer.pointee.data_channels, owner: _owner)
+        }
     }
 
     var offer: Livekit_SessionDescription {
-        _pointer.pointee.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty
+        }
     }
-    var hasOffer: Bool { _pointer.pointee.offer != nil }
+    var hasOffer: Bool { withExtendedLifetime(_owner) { _pointer.pointee.offer != nil } }
 
     var trackSidsDisabled: [String] {
-        lkRepeated(_pointer.pointee.track_sids_disabled_count, _pointer.pointee.track_sids_disabled)
+        withExtendedLifetime(_owner) {
+            lkRepeated(_pointer.pointee.track_sids_disabled_count, _pointer.pointee.track_sids_disabled)
+        }
     }
 
     var datachannelReceiveStates: [Livekit_DataChannelReceiveState] {
-        lkViews(_pointer.pointee.datachannel_receive_states_count, _pointer.pointee.datachannel_receive_states, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.datachannel_receive_states_count, _pointer.pointee.datachannel_receive_states, owner: _owner)
+        }
     }
 
     var publishDataTracks: [Livekit_PublishDataTrackResponse] {
-        lkViews(_pointer.pointee.publish_data_tracks_count, _pointer.pointee.publish_data_tracks, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.publish_data_tracks_count, _pointer.pointee.publish_data_tracks, owner: _owner)
+        }
     }
 
 }
@@ -3523,14 +3937,18 @@ extension livekit_DataChannelReceiveState: NanopbStorage {
 typealias Livekit_DataChannelReceiveState = NanopbMsg<livekit_DataChannelReceiveState>
 extension Livekit_DataChannelReceiveState {
     var publisherSid: String {
-        lkString(_pointer.pointee.publisher_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.publisher_sid) ?? ""
+        }
     }
-    var hasPublisherSid: Bool { _pointer.pointee.publisher_sid != nil }
+    var hasPublisherSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.publisher_sid != nil } }
 
     var lastSeq: UInt32 {
-        _pointer.pointee.last_seq?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.last_seq?.pointee ?? 0
+        }
     }
-    var hasLastSeq: Bool { _pointer.pointee.last_seq != nil }
+    var hasLastSeq: Bool { withExtendedLifetime(_owner) { _pointer.pointee.last_seq != nil } }
 
 }
 
@@ -3554,19 +3972,25 @@ extension livekit_DataChannelInfo: NanopbStorage {
 typealias Livekit_DataChannelInfo = NanopbMsg<livekit_DataChannelInfo>
 extension Livekit_DataChannelInfo {
     var label: String {
-        lkString(_pointer.pointee.label) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.label) ?? ""
+        }
     }
-    var hasLabel: Bool { _pointer.pointee.label != nil }
+    var hasLabel: Bool { withExtendedLifetime(_owner) { _pointer.pointee.label != nil } }
 
     var id: UInt32 {
-        _pointer.pointee.id?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.id?.pointee ?? 0
+        }
     }
-    var hasID: Bool { _pointer.pointee.id != nil }
+    var hasID: Bool { withExtendedLifetime(_owner) { _pointer.pointee.id != nil } }
 
     var target: Livekit_SignalTarget {
-        _pointer.pointee.target.map { lkEnum($0.pointee) } ?? Livekit_SignalTarget()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.target.map { lkEnum($0.pointee) } ?? Livekit_SignalTarget()
+        }
     }
-    var hasTarget: Bool { _pointer.pointee.target != nil }
+    var hasTarget: Bool { withExtendedLifetime(_owner) { _pointer.pointee.target != nil } }
 
 }
 
@@ -3607,54 +4031,74 @@ extension livekit_SimulateScenario: NanopbStorage {
 typealias Livekit_SimulateScenario = NanopbMsg<livekit_SimulateScenario>
 extension Livekit_SimulateScenario {
     var scenario: Livekit_SimulateScenario_OneOf_Scenario? {
-        switch _pointer.pointee.which_scenario {
-        case lk_pb_size_t(livekit_SimulateScenario_speaker_update_tag):
-            return .speakerUpdate(_pointer.pointee.scenario.speaker_update?.pointee ?? 0)
-        case lk_pb_size_t(livekit_SimulateScenario_node_failure_tag):
-            return .nodeFailure(_pointer.pointee.scenario.node_failure?.pointee ?? false)
-        case lk_pb_size_t(livekit_SimulateScenario_migration_tag):
-            return .migration(_pointer.pointee.scenario.migration?.pointee ?? false)
-        case lk_pb_size_t(livekit_SimulateScenario_server_leave_tag):
-            return .serverLeave(_pointer.pointee.scenario.server_leave?.pointee ?? false)
-        case lk_pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag):
-            return .switchCandidateProtocol(_pointer.pointee.scenario.switch_candidate_protocol.map { lkEnum($0.pointee) as Livekit_CandidateProtocol } ?? Livekit_CandidateProtocol())
-        case lk_pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag):
-            return .subscriberBandwidth(_pointer.pointee.scenario.subscriber_bandwidth?.pointee ?? 0)
-        case lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag):
-            return .disconnectSignalOnResume(_pointer.pointee.scenario.disconnect_signal_on_resume?.pointee ?? false)
-        case lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag):
-            return .disconnectSignalOnResumeNoMessages(_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages?.pointee ?? false)
-        case lk_pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag):
-            return .leaveRequestFullReconnect(_pointer.pointee.scenario.leave_request_full_reconnect?.pointee ?? false)
-        default: return nil
+        withExtendedLifetime(_owner) {
+            switch _pointer.pointee.which_scenario {
+            case lk_pb_size_t(livekit_SimulateScenario_speaker_update_tag):
+                return .speakerUpdate(_pointer.pointee.scenario.speaker_update?.pointee ?? 0)
+            case lk_pb_size_t(livekit_SimulateScenario_node_failure_tag):
+                return .nodeFailure(_pointer.pointee.scenario.node_failure?.pointee ?? false)
+            case lk_pb_size_t(livekit_SimulateScenario_migration_tag):
+                return .migration(_pointer.pointee.scenario.migration?.pointee ?? false)
+            case lk_pb_size_t(livekit_SimulateScenario_server_leave_tag):
+                return .serverLeave(_pointer.pointee.scenario.server_leave?.pointee ?? false)
+            case lk_pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag):
+                return .switchCandidateProtocol(_pointer.pointee.scenario.switch_candidate_protocol.map { lkEnum($0.pointee) as Livekit_CandidateProtocol } ?? Livekit_CandidateProtocol())
+            case lk_pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag):
+                return .subscriberBandwidth(_pointer.pointee.scenario.subscriber_bandwidth?.pointee ?? 0)
+            case lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag):
+                return .disconnectSignalOnResume(_pointer.pointee.scenario.disconnect_signal_on_resume?.pointee ?? false)
+            case lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag):
+                return .disconnectSignalOnResumeNoMessages(_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages?.pointee ?? false)
+            case lk_pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag):
+                return .leaveRequestFullReconnect(_pointer.pointee.scenario.leave_request_full_reconnect?.pointee ?? false)
+            default: return nil
+            }
         }
     }
     var speakerUpdate: Int32 {
-        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_speaker_update_tag) ? (_pointer.pointee.scenario.speaker_update?.pointee ?? 0) : 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_speaker_update_tag) ? (_pointer.pointee.scenario.speaker_update?.pointee ?? 0) : 0
+        }
     }
     var nodeFailure: Bool {
-        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_node_failure_tag) ? (_pointer.pointee.scenario.node_failure?.pointee ?? false) : false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_node_failure_tag) ? (_pointer.pointee.scenario.node_failure?.pointee ?? false) : false
+        }
     }
     var migration: Bool {
-        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_migration_tag) ? (_pointer.pointee.scenario.migration?.pointee ?? false) : false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_migration_tag) ? (_pointer.pointee.scenario.migration?.pointee ?? false) : false
+        }
     }
     var serverLeave: Bool {
-        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_server_leave_tag) ? (_pointer.pointee.scenario.server_leave?.pointee ?? false) : false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_server_leave_tag) ? (_pointer.pointee.scenario.server_leave?.pointee ?? false) : false
+        }
     }
     var switchCandidateProtocol: Livekit_CandidateProtocol {
-        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag) ? (_pointer.pointee.scenario.switch_candidate_protocol.map { lkEnum($0.pointee) as Livekit_CandidateProtocol } ?? Livekit_CandidateProtocol()) : Livekit_CandidateProtocol()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_switch_candidate_protocol_tag) ? (_pointer.pointee.scenario.switch_candidate_protocol.map { lkEnum($0.pointee) as Livekit_CandidateProtocol } ?? Livekit_CandidateProtocol()) : Livekit_CandidateProtocol()
+        }
     }
     var subscriberBandwidth: Int64 {
-        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag) ? (_pointer.pointee.scenario.subscriber_bandwidth?.pointee ?? 0) : 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_subscriber_bandwidth_tag) ? (_pointer.pointee.scenario.subscriber_bandwidth?.pointee ?? 0) : 0
+        }
     }
     var disconnectSignalOnResume: Bool {
-        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume?.pointee ?? false) : false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume?.pointee ?? false) : false
+        }
     }
     var disconnectSignalOnResumeNoMessages: Bool {
-        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages?.pointee ?? false) : false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_disconnect_signal_on_resume_no_messages_tag) ? (_pointer.pointee.scenario.disconnect_signal_on_resume_no_messages?.pointee ?? false) : false
+        }
     }
     var leaveRequestFullReconnect: Bool {
-        _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag) ? (_pointer.pointee.scenario.leave_request_full_reconnect?.pointee ?? false) : false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_scenario == lk_pb_size_t(livekit_SimulateScenario_leave_request_full_reconnect_tag) ? (_pointer.pointee.scenario.leave_request_full_reconnect?.pointee ?? false) : false
+        }
     }
 
 }
@@ -3827,14 +4271,18 @@ extension livekit_Ping: NanopbStorage {
 typealias Livekit_Ping = NanopbMsg<livekit_Ping>
 extension Livekit_Ping {
     var timestamp: Int64 {
-        _pointer.pointee.timestamp?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.timestamp?.pointee ?? 0
+        }
     }
-    var hasTimestamp: Bool { _pointer.pointee.timestamp != nil }
+    var hasTimestamp: Bool { withExtendedLifetime(_owner) { _pointer.pointee.timestamp != nil } }
 
     var rtt: Int64 {
-        _pointer.pointee.rtt?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.rtt?.pointee ?? 0
+        }
     }
-    var hasRtt: Bool { _pointer.pointee.rtt != nil }
+    var hasRtt: Bool { withExtendedLifetime(_owner) { _pointer.pointee.rtt != nil } }
 
 }
 
@@ -3858,14 +4306,18 @@ extension livekit_Pong: NanopbStorage {
 typealias Livekit_Pong = NanopbMsg<livekit_Pong>
 extension Livekit_Pong {
     var lastPingTimestamp: Int64 {
-        _pointer.pointee.last_ping_timestamp?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.last_ping_timestamp?.pointee ?? 0
+        }
     }
-    var hasLastPingTimestamp: Bool { _pointer.pointee.last_ping_timestamp != nil }
+    var hasLastPingTimestamp: Bool { withExtendedLifetime(_owner) { _pointer.pointee.last_ping_timestamp != nil } }
 
     var timestamp: Int64 {
-        _pointer.pointee.timestamp?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.timestamp?.pointee ?? 0
+        }
     }
-    var hasTimestamp: Bool { _pointer.pointee.timestamp != nil }
+    var hasTimestamp: Bool { withExtendedLifetime(_owner) { _pointer.pointee.timestamp != nil } }
 
 }
 
@@ -3889,7 +4341,9 @@ extension livekit_RegionSettings: NanopbStorage {
 typealias Livekit_RegionSettings = NanopbMsg<livekit_RegionSettings>
 extension Livekit_RegionSettings {
     var regions: [Livekit_RegionInfo] {
-        lkViews(_pointer.pointee.regions_count, _pointer.pointee.regions, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.regions_count, _pointer.pointee.regions, owner: _owner)
+        }
     }
 
 }
@@ -3913,19 +4367,25 @@ extension livekit_RegionInfo: NanopbStorage {
 typealias Livekit_RegionInfo = NanopbMsg<livekit_RegionInfo>
 extension Livekit_RegionInfo {
     var region: String {
-        lkString(_pointer.pointee.region) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.region) ?? ""
+        }
     }
-    var hasRegion: Bool { _pointer.pointee.region != nil }
+    var hasRegion: Bool { withExtendedLifetime(_owner) { _pointer.pointee.region != nil } }
 
     var url: String {
-        lkString(_pointer.pointee.url) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.url) ?? ""
+        }
     }
-    var hasURL: Bool { _pointer.pointee.url != nil }
+    var hasURL: Bool { withExtendedLifetime(_owner) { _pointer.pointee.url != nil } }
 
     var distance: Int64 {
-        _pointer.pointee.distance?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.distance?.pointee ?? 0
+        }
     }
-    var hasDistance: Bool { _pointer.pointee.distance != nil }
+    var hasDistance: Bool { withExtendedLifetime(_owner) { _pointer.pointee.distance != nil } }
 
 }
 
@@ -3954,14 +4414,18 @@ extension livekit_SubscriptionResponse: NanopbStorage {
 typealias Livekit_SubscriptionResponse = NanopbMsg<livekit_SubscriptionResponse>
 extension Livekit_SubscriptionResponse {
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
     var err: Livekit_SubscriptionError {
-        _pointer.pointee.err.map { lkEnum($0.pointee) } ?? Livekit_SubscriptionError()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.err.map { lkEnum($0.pointee) } ?? Livekit_SubscriptionError()
+        }
     }
-    var hasErr: Bool { _pointer.pointee.err != nil }
+    var hasErr: Bool { withExtendedLifetime(_owner) { _pointer.pointee.err != nil } }
 
 }
 
@@ -3996,64 +4460,88 @@ extension livekit_RequestResponse: NanopbStorage {
 typealias Livekit_RequestResponse = NanopbMsg<livekit_RequestResponse>
 extension Livekit_RequestResponse {
     var requestID: UInt32 {
-        _pointer.pointee.request_id?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.request_id?.pointee ?? 0
+        }
     }
-    var hasRequestID: Bool { _pointer.pointee.request_id != nil }
+    var hasRequestID: Bool { withExtendedLifetime(_owner) { _pointer.pointee.request_id != nil } }
 
     var reason: Livekit_RequestResponse_Reason {
-        _pointer.pointee.reason.map { lkEnum($0.pointee) } ?? Livekit_RequestResponse_Reason()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.reason.map { lkEnum($0.pointee) } ?? Livekit_RequestResponse_Reason()
+        }
     }
-    var hasReason: Bool { _pointer.pointee.reason != nil }
+    var hasReason: Bool { withExtendedLifetime(_owner) { _pointer.pointee.reason != nil } }
 
     var message: String {
-        lkString(_pointer.pointee.message) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.message) ?? ""
+        }
     }
-    var hasMessage: Bool { _pointer.pointee.message != nil }
+    var hasMessage: Bool { withExtendedLifetime(_owner) { _pointer.pointee.message != nil } }
 
     var request: Livekit_RequestResponse_OneOf_Request? {
-        switch _pointer.pointee.which_request {
-        case lk_pb_size_t(livekit_RequestResponse_trickle_tag):
-            return .trickle(_pointer.pointee.request.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty)
-        case lk_pb_size_t(livekit_RequestResponse_add_track_tag):
-            return .addTrack(_pointer.pointee.request.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty)
-        case lk_pb_size_t(livekit_RequestResponse_mute_tag):
-            return .mute(_pointer.pointee.request.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty)
-        case lk_pb_size_t(livekit_RequestResponse_update_metadata_tag):
-            return .updateMetadata(_pointer.pointee.request.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty)
-        case lk_pb_size_t(livekit_RequestResponse_update_audio_track_tag):
-            return .updateAudioTrack(_pointer.pointee.request.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty)
-        case lk_pb_size_t(livekit_RequestResponse_update_video_track_tag):
-            return .updateVideoTrack(_pointer.pointee.request.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty)
-        case lk_pb_size_t(livekit_RequestResponse_publish_data_track_tag):
-            return .publishDataTrack(_pointer.pointee.request.publish_data_track.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty)
-        case lk_pb_size_t(livekit_RequestResponse_unpublish_data_track_tag):
-            return .unpublishDataTrack(_pointer.pointee.request.unpublish_data_track.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty)
-        default: return nil
+        withExtendedLifetime(_owner) {
+            switch _pointer.pointee.which_request {
+            case lk_pb_size_t(livekit_RequestResponse_trickle_tag):
+                return .trickle(_pointer.pointee.request.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty)
+            case lk_pb_size_t(livekit_RequestResponse_add_track_tag):
+                return .addTrack(_pointer.pointee.request.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty)
+            case lk_pb_size_t(livekit_RequestResponse_mute_tag):
+                return .mute(_pointer.pointee.request.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty)
+            case lk_pb_size_t(livekit_RequestResponse_update_metadata_tag):
+                return .updateMetadata(_pointer.pointee.request.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty)
+            case lk_pb_size_t(livekit_RequestResponse_update_audio_track_tag):
+                return .updateAudioTrack(_pointer.pointee.request.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty)
+            case lk_pb_size_t(livekit_RequestResponse_update_video_track_tag):
+                return .updateVideoTrack(_pointer.pointee.request.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty)
+            case lk_pb_size_t(livekit_RequestResponse_publish_data_track_tag):
+                return .publishDataTrack(_pointer.pointee.request.publish_data_track.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty)
+            case lk_pb_size_t(livekit_RequestResponse_unpublish_data_track_tag):
+                return .unpublishDataTrack(_pointer.pointee.request.unpublish_data_track.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty)
+            default: return nil
+            }
         }
     }
     var trickle: Livekit_TrickleRequest {
-        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_trickle_tag) ? (_pointer.pointee.request.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_trickle_tag) ? (_pointer.pointee.request.trickle.map { Livekit_TrickleRequest(_sharing: $0, owner: _owner) } ?? Livekit_TrickleRequest._empty) : Livekit_TrickleRequest()
+        }
     }
     var addTrack: Livekit_AddTrackRequest {
-        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_add_track_tag) ? (_pointer.pointee.request.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_add_track_tag) ? (_pointer.pointee.request.add_track.map { Livekit_AddTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_AddTrackRequest._empty) : Livekit_AddTrackRequest()
+        }
     }
     var mute: Livekit_MuteTrackRequest {
-        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_mute_tag) ? (_pointer.pointee.request.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_mute_tag) ? (_pointer.pointee.request.mute.map { Livekit_MuteTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_MuteTrackRequest._empty) : Livekit_MuteTrackRequest()
+        }
     }
     var updateMetadata: Livekit_UpdateParticipantMetadata {
-        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_metadata_tag) ? (_pointer.pointee.request.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_metadata_tag) ? (_pointer.pointee.request.update_metadata.map { Livekit_UpdateParticipantMetadata(_sharing: $0, owner: _owner) } ?? Livekit_UpdateParticipantMetadata._empty) : Livekit_UpdateParticipantMetadata()
+        }
     }
     var updateAudioTrack: Livekit_UpdateLocalAudioTrack {
-        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_audio_track_tag) ? (_pointer.pointee.request.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_audio_track_tag) ? (_pointer.pointee.request.update_audio_track.map { Livekit_UpdateLocalAudioTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalAudioTrack._empty) : Livekit_UpdateLocalAudioTrack()
+        }
     }
     var updateVideoTrack: Livekit_UpdateLocalVideoTrack {
-        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_video_track_tag) ? (_pointer.pointee.request.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_update_video_track_tag) ? (_pointer.pointee.request.update_video_track.map { Livekit_UpdateLocalVideoTrack(_sharing: $0, owner: _owner) } ?? Livekit_UpdateLocalVideoTrack._empty) : Livekit_UpdateLocalVideoTrack()
+        }
     }
     var publishDataTrack: Livekit_PublishDataTrackRequest {
-        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_publish_data_track_tag) ? (_pointer.pointee.request.publish_data_track.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_publish_data_track_tag) ? (_pointer.pointee.request.publish_data_track.map { Livekit_PublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_PublishDataTrackRequest._empty) : Livekit_PublishDataTrackRequest()
+        }
     }
     var unpublishDataTrack: Livekit_UnpublishDataTrackRequest {
-        _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_unpublish_data_track_tag) ? (_pointer.pointee.request.unpublish_data_track.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_request == lk_pb_size_t(livekit_RequestResponse_unpublish_data_track_tag) ? (_pointer.pointee.request.unpublish_data_track.map { Livekit_UnpublishDataTrackRequest(_sharing: $0, owner: _owner) } ?? Livekit_UnpublishDataTrackRequest._empty) : Livekit_UnpublishDataTrackRequest()
+        }
     }
 
 }
@@ -4264,9 +4752,11 @@ extension livekit_TrackSubscribed: NanopbStorage {
 typealias Livekit_TrackSubscribed = NanopbMsg<livekit_TrackSubscribed>
 extension Livekit_TrackSubscribed {
     var trackSid: String {
-        lkString(_pointer.pointee.track_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.track_sid) ?? ""
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
 }
 
@@ -4285,29 +4775,39 @@ extension livekit_ConnectionSettings: NanopbStorage {
 typealias Livekit_ConnectionSettings = NanopbMsg<livekit_ConnectionSettings>
 extension Livekit_ConnectionSettings {
     var autoSubscribe: Bool {
-        _pointer.pointee.auto_subscribe?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.auto_subscribe?.pointee ?? false
+        }
     }
-    var hasAutoSubscribe: Bool { _pointer.pointee.auto_subscribe != nil }
+    var hasAutoSubscribe: Bool { withExtendedLifetime(_owner) { _pointer.pointee.auto_subscribe != nil } }
 
     var adaptiveStream: Bool {
-        _pointer.pointee.adaptive_stream?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.adaptive_stream?.pointee ?? false
+        }
     }
-    var hasAdaptiveStream: Bool { _pointer.pointee.adaptive_stream != nil }
+    var hasAdaptiveStream: Bool { withExtendedLifetime(_owner) { _pointer.pointee.adaptive_stream != nil } }
 
     var subscriberAllowPause: Bool {
-        _pointer.pointee.subscriber_allow_pause?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.subscriber_allow_pause?.pointee ?? false
+        }
     }
-    var hasSubscriberAllowPause: Bool { _pointer.pointee.subscriber_allow_pause != nil }
+    var hasSubscriberAllowPause: Bool { withExtendedLifetime(_owner) { _pointer.pointee.subscriber_allow_pause != nil } }
 
     var disableIceLite: Bool {
-        _pointer.pointee.disable_ice_lite?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.disable_ice_lite?.pointee ?? false
+        }
     }
-    var hasDisableIceLite: Bool { _pointer.pointee.disable_ice_lite != nil }
+    var hasDisableIceLite: Bool { withExtendedLifetime(_owner) { _pointer.pointee.disable_ice_lite != nil } }
 
     var autoSubscribeDataTrack: Bool {
-        _pointer.pointee.auto_subscribe_data_track?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.auto_subscribe_data_track?.pointee ?? false
+        }
     }
-    var hasAutoSubscribeDataTrack: Bool { _pointer.pointee.auto_subscribe_data_track != nil }
+    var hasAutoSubscribeDataTrack: Bool { withExtendedLifetime(_owner) { _pointer.pointee.auto_subscribe_data_track != nil } }
 
 }
 
@@ -4346,56 +4846,76 @@ extension livekit_JoinRequest: NanopbStorage {
 typealias Livekit_JoinRequest = NanopbMsg<livekit_JoinRequest>
 extension Livekit_JoinRequest {
     var clientInfo: Livekit_ClientInfo {
-        _pointer.pointee.client_info.map { Livekit_ClientInfo(_sharing: $0, owner: _owner) } ?? Livekit_ClientInfo._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.client_info.map { Livekit_ClientInfo(_sharing: $0, owner: _owner) } ?? Livekit_ClientInfo._empty
+        }
     }
-    var hasClientInfo: Bool { _pointer.pointee.client_info != nil }
+    var hasClientInfo: Bool { withExtendedLifetime(_owner) { _pointer.pointee.client_info != nil } }
 
     var connectionSettings: Livekit_ConnectionSettings {
-        _pointer.pointee.connection_settings.map { Livekit_ConnectionSettings(_sharing: $0, owner: _owner) } ?? Livekit_ConnectionSettings._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.connection_settings.map { Livekit_ConnectionSettings(_sharing: $0, owner: _owner) } ?? Livekit_ConnectionSettings._empty
+        }
     }
-    var hasConnectionSettings: Bool { _pointer.pointee.connection_settings != nil }
+    var hasConnectionSettings: Bool { withExtendedLifetime(_owner) { _pointer.pointee.connection_settings != nil } }
 
     var metadata: String {
-        lkString(_pointer.pointee.metadata) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.metadata) ?? ""
+        }
     }
-    var hasMetadata: Bool { _pointer.pointee.metadata != nil }
+    var hasMetadata: Bool { withExtendedLifetime(_owner) { _pointer.pointee.metadata != nil } }
 
     var participantAttributes: [String: String] {
-        var out: [String: String] = [:]
-        for entry in lkViews(_pointer.pointee.participant_attributes_count, _pointer.pointee.participant_attributes, owner: _owner) as [Livekit_JoinRequest_ParticipantAttributesEntry] {
-            out[entry.key] = entry.value
+        withExtendedLifetime(_owner) {
+            var out: [String: String] = [:]
+            for entry in lkViews(_pointer.pointee.participant_attributes_count, _pointer.pointee.participant_attributes, owner: _owner) as [Livekit_JoinRequest_ParticipantAttributesEntry] {
+                out[entry.key] = entry.value
+            }
+            return out
         }
-        return out
     }
 
     var addTrackRequests: [Livekit_AddTrackRequest] {
-        lkViews(_pointer.pointee.add_track_requests_count, _pointer.pointee.add_track_requests, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.add_track_requests_count, _pointer.pointee.add_track_requests, owner: _owner)
+        }
     }
 
     var publisherOffer: Livekit_SessionDescription {
-        _pointer.pointee.publisher_offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.publisher_offer.map { Livekit_SessionDescription(_sharing: $0, owner: _owner) } ?? Livekit_SessionDescription._empty
+        }
     }
-    var hasPublisherOffer: Bool { _pointer.pointee.publisher_offer != nil }
+    var hasPublisherOffer: Bool { withExtendedLifetime(_owner) { _pointer.pointee.publisher_offer != nil } }
 
     var reconnect: Bool {
-        _pointer.pointee.reconnect?.pointee ?? false
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.reconnect?.pointee ?? false
+        }
     }
-    var hasReconnect: Bool { _pointer.pointee.reconnect != nil }
+    var hasReconnect: Bool { withExtendedLifetime(_owner) { _pointer.pointee.reconnect != nil } }
 
     var reconnectReason: Livekit_ReconnectReason {
-        _pointer.pointee.reconnect_reason.map { lkEnum($0.pointee) } ?? Livekit_ReconnectReason()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.reconnect_reason.map { lkEnum($0.pointee) } ?? Livekit_ReconnectReason()
+        }
     }
-    var hasReconnectReason: Bool { _pointer.pointee.reconnect_reason != nil }
+    var hasReconnectReason: Bool { withExtendedLifetime(_owner) { _pointer.pointee.reconnect_reason != nil } }
 
     var participantSid: String {
-        lkString(_pointer.pointee.participant_sid) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.participant_sid) ?? ""
+        }
     }
-    var hasParticipantSid: Bool { _pointer.pointee.participant_sid != nil }
+    var hasParticipantSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.participant_sid != nil } }
 
     var syncState: Livekit_SyncState {
-        _pointer.pointee.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _owner) } ?? Livekit_SyncState._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.sync_state.map { Livekit_SyncState(_sharing: $0, owner: _owner) } ?? Livekit_SyncState._empty
+        }
     }
-    var hasSyncState: Bool { _pointer.pointee.sync_state != nil }
+    var hasSyncState: Bool { withExtendedLifetime(_owner) { _pointer.pointee.sync_state != nil } }
 
 }
 
@@ -4406,14 +4926,18 @@ extension livekit_JoinRequest_ParticipantAttributesEntry: NanopbStorage {
 typealias Livekit_JoinRequest_ParticipantAttributesEntry = NanopbMsg<livekit_JoinRequest_ParticipantAttributesEntry>
 extension Livekit_JoinRequest_ParticipantAttributesEntry {
     var key: String {
-        lkString(_pointer.pointee.key) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.key) ?? ""
+        }
     }
-    var hasKey: Bool { _pointer.pointee.key != nil }
+    var hasKey: Bool { withExtendedLifetime(_owner) { _pointer.pointee.key != nil } }
 
     var value: String {
-        lkString(_pointer.pointee.value) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.value) ?? ""
+        }
     }
-    var hasValue: Bool { _pointer.pointee.value != nil }
+    var hasValue: Bool { withExtendedLifetime(_owner) { _pointer.pointee.value != nil } }
 
 }
 
@@ -4508,14 +5032,18 @@ extension livekit_WrappedJoinRequest: NanopbStorage {
 typealias Livekit_WrappedJoinRequest = NanopbMsg<livekit_WrappedJoinRequest>
 extension Livekit_WrappedJoinRequest {
     var compression: Livekit_WrappedJoinRequest_Compression {
-        _pointer.pointee.compression.map { lkEnum($0.pointee) } ?? Livekit_WrappedJoinRequest_Compression()
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.compression.map { lkEnum($0.pointee) } ?? Livekit_WrappedJoinRequest_Compression()
+        }
     }
-    var hasCompression: Bool { _pointer.pointee.compression != nil }
+    var hasCompression: Bool { withExtendedLifetime(_owner) { _pointer.pointee.compression != nil } }
 
     var joinRequest: Data {
-        lkData(_pointer.pointee.join_request)
+        withExtendedLifetime(_owner) {
+            lkData(_pointer.pointee.join_request)
+        }
     }
-    var hasJoinRequest: Bool { _pointer.pointee.join_request != nil }
+    var hasJoinRequest: Bool { withExtendedLifetime(_owner) { _pointer.pointee.join_request != nil } }
 
 }
 
@@ -4548,14 +5076,18 @@ extension livekit_MediaSectionsRequirement: NanopbStorage {
 typealias Livekit_MediaSectionsRequirement = NanopbMsg<livekit_MediaSectionsRequirement>
 extension Livekit_MediaSectionsRequirement {
     var numAudios: UInt32 {
-        _pointer.pointee.num_audios?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.num_audios?.pointee ?? 0
+        }
     }
-    var hasNumAudios: Bool { _pointer.pointee.num_audios != nil }
+    var hasNumAudios: Bool { withExtendedLifetime(_owner) { _pointer.pointee.num_audios != nil } }
 
     var numVideos: UInt32 {
-        _pointer.pointee.num_videos?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.num_videos?.pointee ?? 0
+        }
     }
-    var hasNumVideos: Bool { _pointer.pointee.num_videos != nil }
+    var hasNumVideos: Bool { withExtendedLifetime(_owner) { _pointer.pointee.num_videos != nil } }
 
 }
 

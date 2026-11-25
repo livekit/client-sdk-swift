@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 public let defaultRatchetSalt: String = "LKFrameEncryptionKey"
 public let defaultMagicBytes: String = "LK-ROCKS"
@@ -34,6 +33,19 @@ public enum KeyDerivationAlgorithm: Int, Sendable {
     case pbkdf2 = 0
     /// HKDF — required for interop with peers that derive keys via HKDF.
     case hkdf = 1
+}
+
+/// AES-GCM key size for media and data packet encryption, matching the JS SDK's `keySize` option.
+///
+/// Every participant in a room must use the same key size. The default is ``bits128``.
+///
+/// - SeeAlso: ``KeyProviderOptions``
+@objc
+public enum KeySize: Int, Sendable {
+    /// 128-bit AES keys (the default).
+    case bits128 = 128
+    /// 256-bit AES keys.
+    case bits256 = 256
 }
 
 @objcMembers
@@ -54,6 +66,31 @@ public final class KeyProviderOptions: NSObject, Sendable {
 
     public let keyDerivationAlgorithm: KeyDerivationAlgorithm
 
+    /// AES-GCM key size. Defaults to `.bits128`; every participant must use the same size.
+    public let keySize: KeySize
+
+    /// Creates key provider options with the default 128-bit AES key size.
+    public convenience init(sharedKey: Bool = true,
+                            ratchetSalt: Data = defaultRatchetSalt.data(using: .utf8)!,
+                            ratchetWindowSize: Int32 = defaultRatchetWindowSize,
+                            uncryptedMagicBytes: Data = defaultMagicBytes.data(using: .utf8)!,
+                            failureTolerance: Int32 = defaultFailureTolerance,
+                            keyRingSize: Int32 = defaultKeyRingSize,
+                            discardFrameWhenCryptorNotReady: Bool = false,
+                            keyDerivationAlgorithm: KeyDerivationAlgorithm = .pbkdf2)
+    {
+        self.init(sharedKey: sharedKey,
+                  ratchetSalt: ratchetSalt,
+                  ratchetWindowSize: ratchetWindowSize,
+                  uncryptedMagicBytes: uncryptedMagicBytes,
+                  failureTolerance: failureTolerance,
+                  keyRingSize: keyRingSize,
+                  discardFrameWhenCryptorNotReady: discardFrameWhenCryptorNotReady,
+                  keyDerivationAlgorithm: keyDerivationAlgorithm,
+                  keySize: .bits128)
+    }
+
+    /// Creates key provider options with the specified AES key size (128 bits by default).
     public init(sharedKey: Bool = true,
                 ratchetSalt: Data = defaultRatchetSalt.data(using: .utf8)!,
                 ratchetWindowSize: Int32 = defaultRatchetWindowSize,
@@ -61,7 +98,8 @@ public final class KeyProviderOptions: NSObject, Sendable {
                 failureTolerance: Int32 = defaultFailureTolerance,
                 keyRingSize: Int32 = defaultKeyRingSize,
                 discardFrameWhenCryptorNotReady: Bool = false,
-                keyDerivationAlgorithm: KeyDerivationAlgorithm = .pbkdf2)
+                keyDerivationAlgorithm: KeyDerivationAlgorithm = .pbkdf2,
+                keySize: KeySize = .bits128)
     {
         self.sharedKey = sharedKey
         self.ratchetSalt = ratchetSalt
@@ -71,6 +109,7 @@ public final class KeyProviderOptions: NSObject, Sendable {
         self.keyRingSize = keyRingSize
         self.discardFrameWhenCryptorNotReady = discardFrameWhenCryptorNotReady
         self.keyDerivationAlgorithm = keyDerivationAlgorithm
+        self.keySize = keySize
     }
 
     // MARK: - Equal
@@ -84,7 +123,8 @@ public final class KeyProviderOptions: NSObject, Sendable {
             failureTolerance == other.failureTolerance &&
             keyRingSize == other.keyRingSize &&
             discardFrameWhenCryptorNotReady == other.discardFrameWhenCryptorNotReady &&
-            keyDerivationAlgorithm == other.keyDerivationAlgorithm
+            keyDerivationAlgorithm == other.keyDerivationAlgorithm &&
+            keySize == other.keySize
     }
 
     override public var hash: Int {
@@ -97,6 +137,7 @@ public final class KeyProviderOptions: NSObject, Sendable {
         hasher.combine(keyRingSize)
         hasher.combine(discardFrameWhenCryptorNotReady)
         hasher.combine(keyDerivationAlgorithm)
+        hasher.combine(keySize)
         return hasher.finalize()
     }
 }
@@ -113,6 +154,8 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     struct State {
         var currentKeyIndex: Int32 = 0
+        var keyIndexGeneration: UInt64 = 0
+        var keyIndexObservers = [ObjectIdentifier: @Sendable (Int32, UInt64) -> Void]()
     }
 
     private let _state = StateSync(State())
@@ -128,7 +171,8 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
                                                       failureTolerance: options.failureTolerance,
                                                       keyRingSize: options.keyRingSize,
                                                       discardFrameWhenCryptorNotReady: options.discardFrameWhenCryptorNotReady,
-                                                      keyDerivationAlgorithm: options.keyDerivationAlgorithm.toRTCType())
+                                                      keyDerivationAlgorithm: options.keyDerivationAlgorithm.toRTCType(),
+                                                      keySize: Int32(options.keySize.rawValue))
         if isSharedKey, sharedKey != nil {
             let keyData = sharedKey!.data(using: .utf8)!
             rtcKeyProvider.setSharedKey(keyData, with: 0)
@@ -144,7 +188,8 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
                                                       failureTolerance: options.failureTolerance,
                                                       keyRingSize: options.keyRingSize,
                                                       discardFrameWhenCryptorNotReady: options.discardFrameWhenCryptorNotReady,
-                                                      keyDerivationAlgorithm: options.keyDerivationAlgorithm.toRTCType())
+                                                      keyDerivationAlgorithm: options.keyDerivationAlgorithm.toRTCType(),
+                                                      keySize: Int32(options.keySize.rawValue))
     }
 
     // MARK: - Key management
@@ -155,6 +200,10 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     /// Sets a raw binary key without any string conversion.
     ///
+    /// In shared key mode installing a key also makes `index` the current key index. In non-shared
+    /// key mode it does not, since the key may belong to a remote participant: switch the local
+    /// participant's index with ``setCurrentKeyIndex(_:)``.
+    ///
     /// - Parameters:
     ///   - keyData: The key bytes, stored as provided.
     ///   - participantId: Required in non-shared key mode; the call is a no-op when `nil`.
@@ -164,16 +213,16 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
         if options.sharedKey {
             rtcKeyProvider.setSharedKey(keyData, with: targetIndex)
-        } else {
-            if participantId == nil {
-                log("setKey: Please provide valid participantId for non-SharedKey mode.")
-                return
-            }
-
-            rtcKeyProvider.setKey(keyData, with: targetIndex, forParticipant: participantId!)
+            setCurrentKeyIndex(targetIndex)
+            return
         }
 
-        setCurrentKeyIndex(targetIndex)
+        guard let participantId else {
+            log("setKey: Please provide valid participantId for non-SharedKey mode.")
+            return
+        }
+
+        rtcKeyProvider.setKey(keyData, with: targetIndex, forParticipant: participantId)
     }
 
     public func ratchetKey(participantId: String? = nil, index: Int32? = nil) -> Data? {
@@ -210,12 +259,45 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
         rtcKeyProvider.setSifTrailer(trailer)
     }
 
+    /// The key index the local participant encrypts with: stamped into every outgoing media frame
+    /// and data packet, and pushed to the live media senders when it changes.
     public func getCurrentKeyIndex() -> Int32 {
         _state.currentKeyIndex
     }
 
+    /// Switches the local participant's encryption to the key at `index` (modulo the key ring size).
+    ///
+    /// Takes effect immediately for the media tracks already published and for every data packet
+    /// sent afterwards. Receivers are unaffected: they read the index from each frame.
     public func setCurrentKeyIndex(_ index: Int32) {
-        _state.mutate { $0.currentKeyIndex = index % options.keyRingSize }
+        let (currentKeyIndex, generation, observers) = _state.mutate {
+            $0.currentKeyIndex = index % options.keyRingSize
+            $0.keyIndexGeneration += 1
+            return ($0.currentKeyIndex, $0.keyIndexGeneration, Array($0.keyIndexObservers.values))
+        }
+        for observer in observers {
+            observer(currentKeyIndex, generation)
+        }
+    }
+
+    // MARK: - Internal
+
+    /// The current key index with the generation of the change that set it. Observers are
+    /// notified outside the lock, so the generation is what lets them order concurrent changes.
+    func currentKeyIndexWithGeneration() -> (index: Int32, generation: UInt64) {
+        _state.read { ($0.currentKeyIndex, $0.keyIndexGeneration) }
+    }
+
+    var keyIndexObserverCount: Int {
+        _state.keyIndexObservers.count
+    }
+
+    func addKeyIndexObserver(_ owner: AnyObject, _ observer: @escaping @Sendable (Int32, UInt64) -> Void) {
+        _state.mutate { $0.keyIndexObservers[ObjectIdentifier(owner)] = observer }
+    }
+
+    func removeKeyIndexObserver(_ owner: AnyObject) {
+        _state.mutate { $0.keyIndexObservers[ObjectIdentifier(owner)] = nil }
     }
 
     // MARK: - Equal

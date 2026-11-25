@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized, .tags(.e2e))
+@Suite(.serialized, .tags(.e2e), TestLimits.e2e)
 struct PublishDataTests {
     // Test with canSubscribe: true
     @Test func publishDataReceiverCanSubscribe() async throws {
@@ -54,11 +54,16 @@ struct PublishDataTests {
             // Create Room delegate watcher
             let room2Watcher: RoomWatcher<TestDataPayload> = room2.createWatcher()
 
-            // Publish concurrently
+            // Publish concurrently, reliably. This asserts that all 100 payloads arrive, and
+            // `DataPublishOptions.reliable` defaults to `false` — the lossy channel neither
+            // retransmits nor guarantees delivery, so the default made this assert a guarantee the
+            // transport does not make. What is under test here is the permission matrix, not the
+            // best-effort channel; `PeerConnectionSignalingTests.dataChannelBurstImmediatelyAfterConnect`
+            // covers the post-connect burst on both signaling modes.
             try await withThrowingTaskGroup { group in
                 for topic in topics {
                     group.addTask {
-                        try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic))
+                        try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic, reliable: true))
                     }
                 }
 

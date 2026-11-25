@@ -53,6 +53,7 @@ public final class ConnectOptions: NSObject, Sendable {
     public let reconnectMaxDelay: TimeInterval
 
     /// The timeout interval for the initial websocket connection.
+    /// - Note: It applies to each attempt: a redirect or a Basic authentication retry starts a new timeout.
     public let socketConnectTimeoutInterval: TimeInterval
 
     public let primaryTransportConnectTimeout: TimeInterval
@@ -76,8 +77,8 @@ public final class ConnectOptions: NSObject, Sendable {
 
     /// Client-to-client protocol version advertised to other participants.
     ///
-    /// Defaults to ``ClientProtocol/v1``, which enables RPC v2 (data-stream-based payloads
-    /// with no 15 KB size limit). Generally, it's not recommended to change this.
+    /// Defaults to ``ClientProtocol/v2``, which enables data streams v2.
+    /// Generally, it's not recommended to change this.
     public let clientProtocol: ClientProtocol
 
     override public init() {
@@ -93,7 +94,7 @@ public final class ConnectOptions: NSObject, Sendable {
         isDscpEnabled = false
         enableMicrophone = false
         protocolVersion = .v16
-        clientProtocol = .v1
+        clientProtocol = .v2
     }
 
     public init(autoSubscribe: Bool = true,
@@ -108,7 +109,7 @@ public final class ConnectOptions: NSObject, Sendable {
                 isDscpEnabled: Bool = false,
                 enableMicrophone: Bool = false,
                 protocolVersion: ProtocolVersion = .v16,
-                clientProtocol: ClientProtocol = .v1)
+                clientProtocol: ClientProtocol = .v2)
     {
         self.autoSubscribe = autoSubscribe
         self.reconnectAttempts = reconnectAttempts

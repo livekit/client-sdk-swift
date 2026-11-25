@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import CoreMedia
-
 internal import LiveKitWebRTC
+import CoreMedia
 
 /// A container for the pixel data of a ``VideoFrame``.
 ///

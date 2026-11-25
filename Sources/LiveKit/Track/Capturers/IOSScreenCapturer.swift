@@ -198,6 +198,7 @@ extension IOSScreenCapturer: SCContentSharingPickerObserver {
     }
 }
 
+@available(iOS 27.0, *)
 public extension LocalVideoTrack {
     /// Creates a screen-share track backed by ScreenCaptureKit (iOS 27+), without a Broadcast Upload Extension.
     ///
@@ -208,7 +209,6 @@ public extension LocalVideoTrack {
     ///
     /// - Parameter captureCurrentApplicationOnly: When `true`, restricts capture to the current
     ///   application. When `false`, the system picker allows selecting system-wide content.
-    @available(iOS 27.0, *)
     static func createIOSScreenShareTrack(name: String = Track.screenShareVideoName,
                                           options: ScreenShareCaptureOptions = ScreenShareCaptureOptions(),
                                           captureCurrentApplicationOnly: Bool = false,

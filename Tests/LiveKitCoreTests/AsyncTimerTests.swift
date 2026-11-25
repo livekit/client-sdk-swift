@@ -32,7 +32,11 @@ private actor ManualSleeper {
         { [weak self] _ in await self?.park() }
     }
 
+    /// A cancelled loop gets no countdown, as `Task.sleep` throws at once for a cancelled task, so
+    /// every countdown that parks belongs to a loop that was live when it parked. One cancelled
+    /// *while* parked still waits for a release, then exits without firing.
     private func park() async {
+        if Task.isCancelled { return }
         await withCheckedContinuation { parked.append($0) }
     }
 
@@ -49,10 +53,17 @@ private actor ManualSleeper {
         }
     }
 
-    func waitForParked(_ count: Int, timeout: TimeInterval = 30) async {
+    /// Fails the test if the countdowns never park: the loop rides a `.utility` task, and when a
+    /// loaded host starves it past the budget, the `tickAll()` that follows releases nothing and
+    /// the fire being waited on can never come. Failing here names that, instead of the counter
+    /// assertion downstream.
+    func waitForParked(_ count: Int, timeout: TimeInterval = 60, sourceLocation: SourceLocation = #_sourceLocation) async {
         let deadline = Date().addingTimeInterval(timeout)
         while parked.count < count, Date() < deadline {
             try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        if parked.count < count {
+            Issue.record("Only \(parked.count) of \(count) countdown(s) parked within \(timeout)s", sourceLocation: sourceLocation)
         }
     }
 }
@@ -122,36 +133,42 @@ struct AsyncTimerTests {
         #expect(await counter.getCount() == afterCancel)
     }
 
-    @Test func concurrentArmingLeavesSingleLoop() async throws {
+    /// Hammering `restart()`/`startIfStopped()` concurrently must leave exactly one loop. The
+    /// previous design could orphan a scheduling task here and run several loops at once.
+    ///
+    /// Driven by the sleeper rather than real time, so "one loop" is measured exactly instead of
+    /// inferred from a fire count against a 3× bound that needed the loop to run on schedule.
+    /// Loops that lost the race were cancelled; any that parked before being cancelled are
+    /// released by the first `tickAll()` and exit, and a cancelled loop can never park again. From
+    /// then on only the survivor parks, so each release must fire exactly once — counted after
+    /// the survivor has parked again, which it does only once its block has finished.
+    @Test func concurrentArmingLeavesSingleLoop() async {
         let counter = ConcurrentCounter()
-        // 5ms rather than 50ms: the loop still races real time here, but fires often
-        // enough that the liveness check below can't be starved out.
-        let interval: TimeInterval = 0.005
-        let timer = AsyncTimer(interval: interval)
+        let sleeper = ManualSleeper()
+        let timer = AsyncTimer(interval: Self.interval, sleep: sleeper.sleep)
         timer.setTimerBlock { _ = await counter.increment() }
 
-        // Hammer with concurrent restart()/startIfStopped(): the previous design
-        // could orphan a scheduling task here and run several loops at once.
         await withTaskGroup(of: Void.self) { group in
             for i in 0 ..< 50 {
                 group.addTask { i.isMultiple(of: 2) ? timer.restart() : timer.startIfStopped() }
             }
         }
 
-        let start = Date()
-        #expect(await counter.wait(untilAtLeast: 1) >= 1) // a loop is running
-        try await Task.sleep(nanoseconds: 100_000_000)
-        timer.cancel()
-        let elapsed = Date().timeIntervalSince(start)
-        let count = await counter.getCount()
+        await sleeper.tickAll()
+        await sleeper.waitForParked(1)
+        var fired = await counter.getCount()
 
-        // A single loop can fire at most `elapsed / interval` times. Normalizing by
-        // the measured elapsed time keeps this valid when the host defers wake-ups;
-        // the orphan bug spawned dozens of concurrent loops, so a 3x allowance
-        // still trips on it.
-        let singleLoopBound = elapsed / interval + 1
-        #expect(Double(count) <= singleLoopBound * 3,
-                "\(count) fires in \(elapsed)s exceeds what a single loop can produce")
+        for _ in 0 ..< 3 {
+            await sleeper.tickAll()
+            await sleeper.waitForParked(1)
+            #expect(await sleeper.parkedCount == 1, "exactly one loop parks for the next cycle")
+            let now = await counter.getCount()
+            #expect(now == fired + 1, "a release fired \(now - fired) times; one loop fires once")
+            fired = now
+        }
+
+        timer.cancel()
+        await sleeper.tickAll()
     }
 
     @Test func blockCancellingOwnTimerFiresOnce() async {

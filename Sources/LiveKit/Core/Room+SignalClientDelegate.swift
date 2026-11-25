@@ -19,10 +19,9 @@
 #if !COCOAPODS && !LK_XCFRAMEWORK
 import LiveKitNanopb
 #endif
-internal import LiveKitUniFFI
-import Foundation
-
+internal import LiveKitFFI
 internal import LiveKitWebRTC
+import Foundation
 
 extension Room: SignalClientDelegate {
     func signalClient(_: SignalClient, didUpdateConnectionState connectionState: ConnectionState,
@@ -361,6 +360,12 @@ extension Room: SignalClientDelegate {
         do {
             let publisher = try requirePublisher()
             try await publisher.set(remoteDescription: answer, offerId: offerId)
+
+            // Applying the answer re-enables every encoding, and the server only reports
+            // qualities that changed, so nothing else brings the paused layers back.
+            if _state.roomOptions.dynacast {
+                await localParticipant.refreshSubscribedQualities()
+            }
         } catch {
             log("Failed to set remote description with offerId: \(offerId), error: \(error)", .error)
         }

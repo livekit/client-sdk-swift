@@ -47,11 +47,11 @@ extension AudioDuckingLevel {
 extension LKRTCAudioDuckingLevel {
     func toLKType() -> AudioDuckingLevel {
         switch self {
-        case .default: return .default
-        case .min: return .min
-        case .mid: return .mid
-        case .max: return .max
-        @unknown default: return .default
+        case .default: .default
+        case .min: .min
+        case .mid: .mid
+        case .max: .max
+        @unknown default: .default
         }
     }
 }

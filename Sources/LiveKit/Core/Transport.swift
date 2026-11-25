@@ -16,9 +16,8 @@
 
 // swiftlint:disable file_length
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 @RTC
 final class Transport: NSObject, Loggable {
@@ -65,6 +64,24 @@ final class Transport: NSObject, Loggable {
     private var _onOffer: OnOfferBlock?
     private var _isRestartingIce: Bool = false
     private var _latestOfferId: UInt32 = 0
+    private var _isClosed: Bool = false
+    /// `x-google-start-bitrate` (kbps) hinted for each video sender id, recorded by
+    /// ``addTransceiver(with:transceiverInit:startBitrateKbps:)``. The largest hint among the
+    /// senders in an offer is the connection-level value; see
+    /// ``mungeVideoStartBitrate(_:kbpsBySenderId:)``.
+    private var _startBitrateKbpsBySenderId: [String: Int] = [:]
+    /// When the connection attempt that built this transport began, as
+    /// `ProcessInfo.systemUptime`; see ``set(connectStartedAt:)``.
+    private var _connectStartedAt: TimeInterval?
+    /// How long the connection attempt that built this transport took to set up, in seconds;
+    /// see ``set(connectionSetupTime:)``.
+    private var _connectionSetupTime: TimeInterval?
+    /// Whether an offer carrying `x-google-start-bitrate` has been accepted locally. The hint
+    /// is written once per peer connection: libwebrtc retains `start_bitrate_bps` in
+    /// `RtpBitrateConfigurator` and re-applies it on network route changes, so a later rewrite
+    /// is at best a no-op and at worst restarts a converged bandwidth estimator. A full
+    /// reconnect builds a new `Transport`, whose new estimator is seeded again.
+    private var _hasAppliedVideoStartBitrate = false
 
     // forbid direct access to PeerConnection; the box parks its blocking release on deinit
     private let _pcBox: RTCBox<LKRTCPeerConnection>
@@ -84,7 +101,11 @@ final class Transport: NSObject, Loggable {
     private func add(rtcCandidate: LKRTCIceCandidate) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             _pc.add(rtcCandidate) { @Sendable error in
-                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
             }
         }
     }
@@ -142,8 +163,14 @@ final class Transport: NSObject, Loggable {
     ///   (the dual-PC subscriber-primary flow has the server offer first).
     /// - Note: The munges are applied here and the result is signalled as-is, so unlike
     ///   ``set(localDescription:munging:)`` a munge libwebrtc rejects cannot be dropped
-    ///   and retried — the peer has already been told what we offered. Both munges on
-    ///   this path are the ones every single PC mode offer already carries.
+    ///   and retried — the peer has already been told what we offered. These are the
+    ///   same audio munges every ordinary single PC mode offer carries.
+    /// - Note: The video start bitrate is deliberately not written here. It derives from
+    ///   senders added by ``addTransceiver(with:transceiverInit:startBitrateKbps:)``, and
+    ///   none exist before the JOIN, so there is never a value to write; and the one-shot
+    ///   latch could not be set safely, since this offer may be dropped unapplied
+    ///   (``clearPendingInitialOffer()``). ``createAndSendOffer(iceRestart:)`` owns the hint
+    ///   and latches only once the offer carrying it has been accepted, as in rust-sdks.
     func createInitialOffer() async throws -> (offer: LKRTCSessionDescription, offerId: UInt32)? {
         guard singlePCMode else { return nil }
 
@@ -153,7 +180,7 @@ final class Transport: NSObject, Loggable {
         }
 
         let offer = try await createOffer()
-        let mungedSDP = [Self.mungeInactiveToRecvOnlyForMedia, Self.mungeOpusStereoForAllAudio]
+        let mungedSDP = [Self.mungeOpusStereoForAllAudio, Self.mungeOpusNackForAllAudio]
             .reduce(offer.sdp) { $1($0) }
         let munged = mungedSDP == offer.sdp ? offer : RTC.createSessionDescription(type: offer.type, sdp: mungedSDP)
 
@@ -186,6 +213,28 @@ final class Transport: NSObject, Loggable {
 
     func setIsRestartingIce() {
         _isRestartingIce = true
+    }
+
+    /// Records when the connection attempt that built this transport began, as
+    /// `ProcessInfo.systemUptime`. A video published before ``set(connectionSetupTime:)``
+    /// takes the time elapsed since then as the setup time, a lower bound that can only err
+    /// toward the ``maxStartBitrateKbps`` ceiling.
+    func set(connectStartedAt: TimeInterval) {
+        _connectStartedAt = connectStartedAt
+    }
+
+    /// Records how long the connection attempt that built this transport took to set up, in
+    /// seconds, which caps the video start bitrate hint; see
+    /// ``startBitrateCapKbps(connectionSetupTime:)``. A quick reconnect keeps the peer
+    /// connection and its estimator, and never calls this.
+    func set(connectionSetupTime: TimeInterval) {
+        _connectionSetupTime = connectionSetupTime
+    }
+
+    /// The setup time a video start bitrate hint is derived from: the recorded setup time, or
+    /// while the connection is still being set up, the time elapsed so far.
+    var connectionSetupTime: TimeInterval? {
+        _connectionSetupTime ?? _connectStartedAt.map { ProcessInfo.processInfo.systemUptime - $0 }
     }
 
     func add(iceCandidate candidate: IceCandidate) async throws {
@@ -268,11 +317,23 @@ final class Transport: NSObject, Loggable {
         func _negotiateSequence() async throws {
             _latestOfferId += 1
             var offer = try await createOffer(for: constraints)
-            // The direction rewrite is required to receive media in single PC mode; the
-            // stereo preference is optional and must be the one dropped on rejection.
+            let kbpsBySenderId = _startBitrateKbpsBySenderId
+            let hasAppliedStartBitrate = _hasAppliedVideoStartBitrate
+            let startBitrate: (String) -> String = {
+                hasAppliedStartBitrate ? $0 : Self.mungeVideoStartBitrate($0, kbpsBySenderId: kbpsBySenderId)
+            }
+            // `conformBundledCodecFmtp` runs last in both modes: it repairs whatever the munges
+            // before it made inconsistent across the BUNDLE group, and it is a no-op on an offer
+            // with no receive-only section — which is every dual PC offer until a track is
+            // unpublished.
             offer = try await set(localDescription: offer, munging: singlePCMode
-                ? [Self.mungeInactiveToRecvOnlyForMedia, Self.mungeOpusStereoForAllAudio]
-                : [])
+                ? [Self.mungeOpusStereoForAllAudio, Self.mungeOpusNackForAllAudio, startBitrate, Self.conformBundledCodecFmtp]
+                : [startBitrate, Self.conformBundledCodecFmtp])
+            // A rejected munge is dropped and the offer retried without it, so the one-shot
+            // hint is consumed only once the description that carries it has been accepted.
+            if !_hasAppliedVideoStartBitrate, Self.carriesVideoStartBitrate(offer.sdp) {
+                _hasAppliedVideoStartBitrate = true
+            }
             try await _onOffer(offer, _latestOfferId)
         }
 
@@ -286,6 +347,8 @@ final class Transport: NSObject, Loggable {
     }
 
     func close() async {
+        _isClosed = true
+
         // prevent debounced negotiate firing
         await _debounce.cancel()
 
@@ -306,20 +369,6 @@ final class Transport: NSObject, Loggable {
 // MARK: - SDP Munging
 
 extension Transport {
-    /// Munge SDP to change `a=inactive` to `a=recvonly` for RTP media m-lines in single PC mode.
-    /// WebRTC can generate inactive direction even when transceivers were configured as recvonly.
-    /// Only rewrites RTP m-sections — non-RTP sections (e.g. data channel `m=application`) are preserved.
-    nonisolated static func mungeInactiveToRecvOnlyForMedia(_ sdp: String) -> String {
-        var document = SDP(parsing: sdp)
-        for index in document.mediaSections.indices {
-            let section = document.mediaSections[index]
-            if section.isRTP, section.direction == .inactive {
-                document.mediaSections[index].set(direction: .recvonly)
-            }
-        }
-        return document.write()
-    }
-
     /// Munge an answer to declare `stereo=1` on the Opus fmtp of every section whose
     /// counterpart in `offer` advertises `sprop-stereo=1`.
     ///
@@ -400,6 +449,259 @@ extension Transport {
             document.mediaSections[index].appendFmtpParameter("stereo=1", forPayload: payload)
         }
         return document.write()
+    }
+
+    /// Adds plain NACK to every Opus payload in every single-PC audio offer section.
+    ///
+    /// The SFU negotiates audio feedback from the first audio section, so send-only
+    /// sections must advertise it even before any subscriptions exist. Existing plain
+    /// or wildcard NACK is preserved; `nack pli` does not imply plain NACK. Dual-PC
+    /// offers keep their defaults and negotiate receive feedback in the subscriber answer.
+    nonisolated static func mungeOpusNackForAllAudio(_ sdp: String) -> String {
+        var document = SDP(parsing: sdp)
+        for index in document.mediaSections.indices {
+            let section = document.mediaSections[index]
+            guard section.mediaType == "audio",
+                  !section.hasRtcpFeedback("nack", forPayload: "*") else { continue }
+            for mapping in section.rtpmaps where mapping.codec.caseInsensitiveCompare("opus") == .orderedSame {
+                document.mediaSections[index].appendRtcpFeedback("nack", forPayload: mapping.payload)
+            }
+        }
+        return document.write()
+    }
+
+    /// Video codecs libwebrtc reads `x-google-start-bitrate` from.
+    nonisolated static let startBitrateCodecs: Set<String> = ["VP8", "VP9", "AV1", "H264", "H265"]
+
+    /// Largest start bitrate hinted for a non-screen-share track, in kbps. Stops the
+    /// bandwidth estimator from opening too aggressively on high-bitrate (e.g. 4K) tracks.
+    nonisolated static let maxStartBitrateKbps = 1000
+
+    /// Smallest target, in kbps, that gets a start bitrate hint, and the lowest cap a slow
+    /// connection setup brings a hint down to: libwebrtc's own default starting estimate.
+    nonisolated static let minStartBitrateKbps = 300
+
+    /// Connection setup times, in seconds, bounding the ramp in
+    /// ``startBitrateCapKbps(connectionSetupTime:)``. Measured on shaped links (CLT-3380):
+    /// healthy links set up in under 860 ms, a 1 Mbps link with 150 ms RTT in 1.1–1.7 s, a
+    /// 500 kbps link in ~2.3 s at the median, and a 300 kbps link never under 3 s.
+    nonisolated static let setupTimeForMaxStartBitrate: TimeInterval = 1.5
+    nonisolated static let setupTimeForMinStartBitrate: TimeInterval = 3.5
+
+    /// Cap on a non-screen-share start bitrate hint, in kbps, for a connection that took
+    /// `connectionSetupTime` seconds to set up.
+    ///
+    /// Connection setup time (signaling join plus ICE/DTLS) is the only network signal there
+    /// is before the first video offer, since libwebrtc cannot probe the path until a video
+    /// sender exists. It grows with round-trip time and loss, which also mark the links where
+    /// a 1 Mbps seed overshoots, so the cap ramps linearly from ``maxStartBitrateKbps`` at
+    /// ``setupTimeForMaxStartBitrate`` down to ``minStartBitrateKbps`` at
+    /// ``setupTimeForMinStartBitrate``. Without a setup time it is ``maxStartBitrateKbps``.
+    ///
+    /// Same ramp as client-sdk-js (`computeStartBitrateCap`), rust-sdks
+    /// (`compute_start_bitrate_kbps`) and client-sdk-android (`computeTrackStartBitrate`), all of
+    /// which also leave screen share uncapped however slow the setup.
+    nonisolated static func startBitrateCapKbps(connectionSetupTime: TimeInterval?) -> Int {
+        guard let connectionSetupTime else { return maxStartBitrateKbps }
+        let ramp = min(max((connectionSetupTime - setupTimeForMaxStartBitrate) / (setupTimeForMinStartBitrate - setupTimeForMaxStartBitrate), 0), 1)
+        return Int((Double(maxStartBitrateKbps) - ramp * Double(maxStartBitrateKbps - minStartBitrateKbps)).rounded())
+    }
+
+    /// Start bitrate hinted to libwebrtc's bandwidth estimator for a video sender whose
+    /// encodings total `targetBps`, or `nil` to leave libwebrtc's default in place.
+    ///
+    /// libwebrtc starts every new video send stream at roughly 300 kbps and ramps up from
+    /// there, regardless of the encodings' `maxBitrate`, so the first seconds of a published
+    /// track are visibly blurry. The hint is 90% of the target bitrate: high enough to skip
+    /// most of the ramp, with headroom for the estimator to settle. The same multiplier is
+    /// used for every codec because the target already reflects the codec's efficiency.
+    /// Camera and other sources are capped by ``startBitrateCapKbps(connectionSetupTime:)``:
+    /// at most ``maxStartBitrateKbps``, less for a connection that was slow to set up. Screen
+    /// share is not capped, because its content needs the bitrate immediately to be legible.
+    /// Targets under ``minStartBitrateKbps`` get no hint: below that, seeding above the real
+    /// capacity costs more than the ramp it saves.
+    ///
+    /// Same formula as client-sdk-js (`computeTrackStartBitrate`), rust-sdks
+    /// (`compute_start_bitrate_kbps`) and client-sdk-android (`computeTrackStartBitrate`).
+    ///
+    /// `connectionSetupTime` has no default, so a video publish path cannot leave out the
+    /// ramp by accident; pass `nil` only where no connection exists.
+    nonisolated static func startBitrateKbps(targetBps: Int, isScreenShare: Bool, connectionSetupTime: TimeInterval?) -> Int? {
+        let targetKbps = targetBps / 1000
+        guard targetKbps >= minStartBitrateKbps else { return nil }
+        let startKbps = Int((Double(targetKbps) * 0.9).rounded())
+        return isScreenShare ? startKbps : min(startKbps, startBitrateCapKbps(connectionSetupTime: connectionSetupTime))
+    }
+
+    /// ``startBitrateKbps(targetBps:isScreenShare:connectionSetupTime:)`` for a sender's encodings: the target is
+    /// the sum of the active encodings' `maxBitrate` — every simulcast layer, since they are
+    /// independent streams the estimator has to fund together; for a single (or SVC) encoding
+    /// that is simply its own `maxBitrate`. Encodings without a `maxBitrate` contribute
+    /// nothing, so a track that declares none gets no hint.
+    nonisolated static func startBitrateKbps(for encodings: [LKRTCRtpEncodingParameters], isScreenShare: Bool,
+                                             connectionSetupTime: TimeInterval?) -> Int?
+    {
+        let targetBps = encodings.filter(\.isActive).compactMap { $0.maxBitrateBps?.intValue }.reduce(0, +)
+        return startBitrateKbps(targetBps: targetBps, isScreenShare: isScreenShare, connectionSetupTime: connectionSetupTime)
+    }
+
+    /// Whether `section` is a video section that can carry local media. `recvonly` and
+    /// `inactive` are the only directions that cannot, and are exactly where a subscribed,
+    /// pre-populated or unpublished section lands; `sendonly`, `sendrecv` and an omitted
+    /// direction (which defaults to `sendrecv`, RFC 8866 §6.7) all send.
+    nonisolated static func isSendingVideoSection(_ section: SDPMediaSection) -> Bool {
+        section.mediaType == "video" && !isReceiveOnlySection(section)
+    }
+
+    /// The single start bitrate for the peer connection described by `document`: the largest
+    /// hint among its sending video sections whose `a=msid` track id — which libwebrtc sets
+    /// to the sender id — is a key of `kbpsBySenderId`.
+    ///
+    /// libwebrtc reads `x-google-start-bitrate` per m-section but applies it to the shared
+    /// `Call` (`WebRtcVideoSendChannel::ApplyChangedParams` → `SetSdpBitrateParameters`),
+    /// where `RtpBitrateConfigurator` holds one config for the whole peer connection.
+    /// Differing per-section values are therefore last-writer-wins in m-section order — a
+    /// camera capped at 1 Mbps and an uncapped screen share in one offer would seed the
+    /// estimator from whichever section libwebrtc applies last — so every video section is
+    /// given the same number instead.
+    ///
+    /// Only sending sections count: a section that stays in the SDP after its track was
+    /// removed keeps its `a=msid` but sends nothing, and must neither contribute a stale
+    /// target nor consume the one-shot hint.
+    nonisolated static func connectionStartBitrateKbps(for document: SDP, kbpsBySenderId: [String: Int]) -> Int? {
+        document.mediaSections.lazy
+            .filter(isSendingVideoSection)
+            .compactMap { $0.msidTrackId.flatMap { kbpsBySenderId[$0] } }
+            .max()
+    }
+
+    /// Munge the offer to declare `x-google-start-bitrate=<kbps>` — the connection-level value
+    /// from ``connectionStartBitrateKbps(for:kbpsBySenderId:)`` — on every video codec's fmtp
+    /// of every sending video section, inserting an fmtp line for payloads (typically VP8)
+    /// that have none and replacing an existing value. libwebrtc only reads the selected send
+    /// codec's fmtp, so the other codecs' entries are harmless and keep the value uniform
+    /// should the send codec change. An SDP with no sending video, no mapped sender or no
+    /// hint is returned unmodified.
+    ///
+    /// `x-google-max-bitrate` is deliberately never written: the same `Call`-level promotion
+    /// would turn a per-track cap into a ceiling on the connection's total send bandwidth,
+    /// starving concurrent tracks. Per-track and per-layer caps belong in the encodings'
+    /// `maxBitrateBps`, which is scoped per encoding.
+    ///
+    /// Same behaviour as client-sdk-js (`PCTransport.computeConnectionStartBitrate`),
+    /// rust-sdks (`PeerTransport::create_and_send_offer`) and client-sdk-android
+    /// (`PeerConnectionTransport.ensureCodecBitrates`).
+    nonisolated static func mungeVideoStartBitrate(_ sdp: String, kbpsBySenderId: [String: Int]) -> String {
+        guard !kbpsBySenderId.isEmpty else { return sdp }
+        var document = SDP(parsing: sdp)
+        guard let kbps = connectionStartBitrateKbps(for: document, kbpsBySenderId: kbpsBySenderId) else { return sdp }
+        var modified = false
+        for index in document.mediaSections.indices where isSendingVideoSection(document.mediaSections[index]) {
+            for rtpmap in document.mediaSections[index].rtpmaps where startBitrateCodecs.contains(rtpmap.codec.uppercased()) {
+                if document.mediaSections[index].setFmtpParameter("x-google-start-bitrate", value: "\(kbps)", forPayload: rtpmap.payload) {
+                    modified = true
+                }
+            }
+        }
+        return modified ? document.write() : sdp
+    }
+
+    /// Whether `section` cannot carry local media, and so is one of the sections
+    /// ``conformBundledCodecFmtp(_:)`` rewrites.
+    ///
+    /// `recvonly` and `inactive` are exactly the two directions a section lands on when it has
+    /// no outgoing track: the receive sections preallocated for single PC mode are offered
+    /// `recvonly`, and a section whose track was unpublished reverts to one or the other.
+    /// Everything else sends — `sendonly`, `sendrecv`, and a section with no direction
+    /// attribute, which SDP defaults to `sendrecv`.
+    nonisolated static func isReceiveOnlySection(_ section: SDPMediaSection) -> Bool {
+        section.direction == .recvonly || section.direction == .inactive
+    }
+
+    /// Munge the offer so every payload type carries identical fmtp parameters document-wide,
+    /// by conforming the sections that cannot send to the ones that can.
+    ///
+    /// A payload type is bundle-wide, so libwebrtc expects it to map to identical codec
+    /// parameters in every m-line and reports "A BUNDLE group contains a codec collision
+    /// between ..." where it does not. ``mungeVideoStartBitrate(_:kbpsBySenderId:)`` creates
+    /// exactly that divergence: it writes `x-google-start-bitrate` on the sections that send
+    /// video, while the receive sections of single PC mode share those payload types without it.
+    ///
+    /// On the local-description path that report is a log, not an enforcement. This runs because
+    /// an SDP whose bundle is self-inconsistent is still wrong, and because what libwebrtc
+    /// tolerates here it does not everywhere. It cannot reach the same divergence in the
+    /// server's *answer*, which would mean selecting sections by transceiver and munging a
+    /// remote description.
+    ///
+    /// Sending sections always win, so a published track's encoder parameters are never altered;
+    /// where two of them disagree the first wins, which at least keeps the receive sections
+    /// consistent with one of them. Where no sending section declares a payload at all, the
+    /// receive sections converge on the first config among themselves. Codec-agnostic by design: it conforms whatever diverged
+    /// rather than `x-google-start-bitrate` specifically.
+    ///
+    /// Must run last, after every munge that can introduce divergence.
+    ///
+    /// Mirrors `conformBundledCodecFmtp` in client-sdk-js, which selects sections by transceiver
+    /// where this reads the direction the SDP already states, and which only rewrites fmtp lines
+    /// that exist where this also inserts and removes them — "parameters vs. no parameters" is a
+    /// collision too, and it is the one VP8 hits, since libwebrtc offers it without an fmtp line.
+    nonisolated static func conformBundledCodecFmtp(_ sdp: String) -> String {
+        var document = SDP(parsing: sdp)
+
+        var canonicalByPayload: [String: String] = [:]
+        for section in document.mediaSections where !isReceiveOnlySection(section) {
+            // Every payload a sending section declares is canonical, including the ones it
+            // declares with no fmtp at all: "no parameters" collides with "some parameters"
+            // exactly as two different parameter sets do, so the absence has to be recorded or
+            // a receive section's fmtp would become canonical for a payload the sender leaves
+            // bare — and the rewrite below, which only touches receive sections, could never
+            // resolve it.
+            //
+            // The first sending section in SDP order wins. Two of them can disagree — libwebrtc
+            // offers that after a second video publish — and neither is rewritten, so the
+            // collision between them stands either way. Which one the receive sections follow
+            // therefore does depend on the order of the sending sections; what it does not
+            // depend on is where the receive sections sit among them.
+            for rtpmap in section.rtpmaps where canonicalByPayload[rtpmap.payload] == nil {
+                canonicalByPayload[rtpmap.payload] = section.fmtp(forPayload: rtpmap.payload)?.config ?? ""
+            }
+        }
+        // Where no sending section declares a payload, the receive sections settle on the first
+        // config seen. They can genuinely disagree: a section that stops sending keeps the fmtp
+        // it was last munged with, so an unpublish leaves a receive-only section carrying
+        // `x-google-start-bitrate` beside one that never had it — and with the sender gone there
+        // is nothing left to conform them to. Keyed off `a=rtpmap` for the same reason as the
+        // rewrite below, so a section that declares the payload bare can be canonical too.
+        for section in document.mediaSections where isReceiveOnlySection(section) {
+            for rtpmap in section.rtpmaps where canonicalByPayload[rtpmap.payload] == nil {
+                canonicalByPayload[rtpmap.payload] = section.fmtp(forPayload: rtpmap.payload)?.config ?? ""
+            }
+        }
+
+        var modified = false
+        for index in document.mediaSections.indices where isReceiveOnlySection(document.mediaSections[index]) {
+            // Keyed off `a=rtpmap` rather than the existing fmtp lines: a payload the section
+            // declares but gives no parameters still collides with a sending section that gives
+            // some, and that section has no fmtp line to iterate.
+            for rtpmap in document.mediaSections[index].rtpmaps {
+                guard let canonical = canonicalByPayload[rtpmap.payload] else { continue }
+                let changed = canonical.isEmpty
+                    ? document.mediaSections[index].removeFmtp(forPayload: rtpmap.payload)
+                    : document.mediaSections[index].setFmtp(config: canonical, forPayload: rtpmap.payload)
+                if changed { modified = true }
+            }
+        }
+        return modified ? document.write() : sdp
+    }
+
+    /// Whether any video section of `sdp` declares `x-google-start-bitrate`. Checked on the
+    /// description libwebrtc accepted, since a rejected munge is dropped rather than applied.
+    nonisolated static func carriesVideoStartBitrate(_ sdp: String) -> Bool {
+        SDP(parsing: sdp).mediaSections.contains { section in
+            section.mediaType == "video" && section.fmtps.contains { fmtp in
+                fmtp.parameters.contains { $0.hasPrefix("x-google-start-bitrate=") }
+            }
+        }
     }
 
     /// Applies `munges` composed left-to-right and sets the result as the local
@@ -582,11 +884,24 @@ extension Transport {
         }
     }
 
+    /// `startBitrateKbps` (see ``startBitrateKbps(targetBps:isScreenShare:connectionSetupTime:)``) is recorded
+    /// against the new sender here, before returning, so the offer libwebrtc asks for in
+    /// response to this call cannot be created without it. It only matters until the
+    /// connection-level hint has been written once (``mungeVideoStartBitrate(_:kbpsBySenderId:)``).
     func addTransceiver(with track: LKRTCMediaStreamTrack,
-                        transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver
+                        transceiverInit: LKRTCRtpTransceiverInit,
+                        startBitrateKbps: Int? = nil) throws -> LKRTCRtpTransceiver
     {
+        guard !_isClosed else {
+            throw LiveKitError(.invalidState, message: "Transport is closed")
+        }
+
         guard let transceiver = _pc.addTransceiver(with: track, init: transceiverInit) else {
             throw LiveKitError(.webRTC, message: "Failed to add transceiver")
+        }
+
+        if let startBitrateKbps {
+            _startBitrateKbpsBySenderId[transceiver.sender.senderId] = startBitrateKbps
         }
 
         return transceiver
@@ -595,6 +910,10 @@ extension Transport {
     func addTransceiver(ofType mediaType: LKRTCRtpMediaType,
                         transceiverInit: LKRTCRtpTransceiverInit) throws -> LKRTCRtpTransceiver
     {
+        guard !_isClosed else {
+            throw LiveKitError(.invalidState, message: "Transport is closed")
+        }
+
         guard let transceiver = _pc.addTransceiver(of: mediaType, init: transceiverInit) else {
             throw LiveKitError(.webRTC, message: "Failed to add transceiver")
         }
@@ -607,6 +926,7 @@ extension Transport {
         guard _pc.removeTrack(raw) else {
             throw LiveKitError(.webRTC, message: "Failed to remove track")
         }
+        _startBitrateKbpsBySenderId.removeValue(forKey: sender.senderId)
 
         releaseTransceiver(sender: raw)
     }
@@ -615,11 +935,15 @@ extension Transport {
     // Workaround: https://groups.google.com/g/discuss-webrtc/c/WDsGuVucBjQ?pli=1
     private func releaseTransceiver(sender: LKRTCRtpSender) {
         if let transceiver = _pc.transceivers.first(where: { $0.sender == sender }),
-           transceiver.mediaType == .video, !transceiver.isStopped
+           !transceiver.isStopped
         {
-            log("Stopping video transceiver", .debug)
+            log("Stopping transceiver", .debug)
             transceiver.stopInternal()
         }
+    }
+
+    var unstoppedTransceiverCount: Int {
+        _pc.transceivers.filter { !$0.isStopped }.count
     }
 
     func dataChannel(for label: String,

@@ -112,9 +112,14 @@ extension AsyncFileStream where Mode == ReadMode {
 }
 
 extension AsyncFileStream where Mode == WriteMode {
-    private static let mode = O_WRONLY | O_TRUNC | O_CREAT
+    /// `O_EXCL` rather than `O_TRUNC`: the open fails if anything already exists at the path
+    /// instead of replacing it. The existence check and the open are one syscall, so there is no
+    /// window between them, and POSIX requires `O_CREAT | O_EXCL` to fail on a symlink at the
+    /// final component rather than following it to its target.
+    private static let mode = O_WRONLY | O_CREAT | O_EXCL
 
-    init(writingTo url: URL) throws {
+    /// Opens `url` for writing, failing with `EEXIST` if anything is already there.
+    init(creatingNewAt url: URL) throws {
         self = try Self(url: url, mode: Self.mode)
     }
 

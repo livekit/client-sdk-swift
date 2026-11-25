@@ -16,11 +16,11 @@
 
 @preconcurrency import AVFoundation
 @testable import LiveKit
+import LiveKitWebRTC
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
-import LiveKitWebRTC
 
 @Suite(.serialized, .tags(.audio)) struct AudioManagerTests {
     // Test legacy audio device module's startLocalRecording().

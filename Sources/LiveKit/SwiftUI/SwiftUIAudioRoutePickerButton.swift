@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 import AVKit
 import SwiftUI
-
-internal import LiveKitWebRTC
 
 #if os(iOS) || os(macOS)
 public struct SwiftUIAudioRoutePickerButton: NativeViewRepresentable {

@@ -16,7 +16,7 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitUniFFI
+import LiveKitFFI
 
 public struct RoomTestingOptions {
     public let delegate: RoomDelegate?
@@ -36,6 +36,11 @@ public struct RoomTestingOptions {
 
     /// Override the client protocol version advertised to peers. When `nil`, uses the SDK default.
     public let clientProtocol: ClientProtocol?
+    /// How the room handles incoming data streams, for example a payload cap. The SDK default when
+    /// not set.
+    public let dataStreamOptions: DataStreamOptions
+    /// Publish options for an audio track that is published without options of its own.
+    public let defaultAudioPublishOptions: AudioPublishOptions
 
     // Perms
     public let canPublish: Bool
@@ -53,6 +58,8 @@ public struct RoomTestingOptions {
                 encryptionOptions: EncryptionOptions? = nil,
                 singlePeerConnection: Bool = false,
                 clientProtocol: ClientProtocol? = nil,
+                dataStreamOptions: DataStreamOptions = DataStreamOptions(),
+                defaultAudioPublishOptions: AudioPublishOptions = AudioPublishOptions(),
                 canPublish: Bool = false,
                 canPublishData: Bool = false,
                 canPublishSources: Set<Track.Source> = [],
@@ -68,6 +75,8 @@ public struct RoomTestingOptions {
         self.encryptionOptions = encryptionOptions
         self.singlePeerConnection = singlePeerConnection
         self.clientProtocol = clientProtocol
+        self.dataStreamOptions = dataStreamOptions
+        self.defaultAudioPublishOptions = defaultAudioPublishOptions
         self.canPublish = canPublish
         self.canPublishData = canPublishData
         self.canPublishSources = canPublishSources

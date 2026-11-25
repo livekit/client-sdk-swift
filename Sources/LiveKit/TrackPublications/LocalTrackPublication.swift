@@ -136,19 +136,7 @@ extension LocalTrackPublication {
         // Only proceed if audio track.
         guard let audioTrack = track as? LocalAudioTrack else { return }
 
-        var newFeatures = audioTrack.captureOptions.toFeatures()
-
-        if let audioPublishOptions = audioTrack.publishOptions as? AudioPublishOptions {
-            // Combine features from publish options.
-            newFeatures.formUnion(audioPublishOptions.toFeatures())
-        }
-
-        // Check if Krisp is enabled.
-        if let processingDelegate = AudioManager.shared.capturePostProcessingDelegate,
-           processingDelegate.audioProcessingName == kLiveKitKrispAudioProcessorName
-        {
-            newFeatures.insert(.tfEnhancedNoiseCancellation)
-        }
+        let newFeatures = audioTrack.features(publishOptions: audioTrack.publishOptions as? AudioPublishOptions)
 
         let didUpdateFeatures = _state.mutate {
             let oldFeatures = $0.audioTrackFeatures

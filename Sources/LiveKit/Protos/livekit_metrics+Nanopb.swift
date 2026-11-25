@@ -26,25 +26,35 @@ extension livekit_MetricsBatch: NanopbStorage {
 typealias Livekit_MetricsBatch = NanopbMsg<livekit_MetricsBatch>
 extension Livekit_MetricsBatch {
     var timestampMs: Int64 {
-        _pointer.pointee.timestamp_ms?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.timestamp_ms?.pointee ?? 0
+        }
     }
-    var hasTimestampMs: Bool { _pointer.pointee.timestamp_ms != nil }
+    var hasTimestampMs: Bool { withExtendedLifetime(_owner) { _pointer.pointee.timestamp_ms != nil } }
 
     var normalizedTimestamp: Google_Protobuf_Timestamp {
-        _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
+        }
     }
-    var hasNormalizedTimestamp: Bool { _pointer.pointee.normalized_timestamp != nil }
+    var hasNormalizedTimestamp: Bool { withExtendedLifetime(_owner) { _pointer.pointee.normalized_timestamp != nil } }
 
     var strData: [String] {
-        lkRepeated(_pointer.pointee.str_data_count, _pointer.pointee.str_data)
+        withExtendedLifetime(_owner) {
+            lkRepeated(_pointer.pointee.str_data_count, _pointer.pointee.str_data)
+        }
     }
 
     var timeSeries: [Livekit_TimeSeriesMetric] {
-        lkViews(_pointer.pointee.time_series_count, _pointer.pointee.time_series, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.time_series_count, _pointer.pointee.time_series, owner: _owner)
+        }
     }
 
     var events: [Livekit_EventMetric] {
-        lkViews(_pointer.pointee.events_count, _pointer.pointee.events, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.events_count, _pointer.pointee.events, owner: _owner)
+        }
     }
 
 }
@@ -96,28 +106,38 @@ extension livekit_TimeSeriesMetric: NanopbStorage {
 typealias Livekit_TimeSeriesMetric = NanopbMsg<livekit_TimeSeriesMetric>
 extension Livekit_TimeSeriesMetric {
     var label: UInt32 {
-        _pointer.pointee.label?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.label?.pointee ?? 0
+        }
     }
-    var hasLabel: Bool { _pointer.pointee.label != nil }
+    var hasLabel: Bool { withExtendedLifetime(_owner) { _pointer.pointee.label != nil } }
 
     var participantIdentity: UInt32 {
-        _pointer.pointee.participant_identity?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.participant_identity?.pointee ?? 0
+        }
     }
-    var hasParticipantIdentity: Bool { _pointer.pointee.participant_identity != nil }
+    var hasParticipantIdentity: Bool { withExtendedLifetime(_owner) { _pointer.pointee.participant_identity != nil } }
 
     var trackSid: UInt32 {
-        _pointer.pointee.track_sid?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.track_sid?.pointee ?? 0
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
     var samples: [Livekit_MetricSample] {
-        lkViews(_pointer.pointee.samples_count, _pointer.pointee.samples, owner: _owner)
+        withExtendedLifetime(_owner) {
+            lkViews(_pointer.pointee.samples_count, _pointer.pointee.samples, owner: _owner)
+        }
     }
 
     var rid: UInt32 {
-        _pointer.pointee.rid?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.rid?.pointee ?? 0
+        }
     }
-    var hasRid: Bool { _pointer.pointee.rid != nil }
+    var hasRid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.rid != nil } }
 
 }
 
@@ -160,19 +180,25 @@ extension livekit_MetricSample: NanopbStorage {
 typealias Livekit_MetricSample = NanopbMsg<livekit_MetricSample>
 extension Livekit_MetricSample {
     var timestampMs: Int64 {
-        _pointer.pointee.timestamp_ms?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.timestamp_ms?.pointee ?? 0
+        }
     }
-    var hasTimestampMs: Bool { _pointer.pointee.timestamp_ms != nil }
+    var hasTimestampMs: Bool { withExtendedLifetime(_owner) { _pointer.pointee.timestamp_ms != nil } }
 
     var normalizedTimestamp: Google_Protobuf_Timestamp {
-        _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.normalized_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
+        }
     }
-    var hasNormalizedTimestamp: Bool { _pointer.pointee.normalized_timestamp != nil }
+    var hasNormalizedTimestamp: Bool { withExtendedLifetime(_owner) { _pointer.pointee.normalized_timestamp != nil } }
 
     var value: Float {
-        _pointer.pointee.value?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.value?.pointee ?? 0
+        }
     }
-    var hasValue: Bool { _pointer.pointee.value != nil }
+    var hasValue: Bool { withExtendedLifetime(_owner) { _pointer.pointee.value != nil } }
 
 }
 
@@ -201,49 +227,67 @@ extension livekit_EventMetric: NanopbStorage {
 typealias Livekit_EventMetric = NanopbMsg<livekit_EventMetric>
 extension Livekit_EventMetric {
     var label: UInt32 {
-        _pointer.pointee.label?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.label?.pointee ?? 0
+        }
     }
-    var hasLabel: Bool { _pointer.pointee.label != nil }
+    var hasLabel: Bool { withExtendedLifetime(_owner) { _pointer.pointee.label != nil } }
 
     var participantIdentity: UInt32 {
-        _pointer.pointee.participant_identity?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.participant_identity?.pointee ?? 0
+        }
     }
-    var hasParticipantIdentity: Bool { _pointer.pointee.participant_identity != nil }
+    var hasParticipantIdentity: Bool { withExtendedLifetime(_owner) { _pointer.pointee.participant_identity != nil } }
 
     var trackSid: UInt32 {
-        _pointer.pointee.track_sid?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.track_sid?.pointee ?? 0
+        }
     }
-    var hasTrackSid: Bool { _pointer.pointee.track_sid != nil }
+    var hasTrackSid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.track_sid != nil } }
 
     var startTimestampMs: Int64 {
-        _pointer.pointee.start_timestamp_ms?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.start_timestamp_ms?.pointee ?? 0
+        }
     }
-    var hasStartTimestampMs: Bool { _pointer.pointee.start_timestamp_ms != nil }
+    var hasStartTimestampMs: Bool { withExtendedLifetime(_owner) { _pointer.pointee.start_timestamp_ms != nil } }
 
     var endTimestampMs: Int64 {
-        _pointer.pointee.end_timestamp_ms?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.end_timestamp_ms?.pointee ?? 0
+        }
     }
-    var hasEndTimestampMs: Bool { _pointer.pointee.end_timestamp_ms != nil }
+    var hasEndTimestampMs: Bool { withExtendedLifetime(_owner) { _pointer.pointee.end_timestamp_ms != nil } }
 
     var normalizedStartTimestamp: Google_Protobuf_Timestamp {
-        _pointer.pointee.normalized_start_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.normalized_start_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
+        }
     }
-    var hasNormalizedStartTimestamp: Bool { _pointer.pointee.normalized_start_timestamp != nil }
+    var hasNormalizedStartTimestamp: Bool { withExtendedLifetime(_owner) { _pointer.pointee.normalized_start_timestamp != nil } }
 
     var normalizedEndTimestamp: Google_Protobuf_Timestamp {
-        _pointer.pointee.normalized_end_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.normalized_end_timestamp.map { Google_Protobuf_Timestamp(_sharing: $0, owner: _owner) } ?? Google_Protobuf_Timestamp._empty
+        }
     }
-    var hasNormalizedEndTimestamp: Bool { _pointer.pointee.normalized_end_timestamp != nil }
+    var hasNormalizedEndTimestamp: Bool { withExtendedLifetime(_owner) { _pointer.pointee.normalized_end_timestamp != nil } }
 
     var metadata: String {
-        lkString(_pointer.pointee.metadata) ?? ""
+        withExtendedLifetime(_owner) {
+            lkString(_pointer.pointee.metadata) ?? ""
+        }
     }
-    var hasMetadata: Bool { _pointer.pointee.metadata != nil }
+    var hasMetadata: Bool { withExtendedLifetime(_owner) { _pointer.pointee.metadata != nil } }
 
     var rid: UInt32 {
-        _pointer.pointee.rid?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.rid?.pointee ?? 0
+        }
     }
-    var hasRid: Bool { _pointer.pointee.rid != nil }
+    var hasRid: Bool { withExtendedLifetime(_owner) { _pointer.pointee.rid != nil } }
 
 }
 

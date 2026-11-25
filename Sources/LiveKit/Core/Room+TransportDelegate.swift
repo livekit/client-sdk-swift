@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-internal import LiveKitUniFFI
-import Foundation
-
+internal import LiveKitFFI
 internal import LiveKitWebRTC
+import Foundation
 
 extension LKRTCPeerConnectionState {
     var isConnected: Bool {
@@ -55,16 +54,16 @@ extension Room: TransportDelegate {
             }
         }
 
-        if _state.connectionState == .connected {
-            // Attempt re-connect if primary or publisher transport failed
-            if transport.isPrimary || (_state.hasPublished && transport.target == .publisher), pcState.isDisconnected {
-                Task {
-                    do {
-                        try await startReconnect(reason: .transport,
-                                                 telemetryReason: transport.target == .publisher ? .publisherFailed : .subscriberFailed)
-                    } catch {
-                        log("Failed calling startReconnect, error: \(error)", .error)
-                    }
+        if _state.connectionState == .connected,
+           // Attempt re-connect if primary or publisher transport failed
+           transport.isPrimary || (_state.hasPublished && transport.target == .publisher), pcState.isDisconnected
+        {
+            Task {
+                do {
+                    try await startReconnect(reason: .transport,
+                                             telemetryReason: transport.target == .publisher ? .publisherFailed : .subscriberFailed)
+                } catch {
+                    log("Failed calling startReconnect, error: \(error)", .error)
                 }
             }
         }

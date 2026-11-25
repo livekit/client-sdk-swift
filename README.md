@@ -21,6 +21,8 @@ Use this SDK to add realtime video, audio and data features to your Swift app. B
 > [!IMPORTANT]
 > If you're building Voice AI, [LiveKit Agents](https://github.com/livekit/agents) is the SDK for code-first realtime voice agents. STT, LLM, TTS, turn detection, [expressive speech](https://docs.livekit.io/agents/models/tts/expressive/), [keyterm accuracy](https://docs.livekit.io/agents/models/stt/keyterms/), tool usage, and telephony all come bundled in the framework. It's available in both [Python](https://github.com/livekit/agents) and [Node.js](https://github.com/livekit/agents-js).
 >
+> LiveKit Agents is a great fit for customer support, healthcare, financial services, and outbound calling. Try the [live demos](https://livekit.com/agents).
+>
 > ```python
 > # agent.py
 > from livekit import agents
@@ -76,7 +78,7 @@ Add the dependency and also to your target
 let package = Package(
   ...
   dependencies: [
-    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.17.0")),
+    .package(name: "LiveKit", url: "https://github.com/livekit/client-sdk-swift.git", .upToNextMajor("2.20.0")),
   ],
   targets: [
     .target(
@@ -99,7 +101,7 @@ A pre-built binary distribution is available for faster integration and CI build
 
 `https://github.com/livekit/client-sdk-swift-xcframework`
 
-This package bundles `LiveKit.xcframework` (dynamic framework) along with its dependencies (`LiveKitWebRTC`, `RustLiveKitUniFFI`). It contains the same code as the source package above, just pre-compiled.
+This package bundles `LiveKit.xcframework` (dynamic framework) along with its dependencies (`LiveKitWebRTC`, `RustLiveKitFFI`). It contains the same code as the source package above, just pre-compiled.
 
 ### CocoaPods
 
@@ -181,18 +183,6 @@ See [iOS Screen Sharing instructions](Docs/ios-screen-sharing.md).
 
 ## Integration Notes
 
-### Submitting to the App Store, DSYMs
-
-`LiveKitWebRTC.xcframework` binary framework, which is the main dependency of the SDK, does not contain DSYMs. Submitting the app to the App Store will result in a following warning:
-
-```
-The archive did not include a dSYM for the LiveKitWebRTC.framework with the UUIDs [...]. Ensure that the archive's dSYM folder includes a DWARF file for LiveKitWebRTC.framework with the expected UUIDs.
-```
-
-It will **not prevent** the app from being submitted to the App Store or passing the review process.
-
-If you are building a customized version of the [LiveKitWebRTC](https://github.com/webrtc-sdk/webrtc), you can use the [build script](https://github.com/webrtc-sdk/webrtc-build/blob/main/build/apple/xcframework.sh) in `DEBUG` mode to generate them locally.
-
 ### Thread safety
 
 Since `VideoView` is a UI component, all operations (read/write properties etc) must be performed from the `main` thread.
@@ -204,7 +194,7 @@ Make sure any access to your app's UI elements are from the main thread, for exa
 
 ### Swift 6
 
-LiveKit is currently compiled using Swift 6.1 with full support for strict concurrency. Apps compiled in Swift 6 language mode will not need to use `@preconcurrency` or `@unchecked Sendable` to access LiveKit classes.
+LiveKit is currently compiled using Swift 6.2 with full support for strict concurrency. Apps compiled in Swift 6 language mode will not need to use `@preconcurrency` or `@unchecked Sendable` to access LiveKit classes.
 
 ### Memory management
 
@@ -374,6 +364,7 @@ Please join us on [Slack](https://livekit.io/join-slack) to get help from our de
 <tbody>
 <tr><td>Agents SDKs</td><td><a href="https://github.com/livekit/agents">Python</a> · <a href="https://github.com/livekit/agents-js">Node.js</a></td></tr><tr></tr>
 <tr><td>LiveKit SDKs</td><td><a href="https://github.com/livekit/client-sdk-js">Browser</a> · <b>Swift</b> · <a href="https://github.com/livekit/client-sdk-android">Android</a> · <a href="https://github.com/livekit/client-sdk-flutter">Flutter</a> · <a href="https://github.com/livekit/client-sdk-react-native">React Native</a> · <a href="https://github.com/livekit/rust-sdks">Rust</a> · <a href="https://github.com/livekit/node-sdks">Node.js</a> · <a href="https://github.com/livekit/python-sdks">Python</a> · <a href="https://github.com/livekit/client-sdk-unity">Unity</a> · <a href="https://github.com/livekit/client-sdk-unity-web">Unity (WebGL)</a> · <a href="https://github.com/livekit/client-sdk-esp32">ESP32</a> · <a href="https://github.com/livekit/client-sdk-cpp">C++</a></td></tr><tr></tr>
+<tr><td>Robotics</td><td><a href="https://github.com/livekit/portal">Portal</a> · <a href="https://github.com/livekit/ros-portal">Portal for ROS</a></td></tr><tr></tr>
 <tr><td>Starter Apps</td><td><a href="https://github.com/livekit-examples/agent-starter-python">Python Agent</a> · <a href="https://github.com/livekit-examples/agent-starter-node">TypeScript Agent</a> · <a href="https://github.com/livekit-examples/agent-starter-react">React App</a> · <a href="https://github.com/livekit-examples/agent-starter-swift">SwiftUI App</a> · <a href="https://github.com/livekit-examples/agent-starter-android">Android App</a> · <a href="https://github.com/livekit-examples/agent-starter-flutter">Flutter App</a> · <a href="https://github.com/livekit-examples/agent-starter-react-native">React Native App</a> · <a href="https://github.com/livekit-examples/agent-starter-embed">Web Embed</a></td></tr><tr></tr>
 <tr><td>UI Components</td><td><a href="https://github.com/livekit/components-js">React</a> · <a href="https://github.com/livekit/components-android">Android Compose</a> · <a href="https://github.com/livekit/components-swift">SwiftUI</a> · <a href="https://github.com/livekit/components-flutter">Flutter</a></td></tr><tr></tr>
 <tr><td>Server APIs</td><td><a href="https://github.com/livekit/node-sdks">Node.js</a> · <a href="https://github.com/livekit/server-sdk-go">Golang</a> · <a href="https://github.com/livekit/server-sdk-ruby">Ruby</a> · <a href="https://github.com/livekit/server-sdk-kotlin">Java/Kotlin</a> · <a href="https://github.com/livekit/python-sdks">Python</a> · <a href="https://github.com/livekit/rust-sdks">Rust</a> · <a href="https://github.com/agence104/livekit-server-sdk-php">PHP (community)</a> · <a href="https://github.com/pabloFuente/livekit-server-sdk-dotnet">.NET (community)</a></td></tr><tr></tr>

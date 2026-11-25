@@ -73,10 +73,7 @@ extension FileInfo {
                 kUTTagClassMIMEType,
                 mimeType as CFString,
                 nil,
-            )?.takeRetainedValue() else {
-                return nil
-            }
-            guard let fileExtension = UTTypeCopyPreferredTagWithClass(
+            )?.takeRetainedValue(), let fileExtension = UTTypeCopyPreferredTagWithClass(
                 uti,
                 kUTTagClassFilenameExtension,
             )?.takeRetainedValue() else {

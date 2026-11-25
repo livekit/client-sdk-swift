@@ -21,7 +21,7 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized, .tags(.e2e, .rpc))
+@Suite(.serialized, .tags(.e2e, .rpc), TestLimits.e2e)
 struct RpcTests {
     /// Spin up a paired responder + caller for an e2e RPC test, exposing the
     /// responder's identity (the most common pre-RPC dependency). Defaults
@@ -33,7 +33,7 @@ struct RpcTests {
         _ block: @escaping (
             _ responder: Room,
             _ caller: Room,
-            _ responderIdentity: Participant.Identity
+            _ responderIdentity: Participant.Identity,
         ) async throws -> Void,
     ) async throws {
         try await TestEnvironment.withRooms([responderOptions, callerOptions]) { rooms in
@@ -170,7 +170,7 @@ struct RpcTests {
 
     /// After a caller disconnects and reconnects, v2 RPC must still route correctly.
     /// Exercises `setupRpc` idempotency: the second `connect()` re-runs `setupRpc`, and
-    /// `IncomingStreamManager.registerTextStreamHandlerIfNeeded` no-ops when the v2 RPC
+    /// `DataStreams.registerTextStreamHandlerIfNeeded` no-ops when the v2 RPC
     /// stream handlers are still registered, so routing stays intact across reconnects.
     /// The responder is kept connected throughout so its `rpcServer.handlers` remain
     /// intact too.

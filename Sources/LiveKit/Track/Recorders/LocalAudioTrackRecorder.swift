@@ -127,6 +127,7 @@ public extension LocalAudioTrackRecorder {
 
 // MARK: - Objective-C compatibility
 
+@available(*, deprecated, message: "Use for/await instead.")
 public extension LocalAudioTrackRecorder {
     /// Starts capturing audio from the local track and calls the provided closure with the audio data.
     /// - Parameters:
@@ -134,7 +135,6 @@ public extension LocalAudioTrackRecorder {
     ///   - onData: A closure that is called with the audio data.
     ///   - onCompletion: A closure that is called when the audio recording is completed.
     @objc
-    @available(*, deprecated, message: "Use for/await instead.")
     func start(maxSize _: Int = 0, onData: @Sendable @escaping (Data) -> Void, onCompletion: @Sendable @escaping (Error?) -> Void) {
         Task {
             do {

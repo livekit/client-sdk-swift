@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
+internal import LiveKitWebRTC
 import CoreMedia
 import Foundation
-
-internal import LiveKitWebRTC
 
 /// A ``VideoCapturer`` that can capture ``CMSampleBuffer``s.
 ///

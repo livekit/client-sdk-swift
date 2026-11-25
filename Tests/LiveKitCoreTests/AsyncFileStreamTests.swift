@@ -57,12 +57,28 @@ struct AsyncFileStreamTests {
             .appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: testFileURL) }
 
-        let stream = try AsyncFileStream(writingTo: testFileURL)
+        let stream = try AsyncFileStream(creatingNewAt: testFileURL)
         try await stream.write(testBuffer)
         stream.close()
 
         let readBuffer = try Data(contentsOf: testFileURL)
         #expect(readBuffer == testBuffer)
+    }
+
+    @Test func writeRefusesAnExistingPath() throws {
+        let testFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try Data("original".utf8).write(to: testFileURL)
+        defer { try? FileManager.default.removeItem(at: testFileURL) }
+
+        // `AsyncFileStream.Error` is not Equatable, so match the case explicitly.
+        do {
+            _ = try AsyncFileStream<WriteMode>(creatingNewAt: testFileURL)
+            Issue.record("Expected the open to fail on an existing path")
+        } catch let AsyncFileStream<WriteMode>.Error.openFailed(code) {
+            #expect(code == EEXIST)
+        }
+        #expect(try Data(contentsOf: testFileURL) == Data("original".utf8))
     }
 
     private static func generateTestBuffer(chunkSize: Int, chunkCount: Int, extraBytes: Int) -> Data {

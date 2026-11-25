@@ -17,6 +17,7 @@
 import Foundation
 @testable import LiveKit
 import LiveKitNanopb
+import Testing
 
 /// Lets the comparator recognise a nanopb-backed message at runtime. Every
 /// message is now the same generic type, so there is no per-message type to
@@ -30,7 +31,6 @@ extension NanopbMsg: ReflectableStorage {
     var _reflectedStorage: Any { _pointer.pointee }
 }
 
-import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif

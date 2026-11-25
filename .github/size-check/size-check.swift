@@ -212,7 +212,7 @@ struct SizeCheck: ParsableCommand {
             ("/App.o", "App (hello-world)"),
             ("/LiveKit.o", "LiveKit (SDK Swift)"),
             ("/SwiftProtobuf.o", "SwiftProtobuf"),
-            ("/LiveKitUniFFI.o", "LiveKitUniFFI bindings"),
+            ("/LiveKitFFI.o", "LiveKitFFI bindings"),
             ("/LKObjCHelpers.o", "LKObjCHelpers"),
         ]
         for bucket in buckets where path.hasSuffix(bucket.suffix) {

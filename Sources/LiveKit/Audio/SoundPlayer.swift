@@ -265,10 +265,8 @@ extension SoundPlayer {
             try soundState.local.append(playerNodePool.play(bufferToSchedule, loop: options.loop))
         }
 
-        if options.destination.includesRemote {
-            if let remotePlayback = AudioManager.shared.mixer.playSound(soundState.sourceBuffer, loop: options.loop) {
-                soundState.remote.append(remotePlayback)
-            }
+        if options.destination.includesRemote, let remotePlayback = AudioManager.shared.mixer.playSound(soundState.sourceBuffer, loop: options.loop) {
+            soundState.remote.append(remotePlayback)
         }
     }
 

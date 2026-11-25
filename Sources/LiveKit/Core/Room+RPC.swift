@@ -77,13 +77,13 @@ public extension Room {
 
 // MARK: - Objective-C Compatibility
 
+@available(*, deprecated, message: "Use async registerRpcMethod(_:handler:) method instead.")
 public extension Room {
     /// ObjC wrapper for ``registerRpcMethod(_:handler:)``.
     ///
     /// Required because `RpcInvocationData` is a Swift struct and cannot be
     /// auto-bridged to ObjC. The handler receives flattened parameters instead.
     @objc
-    @available(*, deprecated, message: "Use async registerRpcMethod(_:handler:) method instead.")
     func registerRpcMethod(
         _ method: String,
         handler: @Sendable @escaping (Participant.Identity, String) -> String,

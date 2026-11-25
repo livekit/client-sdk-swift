@@ -1,16 +1,7 @@
-// swift-tools-version:6.1
-// (Xcode16.3+)
+// swift-tools-version:6.2
+// (Xcode26.0+)
 
 import PackageDescription
-
-// Development wiring for unreleased Rust bindings: set `LIVEKIT_UNIFFI_PATH` to a local
-// livekit-uniffi Swift package (`cargo make swift-package-debug` in rust-sdks/livekit-uniffi builds
-// it into `packages/swift/LiveKitUniFFI`). Unset, the released package is used.
-let uniFFI: Package.Dependency = if let path = Context.environment["LIVEKIT_UNIFFI_PATH"] {
-    .package(name: "livekit-uniffi-xcframework", path: path)
-} else {
-    .package(url: "https://github.com/livekit/livekit-uniffi-xcframework.git", exact: "0.1.9")
-}
 
 let package = Package(
     name: "LiveKit",
@@ -19,6 +10,7 @@ let package = Package(
         .macOS(.v10_15),
         .macCatalyst(.v14),
         .tvOS(.v17),
+        .visionOS(.v26),
     ],
     products: [
         .library(
@@ -28,8 +20,8 @@ let package = Package(
     ],
     dependencies: [
         // LK-Prefixed Dynamic WebRTC XCFramework
-        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "150.7871.02"),
-        uniFFI,
+        .package(url: "https://github.com/livekit/webrtc-xcframework.git", exact: "150.7871.08"),
+        .package(url: "https://github.com/livekit/livekit-ffi-xcframework.git", exact: "0.15.0"),
         // Test-only: conformance oracle for the nanopb facades.
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.31.0"),
         // Only used for DocC generation
@@ -58,7 +50,7 @@ let package = Package(
             name: "LiveKit",
             dependencies: [
                 .product(name: "LiveKitWebRTC", package: "webrtc-xcframework"),
-                .product(name: "LiveKitUniFFI", package: "livekit-uniffi-xcframework"),
+                .product(name: "LiveKitFFI", package: "livekit-ffi-xcframework"),
                 "LiveKitNanopb",
                 "CLiveKitProto",
                 "LKObjCHelpers",
@@ -93,6 +85,7 @@ let package = Package(
             dependencies: [
                 "LiveKit",
                 "LiveKitTestSupport",
+                .product(name: "LiveKitFFI", package: "livekit-ffi-xcframework"),
             ],
         ),
         .testTarget(

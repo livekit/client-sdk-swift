@@ -73,6 +73,11 @@ struct SDPMediaSection {
 
     var mid: String? { attributeValue("mid") }
 
+    /// Track id of the section's `a=msid:<stream id> <track id>` line (RFC 8830 §2), if any.
+    var msidTrackId: String? {
+        attributeValue("msid")?.split(separator: " ").dropFirst().first.map(String.init)
+    }
+
     /// The section's first direction attribute, if any.
     var direction: SDPDirection? {
         lines.dropFirst().lazy.compactMap(SDPDirection.init(line:)).first
@@ -120,6 +125,64 @@ struct SDPMediaSection {
             return true
         }
         return false
+    }
+
+    /// Sets `name=value` in the fmtp config of `payload`: replaces the parameter's value
+    /// if present, appends it to an existing fmtp line otherwise, and inserts a new
+    /// `a=fmtp:<payload> <name>=<value>` line at the end of the section when the payload
+    /// has none (e.g. VP8, which libwebrtc offers without an fmtp line). Returns `true` if
+    /// the section was modified; `false` when the parameter already carries `value`.
+    @discardableResult
+    mutating func setFmtpParameter(_ name: String, value: String, forPayload payload: String) -> Bool {
+        let parameter = "\(name)=\(value)"
+        for (index, line) in lines.enumerated() {
+            guard let fmtp = Self.fmtp(fromLine: line), fmtp.payload == payload else { continue }
+            // Split without trimming so every other parameter is written back verbatim.
+            var pieces = fmtp.config.split(separator: ";", omittingEmptySubsequences: false).map(String.init)
+            if let existing = pieces.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("\(name)=") }) {
+                guard pieces[existing].trimmingCharacters(in: .whitespaces) != parameter else { return false }
+                pieces[existing] = parameter
+            } else {
+                pieces.append(parameter)
+            }
+            lines[index] = "a=fmtp:\(payload) \(pieces.joined(separator: ";"))"
+            return true
+        }
+        lines.append("a=fmtp:\(payload) \(parameter)")
+        return true
+    }
+
+    /// Replaces the whole fmtp config of `payload`, inserting an `a=fmtp:<payload> <config>`
+    /// line at the end of the section when the payload has none — which is the case libwebrtc
+    /// leaves for codecs it offers without parameters, VP8 among them. Returns `true` if the
+    /// section was modified; `false` when the config is already exactly `config`.
+    ///
+    /// Where ``setFmtpParameter(_:value:forPayload:)`` edits one parameter and leaves the rest,
+    /// this overwrites all of them — for conforming a section to a config decided elsewhere.
+    @discardableResult
+    mutating func setFmtp(config: String, forPayload payload: String) -> Bool {
+        for (index, line) in lines.enumerated() {
+            guard let fmtp = Self.fmtp(fromLine: line), fmtp.payload == payload else { continue }
+            guard fmtp.config != config else { return false }
+            lines[index] = "a=fmtp:\(payload) \(config)"
+            return true
+        }
+        lines.append("a=fmtp:\(payload) \(config)")
+        return true
+    }
+
+    /// Removes the fmtp line of `payload`, if any. Returns `true` if the section was modified.
+    ///
+    /// The counterpart to ``setFmtp(config:forPayload:)`` for conforming a section to a codec
+    /// that is declared with no parameters at all: "no fmtp" is a config like any other, and a
+    /// section cannot be conformed to it by writing.
+    @discardableResult
+    mutating func removeFmtp(forPayload payload: String) -> Bool {
+        guard let index = lines.indices.first(where: {
+            Self.fmtp(fromLine: lines[$0])?.payload == payload
+        }) else { return false }
+        lines.remove(at: index)
+        return true
     }
 
     /// Whether an `a=rtcp-fb:<payload> <value>` line with exactly `value` exists for

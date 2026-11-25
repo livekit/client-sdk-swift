@@ -16,9 +16,8 @@
 
 // swiftlint:disable file_length
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 @objcMembers
 public class Track: NSObject, @unchecked Sendable, Loggable {
@@ -116,6 +115,11 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         var rtpSenderForCodec: [VideoCodec: RTCSender] = [:] // simulcastSender
         var rtpReceiver: RTCReceiver?
 
+        // Last dynacast state the server sent, so it can be re-applied after a renegotiation
+        // re-enables every encoding. Mirrors the sender split above.
+        var subscribedQualities: [Livekit_SubscribedQuality] = []
+        var subscribedQualitiesForCodec: [VideoCodec: [Livekit_SubscribedQuality]] = [:]
+
         // All VideoRendererAdapters attached to this track, key/value for direct removal.
         var videoRendererAdapters = MapTable<VideoRenderer, VideoRendererAdapter>.weakToStrongObjects()
     }
@@ -171,6 +175,12 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         _state.mutate {
             $0.transport = transport
             $0.rtpSender = rtpSender
+            // Both caches can describe this sender: the per-codec one holds the main sender's
+            // entry when the track publishes its primary codec.
+            if rtpSender == nil {
+                $0.subscribedQualities = []
+                $0.subscribedQualitiesForCodec.removeAll()
+            }
         }
         await _resumeOrSuspendStatisticsTimer()
     }
@@ -290,8 +300,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     @discardableResult
     func onPublish() async throws -> Bool {
         // For LocalTrack only...
-        guard self is LocalTrack else { return false }
-        guard _state.publishState != .published else { return false }
+        guard self is LocalTrack, _state.publishState != .published else { return false }
         _state.mutate { $0.publishState = .published }
         return true
     }
@@ -300,8 +309,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
     @discardableResult
     func onUnpublish() async throws -> Bool {
         // For LocalTrack only...
-        guard self is LocalTrack else { return false }
-        guard _state.publishState != .unpublished else { return false }
+        guard self is LocalTrack, _state.publishState != .unpublished else { return false }
         _state.mutate { $0.publishState = .unpublished }
         return true
     }

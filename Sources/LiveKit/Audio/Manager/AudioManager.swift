@@ -16,11 +16,10 @@
 
 // swiftlint:disable file_length
 
+internal import LiveKitWebRTC
 import Accelerate
 import AVFoundation
 import Combine
-
-internal import LiveKitWebRTC
 
 /// Represents an audio session requirement from a specific component.
 ///

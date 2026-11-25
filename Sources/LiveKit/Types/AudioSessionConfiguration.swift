@@ -38,11 +38,7 @@ public extension AudioSessionConfiguration {
     // (kAudioUnitErr_Initialized) engine-init race with a retry loop when it is
     // set (related symptom: #1011). It is kept on `.playback` above, where
     // mixing with other apps is the correct behavior for a listener.
-    #if swift(>=6.2)
     private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay]
-    #else
-    private static let playAndRecordOptions: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay]
-    #endif
 
     // Explicit speaker preference for the speaker presets. The chat modes
     // imply a speaker route, but iOS may rewrite the mode when Voice

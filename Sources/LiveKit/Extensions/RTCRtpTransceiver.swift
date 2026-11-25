@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 extension LKRTCRtpTransceiver: Loggable {
     /// Attempts to set preferred video codec.

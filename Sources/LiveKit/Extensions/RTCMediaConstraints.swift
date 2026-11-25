@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 extension LKRTCMediaConstraints {
     static let defaultPCConstraints = LKRTCMediaConstraints(

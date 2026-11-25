@@ -26,14 +26,18 @@ extension google_protobuf_Timestamp: NanopbStorage {
 typealias Google_Protobuf_Timestamp = NanopbMsg<google_protobuf_Timestamp>
 extension Google_Protobuf_Timestamp {
     var seconds: Int64 {
-        _pointer.pointee.seconds?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.seconds?.pointee ?? 0
+        }
     }
-    var hasSeconds: Bool { _pointer.pointee.seconds != nil }
+    var hasSeconds: Bool { withExtendedLifetime(_owner) { _pointer.pointee.seconds != nil } }
 
     var nanos: Int32 {
-        _pointer.pointee.nanos?.pointee ?? 0
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.nanos?.pointee ?? 0
+        }
     }
-    var hasNanos: Bool { _pointer.pointee.nanos != nil }
+    var hasNanos: Bool { withExtendedLifetime(_owner) { _pointer.pointee.nanos != nil } }
 
 }
 

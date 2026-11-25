@@ -60,11 +60,9 @@ public final class MockURLProtocol: URLProtocol {
 
     // swiftlint:disable:next static_over_final_class
     override public class func canInit(with request: URLRequest) -> Bool {
-        guard let url = request.url else { return false }
-        guard url.scheme == "http" || url.scheme == "https" else { return false }
+        guard let url = request.url, url.scheme == "http" || url.scheme == "https" else { return false }
         let (allowedHosts, allowedPaths) = _state.read { ($0.allowedHosts, $0.allowedPaths) }
-        guard let host = url.host, allowedHosts.contains(host) else { return false }
-        guard allowedPaths.contains(url.path) else { return false }
+        guard let host = url.host, allowedHosts.contains(host), allowedPaths.contains(url.path) else { return false }
         return true
     }
 

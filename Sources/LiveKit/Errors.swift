@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 public enum LiveKitErrorType: Int, Sendable {
     case unknown = 0
@@ -73,6 +72,8 @@ public enum LiveKitErrorType: Int, Sendable {
 extension LiveKitErrorType: CustomStringConvertible {
     public var description: String {
         switch self {
+        case .unknown:
+            "Unknown"
         case .cancelled:
             "Cancelled"
         case .timedOut:
@@ -105,6 +106,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Server state mismatch"
         case .joinFailure:
             "Server join failure"
+        case .insufficientPermissions:
+            "Insufficient permissions"
         case .serverPingTimedOut:
             "Server ping timed out"
         case .deviceNotFound:
@@ -115,6 +118,8 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Unable to resolve FPS range"
         case .capturerDimensionsNotResolved:
             "Capturer dimensions not resolved"
+        case .deviceAccessDenied:
+            "Device access denied"
         case .audioEngine:
             "Audio Engine Error"
         case .audioSession:
@@ -131,7 +136,6 @@ extension LiveKitErrorType: CustomStringConvertible {
             "Only for LiveKit Cloud"
         case .regionManager:
             "Region manager error"
-        default: "Unknown"
         }
     }
 }

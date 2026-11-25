@@ -45,7 +45,7 @@ final class IPCChannel: Sendable {
     init(acceptingOn socketPath: SocketPath) async throws {
         try? FileManager.default.removeItem(atPath: socketPath.path)
 
-        let parameters = Self.defaultParameters
+        let parameters = Self.defaultParameters.copy()
         parameters.requiredLocalEndpoint = NWEndpoint(socketPath)
 
         let listener = try NWListener(using: parameters)
@@ -165,7 +165,6 @@ private extension NWListener {
             stateUpdateHandler = { state in
                 switch state {
                 case .cancelled: continuation.finish()
-                case let .waiting(error): continuation.finish(throwing: error)
                 case let .failed(error): continuation.finish(throwing: error)
                 default: break
                 }
@@ -187,7 +186,7 @@ private extension NWConnection {
             case .setup, .preparing: continue
             case .waiting:
                 // Will enter this state when socket path does not exist yet
-                let restartDelay = UInt64(IPCChannel.restartDelay) * NSEC_PER_SEC
+                let restartDelay = UInt64(IPCChannel.restartDelay * Double(NSEC_PER_SEC))
                 try await Task.sleep(nanoseconds: restartDelay)
                 restart()
                 continue

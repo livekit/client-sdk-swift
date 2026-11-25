@@ -130,7 +130,8 @@ package final class NanopbBox<Storage>: NanopbAnyBox, @unchecked Sendable {
 /// the builder so nothing can write to storage after it is published.
 ///
 /// `_pointer` is *stored*, not computed off `_box`: as a computed property it
-/// crashes the Swift 6.1 SIL verifier (fine from 6.2), and 6.1 is the floor.
+/// crashed the Swift 6.1 SIL verifier (fine from 6.2). Swift 6.2 is now the
+/// floor; keep the storage workaround pending separate analysis.
 package struct NanopbBuilder<S: NanopbStorage>: ~Copyable {
     package let _box: NanopbBox<S>
     package let _pointer: UnsafeMutablePointer<S>
@@ -262,7 +263,7 @@ package struct NanopbMsg<S: NanopbStorage>: Equatable, Hashable, @unchecked Send
     /// long-lived state. Owning values cost nothing.
     package func owned() -> Self {
         if _ownsItsStorage { return self }
-        return lkMessage(copying: _pointer)
+        return withExtendedLifetime(_owner) { lkMessage(copying: _pointer) }
     }
 
     /// True when `_owner` is this value's own box rather than a parent's,
@@ -282,11 +283,13 @@ package struct NanopbMsg<S: NanopbStorage>: Equatable, Hashable, @unchecked Send
         // see `nanopbEncodedBytes` on why the error is captured rather than
         // propagated straight through the stdlib's untyped `rethrows`
         var failure: NanopbError?
-        array.withUnsafeBytes { buffer in
-            do throws(NanopbError) {
-                try nanopbDecode(into: _pointer, S.descriptor, buffer)
-            } catch {
-                failure = error
+        withExtendedLifetime(_owner) {
+            array.withUnsafeBytes { buffer in
+                do throws(NanopbError) {
+                    try nanopbDecode(into: _pointer, S.descriptor, buffer)
+                } catch {
+                    failure = error
+                }
             }
         }
         if let failure { throw failure }
@@ -297,7 +300,12 @@ package struct NanopbMsg<S: NanopbStorage>: Equatable, Hashable, @unchecked Send
     }
 
     package func serializedBytes() throws(NanopbError) -> [UInt8] {
-        try nanopbEncodedBytes(_pointer, S.descriptor)
+        // SAFETY: the optimizer sees no link from `_pointer` to `_owner`, so a
+        // caller's temporary could be freed before nanopb reads the struct
+        // (PROTOCOL.md, invariant 7).
+        try withExtendedLifetime(_owner) { () throws(NanopbError) in
+            try nanopbEncodedBytes(_pointer, S.descriptor)
+        }
     }
 
     package func serializedData() throws(NanopbError) -> Data {

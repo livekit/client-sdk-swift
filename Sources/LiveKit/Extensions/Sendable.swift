@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import Foundation
-
 internal import LiveKitWebRTC
+import Foundation
 
 // MARK: Value objects
 
@@ -44,12 +43,6 @@ extension LKRTCFrameCryptorKeyProvider: @unchecked Swift.Sendable {} // internal
 extension LKRTCPeerConnectionFactory: @unchecked Swift.Sendable {} // process-wide singleton; its methods are libwebrtc proxies
 extension LKRTCDefaultAudioProcessingModule: @unchecked Swift.Sendable {} // singleton; calls are marshalled to the worker thread in webrtc-sdk
 extension LKRTCCallbackLogger: @unchecked Swift.Sendable {} // logging singleton
-
-// MARK: Collections
-
-#if swift(<6.2)
-extension Dictionary: Swift.Sendable where Key: Sendable, Value: Sendable {}
-#endif
 
 // MARK: AV
 

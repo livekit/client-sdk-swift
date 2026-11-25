@@ -49,12 +49,12 @@ public func createSampleVideoTrack(targetFps: Int = 30, _ onCapture: @Sendable @
 
     let tracks = try await {
         #if os(visionOS)
-        return try await asset.loadTracks(withMediaType: .video)
+        try await asset.loadTracks(withMediaType: .video)
         #else
         if #available(iOS 15.0, macOS 12.0, *) {
-            return try await asset.loadTracks(withMediaType: .video)
+            try await asset.loadTracks(withMediaType: .video)
         } else {
-            return asset.tracks(withMediaType: .video)
+            asset.tracks(withMediaType: .video)
         }
         #endif
     }()
@@ -247,6 +247,36 @@ public class AudioTrackWatcher: AudioRenderer, @unchecked Sendable {
                 print("did receive first audio frame: \(String(describing: pcmBuffer))")
                 $0.didRenderFirstFrame = true
                 onDidRenderFirstFrame?(id)
+            }
+        }
+    }
+}
+
+public extension BufferCapturer {
+    /// Feeds blank frames at ~30 fps until the returned task is cancelled. Publishing waits on
+    /// the capturer's dimensions, and `stopCapture()` resets them, so a track that is published
+    /// more than once needs frames to keep arriving for the whole test.
+    ///
+    /// Each tick also resolves the dimensions directly. `capture()` only *enqueues* onto the
+    /// capturer's processing queue — `set(dimensions:)` happens inside `_process`, and frames are
+    /// dropped outright while one is in flight — so on a loaded runner the publish gate can wait
+    /// out its whole `.defaultCaptureStart` budget for a value the caller already knows.
+    func startFeedingFrames(dimensions: Dimensions) -> Task<Void, Never> {
+        set(dimensions: dimensions)
+        return Task {
+            var pixelBuffer: CVPixelBuffer?
+            CVPixelBufferCreate(kCFAllocatorDefault,
+                                Int(dimensions.width),
+                                Int(dimensions.height),
+                                kCVPixelFormatType_32BGRA,
+                                nil,
+                                &pixelBuffer)
+            guard let pixelBuffer else { return }
+
+            while !Task.isCancelled {
+                capture(pixelBuffer)
+                set(dimensions: dimensions)
+                try? await Task.sleep(nanoseconds: 33_000_000)
             }
         }
     }

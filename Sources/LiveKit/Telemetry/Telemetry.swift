@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-internal import LiveKitUniFFI
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -235,7 +235,7 @@ extension SpanStep {
 }
 
 extension StartReconnectReason {
-    var telemetry: ReconnectReason {
+    var telemetry: TelemetryReconnectReason {
         switch self {
         case .websocket: .signalDisconnected
         case .transport: .transportFailed

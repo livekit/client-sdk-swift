@@ -21,8 +21,46 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-@Suite(.serialized, .tags(.e2e))
+@Suite(.serialized, .tags(.e2e), TestLimits.e2e)
 struct ParticipantTests {
+    @Test(arguments: [(Int32(-1), ClientProtocol.v0), (0, .v0), (1, .v1), (2, .v2), (3, .v2), (.max, .v2)])
+    func remoteClientProtocol(advertised: Int32, expected: ClientProtocol) {
+        let info = Livekit_ParticipantInfo.with {
+            $0.identity = "remote"
+            $0.clientProtocol = advertised
+        }
+        let participant = RemoteParticipant(info: info, room: Room(), connectionState: .connected)
+        #expect(participant.clientProtocol == expected)
+    }
+
+    /// Capabilities come from the participant info: none by default, both known ones, and nothing
+    /// for the protocol's placeholder or a value this SDK does not know.
+    @Test(arguments: [
+        ([Livekit_ClientInfo_Capability](), [ClientCapability]()),
+        ([.capCompressionDeflateRaw, .capPacketTrailer], [.compressionDeflateRaw, .packetTrailer]),
+        ([.capUnused, Livekit_ClientInfo_Capability(rawValue: 9999), .capCompressionDeflateRaw], [.compressionDeflateRaw]),
+    ])
+    func remoteCapabilities(advertised: [Livekit_ClientInfo_Capability], expected: [ClientCapability]) {
+        let participant = RemoteParticipant(info: info(capabilities: advertised), room: Room(), connectionState: .connected)
+        #expect(participant.capabilities == expected)
+    }
+
+    /// A later update replaces the capabilities, so one without any clears them.
+    @Test func remoteCapabilitiesClearedByLaterUpdate() {
+        let participant = RemoteParticipant(info: info(capabilities: [.capCompressionDeflateRaw]), room: Room(), connectionState: .connected)
+        #expect(participant.capabilities == [.compressionDeflateRaw])
+
+        participant.set(info: info(capabilities: []), connectionState: .connected)
+        #expect(participant.capabilities.isEmpty)
+    }
+
+    private func info(capabilities: [Livekit_ClientInfo_Capability]) -> Livekit_ParticipantInfo {
+        Livekit_ParticipantInfo.with {
+            $0.identity = "remote"
+            $0.capabilities = capabilities
+        }
+    }
+
     @Test func localParticipantIdentity() async throws {
         try await TestEnvironment.withRoom { room in
             #expect(room.localParticipant.identity != nil, "LocalParticipant's identity is nil")

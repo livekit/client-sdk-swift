@@ -160,16 +160,16 @@ extension NWInterface {
             let interface = ifptr.pointee
 
             let addrFamily = interface.ifa_addr.pointee.sa_family
-            if addrFamily == UInt8(family) {
-                // Check interface name:
-                if name == String(cString: interface.ifa_name) {
-                    // Convert interface address to a human readable string:
-                    var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-                    getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
-                                &hostname, socklen_t(hostname.count),
-                                nil, socklen_t(0), NI_NUMERICHOST)
-                    address = String(cString: hostname, encoding: .utf8)
-                }
+            if addrFamily == UInt8(family),
+               // Check interface name:
+               name == String(cString: interface.ifa_name)
+            {
+                // Convert interface address to a human readable string:
+                var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
+                            &hostname, socklen_t(hostname.count),
+                            nil, socklen_t(0), NI_NUMERICHOST)
+                address = String(cString: hostname, encoding: .utf8)
             }
         }
         freeifaddrs(ifaddr)

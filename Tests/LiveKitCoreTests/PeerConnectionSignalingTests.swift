@@ -122,7 +122,7 @@ private final class ReconnectWatcher: NSObject, RoomDelegate, @unchecked Sendabl
 
 // MARK: - PeerConnectionSignalingTests
 
-@Suite(.serialized, .tags(.e2e))
+@Suite(.serialized, .tags(.e2e), TestLimits.e2e)
 struct PeerConnectionSignalingTests {
     // MARK: - Helpers
 
@@ -279,32 +279,6 @@ struct PeerConnectionSignalingTests {
     }
 
     @Test(arguments: SignalingMode.allCases)
-    func dataChannel(mode: SignalingMode) async throws {
-        struct TestPayload: Codable {
-            let content: String
-        }
-
-        try await TestEnvironment.withRooms([
-            roomTestingOptions(mode: mode, canPublish: true, canPublishData: true, canSubscribe: true),
-            roomTestingOptions(mode: mode, canPublish: true, canPublishData: true, canSubscribe: true),
-        ]) { rooms in
-            let room1 = rooms[0]
-            let room2 = rooms[1]
-
-            let topic = "test_signaling_data"
-            let testPayload = TestPayload(content: UUID().uuidString)
-            let jsonData = try JSONEncoder().encode(testPayload)
-
-            let room2Watcher: RoomWatcher<TestPayload> = room2.createWatcher()
-
-            try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic))
-
-            let received = try await room2Watcher.didReceiveDataCompleters.completer(for: topic).wait()
-            #expect(received.content == testPayload.content, "Received data should match sent data")
-        }
-    }
-
-    @Test(arguments: SignalingMode.allCases)
     func fullReconnect(mode: SignalingMode) async throws {
         let reconnectWatcher = ReconnectWatcher()
 
@@ -432,6 +406,108 @@ struct PeerConnectionSignalingTests {
                 print("Localhost server supports /rtc/v1 (single PC active)")
             case .subscriberPrimary, .publisherPrimary:
                 print("Localhost server fell back to V0 as expected")
+            }
+        }
+    }
+}
+
+// MARK: - Data channel
+
+/// Split into an extension purely to keep the suite's own body under SwiftLint's type-body limit.
+extension PeerConnectionSignalingTests {
+    @Test(arguments: SignalingMode.allCases)
+    func dataChannel(mode: SignalingMode) async throws {
+        struct TestPayload: Codable {
+            let content: String
+        }
+
+        try await TestEnvironment.withRooms([
+            roomTestingOptions(mode: mode, canPublish: true, canPublishData: true, canSubscribe: true),
+            roomTestingOptions(mode: mode, canPublish: true, canPublishData: true, canSubscribe: true),
+        ]) { rooms in
+            let room1 = rooms[0]
+            let room2 = rooms[1]
+
+            let topic = "test_signaling_data"
+            let testPayload = TestPayload(content: UUID().uuidString)
+            let jsonData = try JSONEncoder().encode(testPayload)
+
+            let room2Watcher: RoomWatcher<TestPayload> = room2.createWatcher()
+
+            // Reliable, because this asserts delivery. `DataPublishOptions.reliable` defaults to
+            // `false`, and the lossy channel neither retransmits nor guarantees arrival — a single
+            // datagram published this soon after connect is exactly the packet a best-effort
+            // channel is allowed to lose, so the default made this test assert a guarantee the
+            // transport does not make.
+            try await room1.localParticipant.publish(data: jsonData, options: DataPublishOptions(topic: topic, reliable: true))
+
+            let received = try await room2Watcher.didReceiveDataCompleters.completer(for: topic).wait()
+            #expect(received.content == testPayload.content, "Received data should match sent data")
+        }
+    }
+
+    /// A burst issued with no settling delay after `connect()` — the shape that broke in the modes
+    /// where the publisher is primary.
+    ///
+    /// `connect()` returns once the *primary* transport is connected and never waits on the data
+    /// channels, which open on the SCTP association afterwards. Publishes issued in that window
+    /// used to skip the open gate outside subscriber-primary and land in the drain's queue. What
+    /// happened next depends on the channel: the lossy drain is drop-oldest with room for one
+    /// group, so each new write evicted the one waiting and resolved its submitter *successfully*,
+    /// and the burst collapsed to its last packet. The reliable drain parks instead and shipped
+    /// everything once the channel opened — so the lossy case is the regression this guards, and
+    /// the reliable case shows the gate costs it nothing.
+    ///
+    /// The lossy assertion is a floor, not a count: the channel offers best-effort delivery, so it
+    /// may lose the odd datagram, but the defect loses all but one. These payloads total well under
+    /// the 8 KiB the SFU keeps queued per subscriber before it drops unreliable data, so on a
+    /// healthy channel essentially all of them arrive.
+    ///
+    /// Single PC is the mode that matters here (it is becoming the default), but the hole was in
+    /// publisher-primary too, so this runs on every mode rather than only the new one.
+    @Test(arguments: SignalingMode.allCases, [Livekit_DataPacket_Kind.reliable, .lossy])
+    func dataChannelBurstImmediatelyAfterConnect(mode: SignalingMode, kind: Livekit_DataPacket_Kind) async throws {
+        struct TestPayload: Codable {
+            let content: String
+        }
+
+        try await TestEnvironment.withRooms([
+            roomTestingOptions(mode: mode, canPublish: true, canPublishData: true, canSubscribe: true),
+            roomTestingOptions(mode: mode, canPublish: true, canPublishData: true, canSubscribe: true),
+        ]) { rooms in
+            let room2Watcher: RoomWatcher<TestPayload> = rooms[1].createWatcher()
+            let topics = (0 ..< 25).map { "burst-\($0)" }
+
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for topic in topics {
+                    group.addTask {
+                        let payload = try JSONEncoder().encode(TestPayload(content: topic))
+                        try await rooms[0].localParticipant.publish(
+                            data: payload,
+                            options: DataPublishOptions(topic: topic, reliable: kind == .reliable),
+                        )
+                    }
+                }
+                try await group.waitForAll()
+            }
+
+            // Every arrival is checked for content; how many must arrive depends on the channel.
+            let arrived = await withTaskGroup(of: Bool.self) { group in
+                for topic in topics {
+                    group.addTask {
+                        guard let received = try? await room2Watcher.didReceiveDataCompleters.completer(for: topic).wait() else { return false }
+                        #expect(received.content == topic)
+                        return true
+                    }
+                }
+                return await group.reduce(0) { $0 + ($1 ? 1 : 0) }
+            }
+
+            switch kind {
+            case .reliable:
+                #expect(arrived == topics.count, "Reliable: every packet is owed")
+            default:
+                #expect(arrived >= topics.count * 4 / 5, "Lossy: a healthy channel delivers essentially all of a burst this small; the defect delivers one")
             }
         }
     }

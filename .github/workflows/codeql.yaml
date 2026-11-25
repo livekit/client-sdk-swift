@@ -28,7 +28,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Standard macos-26 is too slow under CodeQL's Swift extractor.
+          # The standard runner is too slow under CodeQL's Swift extractor.
+          # Manual Swift extraction is unsupported on macOS 27 or macOS 26 with Xcode 27:
+          # https://codeql.github.com/docs/codeql-overview/system-requirements/
           - language: swift
             os: macos-26-xlarge
             build-mode: manual

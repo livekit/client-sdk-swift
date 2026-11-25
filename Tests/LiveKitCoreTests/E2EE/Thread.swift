@@ -16,11 +16,11 @@
 
 import Foundation
 @testable import LiveKit
+@preconcurrency import LiveKitWebRTC
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
 #endif
-@preconcurrency import LiveKitWebRTC
 
 @Suite(.tags(.e2ee, .concurrency))
 struct E2EEThreadTests {

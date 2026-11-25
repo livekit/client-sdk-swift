@@ -175,6 +175,26 @@ struct CompleterTests {
         try await secondTask.value
     }
 
+    /// A task that is already cancelled when it reaches `wait()` must not sit out its timeout.
+    ///
+    /// `withTaskCancellationHandler` runs `onCancel` immediately for an already-cancelled task, so
+    /// it looks for an entry that the operation has not registered yet — and never runs again. The
+    /// registration has to notice the cancellation itself.
+    @Test func waitOnAnAlreadyCancelledTaskThrowsImmediately() async {
+        let completer = AsyncCompleter<Void>(label: "pre-cancelled", defaultTimeout: 30)
+        let task = Task {
+            while !Task.isCancelled {
+                await Task.yield()
+            }
+            try await completer.wait()
+        }
+        task.cancel()
+
+        let started = Date()
+        await #expect { try await task.value } throws: { ($0 as? LiveKitError)?.type == .cancelled }
+        #expect(Date().timeIntervalSince(started) < 5, "A cancelled wait must not wait out its timeout")
+    }
+
     /// A waiter cancelled while its own timeout is firing must settle, not deadlock: the first child
     /// to time out cancels the rest at the very moment their timers go off. Races for a fixed wall-clock
     /// budget rather than a count, so a slow host cannot turn slowness into a timeout: only a deadlock
@@ -263,6 +283,55 @@ struct CompleterMapActorTests {
         // A later wait must see the success immediately.
         let completer = await map.completer(for: "key")
         try await completer.wait()
+    }
+
+    @Test func resetRejectingNewFailsLaterCompletersUntilTheNextReset() async throws {
+        let map = CompleterMapActor<Void>(label: "reject-new", defaultTimeout: 30)
+        await map.reset(throwing: LiveKitError(.participantRemoved), rejectingNew: true)
+
+        let rejected = await map.completer(for: "key")
+        await #expect {
+            try await rejected.wait()
+        } throws: { ($0 as? LiveKitError)?.type == .participantRemoved }
+
+        // The default reset accepts new completers again, and the rejected one was not kept for the key.
+        await map.reset()
+        let rearmed = await map.completer(for: "key")
+        let task = Task { try await rearmed.wait() }
+        await rearmed.waitForRegistration()
+        await map.resume(returning: (), for: "key")
+        try await task.value
+    }
+
+    /// A completer handed out before the rejecting reset fails with its error, whether its wait came first or comes later.
+    @Test func resetRejectingNewSettlesCompletersAlreadyHandedOut() async throws {
+        let map = CompleterMapActor<Void>(label: "reject-handed-out", defaultTimeout: 5)
+        let handedOut = await map.completer(for: "handed-out")
+        let waiting = await map.completer(for: "waiting")
+        let task = Task { try await waiting.wait() }
+        await waiting.waitForRegistration()
+
+        await map.reset(throwing: LiveKitError(.participantRemoved), rejectingNew: true)
+
+        await #expect {
+            try await task.value
+        } throws: { ($0 as? LiveKitError)?.type == .participantRemoved }
+        await #expect {
+            try await handedOut.wait()
+        } throws: { ($0 as? LiveKitError)?.type == .participantRemoved }
+    }
+
+    /// The default reset leaves a completer handed out before it open: a later resume still reaches its wait.
+    @Test func resetKeepsCompletersAlreadyHandedOutOpen() async throws {
+        let map = CompleterMapActor<Void>(label: "reset-handed-out", defaultTimeout: 5)
+        let handedOut = await map.completer(for: "handed-out")
+
+        await map.reset(throwing: LiveKitError(.participantRemoved))
+
+        let task = Task { try await handedOut.wait() }
+        await handedOut.waitForRegistration()
+        handedOut.resume(returning: ())
+        try await task.value
     }
 
     @Test func resumeThrowingReachesExistingWaiter() async {

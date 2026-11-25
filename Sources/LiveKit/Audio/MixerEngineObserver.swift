@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-@preconcurrency import AVFoundation
-
 internal import LiveKitWebRTC
+@preconcurrency import AVFoundation
 
 public final class MixerEngineObserver: AudioEngineObserver, Loggable {
     public var next: (any AudioEngineObserver)? {

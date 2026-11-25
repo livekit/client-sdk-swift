@@ -78,11 +78,7 @@ struct BroadcastAudioCodec {
         }
         pcmBuffer.frameLength = sampleCount
 
-        guard format.isInterleaved else {
-            throw Error.decodingFailed
-        }
-
-        guard let mData = pcmBuffer.audioBufferList.pointee.mBuffers.mData else {
+        guard format.isInterleaved, let mData = pcmBuffer.audioBufferList.pointee.mBuffers.mData else {
             throw Error.decodingFailed
         }
         encodedData.copyBytes(

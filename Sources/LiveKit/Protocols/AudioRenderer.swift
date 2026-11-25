@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-@preconcurrency import AVFoundation
-import CoreMedia
-
 internal import LiveKitWebRTC
+import AVFoundation
+import CoreMedia
 
 /// Used to observe audio buffers before playback, e.g. for visualization, recording, etc
 /// - Note: AudioRenderer is not suitable for buffer modification. If you need to modify the buffer, use `AudioCustomProcessingDelegate` instead.
@@ -38,6 +37,8 @@ class AudioRendererAdapter: MulticastDelegate<AudioRenderer>, @unchecked Sendabl
     // MARK: - LKRTCAudioRenderer
 
     func render(pcmBuffer: AVAudioPCMBuffer) {
+        // AVAudioPCMBuffer is not Sendable; the renderer queue takes sole ownership.
+        nonisolated(unsafe) let pcmBuffer = pcmBuffer
         notify { $0.render(pcmBuffer: pcmBuffer) }
     }
 }
