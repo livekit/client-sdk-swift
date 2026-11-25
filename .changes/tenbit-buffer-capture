@@ -1,0 +1,1 @@
+patch type="fixed" "Pass 10-bit bi-planar buffers (an HDR camera's HLG frames) through BufferCapturer to a custom video encoder instead of skipping them, which left the track's dimensions unresolved and its publish timing out; WebRTC's own encoders read an 8-bit copy"
