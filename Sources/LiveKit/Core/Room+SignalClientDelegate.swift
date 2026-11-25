@@ -392,12 +392,14 @@ extension Room: SignalClientDelegate {
     /// Attaches media the server has bound to the publisher's receive sections.
     ///
     /// In single PC mode this is the only path that identifies received media — `didAddTrack` is
-    /// skipped there (see ``Room/transport(_:didAddTrack:rtpReceiver:streamIds:)``). Native
-    /// libwebrtc fires it when a transceiver is created, never when an already-negotiated
-    /// `recvonly` section has a track bound to it, which is what the SFU does to a section the
-    /// client offered before there was media for it. ``Transport/receivedMedia(applying:)``
-    /// recovers those by scanning the transceivers, the same diff browsers run natively and
-    /// rust-sdks reimplements in `process_remote_track_addition`.
+    /// skipped there (see ``Room/transport(_:didAddTrack:rtpReceiver:streamIds:)``), because
+    /// ``RemoteParticipant/addSubscribedMediaTrack(mediaTrack:rtpReceiver:trackSid:)`` is not
+    /// idempotent and two paths reaching it would attach the same section twice.
+    ///
+    /// ``Transport/receivedMedia(applying:)`` finds the bound sections by scanning the
+    /// transceivers instead. libwebrtc raises its own event for the msid-update case as of
+    /// LiveKitWebRTC 150.7871.08, but only when a receiver *gains* a stream, so the scan still
+    /// covers same-msid reuse, a binding that precedes its publication, and a room move.
     ///
     /// The scan reports every bound section, so this decides what still needs attaching: a
     /// publication that already holds its track is left alone. That makes an unsubscribe

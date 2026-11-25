@@ -936,14 +936,19 @@ extension Transport {
     /// The mapping is merged, not replaced: a description carries the bindings it is announcing,
     /// and an answer that mentions no mid is not a statement that previous ones were unbound.
     ///
-    /// The *trigger* is the transceiver scan, not a change in the mapping. Native libwebrtc fires
-    /// `didAddTrack` only when a transceiver is first created — never when an already-negotiated
-    /// `recvonly` section has a track bound to it by an msid update, which is what the SFU does
-    /// to a section the client offered before there was media for it. Browsers hide this by
-    /// diffing receiver streams on every `setRemoteDescription` (blink's
-    /// `RTCPeerConnection::DidModifyTransceivers`); rust-sdks reimplements that diff in
-    /// `process_remote_track_addition`. This is the same diff, keyed by `(mid, trackSid)` because
-    /// the ObjC `RTCRtpReceiver` does not expose `streams`.
+    /// The *trigger* is the transceiver scan, not a change in the mapping. Keyed by
+    /// `(mid, trackSid)` because the ObjC `RTCRtpReceiver` does not expose `streams`.
+    ///
+    /// Since LiveKitWebRTC 150.7871.08, libwebrtc fires `didAddTrack` again when a receiver gains
+    /// a stream it was not associated with before (webrtc-sdk/webrtc#321), so the msid-update case
+    /// this scan was written for now raises an event of its own. Single PC mode discards those
+    /// events anyway — see ``Room/transport(_:didAddTrack:rtpReceiver:streamIds:)`` — because
+    /// `addSubscribedMediaTrack` is not idempotent and both paths firing would attach twice.
+    ///
+    /// The scan stays because the event is tied to *gaining* a stream, which leaves three cases it
+    /// cannot see: a transceiver the SFU reuses under the same msid (an unsubscribe followed by a
+    /// resubscribe gains nothing, so no event), a binding that arrives before the publication it
+    /// names, and a room move, where the mids the old server used mean nothing to the new one.
     ///
     /// Reports every bound section rather than only the ones not seen before, and keeps no record
     /// of what it has reported. That is what makes it self-healing: a section negotiated before it
