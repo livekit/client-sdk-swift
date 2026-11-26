@@ -22,10 +22,10 @@ import Testing
 struct NativeRoomMappingTests {
     @Test
     func snapshotPreservesMillisecondsAndPublicationOwnership() throws {
-        let nativeRoom = NativeRoomInfo(sid: nil, name: "room", metadata: "metadata",
-                                        numParticipants: 2, numPublishers: 1, maxParticipants: 8,
-                                        activeRecording: true, emptyTimeout: 300, departureTimeout: 20,
-                                        creationTime: 1_700_000_000_123)
+        let nativeRoom = NativeRoomInfo(sid: nil, name: "room", metadata: "metadata", state: .connected,
+                                        lossyDcOptions: .init(bufferedAmountLowThreshold: 0), reliableDcOptions: .init(bufferedAmountLowThreshold: 0),
+                                        emptyTimeout: 300, departureTimeout: 20, maxParticipants: 8, creationTime: 1_700_000_000_123,
+                                        numPublishers: 1, numParticipants: 2, activeRecording: true)
         var state = Room.State(connectOptions: ConnectOptions(), roomOptions: RoomOptions())
         state.apply(roomInfo: nativeRoom)
         #expect(state.sid == nil)

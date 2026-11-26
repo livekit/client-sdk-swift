@@ -108,7 +108,9 @@ struct RoomStateTests {
     }
 
     private func info(sid: String? = nil, name: String = "") -> NativeRoomInfo {
-        NativeRoomInfo(sid: sid, name: name, metadata: "", numParticipants: 0, numPublishers: 0, maxParticipants: 0,
-                       activeRecording: false, emptyTimeout: 0, departureTimeout: 0, creationTime: 0)
+        NativeRoomInfo(sid: sid, name: name, metadata: "", state: .connected,
+                       lossyDcOptions: .init(bufferedAmountLowThreshold: 0), reliableDcOptions: .init(bufferedAmountLowThreshold: 0),
+                       emptyTimeout: 0, departureTimeout: 0, maxParticipants: 0, creationTime: 0,
+                       numPublishers: 0, numParticipants: 0, activeRecording: false)
     }
 }

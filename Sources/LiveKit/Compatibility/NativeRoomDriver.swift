@@ -81,7 +81,7 @@ actor NativeRoomDriver {
         }
         do {
             let snapshot = try await cancellingNative({ native.cancel() }) {
-                try await native.connect(url: url, token: token, options: nativeOptions)
+                try await NativeRoomState(native.connect(url: url, token: token, options: nativeOptions))
             }
             try Task.checkCancellation()
             guard session === native, !closing else { throw CancellationError() }
@@ -152,7 +152,7 @@ actor NativeRoomDriver {
         guard session === native, !closing else { return }
         if case NativeSessionError.Overflow = error {
             let replacement = native.events(options: .init())
-            let snapshot = replacement.startState()
+            let snapshot = NativeRoomState(replacement.startState())
             projection = snapshot
             await room.applyNativeSnapshot(snapshot, restoreDataTracks: true, restoreMedia: true)
             guard session === native, !closing else { return }
@@ -212,22 +212,23 @@ actor NativeRoomDriver {
              let .participantMetadataChanged(participant, _), let .participantNameChanged(participant, _),
              let .participantAttributesChanged(participant, _), let .participantPermissionChanged(participant),
              let .participantEncryptionStatusChanged(participant), let .connectionQualityChanged(participant):
-            if participant.isLocal { snapshot.localParticipant = participant } else {
-                snapshot.remoteParticipants.removeAll { $0.identity == participant.identity }
-                snapshot.remoteParticipants.append(participant)
-            }
+            snapshot.updateParticipant(NativeParticipant(participant))
         case let .participantDisconnected(participant):
+            let participant = NativeParticipant(participant)
             snapshot.remoteParticipants.removeAll { $0.identity == participant.identity }
             snapshot.publications.removeAll { $0.participantIdentity == participant.identity }
         case let .trackPublished(publication), let .trackMuted(publication), let .trackUnmuted(publication),
              let .trackSubscribed(publication), let .trackUnsubscribed(publication):
+            let publication = NativeTrackPublication(publication)
             mediaChanged = true
             snapshot.publications.removeAll { $0.sid == publication.sid }
             snapshot.publications.append(publication)
         case let .trackUnpublished(publication):
+            let publication = NativeTrackPublication(publication)
             mediaChanged = true
             snapshot.publications.removeAll { $0.sid == publication.sid }
         case let .localTrackRepublished(previous, publication):
+            let publication = NativeTrackPublication(publication)
             mediaChanged = true
             snapshot.publications.removeAll { $0.sid == previous || $0.sid == publication.sid }
             snapshot.publications.append(publication)
@@ -353,48 +354,4 @@ extension NativeRoomDriver {
     }
 
     private func finishRpc(_ id: String) { rpcTasks[id] = nil }
-}
-
-extension NativeRoomDriver {
-    private static func milliseconds(_ interval: TimeInterval) throws -> UInt64 {
-        guard interval.isFinite, interval >= 0, interval * 1000 < Double(UInt64.max) else {
-            throw LiveKitError(.invalidParameter, message: "Invalid timeout")
-        }
-        return UInt64(interval * 1000)
-    }
-
-    static func options(_ connect: ConnectOptions, _ room: RoomOptions) throws -> NativeConnectOptions {
-        let defaults = ConnectOptions()
-        #warning("TODO: Export nondefault connection options from the native session before accepting them here")
-        guard connect.reconnectAttempts == defaults.reconnectAttempts,
-              connect.reconnectAttemptDelay == defaults.reconnectAttemptDelay,
-              connect.reconnectMaxDelay == defaults.reconnectMaxDelay,
-              connect.primaryTransportConnectTimeout == defaults.primaryTransportConnectTimeout,
-              connect.publisherTransportConnectTimeout == defaults.publisherTransportConnectTimeout,
-              connect.iceTransportPolicy != .none,
-              !connect.isDscpEnabled, !connect.enableMicrophone,
-              connect.protocolVersion == defaults.protocolVersion, connect.clientProtocol == defaults.clientProtocol
-        else {
-            throw LiveKitError(.invalidParameter, message: "A nondefault connection/media/encryption option is not exported by the native session")
-        }
-        let payload = room.dataStreamOptions.maxPayloadByteLength
-        guard payload == nil || UInt32(exactly: payload!) != nil else {
-            throw LiveKitError(.invalidParameter, message: "Stream payload limit exceeds native UInt32 range")
-        }
-        let encryption: NativeEncryptionOptions?
-        if let options = room.encryptionOptions {
-            guard options.encryptionType == .gcm else { throw LiveKitError(.invalidParameter, message: "Only native AES-GCM is supported") }
-            encryption = try .init(keyProvider: options.keyProvider.nativeProvider())
-        } else if let options = room.e2eeOptions {
-            guard options.encryptionType == .gcm else { throw LiveKitError(.invalidParameter, message: "Only native AES-GCM is supported") }
-            encryption = try .init(keyProvider: options.keyProvider.nativeProvider(), legacyMediaOnly: true)
-        } else { encryption = nil }
-        return try .init(autoSubscribe: connect.autoSubscribe, adaptiveStream: room.adaptiveStream,
-                         dynacast: room.dynacast, singlePeerConnection: room.singlePeerConnection,
-                         connectTimeoutMs: milliseconds(connect.socketConnectTimeoutInterval),
-                         sdk: "swift", sdkVersion: LiveKitSDK.version, maxStreamPayloadBytes: payload.map(UInt32.init), encryption: encryption,
-                         iceServers: connect.iceServers.map { .init(urls: $0.urls, username: $0.username ?? "", password: $0.credential ?? "") },
-                         iceTransportPolicy: connect.iceTransportPolicy == .relay ? .relay : connect.iceTransportPolicy == .noHost ? .noHost : .all,
-                         clientProtocol: Int32(connect.clientProtocol.rawValue))
-    }
 }

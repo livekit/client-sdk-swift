@@ -30,9 +30,10 @@ extension LocalParticipant {
             throw LiveKitError(.invalidState, message: "Native video capture integration is pending")
         }
         let options = (options as? AudioPublishOptions) ?? room._state.roomOptions.defaultAudioPublishOptions
-        guard options.encoding == nil, !options.preConnect, audio.captureOptions == AudioCaptureOptions() else {
-            throw LiveKitError(.invalidParameter, message: "Native audio encoding and processing option mapping is pending")
+        guard audio.captureOptions == AudioCaptureOptions() else {
+            throw LiveKitError(.invalidParameter, message: "Native audio processing option mapping is pending")
         }
+        let coreOptions = try options.coreOptions()
         let source: NativeLocalAudioTrack
         if let existing = audio.nativeAudio.copy(), (try? existing.info()) != nil {
             source = existing
@@ -42,11 +43,11 @@ extension LocalParticipant {
             audio.nativeAudio.mutate { $0 = source }
         }
         do {
-            let native = try await source.publish(options: .init(source: .microphone, dtx: options.dtx, red: options.red, stream: options.streamName ?? ""))
+            let native = try await source.publish(options: coreOptions)
             audio.nativePublication.mutate { $0 = native }
             try Task.checkCancellation()
             guard room.nativeSession.copy() === session else { throw CancellationError() }
-            let info = try native.info()
+            let info = try NativeTrackPublication(native.info())
             let publication = LocalTrackPublication(info: info, participant: self)
             audio._state.mutate {
                 $0.nativeSession = session
@@ -76,13 +77,7 @@ extension LocalParticipant {
         let room = try requireRoom()
         let session = try room.requireNativeSession(forMedia: true)
         let options = options ?? room._state.roomOptions.defaultVideoPublishOptions
-        guard options.encoding == nil, options.screenShareEncoding == nil,
-              options.simulcastLayers.isEmpty, options.screenShareSimulcastLayers.isEmpty,
-              options.preferredCodec == nil || options.preferredCodec == .vp8,
-              options.preferredBackupCodec == nil, options.degradationPreference == .auto
-        else {
-            throw LiveKitError(.invalidParameter, message: "Native custom video encoding options are not exported")
-        }
+        let coreOptions = try options.coreOptions(screenShare: track.source == .screenShareVideo)
         try await track.start()
         do {
             let dimensions = try await track.capturer.dimensionsCompleter.wait()
@@ -96,11 +91,11 @@ extension LocalParticipant {
                 let bridge = NativeVideoCapture(source: source)
                 track.nativeCapture.mutate { $0 = bridge }
                 track.add(videoRenderer: bridge)
-                let native = try await source.publish(options: .init(source: track.source == .screenShareVideo ? .screenshare : .camera, simulcast: options.simulcast, stream: options.streamName ?? ""))
+                let native = try await source.publish(options: coreOptions)
                 track.nativePublication.mutate { $0 = native }
                 try Task.checkCancellation()
                 guard room.nativeSession.copy() === session else { throw CancellationError() }
-                let info = try native.info()
+                let info = try NativeTrackPublication(native.info())
                 let publication = LocalTrackPublication(info: info, participant: self)
                 track._state.mutate { $0.nativeSession = session; $0.sid = Track.Sid(from: info.sid); $0.publishState = .published; $0.lastPublishOptions = options; $0.dimensions = dimensions }
                 await publication.set(track: track)

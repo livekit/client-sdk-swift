@@ -45,11 +45,3 @@ public final class ParticipantTrackPermission: NSObject, Sendable {
         self.allowedTrackSids = allowedTrackSids
     }
 }
-
-extension ParticipantTrackPermission {}
-
-extension ParticipantTrackPermission {
-    func toNative(identity: String) -> NativeTrackPermission {
-        NativeTrackPermission(participantIdentity: identity, allowAll: allTracksAllowed, allowedTrackSids: allTracksAllowed ? [] : allowedTrackSids)
-    }
-}

@@ -195,7 +195,7 @@ private final class ReviewPacketWatcher: NSObject, RoomDelegate, Sendable {
 
 private final class ConnectingRpcWatcher: NSObject, RoomDelegate, Sendable {
     let registered = AsyncCompleter<Void>(label: "connecting RPC", defaultTimeout: 10)
-    func room(_ room: Room, didUpdateConnectionState state: ConnectionState, from _: ConnectionState) {
+    func room(_ room: Room, didUpdateConnectionState state: LiveKit.ConnectionState, from _: LiveKit.ConnectionState) {
         guard state == .connecting else { return }
         Task {
             do {

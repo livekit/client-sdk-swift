@@ -186,7 +186,7 @@ extension NativeRoomTests {
 
     private final class InitialSubscriptionWatcher: NSObject, RoomDelegate, Sendable {
         let events = StateSync<[String]>([])
-        func room(_: Room, didUpdateConnectionState state: ConnectionState, from _: ConnectionState) {
+        func room(_: Room, didUpdateConnectionState state: LiveKit.ConnectionState, from _: LiveKit.ConnectionState) {
             if state == .connected { events.mutate { $0.append("connected") } }
         }
 

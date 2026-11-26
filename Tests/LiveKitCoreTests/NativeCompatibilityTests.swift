@@ -36,12 +36,36 @@ struct NativeCompatibilityTests {
     }
 
     @Test
+    func publishingOptionsUseCoreValues() throws {
+        let audio = try AudioPublishOptions(encoding: .init(maxBitrate: 32000), dtx: false,
+                                            streamName: "voice", preConnect: true).coreOptions()
+        #expect(audio.audioEncoding?.maxBitrate == 32000)
+        #expect(!audio.dtx && audio.red && audio.preconnectBuffer)
+        #expect(audio.source == .microphone && audio.stream == "voice")
+        let video = VideoPublishOptions(encoding: .init(maxBitrate: 800_000, maxFps: 30),
+                                        screenShareEncoding: .init(maxBitrate: 400_000, maxFps: 10),
+                                        simulcastLayers: [.init(dimensions: .init(width: 320, height: 180),
+                                                                encoding: .init(maxBitrate: 100_000, maxFps: 15))],
+                                        preferredCodec: .vp9, degradationPreference: .maintainResolution)
+        let camera = try video.coreOptions(screenShare: false)
+        let screen = try video.coreOptions(screenShare: true)
+        #expect(camera.videoEncoding?.maxBitrate == 800_000)
+        #expect(camera.simulcastLayers?.first?.width == 320)
+        #expect(camera.videoCodec == .vp9 && camera.degradationPreference == .maintainResolution)
+        #expect(screen.source == .screenshare && screen.videoEncoding?.maxFramerate == 10)
+        #expect(screen.simulcastLayers == nil)
+        #expect(throws: LiveKitError.self) { try AudioPublishOptions(encoding: .init(maxBitrate: -1)).coreOptions() }
+        #expect(throws: LiveKitError.self) { try VideoPublishOptions(encoding: .init(maxBitrate: 1, maxFps: 0)).coreOptions(screenShare: false) }
+        #expect(throws: LiveKitError.self) { try VideoPublishOptions(preferredBackupCodec: .vp8).coreOptions(screenShare: false) }
+    }
+
+    @Test
     func iceConfigurationUsesNativeFields() throws {
         let server = IceServer(urls: ["turn:127.0.0.1:3478"], username: "test-user", credential: "test-password")
         let options = try NativeRoomDriver.options(.init(iceServers: [server], iceTransportPolicy: .relay), RoomOptions())
-        #expect(options.iceServers == [.init(urls: server.urls, username: "test-user", password: "test-password")])
-        #expect(options.iceTransportPolicy == .relay)
-        #expect(options.clientProtocol == 2)
+        #expect(options.iceServers() == [.init(urls: server.urls, username: "test-user", password: "test-password")])
+        #expect(options.iceTransportPolicy() == .relay)
+        #expect(options.sdk() == "swift")
         #expect(throws: LiveKitError.self) { try NativeRoomDriver.options(.init(iceTransportPolicy: .none), RoomOptions()) }
         #expect(throws: LiveKitError.self) { try NativeRoomDriver.options(.init(clientProtocol: .v0), RoomOptions()) }
     }

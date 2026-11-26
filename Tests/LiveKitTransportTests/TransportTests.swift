@@ -167,7 +167,7 @@ struct TransportRegistryTests {
 
     private func checkPendingConnect(_ ws: CountingWSClient, cancelSession: Bool) async throws {
         let native = FfiRoom()
-        let options = NativeConnectOptions(joinRetries: 0, connectTimeoutMs: CountingWSClient.connectTimeoutMs)
+        let options = FfiRoomOptions().withJoinRetries(value: 0).withConnectTimeout(value: Double(CountingWSClient.connectTimeoutMs) / 1000)
         let connect = Task { try await native.connect(url: "ws://127.0.0.1:1", token: "test", options: options) }
         let callbackStarted = try await ws.started.value()
         if cancelSession {
