@@ -46,3 +46,17 @@ public extension RemoteTrackPublication {
     /// The FlexFEC protection requested with ``set(fecProtection:)``.
     var fecProtection: FECProtection { _state.trackSettings.fecProtection ?? .disabled }
 }
+
+extension RemoteTrackPublication {
+    /// Sends the requested FEC protection again for a newly attached track.
+    ///
+    /// A resubscription can create a new server subscription, which starts at `FEC_MODE_DISABLED`.
+    /// Sending the same value to a subscription that kept it changes nothing.
+    func replayFECProtection() async {
+        do {
+            try await send(trackSettings: _state.trackSettings)
+        } catch {
+            log("Failed to replay FEC protection, sid: \(sid), error: \(error)", .warning)
+        }
+    }
+}

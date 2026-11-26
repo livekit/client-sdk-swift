@@ -37,6 +37,15 @@ struct TrackSettings: Equatable, Hashable {
         self.fecProtection = fecProtection
     }
 
+    /// The settings a new server subscription starts with, so that the first update keeps the
+    /// current layer: adaptive stream starts disabled at low quality, otherwise the server sends
+    /// the highest quality.
+    static func initial(adaptiveStream: Bool, fecProtection: FECProtection?) -> TrackSettings {
+        TrackSettings(enabled: !adaptiveStream,
+                      videoQuality: adaptiveStream ? .low : .high,
+                      fecProtection: fecProtection)
+    }
+
     func copyWith(isEnabled: ValueOrAbsent<Bool> = .absent,
                   dimensions: ValueOrAbsent<Dimensions> = .absent,
                   videoQuality: ValueOrAbsent<VideoQuality> = .absent,

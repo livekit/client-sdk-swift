@@ -164,6 +164,11 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
 
                 log("[adaptiveStream] did reset trackSettings: \(_state.trackSettings), kind: \(newValue.kind)")
 
+                // a new server subscription starts without FEC protection
+                if _state.trackSettings.fecProtection.map({ $0 != .disabled }) == true {
+                    Task { [weak self] in await self?.replayFECProtection() }
+                }
+
                 // start adaptiveStream timer only if it's a video track
                 if isAdaptiveStreamEnabled {
                     _asTimer.setTimerBlock { [weak self] in
@@ -260,10 +265,9 @@ extension RemoteTrackPublication {
 extension RemoteTrackPublication {
     // reset track settings
     func resetTrackSettings() {
-        // track is initially disabled when adaptive stream is enabled
-        let initiallyEnabled = !isAdaptiveStreamEnabled
-        // keep the requested FEC protection, the server keeps it too
-        _state.mutate { $0.trackSettings = TrackSettings(enabled: initiallyEnabled, fecProtection: $0.trackSettings.fecProtection) }
+        let adaptiveStream = isAdaptiveStreamEnabled
+        // keep the requested FEC protection, it is replayed to the new subscription
+        _state.mutate { $0.trackSettings = .initial(adaptiveStream: adaptiveStream, fecProtection: $0.trackSettings.fecProtection) }
     }
 
     // attempt to send track settings

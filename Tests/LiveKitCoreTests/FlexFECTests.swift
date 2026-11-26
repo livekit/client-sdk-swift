@@ -68,6 +68,19 @@ struct FECProtectionTests {
         #expect(requested.copyWith(preferredFPS: .value(15)).fecProtection == .fixed(.high))
     }
 
+    @Test func initialSettingsMatchServerSubscription() {
+        // without adaptive stream the server starts at high quality, so an update must not lower it
+        let manual = TrackSettings.initial(adaptiveStream: false, fecProtection: .fixed(.high))
+        #expect(manual.isEnabled)
+        #expect(manual.videoQuality == .high)
+        #expect(manual.fecProtection == .fixed(.high))
+
+        let adaptive = TrackSettings.initial(adaptiveStream: true, fecProtection: nil)
+        #expect(!adaptive.isEnabled)
+        #expect(adaptive.videoQuality == .low)
+        #expect(adaptive.fecProtection == nil)
+    }
+
     @Test func mapsToSenderProtection() {
         let fixed = FECProtection.fixed(.medium).toRTCType()
         #expect(fixed.mode == .fixed)
@@ -146,6 +159,58 @@ struct FlexFECTests {
         }
     }
 
+    @Test(.disabled("LiveKitWebRTC aborts in SendStatisticsProxy when FlexFEC is negotiated for a simulcast sender"))
+    func protectionKeepsSimulcastLayer() async throws {
+        let publishOptions = VideoPublishOptions(simulcast: true, preferredCodec: .vp8, preferredBackupCodec: .none)
+
+        try await withSubscribedVideo(publishOptions: publishOptions, dimensions: .h720_169) { _, videoPublication, videoTrack in
+            func frameWidth() -> UInt64 {
+                UInt64(videoTrack.statistics?.inboundRtpStream.compactMap(\.frameWidth).max() ?? 0)
+            }
+
+            // the server starts a subscription without adaptive stream at the top layer
+            let before = try await waitFor(above: 640, frameWidth)
+            #expect(before > 640, "Expected the top simulcast layer before requesting protection, got \(before)")
+
+            try await videoPublication.set(fecProtection: .fixed(.high))
+
+            // give a layer switch time to show up in the stats
+            try await Task.sleep(nanoseconds: 5_000_000_000)
+            let after = frameWidth()
+            #expect(after == before, "Requesting protection changed the received layer from \(before) to \(after)")
+        }
+    }
+
+    @Test func resubscribeKeepsProtection() async throws {
+        let publishOptions = VideoPublishOptions(simulcast: false, preferredCodec: .vp8, preferredBackupCodec: .none)
+
+        try await withSubscribedVideo(publishOptions: publishOptions) { _, videoPublication, _ in
+            try await videoPublication.set(fecProtection: .fixed(.high))
+
+            try await videoPublication.set(subscribed: false)
+            // let the server close the subscription, so the next one starts without protection
+            try await Task.sleep(nanoseconds: 5_000_000_000)
+            try await videoPublication.set(subscribed: true)
+
+            var resubscribed: RemoteVideoTrack?
+            let deadline = Date().addingTimeInterval(30)
+            while Date() < deadline {
+                if let track = videoPublication.track as? RemoteVideoTrack {
+                    resubscribed = track
+                    break
+                }
+                try await Task.sleep(nanoseconds: 200_000_000)
+            }
+            let videoTrack = try #require(resubscribed)
+            #expect(videoPublication.fecProtection == .fixed(.high))
+
+            let received = try await waitFor(above: 50) {
+                videoTrack.statistics?.inboundRtpStream.compactMap(\.fecPacketsReceived).max() ?? 0
+            }
+            #expect(received > 50, "Expected FlexFEC repairs after resubscribing, got \(received)")
+        }
+    }
+
     private func waitFor(above threshold: UInt64, _ value: () -> UInt64) async throws -> UInt64 {
         var current: UInt64 = 0
         let deadline = Date().addingTimeInterval(30)
@@ -158,6 +223,7 @@ struct FlexFECTests {
     }
 
     private func withSubscribedVideo(publishOptions: VideoPublishOptions,
+                                     dimensions: Dimensions = .h360_169,
                                      _ block: @escaping @Sendable (LocalVideoTrack, RemoteTrackPublication, RemoteVideoTrack) async throws -> Void) async throws
     {
         try await TestEnvironment.withRooms([RoomTestingOptions(isE2eeEnabled: false, canPublish: true),
@@ -166,7 +232,7 @@ struct FlexFECTests {
             let room1 = rooms[0]
             let room2 = rooms[1]
 
-            let bufferTrack = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions(dimensions: .h360_169), reportStatistics: true)
+            let bufferTrack = await LocalVideoTrack.createBufferTrack(options: BufferCaptureOptions(dimensions: dimensions), reportStatistics: true)
             let bufferCapturer = try #require(bufferTrack.capturer as? BufferCapturer)
             let captureTask = try await createSampleVideoTrack { buffer in
                 bufferCapturer.capture(buffer)
