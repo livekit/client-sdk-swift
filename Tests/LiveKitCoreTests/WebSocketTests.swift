@@ -122,7 +122,7 @@ struct WebSocketTests {
         try await room.connect(url: url, token: finalToken)
         #expect(room.connectionState == .connected)
 
-        let socket = room.nativeSession.copy()
+        let socket = room.nativeRoom.copy()
         #expect(socket != nil)
 
         await room.disconnect()

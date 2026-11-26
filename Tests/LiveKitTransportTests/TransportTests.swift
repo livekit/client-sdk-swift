@@ -159,7 +159,7 @@ struct TransportRegistryTests {
                 _ = try await native.connect(url: "ws://127.0.0.1:1", token: "test", options: .init())
                 Issue.record("Missing client unexpectedly connected")
             } catch {
-                #expect(error as? NativeSessionError == .Signal(failure: .transportNotConfigured))
+                #expect(error as? FfiRoomError == .Signal(failure: .transportNotConfigured))
             }
             await native.disconnect()
         }
@@ -173,7 +173,7 @@ struct TransportRegistryTests {
         if cancelSession {
             let requested = ContinuousClock.now
             await Task.detached { native.cancel() }.value
-            await #expect(throws: NativeSessionError.Cancelled) { _ = try await connect.value }
+            await #expect(throws: FfiRoomError.Cancelled) { _ = try await connect.value }
             let publicLatency = requested.duration(to: .now)
             print("Session cancel to public connect result: \(publicLatency)")
             #expect(publicLatency < .seconds(1))
@@ -189,7 +189,7 @@ struct TransportRegistryTests {
         print("Foreign callback cancellation: \(callbackLatency); deadline: \(signalingDeadline); tolerance: \(schedulingTolerance)")
         #expect(callbackLatency < signalingDeadline + schedulingTolerance)
         if !cancelSession {
-            await #expect(throws: NativeSessionError.self) { _ = try await connect.value }
+            await #expect(throws: FfiRoomError.self) { _ = try await connect.value }
         }
         // Join the session's owned work, not an asserted all-descendant destruction barrier.
         await native.disconnect()
