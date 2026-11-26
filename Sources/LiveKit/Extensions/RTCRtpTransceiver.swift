@@ -49,4 +49,26 @@ extension LKRTCRtpTransceiver: Loggable {
             log("Preferred codec is not first of codecPreferences", .error)
         }
     }
+
+    /// Stops offering FlexFEC on this transceiver, keeping the order of any codec preferences set.
+    ///
+    /// For simulcast senders only: WebRTC allocates them no FlexFEC SSRC, and when FlexFEC is
+    /// negotiated anyway its send statistics read a protected media SSRC that does not exist and
+    /// abort the process. Does nothing when FlexFEC is not offered.
+    @RTC
+    func removeFlexFEC() throws {
+        let current = codecPreferences.isEmpty ? RTC.videoSenderCapabilities.codecs : codecPreferences
+        let withoutFlexFEC = current.filter { $0.name.lowercased() != Self.flexFECCodecName }
+        guard withoutFlexFEC.count != current.count else { return }
+
+        do {
+            try setCodecPreferences(withoutFlexFEC, error: ())
+        } catch {
+            throw LiveKitError(.webRTC, message: "Failed to remove FlexFEC from codec preferences", internalError: error)
+        }
+
+        log("Removed FlexFEC from codecPreferences of a simulcast sender")
+    }
+
+    private static let flexFECCodecName = "flexfec-03"
 }

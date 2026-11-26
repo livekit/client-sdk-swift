@@ -48,8 +48,8 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
     ///
     /// - Note: Repairs are only sent when FlexFEC was negotiated, which requires
     ///   ``LiveKitSDK/setFlexFECEnabled(_:)`` and a server with upstream FlexFEC enabled.
-    ///   WebRTC does not allocate a FlexFEC stream for simulcast, so this only takes effect
-    ///   with `simulcast: false`.
+    ///   WebRTC does not allocate a FlexFEC stream for simulcast, so a simulcast track does not
+    ///   offer FlexFEC and this only takes effect with `simulcast: false`.
     public let fecProtection: FECProtection?
 
     public init(name: String? = nil,

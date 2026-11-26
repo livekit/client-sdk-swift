@@ -21,7 +21,7 @@ public extension LiveKitSDK {
     ///
     /// When enabled, peer connections negotiate `flexfec-03`, which lets subscribed video tracks
     /// receive repair packets from the server, see ``RemoteTrackPublication/set(fecProtection:)``.
-    /// Published video tracks then also send FlexFEC to the server, see
+    /// Published video tracks without simulcast then also send FlexFEC to the server, see
     /// ``VideoPublishOptions/fecProtection``.
     /// Disabled by default.
     ///

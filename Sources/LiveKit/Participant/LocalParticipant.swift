@@ -650,6 +650,9 @@ extension LocalParticipant {
             let startBitrateKbps = Transport.startBitrateKbps(for: encodings, isScreenShare: isScreenShare, connectionSetupTime: publisher.connectionSetupTime)
             let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit, startBitrateKbps: startBitrateKbps)
             try transceiver.set(preferredVideoCodec: videoCodec)
+            if encodings.count > 1 {
+                try transceiver.removeFlexFEC()
+            }
             transceiver.sender.set(degradationPreference: degradationPreference, fecProtection: publishOptions.fecProtection)
             return RTCSender(transceiver.sender)
         }
@@ -900,6 +903,10 @@ extension LocalParticipant {
 
                         if let preferredCodec = publishOptions.preferredCodec {
                             try transceiver.set(preferredVideoCodec: preferredCodec)
+                        }
+
+                        if transInit.sendEncodings.count > 1 {
+                            try transceiver.removeFlexFEC()
                         }
                     }
                     return RTCSender(transceiver.sender)

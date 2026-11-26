@@ -159,8 +159,9 @@ struct FlexFECTests {
         }
     }
 
-    @Test(.disabled("LiveKitWebRTC aborts in SendStatisticsProxy when FlexFEC is negotiated for a simulcast sender"))
-    func protectionKeepsSimulcastLayer() async throws {
+    /// Also covers publishing simulcast with FlexFEC enabled: if a simulcast sender negotiated
+    /// FlexFEC, LiveKitWebRTC would abort within seconds in `SendStatisticsProxy`.
+    @Test func protectionKeepsSimulcastLayer() async throws {
         let publishOptions = VideoPublishOptions(simulcast: true, preferredCodec: .vp8, preferredBackupCodec: .none)
 
         try await withSubscribedVideo(publishOptions: publishOptions, dimensions: .h720_169) { _, videoPublication, videoTrack in
@@ -168,16 +169,17 @@ struct FlexFECTests {
                 UInt64(videoTrack.statistics?.inboundRtpStream.compactMap(\.frameWidth).max() ?? 0)
             }
 
-            // the server starts a subscription without adaptive stream at the top layer
-            let before = try await waitFor(above: 640, frameWidth)
-            #expect(before > 640, "Expected the top simulcast layer before requesting protection, got \(before)")
+            // the server starts a subscription without adaptive stream at high quality; wait until
+            // bandwidth estimation has ramped up to the layer it settles on
+            let before = try await waitForSteady(frameWidth)
+            #expect(before > 640, "Expected an upper simulcast layer before requesting protection, got \(before)")
 
             try await videoPublication.set(fecProtection: .fixed(.high))
 
             // give a layer switch time to show up in the stats
             try await Task.sleep(nanoseconds: 5_000_000_000)
             let after = frameWidth()
-            #expect(after == before, "Requesting protection changed the received layer from \(before) to \(after)")
+            #expect(after >= before, "Requesting protection lowered the received layer from \(before) to \(after)")
         }
     }
 
@@ -217,6 +219,24 @@ struct FlexFECTests {
         while Date() < deadline {
             current = value()
             if current > threshold { break }
+            try await Task.sleep(nanoseconds: 500_000_000)
+        }
+        return current
+    }
+
+    /// Waits until `value` is non-zero and unchanged for 3 s, or 30 s pass.
+    private func waitForSteady(_ value: () -> UInt64) async throws -> UInt64 {
+        var current: UInt64 = 0
+        var steadySince = Date()
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            let next = value()
+            if next != current {
+                current = next
+                steadySince = Date()
+            } else if current > 0, Date().timeIntervalSince(steadySince) >= 3 {
+                break
+            }
             try await Task.sleep(nanoseconds: 500_000_000)
         }
         return current
