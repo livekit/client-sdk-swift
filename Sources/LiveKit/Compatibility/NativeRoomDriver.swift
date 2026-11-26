@@ -171,7 +171,7 @@ actor NativeRoomDriver {
                 reportedPacketMetadataGap = true
                 room.log("Native packets omit encryption metadata; the legacy delegate encryption field is not authoritative", .warning)
             }
-            room.didReceive(data: packet.payload, topic: packet.topic ?? "", participantIdentity: packet.participantIdentity ?? "")
+            room.didReceive(data: packet.payload, topic: packet.topic ?? "", participantIdentity: packet.participant?.identity() ?? "")
             return true
         case let .byteStreamOpened(reader, identity):
             room.dataStreams.handleByteStreamOpened(reader, identity: identity)
@@ -208,17 +208,12 @@ actor NativeRoomDriver {
             return
         case let .roomUpdated(info), let .roomMetadataChanged(info, _), let .roomMoved(info): snapshot.room = info
         case let .tokenRefreshed(token): room._state.mutate { $0.token = token }
-        case let .participantConnected(participant), let .participantUpdated(participant),
-             let .participantMetadataChanged(participant, _), let .participantNameChanged(participant, _),
-             let .participantAttributesChanged(participant, _), let .participantPermissionChanged(participant),
-             let .participantEncryptionStatusChanged(participant), let .connectionQualityChanged(participant):
-            snapshot.updateParticipant(NativeParticipant(participant))
         case let .participantDisconnected(participant):
             let participant = NativeParticipant(participant)
             snapshot.remoteParticipants.removeAll { $0.identity == participant.identity }
             snapshot.publications.removeAll { $0.participantIdentity == participant.identity }
         case let .trackPublished(publication), let .trackMuted(publication), let .trackUnmuted(publication),
-             let .trackSubscribed(publication), let .trackUnsubscribed(publication):
+             let .localTrackPublished(publication, _), let .trackSubscribed(publication, _), let .trackUnsubscribed(publication, _):
             let publication = NativeTrackPublication(publication)
             mediaChanged = true
             snapshot.publications.removeAll { $0.sid == publication.sid }
@@ -227,7 +222,7 @@ actor NativeRoomDriver {
             let publication = NativeTrackPublication(publication)
             mediaChanged = true
             snapshot.publications.removeAll { $0.sid == publication.sid }
-        case let .localTrackRepublished(previous, publication):
+        case let .localTrackRepublished(previous, publication, _):
             let publication = NativeTrackPublication(publication)
             mediaChanged = true
             snapshot.publications.removeAll { $0.sid == previous || $0.sid == publication.sid }
@@ -236,18 +231,19 @@ actor NativeRoomDriver {
             updateSpeakers(speakers, in: &snapshot, room: room)
             projection = snapshot
             return
-        case let .trackSubscriptionFailed(identity, sid, reason):
+        case let .trackSubscriptionFailed(coreParticipant, sid, error):
+            let identity = coreParticipant.identity()
             if let participant = room.remoteParticipants[Participant.Identity(from: identity)] {
-                room.delegates.notify { $0.room?(room, participant: participant, didFailToSubscribeTrackWithSid: Track.Sid(from: sid), error: LiveKitError(.invalidState, message: reason)) }
+                room.delegates.notify { $0.room?(room, participant: participant, didFailToSubscribeTrackWithSid: Track.Sid(from: sid), error: LiveKitError(.invalidState, message: String(describing: error))) }
             }
-        default: break
+        default: snapshot.applyParticipantEvent(update.event)
         }
         projection = snapshot
         await room.applyNativeSnapshot(snapshot, restoreMedia: mediaChanged)
     }
 
-    private func updateSpeakers(_ speakers: [NativeSpeaker], in snapshot: inout NativeRoomState, room: Room) {
-        let levels = Dictionary(speakers.map { ($0.identity, $0.audioLevel) }, uniquingKeysWith: { _, newest in newest })
+    private func updateSpeakers(_ speakers: [FfiParticipant], in snapshot: inout NativeRoomState, room: Room) {
+        let levels = Dictionary(speakers.map { ($0.identity(), $0.audioLevel()) }, uniquingKeysWith: { _, newest in newest })
         let localIdentity = snapshot.localParticipant?.identity ?? ""
         snapshot.localParticipant?.audioLevel = levels[localIdentity] ?? 0
         snapshot.localParticipant?.isSpeaking = levels[localIdentity] != nil
@@ -257,9 +253,9 @@ actor NativeRoomDriver {
             snapshot.remoteParticipants[index].isSpeaking = levels[identity] != nil
         }
         room.didUpdateSpeakers(speakers.compactMap { speaker in
-            let participant: Participant? = room.localParticipant.identity?.stringValue == speaker.identity
-                ? room.localParticipant : room.remoteParticipants[Participant.Identity(from: speaker.identity)]
-            return participant.map { ($0, speaker.audioLevel) }
+            let participant: Participant? = room.localParticipant.identity?.stringValue == speaker.identity()
+                ? room.localParticipant : room.remoteParticipants[Participant.Identity(from: speaker.identity())]
+            return participant.map { ($0, speaker.audioLevel()) }
         })
     }
 }

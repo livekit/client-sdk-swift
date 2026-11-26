@@ -41,22 +41,14 @@ struct FfiRoomTests {
             #expect(initial.room?.name == name)
             #expect(initial.localParticipant?.identity() == "direct")
             let participant = try #require(initial.localParticipant)
-            let publication = try #require(initial.publications.first)
+            let relationship = try #require(initial.publications.first)
+            let publication = relationship.publication
             releasedParticipant = participant
             releasedPublication = publication
-            #expect(publication.name() == "startup")
-            #expect(publication.participantIdentity() == "direct")
+            checkCoreObjects(participant: participant, publication: publication, track: track)
+            #expect(relationship.participant.identity() == "direct")
             try await room.setMetadata(metadata: "direct metadata")
-            var received = false
-            while let update = try await events.next() {
-                if case let .participantMetadataChanged(participant, _) = update.event {
-                    #expect(participant.metadata() == "direct metadata")
-                    #expect(update.revision > initial.revision)
-                    received = true
-                    break
-                }
-            }
-            #expect(received)
+            try await expectMetadata(events: events, after: initial.revision)
             #expect(participant.metadata() == "direct metadata", "A retained core handle observes the update")
             let controls = try room.publication(identity: "direct", sid: publication.sid())
             try await controls.setMuted(muted: true)
@@ -74,6 +66,30 @@ struct FfiRoomTests {
         #expect(releasedParticipant == nil)
         #expect(releasedPublication == nil)
         #expect(releasedTrack == nil)
+    }
+
+    private func expectMetadata(events: NativeRoomEventCursor, after revision: UInt64) async throws {
+        var received = false
+        while let update = try await events.next() {
+            if case let .participantMetadataChanged(participant, _, metadata) = update.event {
+                #expect(metadata == "direct metadata")
+                #expect(participant.metadata() == metadata)
+                #expect(update.revision > revision)
+                received = true
+                break
+            }
+        }
+        #expect(received)
+    }
+
+    private func checkCoreObjects(participant: FfiParticipant, publication: FfiTrackPublication, track: FfiTrack) {
+        #expect(publication.name() == "startup")
+        #expect(participant.publications()[publication.sid()]?.name() == "startup")
+        #expect(publication.local()?.publishOptions().source == .microphone)
+        #expect(publication.remote() == nil)
+        #expect(publication.mediaTrack()?.name() == "startup")
+        #expect(publication.dimensions().width() == 0)
+        #expect(track.streamState() == .active)
     }
 
     private func startupOptions(track: FfiTrack) throws -> FfiRoomOptions {

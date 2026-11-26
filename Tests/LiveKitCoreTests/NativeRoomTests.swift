@@ -54,6 +54,7 @@ struct NativeRoomTests {
             try await bob.connect(url: url, token: bobToken)
             try await eventually { alice.remoteParticipants.count == 1 && bob.remoteParticipants.count == 1 }
             let remoteAlice = try #require(bob.remoteParticipants[.init(from: "alice")])
+            try checkEventValues(#require(alice.nativeSession.copy()))
             #expect(alice.connectionState == .connected)
             #expect(alice.localParticipant.identity?.stringValue == "alice")
             #expect(try await alice.sid() == bob.sid())
@@ -266,5 +267,25 @@ struct NativeRoomTests {
                 received.resume(returning: data)
             }
         }
+    }
+}
+
+extension NativeRoomTests {
+    private func checkEventValues(_ session: FfiRoom) throws {
+        var state = NativeRoomState(session.state())
+        let participant = try #require(session.state().localParticipant)
+        state.applyParticipantEvent(.participantMetadataChanged(participant: participant, oldMetadata: "earlier", metadata: "event metadata"))
+        #expect(state.localParticipant?.metadata == "event metadata")
+        #expect(participant.metadata() != "event metadata")
+        state.applyParticipantEvent(.participantNameChanged(participant: participant, oldName: "earlier", name: "event name"))
+        #expect(state.localParticipant?.name == "event name")
+        state.applyParticipantEvent(.connectionQualityChanged(participant: participant, quality: .poor))
+        #expect(state.localParticipant?.connectionQuality == .poor)
+        let remote = try #require(session.state().remoteParticipants.first)
+        state.remoteParticipants = []
+        state.applyParticipantEvent(.participantsUpdated(participants: [remote]))
+        #expect(state.remoteParticipants.isEmpty, "An update cannot insert membership before its join event")
+        state.applyParticipantEvent(.participantConnected(participant: remote))
+        #expect(state.remoteParticipants.count == 1)
     }
 }

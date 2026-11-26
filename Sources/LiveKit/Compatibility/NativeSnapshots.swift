@@ -77,20 +77,30 @@ struct NativeTrackPublication: Equatable, Sendable {
 }
 
 extension NativeTrackPublication {
-    init(_ core: FfiTrackPublication) {
+    init(_ entry: FfiPublication) {
+        let core = entry.publication
         sid = core.sid()
-        participantIdentity = core.participantIdentity()
+        participantIdentity = entry.participant.identity()
         name = core.name()
         kind = core.kind()
         source = core.source()
         isMuted = core.isMuted()
         simulcasted = core.simulcasted()
-        width = core.width()
-        height = core.height()
+        width = core.dimensions().width()
+        height = core.dimensions().height()
         mimeType = core.mimeType()
         encryptionType = core.encryptionType()
-        remote = core.remote()
+        remote = core.remote().map {
+            NativeRemotePublicationState(subscriptionStatus: $0.subscriptionStatus(), permissionStatus: $0.permissionStatus(), isEnabled: $0.isEnabled(), streamState: $0.mediaTrack()?.streamState())
+        }
     }
+}
+
+struct NativeRemotePublicationState: Equatable, Sendable {
+    var subscriptionStatus: NativeSubscriptionStatus
+    var permissionStatus: NativePermissionStatus
+    var isEnabled: Bool
+    var streamState: NativeStreamState?
 }
 
 struct NativeRoomState: Equatable, Sendable {
@@ -156,10 +166,47 @@ struct NativeDataTrackPublication: Equatable, Sendable {
 }
 
 extension NativeRoomState {
-    mutating func updateParticipant(_ participant: NativeParticipant) {
+    mutating func updateParticipant(_ participant: NativeParticipant, allowInsert: Bool = false) {
         if participant.isLocal { localParticipant = participant } else {
+            guard allowInsert || remoteParticipants.contains(where: { $0.identity == participant.identity }) else { return }
             remoteParticipants.removeAll { $0.identity == participant.identity }
             remoteParticipants.append(participant)
+        }
+    }
+}
+
+extension NativeRoomState {
+    mutating func applyParticipantEvent(_ event: NativeRoomEvent) {
+        switch event {
+        case let .participantConnected(participant):
+            updateParticipant(NativeParticipant(participant), allowInsert: true)
+        case let .participantActive(participant), let .participantAttributesChanged(participant, _):
+            updateParticipant(NativeParticipant(participant))
+        case let .participantsUpdated(participants):
+            for participant in participants {
+                updateParticipant(NativeParticipant(participant))
+            }
+        case let .participantMetadataChanged(participant, _, metadata):
+            var value = NativeParticipant(participant)
+            value.metadata = metadata
+            updateParticipant(value)
+        case let .participantNameChanged(participant, _, name):
+            var value = NativeParticipant(participant)
+            value.name = name
+            updateParticipant(value)
+        case let .participantPermissionChanged(participant, permission):
+            var value = NativeParticipant(participant)
+            value.permission = permission.map(NativeParticipantPermission.init)
+            updateParticipant(value)
+        case let .participantEncryptionStatusChanged(participant, isEncrypted):
+            var value = NativeParticipant(participant)
+            value.isEncrypted = isEncrypted
+            updateParticipant(value)
+        case let .connectionQualityChanged(participant, quality):
+            var value = NativeParticipant(participant)
+            value.connectionQuality = quality
+            updateParticipant(value)
+        default: break
         }
     }
 }
