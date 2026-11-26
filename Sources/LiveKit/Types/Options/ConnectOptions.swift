@@ -26,30 +26,22 @@ public final class ConnectOptions: NSObject, Sendable {
     /// The number of attempts to reconnect when the network disconnects.
     public let reconnectAttempts: Int
 
-    /// The minimum delay value for reconnection attempts.
+    /// The delay before the second reconnection attempt.
     /// Default is 0.3 seconds (TimeInterval.defaultReconnectDelay).
     ///
-    /// This value serves as the starting point for the easeOutCirc reconnection curve.
-    /// See `reconnectMaxDelay` for more details on how the reconnection delay is calculated.
+    /// Later delays grow from this value. See `reconnectMaxDelay` for how the reconnection delay is calculated.
     public let reconnectAttemptDelay: TimeInterval
 
     /// The maximum delay between reconnect attempts.
     /// Default is 7 seconds (TimeInterval.defaultReconnectMaxDelay).
     ///
-    /// The reconnection delay uses an "easeOutCirc" curve between reconnectAttemptDelay and reconnectMaxDelay:
-    /// - For all attempts except the last, the delay follows this curve
-    /// - The curve grows rapidly at first and then more gradually approaches the maximum
-    /// - The last attempt always uses exactly reconnectMaxDelay
+    /// The wait after the n-th failed attempt is `reconnectAttemptDelay` times n squared, capped at `reconnectMaxDelay`,
+    /// less a random part of up to 10 percent. A negative delay counts as zero. A wait is never above a
+    /// `reconnectMaxDelay` of zero or more.
     ///
-    /// Example for 10 reconnection attempts with baseDelay=0.3s and maxDelay=7s:
-    /// - Attempt 0: ~0.85s (already 12% of the way to max)
-    /// - Attempt 1: ~2.2s (30% of the way to max)
-    /// - Attempt 2: ~3.4s (45% of the way to max)
-    /// - Attempt 5: ~5.9s (82% of the way to max)
-    /// - Attempt 9: 7.0s (exactly maxDelay)
+    /// Example with the defaults, before the random part: 0.3s, 1.2s, 2.7s, 4.8s, then 7s.
     ///
-    /// This approach provides larger delays early in the reconnection sequence to reduce
-    /// unnecessary network traffic when connections are likely to fail.
+    /// The first retries follow quickly, so a short outage recovers soon.
     public let reconnectMaxDelay: TimeInterval
 
     /// The timeout interval for the initial websocket connection.

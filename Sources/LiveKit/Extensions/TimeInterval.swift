@@ -44,23 +44,25 @@ public extension TimeInterval {
 
     static let defaultParticipantActiveTimeout: Self = 10
 
-    /// Computes a retry delay based on an "easeOutCirc" curve between baseDelay and maxDelay.
+    /// Computes a retry delay that grows with the square of the attempt number, capped at maxDelay.
     ///
-    /// The easeOutCirc curve provides a dramatic early acceleration followed by a gentler approach to the maximum,
-    /// resulting in larger delays early in the reconnection sequence to reduce unnecessary network traffic.
+    /// The first retries follow quickly, so a short outage recovers soon. Later retries are spaced out.
     ///
-    /// Example values for 10 reconnection attempts with baseDelay=0.3s and maxDelay=7s:
-    /// - Attempt 0: ~0.85s (already 12% of the way to max)
-    /// - Attempt 1: ~2.2s (30% of the way to max)
-    /// - Attempt 2: ~3.4s (45% of the way to max)
-    /// - Attempt 5: ~5.9s (82% of the way to max)
-    /// - Attempt 9: 7.0s (exactly maxDelay)
+    /// Example values for 10 reconnection attempts with baseDelay=0.3s and maxDelay=7s, before jitter:
+    /// - Attempt 0: 0.3s
+    /// - Attempt 1: 1.2s
+    /// - Attempt 2: 2.7s
+    /// - Attempt 3: 4.8s
+    /// - Attempt 4 and later: 7.0s (maxDelay)
+    ///
+    /// The SDK waits this delay after a failed attempt, so it only passes attempts 0 through totalAttempts - 2.
+    /// A negative baseDelay or maxDelay counts as zero. Jitter never takes the delay above a maxDelay of zero or more.
     ///
     /// - Parameter attempt: The current retry attempt (0-based index)
-    /// - Parameter baseDelay: The minimum delay for the curve's starting point (default: 0.3s)
-    /// - Parameter maxDelay: The maximum delay for the last retry attempt (default: 7s)
+    /// - Parameter baseDelay: The delay for attempt 0 (default: 0.3s)
+    /// - Parameter maxDelay: The maximum delay, zero if negative, also returned without jitter from attempt totalAttempts - 1 on (default: 7s)
     /// - Parameter totalAttempts: The total number of attempts that will be made (default: 10)
-    /// - Parameter addJitter: Whether to add random jitter to the delay (default: true)
+    /// - Parameter addJitter: Whether to take a random part of up to 10% off the delay (default: true)
     /// - Returns: The delay in seconds to wait before the next retry attempt
     @Sendable
     static func computeReconnectDelay(forAttempt attempt: Int,
@@ -71,30 +73,14 @@ public extension TimeInterval {
     {
         // Last attempt should use maxDelay exactly
         if attempt >= totalAttempts - 1 {
-            return maxDelay
+            return Swift.max(0, maxDelay)
         }
 
-        // Make sure we have a valid value for total attempts
-        let validTotalAttempts = max(2, totalAttempts) // Need at least 2 attempts
+        let step = Double(attempt + 1)
+        let calculatedDelay = Swift.max(0, Swift.min(maxDelay, baseDelay * step * step))
 
-        // Apply easeOutCirc curve to all attempts (0 through n-2)
-        // We normalize the attempt index to a 0-1 range
-        let normalizedIndex = Double(attempt) / Double(validTotalAttempts - 1)
-
-        // Apply easeOutCirc curve: sqrt(1 - pow(x - 1, 2))
-        // This creates a very dramatic early acceleration with a smooth approach to the maximum
-        let t = normalizedIndex - 1.0
-        let easeOutCircProgress = sqrt(1.0 - t * t)
-
-        // Calculate the delay by applying the easeOutCirc curve between baseDelay and maxDelay
-        let calculatedDelay = baseDelay + easeOutCircProgress * (maxDelay - baseDelay)
-
-        // Add jitter if requested (up to 10% of the calculated delay)
-        if addJitter {
-            return calculatedDelay + (Double.random(in: 0 ..< 0.1) * calculatedDelay)
-        } else {
-            return calculatedDelay
-        }
+        // Jitter takes up to 10% off, so the delay stays at or below maxDelay
+        return addJitter ? calculatedDelay * Double.random(in: 0.9 ... 1) : calculatedDelay
     }
 }
 
