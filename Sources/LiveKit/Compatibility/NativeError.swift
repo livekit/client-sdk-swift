@@ -23,8 +23,11 @@ extension LiveKitError {
         return from(native: native)
     }
 
+    // Exhaustive native variants; keep one typed mapping per cause.
+    // swiftlint:disable:next cyclomatic_complexity
     static func from(native: FfiRoomError) -> LiveKitError {
         switch native {
+        case .ShutdownTimeout: LiveKitError(.timedOut, message: "Native room cleanup is still running", internalError: native)
         case .Cancelled: LiveKitError(.cancelled, internalError: native)
         case .Closed, .TrackAlreadyPublished: LiveKitError(.invalidState, internalError: native)
         case let .InvalidState(reason): LiveKitError(.invalidState, message: reason, internalError: native)

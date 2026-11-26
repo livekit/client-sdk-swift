@@ -92,11 +92,15 @@ Registered clients retain no rooms. Requests and connections own their cleanup i
 The socket fixture and separate-process registry tests are in `Tests/LiveKitTransportTests`.
 Set `LIVEKIT_TRANSPORT_TEST_URL` and `LIVEKIT_TRANSPORT_TLS_URL` for socket tests.
 Run `TransportRegistryTests` separately for each `LIVEKIT_TRANSPORT_REGISTRY_CASE`:
-`roundtrip`, `pending-connect`, `foreign-timeout`, `ws-only`, `http-only`. Never run registry
+`roundtrip`, `pending-connect`, `foreign-timeout`, `shutdown-timeout`, `ws-only`, `http-only`. Never run registry
 scenarios by replacing clients in one process. Pending connect checks prompt return from
 `FfiRoom.connect` with actual `FfiRoomError.Cancelled`. The v2
-`Room.connect` façade still awaits native teardown in its preexisting catch path,
-so cancellation may wait on native deadlines/retries. Foreign callback cancellation
+`Room.connect` façade still awaits native teardown in its preexisting catch path.
+Native `disconnect` now bounds that wait to ten seconds and throws `ShutdownTimeout`
+when its owned driver is still cleaning up. The v2 nonthrowing disconnect API maps
+that error to a timed-out disconnect cause; it does not assert completed teardown.
+The driver releases owned media on termination and closes late connections without
+abandoning core shutdown. A permanent core stall can retain the driver indefinitely. Foreign callback cancellation
 is bounded separately by Rust's signaling deadline. Neither proves destruction of
 all descendant tasks within one second.
 

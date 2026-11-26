@@ -151,6 +151,8 @@ struct TransportRegistryTests {
             LiveKitTransport.initialize() // Losing registrations must leave the original clients in place.
             _ = try await selfTestHttpGet(url: url)
             #expect(http.calls == 2)
+        } else if mode == "shutdown-timeout" {
+            try await checkShutdownTimeout(ws)
         } else if mode == "pending-connect" || mode == "foreign-timeout" {
             try await checkPendingConnect(ws, cancelSession: mode == "pending-connect")
         } else {
@@ -161,8 +163,28 @@ struct TransportRegistryTests {
             } catch {
                 #expect(error as? FfiRoomError == .Signal(failure: .transportNotConfigured))
             }
-            await native.disconnect()
+            try await native.disconnect()
         }
+    }
+
+    private func checkShutdownTimeout(_ ws: CountingWSClient) async throws {
+        let native = FfiRoom()
+        let source = try await native.createAudioTrack(name: "preconnect", channels: 1)
+        let options = FfiRoomOptions().withJoinRetries(value: 0).withConnectTimeout(value: 30)
+        let connect = Task { try await native.connect(url: "ws://127.0.0.1:1", token: "test", options: options) }
+        _ = try await ws.started.value()
+        let requested = ContinuousClock.now
+        await #expect(throws: FfiRoomError.ShutdownTimeout) { try await native.disconnect() }
+        let elapsed = requested.duration(to: .now)
+        #expect(elapsed >= .seconds(10) && elapsed < .seconds(12))
+        #expect(native.state().connection == .disconnected)
+        await #expect(throws: FfiRoomError.Closed) { _ = try await connect.value }
+        #expect(throws: FfiRoomError.Closed) { try source.info() }
+        #expect(!ffiRoomErrorIsShutdown(error: .ShutdownTimeout))
+        // The callback is still owned after timeout; release it explicitly, then join cleanup.
+        ws.pending.resolve(.failure(TransportError.Closed))
+        try await native.disconnect()
+        #expect(ws.calls == 1)
     }
 
     private func checkPendingConnect(_ ws: CountingWSClient, cancelSession: Bool) async throws {
@@ -192,7 +214,7 @@ struct TransportRegistryTests {
             await #expect(throws: FfiRoomError.self) { _ = try await connect.value }
         }
         // Join the session's owned work, not an asserted all-descendant destruction barrier.
-        await native.disconnect()
+        try await native.disconnect()
         #expect(ws.calls == 1)
     }
 }
@@ -213,17 +235,20 @@ private final class CountingWSClient: WsClient, @unchecked Sendable {
     private var count = 0
     var calls: Int { lock.withLock { count } }
     // Longer than the public-return bound, so that bound cannot pass by waiting for timeout.
-    static let connectTimeoutMs: UInt64 = 2000
+    static var connectTimeoutMs: UInt64 {
+        ProcessInfo.processInfo.environment["LIVEKIT_TRANSPORT_REGISTRY_CASE"] == "shutdown-timeout" ? 30000 : 2000
+    }
+
+    let pending = Completion<WsConnectResult>()
     let started = Completion<ContinuousClock.Instant>()
     let cancelled = Completion<ContinuousClock.Instant>()
     func connect(url: String, headers: [Header], timeoutMs: UInt64) async throws -> WsConnectResult {
         lock.withLock { count += 1 }
         let mode = ProcessInfo.processInfo.environment["LIVEKIT_TRANSPORT_REGISTRY_CASE"]
-        if mode == "pending-connect" || mode == "foreign-timeout" {
+        if mode == "pending-connect" || mode == "foreign-timeout" || mode == "shutdown-timeout" {
             #expect(timeoutMs == Self.connectTimeoutMs)
             // Deliberately suspended foreign callback: unlike the production adapter, this
             // fake has no timer. Rust's signaling timeout owns the drop under test.
-            let pending = Completion<WsConnectResult>()
             return try await withTaskCancellationHandler {
                 started.resolve(.success(.now))
                 return try await pending.value()

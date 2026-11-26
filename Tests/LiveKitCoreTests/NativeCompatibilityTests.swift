@@ -23,6 +23,7 @@ struct NativeCompatibilityTests {
     @Test
     func typedCausesIgnoreMisleadingReasons() {
         let validation = LiveKitError.from(native: .Signal(failure: .http(source: .serverValidation, status: 401, reason: "timeout")))
+        #expect(LiveKitError.from(native: .ShutdownTimeout).type == .timedOut)
         #expect(validation.type == .validation)
         #expect(validation.statusCode == 401)
         let handshake = LiveKitError.from(native: .Signal(failure: .http(source: .webSocketHandshake, status: 401, reason: "invalid token")))

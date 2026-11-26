@@ -113,8 +113,15 @@ actor NativeRoomDriver {
         rpcTasks.removeAll()
         let events = cursor
         await Task.detached { events?.cancel() }.value
-        await native.disconnect()
-        await room.resetNativeState(error: error)
+        var disconnectError = error
+        do {
+            try await native.disconnect()
+        } catch {
+            // Rust retains the driver until actual teardown, even after its wait times out.
+            room.log("Native room cleanup has not completed: \(error)", .warning)
+            disconnectError = disconnectError ?? LiveKitError.mappingNative(error)
+        }
+        await room.resetNativeState(error: disconnectError)
         session = nil
         cursor = nil
         projection = nil

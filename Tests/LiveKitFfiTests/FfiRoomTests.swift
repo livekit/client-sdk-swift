@@ -53,13 +53,13 @@ struct FfiRoomTests {
             let controls = try room.publication(identity: "direct", sid: publication.sid())
             try await controls.setMuted(muted: true)
             #expect(publication.isMuted())
-            await room.disconnect()
+            try await room.disconnect()
             #expect(participant.metadata() == "direct metadata")
             await #expect(throws: FfiRoomError.Closed) { try await room.setName(name: "closed") }
             #expect(room.state().connection == .disconnected)
             while try await events.next() != nil {}
         } catch {
-            await room.disconnect()
+            try await room.disconnect()
             throw error
         }
 
@@ -116,7 +116,7 @@ struct FfiRoomTests {
         await #expect(throws: FfiRoomError.Cancelled) {
             _ = try await cancelled.connect(url: url, token: token, options: .init())
         }
-        await cancelled.disconnect()
+        try await cancelled.disconnect()
     }
 
     @Test func ffiOptionsKeepCoreDefaultsAndNestedValues() async throws {
@@ -158,9 +158,9 @@ struct FfiRoomTests {
             #expect(track.name() == "options")
             try await source.setMuted(muted: true)
             #expect(track.isMuted())
-            await room.disconnect()
+            try await room.disconnect()
         } catch {
-            await room.disconnect()
+            try await room.disconnect()
             throw error
         }
     }
