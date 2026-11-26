@@ -196,6 +196,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var reconnectTask: AnyTaskCancellable?
         var disconnectError: LiveKitError?
         var hasPublished: Bool = false
+        // Reset by `cleanUp`: a loss from before a new connection must not resume it
+        var hasLostConnectivity: Bool = false
 
         // Dependency plane: which per-connection / per-join subsystems exist. Payloads are staged
         // and retired only through its transitions (connect / configureTransports / cleanUp).
@@ -761,10 +763,7 @@ extension Room {
 
 extension Room: ConnectivityListenerDelegate {
     func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool) {
-        // A connection from before the loss can stay silent for a long time before it fails
-        guard hasConnectivity,
-              _state.read({ $0.connectionState == .connected && $0.isReconnectingWithMode == nil })
-        else { return }
+        guard shouldResume(onConnectivity: hasConnectivity) else { return }
 
         Task {
             do {
@@ -772,6 +771,16 @@ extension Room: ConnectivityListenerDelegate {
             } catch {
                 log("Failed calling startReconnect, error: \(error)")
             }
+        }
+    }
+
+    /// Records a loss. Returns `true` when connectivity returns after a loss and the room is connected with no reconnect in progress.
+    func shouldResume(onConnectivity hasConnectivity: Bool) -> Bool {
+        _state.mutate {
+            let hadLostConnectivity = $0.hasLostConnectivity
+            $0.hasLostConnectivity = !hasConnectivity
+            // A connection from before the loss can stay silent for a long time before it fails
+            return hasConnectivity && hadLostConnectivity && $0.connectionState == .connected && $0.isReconnectingWithMode == nil
         }
     }
 }

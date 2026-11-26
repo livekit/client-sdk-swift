@@ -30,14 +30,26 @@ private final class ReconnectProbe: RoomDelegate, Sendable {
     }
 }
 
-/// When the network returns, the room resumes at once. It does not wait for the old connection to fail.
+/// When the network returns after a loss, the room resumes at once. It does not wait for the old connection to fail.
 @Suite(.tags(.networking, .e2e), TestLimits.e2e)
 struct NetworkRegainedTests {
+    @Test func connectivityWithoutALossStartsNoReconnect() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
+            let room = try #require(rooms.first)
+
+            #expect(!room.shouldResume(onConnectivity: true), "the first report follows no loss")
+            #expect(!room.shouldResume(onConnectivity: false))
+            #expect(room.shouldResume(onConnectivity: true), "the room is connected and idle, so only the missing loss held the first report back")
+            #expect(!room.shouldResume(onConnectivity: true), "one loss starts one resume")
+        }
+    }
+
     @Test func regainedConnectivityResumesTheSession() async throws {
-        let probe = ReconnectProbe()
-        try await TestEnvironment.withRooms([RoomTestingOptions(delegate: probe)]) { rooms in
-            let room = rooms[0]
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
+            let room = try #require(rooms.first)
             let sid = room.localParticipant.sid
+            let probe = ReconnectProbe()
+            room.add(delegate: probe)
 
             room.connectivityListener(.shared, didUpdate: false)
             room.connectivityListener(.shared, didUpdate: true)
