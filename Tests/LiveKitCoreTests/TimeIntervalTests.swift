@@ -27,40 +27,31 @@ struct TimeIntervalTests {
         let baseDelay: TimeInterval
         let maxDelay: TimeInterval
         let totalAttempts: Int
+        let expected: TimeInterval
 
         var testDescription: String {
             "attempt \(attempt)/\(totalAttempts) (base=\(baseDelay), max=\(maxDelay))"
         }
     }
 
-    /// Computes the expected easeOutCirc delay for a given attempt.
-    static func expectedDelay(for c: DelayCase) -> TimeInterval {
-        if c.attempt == c.totalAttempts - 1 {
-            return c.maxDelay
-        }
-        let normalizedIndex = Double(c.attempt) / Double(c.totalAttempts - 1)
-        let t = normalizedIndex - 1.0
-        let easeOutCircProgress = sqrt(1.0 - t * t)
-        return c.baseDelay + easeOutCircProgress * (c.maxDelay - c.baseDelay)
-    }
-
-    /// Tests that the reconnection delay computation follows the expected easeOutCirc pattern.
+    /// Tests that the reconnection delay grows with the square of the attempt number, up to maxDelay.
     @Test(arguments: [
         // Default values: baseDelay=0.3, maxDelay=7.0, totalAttempts=10
-        DelayCase(attempt: 0, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10),
-        DelayCase(attempt: 1, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10),
-        DelayCase(attempt: 5, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10),
-        DelayCase(attempt: 9, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10),
+        DelayCase(attempt: 0, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10, expected: 0.3),
+        DelayCase(attempt: 1, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10, expected: 1.2),
+        DelayCase(attempt: 2, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10, expected: 2.7),
+        DelayCase(attempt: 3, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10, expected: 4.8),
+        DelayCase(attempt: 4, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10, expected: 7.0),
+        DelayCase(attempt: 9, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10, expected: 7.0),
         // Custom values
-        DelayCase(attempt: 0, baseDelay: 1.0, maxDelay: 5.0, totalAttempts: 5),
-        DelayCase(attempt: 1, baseDelay: 1.0, maxDelay: 5.0, totalAttempts: 5),
-        DelayCase(attempt: 2, baseDelay: 1.0, maxDelay: 5.0, totalAttempts: 5),
-        DelayCase(attempt: 4, baseDelay: 1.0, maxDelay: 5.0, totalAttempts: 5),
+        DelayCase(attempt: 0, baseDelay: 1.0, maxDelay: 5.0, totalAttempts: 5, expected: 1.0),
+        DelayCase(attempt: 1, baseDelay: 1.0, maxDelay: 5.0, totalAttempts: 5, expected: 4.0),
+        DelayCase(attempt: 2, baseDelay: 1.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
+        // The last attempt waits maxDelay, also when the curve is still below it
+        DelayCase(attempt: 1, baseDelay: 1.0, maxDelay: 5.0, totalAttempts: 2, expected: 5.0),
         // Inverted (baseDelay > maxDelay)
-        DelayCase(attempt: 0, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5),
-        DelayCase(attempt: 1, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5),
-        DelayCase(attempt: 2, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5),
-        DelayCase(attempt: 4, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5),
+        DelayCase(attempt: 0, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
+        DelayCase(attempt: 4, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
     ])
     func computeReconnectDelay(_ c: DelayCase) {
         let actual = TimeInterval.computeReconnectDelay(
@@ -70,13 +61,8 @@ struct TimeIntervalTests {
             totalAttempts: c.totalAttempts,
             addJitter: false,
         )
-        let expected = Self.expectedDelay(for: c)
 
-        if c.attempt == c.totalAttempts - 1 {
-            #expect(actual == expected, "Last attempt should be exactly maxDelay")
-        } else {
-            #expect(abs(actual - expected) <= 0.001, "Attempt \(c.attempt) should follow easeOutCirc curve")
-        }
+        #expect(abs(actual - c.expected) <= 0.001)
     }
 
     /// Tests that jitter is properly applied to attempts.
