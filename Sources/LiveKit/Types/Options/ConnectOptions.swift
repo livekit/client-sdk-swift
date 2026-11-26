@@ -24,6 +24,9 @@ public final class ConnectOptions: NSObject, Sendable {
     public let autoSubscribe: Bool
 
     /// The number of attempts to reconnect when the network disconnects.
+    ///
+    /// The first attempt resumes the session (``ReconnectMode/quick``). If it fails, every later
+    /// attempt rejoins from scratch (``ReconnectMode/full``).
     public let reconnectAttempts: Int
 
     /// The minimum delay value for reconnection attempts.
