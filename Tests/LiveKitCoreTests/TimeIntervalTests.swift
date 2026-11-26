@@ -49,9 +49,22 @@ struct TimeIntervalTests {
         DelayCase(attempt: 2, baseDelay: 1.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
         // The last attempt waits maxDelay, also when the curve is still below it
         DelayCase(attempt: 1, baseDelay: 1.0, maxDelay: 5.0, totalAttempts: 2, expected: 5.0),
+        DelayCase(attempt: 0, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 0, expected: 7.0),
+        DelayCase(attempt: 0, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 1, expected: 7.0),
         // Inverted (baseDelay > maxDelay)
         DelayCase(attempt: 0, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
+        DelayCase(attempt: 1, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
+        DelayCase(attempt: 2, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
         DelayCase(attempt: 4, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
+        // Zero and negative delays never give a negative wait
+        DelayCase(attempt: 2, baseDelay: 0, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10, expected: 0),
+        DelayCase(attempt: 2, baseDelay: .defaultReconnectDelay, maxDelay: 0, totalAttempts: 10, expected: 0),
+        DelayCase(attempt: 0, baseDelay: -1.0, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10, expected: 0),
+        DelayCase(attempt: 0, baseDelay: .defaultReconnectDelay, maxDelay: -1.0, totalAttempts: 10, expected: 0),
+        DelayCase(attempt: 9, baseDelay: .defaultReconnectDelay, maxDelay: -1.0, totalAttempts: 10, expected: 0),
+        // Very large attempt numbers do not overflow
+        DelayCase(attempt: .max - 1, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10, expected: 7.0),
+        DelayCase(attempt: .max - 2, baseDelay: .defaultReconnectDelay, maxDelay: .defaultReconnectMaxDelay, totalAttempts: .max, expected: 7.0),
     ])
     func computeReconnectDelay(_ c: DelayCase) {
         let actual = TimeInterval.computeReconnectDelay(
@@ -65,8 +78,8 @@ struct TimeIntervalTests {
         #expect(abs(actual - c.expected) <= 0.001)
     }
 
-    /// Tests that jitter is properly applied to attempts.
-    @Test(arguments: 1 ... 5)
+    /// Tests that jitter only shortens a wait, by 10% at most, for every attempt the SDK waits after.
+    @Test(arguments: 0 ... 8)
     func reconnectDelayJitter(attempt: Int) {
         let baseDelay = TimeInterval.defaultReconnectDelay
         let maxDelay = TimeInterval.defaultReconnectMaxDelay
@@ -88,16 +101,16 @@ struct TimeIntervalTests {
             addJitter: true,
         )
 
-        #expect(withJitter > withoutJitter, "Should have jitter applied")
-        #expect(withJitter <= withoutJitter * 1.3, "Jitter should not exceed 30% of the delay")
+        #expect(withJitter <= withoutJitter, "Jitter should never lengthen the wait")
+        #expect(withJitter >= withoutJitter * 0.9, "Jitter should not take off more than 10% of the delay")
+        #expect(withJitter <= maxDelay, "Should not exceed the max delay")
     }
 
-    /// Tests that jitter for the last attempt stays within bounds.
+    /// Tests that the last attempt uses the max delay without jitter.
     @Test func reconnectDelayJitterLastAttempt() {
         let baseDelay = TimeInterval.defaultReconnectDelay
         let maxDelay = TimeInterval.defaultReconnectMaxDelay
         let totalAttempts = 10
-        let maxJitter = maxDelay * 0.3
 
         for _ in 0 ..< 10 {
             let delay = TimeInterval.computeReconnectDelay(
@@ -106,8 +119,7 @@ struct TimeIntervalTests {
                 maxDelay: maxDelay,
                 totalAttempts: totalAttempts,
             )
-            #expect(delay >= maxDelay, "Should be at least the max delay")
-            #expect(delay <= maxDelay + maxJitter, "Should not exceed max delay plus 30% jitter")
+            #expect(delay == maxDelay, "Should be exactly the max delay")
         }
     }
 }

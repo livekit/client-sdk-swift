@@ -35,10 +35,10 @@ public final class ConnectOptions: NSObject, Sendable {
     /// The maximum delay between reconnect attempts.
     /// Default is 7 seconds (TimeInterval.defaultReconnectMaxDelay).
     ///
-    /// The delay grows with the square of the attempt number: `reconnectAttemptDelay` times 1, 4, 9, 16 and so on,
-    /// capped at `reconnectMaxDelay`. The last attempt always uses exactly `reconnectMaxDelay`.
+    /// The wait after the n-th failed attempt is `reconnectAttemptDelay` times n squared, capped at `reconnectMaxDelay`,
+    /// less a random part of up to 10 percent. A wait is never negative and never above `reconnectMaxDelay`.
     ///
-    /// Example with the defaults: 0.3s, 1.2s, 2.7s, 4.8s, then 7s.
+    /// Example with the defaults, before the random part: 0.3s, 1.2s, 2.7s, 4.8s, then 7s.
     ///
     /// The first retries follow quickly, so a short outage recovers soon.
     public let reconnectMaxDelay: TimeInterval
