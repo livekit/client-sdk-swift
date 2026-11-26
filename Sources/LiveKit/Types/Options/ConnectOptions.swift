@@ -36,7 +36,8 @@ public final class ConnectOptions: NSObject, Sendable {
     /// Default is 7 seconds (TimeInterval.defaultReconnectMaxDelay).
     ///
     /// The wait after the n-th failed attempt is `reconnectAttemptDelay` times n squared, capped at `reconnectMaxDelay`,
-    /// less a random part of up to 10 percent. A wait is never negative and never above `reconnectMaxDelay`.
+    /// less a random part of up to 10 percent. A negative delay counts as zero. A wait is never above a
+    /// `reconnectMaxDelay` of zero or more.
     ///
     /// Example with the defaults, before the random part: 0.3s, 1.2s, 2.7s, 4.8s, then 7s.
     ///

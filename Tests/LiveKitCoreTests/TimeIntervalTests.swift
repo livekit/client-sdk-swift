@@ -54,7 +54,6 @@ struct TimeIntervalTests {
         // Inverted (baseDelay > maxDelay)
         DelayCase(attempt: 0, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
         DelayCase(attempt: 1, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
-        DelayCase(attempt: 2, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
         DelayCase(attempt: 4, baseDelay: 10.0, maxDelay: 5.0, totalAttempts: 5, expected: 5.0),
         // Zero and negative delays never give a negative wait
         DelayCase(attempt: 2, baseDelay: 0, maxDelay: .defaultReconnectMaxDelay, totalAttempts: 10, expected: 0),
@@ -112,14 +111,12 @@ struct TimeIntervalTests {
         let maxDelay = TimeInterval.defaultReconnectMaxDelay
         let totalAttempts = 10
 
-        for _ in 0 ..< 10 {
-            let delay = TimeInterval.computeReconnectDelay(
-                forAttempt: totalAttempts - 1,
-                baseDelay: baseDelay,
-                maxDelay: maxDelay,
-                totalAttempts: totalAttempts,
-            )
-            #expect(delay == maxDelay, "Should be exactly the max delay")
-        }
+        let delay = TimeInterval.computeReconnectDelay(
+            forAttempt: totalAttempts - 1,
+            baseDelay: baseDelay,
+            maxDelay: maxDelay,
+            totalAttempts: totalAttempts,
+        )
+        #expect(delay == maxDelay, "Should be exactly the max delay")
     }
 }

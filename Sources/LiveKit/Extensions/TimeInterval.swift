@@ -56,11 +56,11 @@ public extension TimeInterval {
     /// - Attempt 4 and later: 7.0s (maxDelay)
     ///
     /// The SDK waits this delay after a failed attempt, so it only passes attempts 0 through totalAttempts - 2.
-    /// The delay is never negative, and jitter never takes it above maxDelay.
+    /// A negative baseDelay or maxDelay counts as zero. Jitter never takes the delay above a maxDelay of zero or more.
     ///
     /// - Parameter attempt: The current retry attempt (0-based index)
     /// - Parameter baseDelay: The delay for attempt 0 (default: 0.3s)
-    /// - Parameter maxDelay: The maximum delay, also returned without jitter from attempt totalAttempts - 1 on (default: 7s)
+    /// - Parameter maxDelay: The maximum delay, zero if negative, also returned without jitter from attempt totalAttempts - 1 on (default: 7s)
     /// - Parameter totalAttempts: The total number of attempts that will be made (default: 10)
     /// - Parameter addJitter: Whether to take a random part of up to 10% off the delay (default: true)
     /// - Returns: The delay in seconds to wait before the next retry attempt
