@@ -649,10 +649,7 @@ extension LocalParticipant {
         let sender = try await RTC.run {
             let startBitrateKbps = Transport.startBitrateKbps(for: encodings, isScreenShare: isScreenShare, connectionSetupTime: publisher.connectionSetupTime)
             let transceiver = try publisher.addTransceiver(with: track.mediaTrack.raw, transceiverInit: transInit, startBitrateKbps: startBitrateKbps)
-            try transceiver.set(preferredVideoCodec: videoCodec)
-            if encodings.count > 1 {
-                try transceiver.removeFlexFEC()
-            }
+            try transceiver.set(preferredVideoCodec: videoCodec, removesFlexFEC: encodings.count > 1)
             transceiver.sender.set(degradationPreference: degradationPreference, fecProtection: publishOptions.fecProtection)
             return RTCSender(transceiver.sender)
         }

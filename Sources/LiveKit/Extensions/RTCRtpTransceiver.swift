@@ -19,8 +19,10 @@ import Foundation
 
 extension LKRTCRtpTransceiver: Loggable {
     /// Attempts to set preferred video codec.
+    ///
+    /// `removesFlexFEC` also stops offering FlexFEC, see ``removeFlexFEC()``.
     @RTC
-    func set(preferredVideoCodec codec: VideoCodec, exceptCodec: VideoCodec? = nil) throws {
+    func set(preferredVideoCodec codec: VideoCodec, exceptCodec: VideoCodec? = nil, removesFlexFEC: Bool = false) throws {
         // Get list of supported codecs...
         let allVideoCodecs = RTC.videoSenderCapabilities.codecs
 
@@ -47,6 +49,10 @@ extension LKRTCRtpTransceiver: Loggable {
 
         if codecPreferences.first?.name.lowercased() != codec.name {
             log("Preferred codec is not first of codecPreferences", .error)
+        }
+
+        if removesFlexFEC {
+            try removeFlexFEC()
         }
     }
 
