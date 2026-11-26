@@ -436,7 +436,17 @@ extension Room {
         _state.mutate {
             // Mark as Re-connecting internally
             $0.isReconnectingWithMode = .quick
-            $0.nextReconnectMode = nextReconnectMode
+            // An explicit mode from the caller wins; otherwise keep whatever a server
+            // `LeaveRequest` has already requested.
+            //
+            // `didReceiveLeave` sets `.full` and *then* tears down signalling, and that
+            // teardown is what schedules this call (with no mode). Assigning
+            // unconditionally therefore erased the server's instruction every time,
+            // downgrading a requested full reconnect to a resume — which the server
+            // rejects, since the participant it refers to is already gone.
+            if let nextReconnectMode {
+                $0.nextReconnectMode = nextReconnectMode
+            }
         }
 
         // quick connect sequence, does not update connection state
