@@ -301,7 +301,7 @@ private final class QueueResumeDelegate: SignalClientTestDelegate {
         }
     }
 
-    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32, midToTrackSid _: [String: Track.Sid]) async {
+    func signalClient(_ signalClient: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32) async {
         do {
             try await signalClient.sendCandidate(candidate: Self.candidate, target: .publisher)
             handled.resume(returning: .with { $0.answer = answer.toPBType(offerId: offerId) })
@@ -327,7 +327,7 @@ protocol SignalClientTestDelegate: SignalClientDelegate {}
 extension SignalClientTestDelegate {
     func signalClient(_: SignalClient, didUpdateConnectionState _: ConnectionState, oldState _: ConnectionState, disconnectError _: LiveKitError?) async {}
     func signalClient(_: SignalClient, didReceiveConnectResponse _: SignalClient.ConnectResponse) async {}
-    func signalClient(_: SignalClient, didReceiveAnswer _: LKRTCSessionDescription, offerId _: UInt32, midToTrackSid _: [String: Track.Sid]) async {}
+    func signalClient(_: SignalClient, didReceiveAnswer _: LKRTCSessionDescription, offerId _: UInt32) async {}
     func signalClient(_: SignalClient, didReceiveOffer _: LKRTCSessionDescription, offerId _: UInt32) async {}
     func signalClient(_: SignalClient, didReceiveIceCandidate _: IceCandidate, target _: Livekit_SignalTarget) async {}
     func signalClient(_: SignalClient, didUnpublishLocalTrack _: Livekit_TrackUnpublishedResponse) async {}

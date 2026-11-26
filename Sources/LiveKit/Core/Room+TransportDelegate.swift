@@ -86,18 +86,6 @@ extension Room: TransportDelegate {
 
         guard transport.target == _state.transport?.subscriber.target else { return }
 
-        // Single PC mode resolves received media by `mid` instead; see `attachReceivedMedia`.
-        // Both paths end in `addSubscribedMediaTrack`, which is not idempotent — it builds a new
-        // track, replaces the publication's, and announces the subscription again — so a section
-        // reaching both would attach twice, firing `didSubscribeTrack` again and leaking the
-        // previous frame cryptor under E2EE. `TransportMode.subscriber` is the publisher in
-        // single PC mode, so the target check above does not exclude it.
-        //
-        // Since LiveKitWebRTC 150.7871.08 this fires more often, not less: webrtc-sdk/webrtc#321
-        // raises it again whenever a receiver gains a stream, which is exactly the msid update
-        // the scan already reports.
-        guard !transport.singlePCMode else { return }
-
         // execute block when connected
         execute(when: { state, _ in state.connectionState == .connected },
                 // always remove this block when disconnected

@@ -137,14 +137,6 @@ extension Room: SignalClientDelegate {
         log("didReceiveRoomMoved to room: \(response.hasRoom ? response.room.name : "unknown")")
 
         _updateState(for: response)
-
-        // Before the teardown, so no answer racing it can attach to a publication that is about
-        // to be discarded. The move rebuilds every publication on the same peer connection, and
-        // the mids the old server named mean nothing to the new one.
-        if let publisher = _state.transport?.publisher, publisher.singlePCMode {
-            await publisher.forgetReceivedMedia()
-        }
-
         await _disconnectAllParticipants()
 
         if response.hasRoom {
@@ -317,14 +309,6 @@ extension Room: SignalClientDelegate {
                 }
             }
         }
-
-        // A binding can arrive before the publication it names, and the answer carrying it is
-        // the only other thing that scans. Without this, such a section waits for an answer that
-        // nothing guarantees will come. The mapping is kept, so re-scanning here is all it takes;
-        // sections already handed over stay dispatched, so this cannot attach one twice.
-        if let publisher = _state.transport?.publisher, publisher.singlePCMode {
-            await attachReceivedMedia(on: publisher, midToTrackSid: [:])
-        }
     }
 
     func signalClient(_: SignalClient, didUnpublishLocalTrack localTrack: Livekit_TrackUnpublishedResponse) async {
@@ -358,7 +342,7 @@ extension Room: SignalClientDelegate {
         }
     }
 
-    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32, midToTrackSid: [String: Track.Sid]) async {
+    func signalClient(_: SignalClient, didReceiveAnswer answer: LKRTCSessionDescription, offerId: UInt32) async {
         log("Received answer for offerId: \(offerId)")
 
         // Clamp to the SDK default — libwebrtc advertises larger (~256 KiB)
@@ -378,60 +362,8 @@ extension Room: SignalClientDelegate {
             if _state.roomOptions.dynacast {
                 await localParticipant.refreshSubscribedQualities()
             }
-
-            // After the description, so the transceivers this maps over have their mids and
-            // receivers. Only single PC mode receives media on the publisher connection.
-            if publisher.singlePCMode {
-                await attachReceivedMedia(on: publisher, midToTrackSid: midToTrackSid)
-            }
         } catch {
             log("Failed to set remote description with offerId: \(offerId), error: \(error)", .error)
-        }
-    }
-
-    /// Attaches media the server has bound to the publisher's receive sections.
-    ///
-    /// In single PC mode this is the only path that identifies received media — `didAddTrack` is
-    /// skipped there (see ``Room/transport(_:didAddTrack:rtpReceiver:streamIds:)``), because
-    /// ``RemoteParticipant/addSubscribedMediaTrack(mediaTrack:rtpReceiver:trackSid:)`` is not
-    /// idempotent and two paths reaching it would attach the same section twice.
-    ///
-    /// ``Transport/receivedMedia(applying:)`` finds the bound sections by scanning the
-    /// transceivers instead. libwebrtc raises its own event for the msid-update case as of
-    /// LiveKitWebRTC 150.7871.08, but only when a receiver *gains* a stream, so the scan still
-    /// covers same-msid reuse, a binding that precedes its publication, and a room move.
-    ///
-    /// The scan reports every bound section, so this decides what still needs attaching: a
-    /// publication that already holds its track is left alone. That makes an unsubscribe
-    /// recoverable — it clears the publication's track, and the next scan reattaches — and means
-    /// a binding whose publication has not arrived yet costs nothing but a later retry.
-    private func attachReceivedMedia(on publisher: Transport, midToTrackSid: [String: Track.Sid]) async {
-        let received = await publisher.receivedMedia(applying: midToTrackSid)
-        guard !received.isEmpty else { return }
-
-        for media in received {
-            guard let participant = _state.read({ state in
-                state.remoteParticipants.values.first { $0._state.trackPublications[media.trackSid] != nil }
-            }) else {
-                // The publication announcement can trail the description that binds it; a later
-                // scan picks it up.
-                log("No publication yet for \(media.trackSid), deferring attach", .debug)
-                continue
-            }
-            // `isDesired` as well as the nil track: `set(subscribed: false)` clears the track
-            // too, so a nil track alone would read an intentional unsubscribe as a pending
-            // subscription and undo it on the next scan.
-            guard let publication = participant._state.trackPublications[media.trackSid] as? RemoteTrackPublication,
-                  publication.track == nil, publication.isDesired
-            else { continue }
-
-            do {
-                try await participant.addSubscribedMediaTrack(mediaTrack: media.track,
-                                                              rtpReceiver: media.receiver,
-                                                              trackSid: media.trackSid)
-            } catch {
-                log("Failed to attach \(media.trackSid) resolved by mid: \(error)", .error)
-            }
         }
     }
 
@@ -512,11 +444,6 @@ extension Room: SignalClientDelegate {
                     _ = try publisher.addTransceiver(ofType: .video, transceiverInit: transceiverInit)
                 }
             }
-            // Unconditional, including for a zero count. The requirement is the server's only
-            // way to ask for a renegotiation in single PC mode, where the client is the sole
-            // offerer — and the binding `attachReceivedMedia` reads (`a=msid`, `mid_to_track_id`)
-            // can only be stamped on an answer. Skipping the offer when no section has to be
-            // added strands every subscription the existing sections already cover.
             try await publisherShouldNegotiate()
         } catch {
             log("Failed to add transceivers for media sections requirement: \(error)", .error)
