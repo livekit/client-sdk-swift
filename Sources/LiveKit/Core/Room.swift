@@ -196,6 +196,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         var reconnectTask: AnyTaskCancellable?
         var disconnectError: LiveKitError?
         var hasPublished: Bool = false
+        // Reset by `cleanUp`: a loss from before a new connection must not resume it
+        var hasLostConnectivity: Bool = false
 
         // Dependency plane: which per-connection / per-join subsystems exist. Payloads are staged
         // and retired only through its transitions (connect / configureTransports / cleanUp).
@@ -310,6 +312,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         Task { @MainActor in
             AppStateListener.shared.delegates.add(delegate: self)
         }
+
+        ConnectivityListener.shared.add(delegate: self)
 
         Task {
             await metricsManager.register(room: self)
@@ -751,6 +755,32 @@ extension Room {
         // reset track settings for all RemoteTrackPublication
         for publication in remoteTrackPublications {
             publication.resetTrackSettings()
+        }
+    }
+}
+
+// MARK: - ConnectivityListenerDelegate
+
+extension Room: ConnectivityListenerDelegate {
+    func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool) {
+        guard shouldResume(onConnectivity: hasConnectivity) else { return }
+
+        Task {
+            do {
+                try await startReconnect(reason: .networkSwitch)
+            } catch {
+                log("Failed calling startReconnect, error: \(error)")
+            }
+        }
+    }
+
+    /// Records a loss. Returns `true` when connectivity returns after a loss and the room is connected with no reconnect in progress.
+    func shouldResume(onConnectivity hasConnectivity: Bool) -> Bool {
+        _state.mutate {
+            let hadLostConnectivity = $0.hasLostConnectivity
+            $0.hasLostConnectivity = !hasConnectivity
+            // A connection from before the loss can stay silent for a long time before it fails
+            return hasConnectivity && hadLostConnectivity && $0.connectionState == .connected && $0.isReconnectingWithMode == nil
         }
     }
 }
