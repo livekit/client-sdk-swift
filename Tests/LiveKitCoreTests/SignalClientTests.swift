@@ -42,6 +42,30 @@ struct SignalClientTests {
         #expect(await client.passesConnectResponseGate(update))
     }
 
+    /// A `/rtc/v1` fallback belongs to the server it was negotiated with, not to the client.
+    ///
+    /// Honouring it everywhere pins a whole `Room` to the legacy path after one legacy server: a
+    /// later connect to a different endpoint, or a region failover, would keep asking for `/rtc`
+    /// and never bundle the offer. A reconnect to the *same* host must still honour it, because the
+    /// fallback does not fire a second time there.
+    @Test func signalPathPreferenceIsScopedToItsEndpoint() async throws {
+        let client = SignalClient()
+        let legacy = try #require(URL(string: "wss://legacy.example.com"))
+        let other = try #require(URL(string: "wss://other.example.com"))
+
+        #expect(await client.mayUseV1(for: legacy), "nothing negotiated yet")
+
+        await client._state.mutate {
+            $0.useV0SignalPath = true
+            $0.v0SignalPathHost = legacy.host
+        }
+        #expect(await client.mayUseV1(for: legacy) == false, "a reconnect to the same host honours the fallback")
+        #expect(await client.mayUseV1(for: other), "a different endpoint may still speak v1")
+
+        await client.resetSignalPathPreference()
+        #expect(await client.mayUseV1(for: legacy), "a fresh session probes from scratch")
+    }
+
     /// The server's leave and its close frame arrive together: the leave reaches the delegate before the close frame
     /// fails the stream, so a removal cannot turn into a reconnect. The same message loop as `connect` runs it, and the
     /// delegate cleans the client up from inside its leave callback, as `Room` does. That cleanup cancels the message

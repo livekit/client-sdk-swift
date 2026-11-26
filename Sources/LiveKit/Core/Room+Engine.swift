@@ -315,12 +315,15 @@ extension Room {
         // `Transport.set(connectionSetupTime:)`.
         let connectStartedAt = ProcessInfo.processInfo.systemUptime
 
-        // Honours what the last connect negotiated, not just the option. Against a server with
-        // no `/rtc/v1` the first attempt falls back to the legacy path and records that here;
-        // asking for single PC again on a full reconnect would rebuild the v1 join URL for a
-        // server that cannot answer it, and the fallback does not fire a second time because the
-        // reconnect skips the validation that raises `serviceNotFound`.
-        let mayUseV1 = await !signalClient.useV0SignalPath
+        // Honours what the last connect negotiated against *this* endpoint, not just the option.
+        // Against a server with no `/rtc/v1` the first attempt falls back to the legacy path and
+        // records that; asking for single PC again on a full reconnect would rebuild the v1 join
+        // URL for a server that cannot answer it, and the fallback does not fire a second time
+        // because the reconnect skips the validation that raises `serviceNotFound`.
+        //
+        // Scoped by host: a region failover dials a different server, which may speak v1 even
+        // when the one we fell back from did not.
+        let mayUseV1 = await signalClient.mayUseV1(for: url)
         var singlePC = _state.roomOptions.singlePeerConnection && mayUseV1
 
         // Built before the socket opens so its offer rides along with the JOIN request, removing

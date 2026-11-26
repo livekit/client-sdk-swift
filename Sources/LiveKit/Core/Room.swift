@@ -412,6 +412,11 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
 
         await cleanUp()
 
+        // A new session, not a recovery of one: the endpoint may differ from the last connect on
+        // this `Room`, or may have gained `/rtc/v1` since. `cleanUp()` deliberately keeps the
+        // negotiated path so a reconnect can honour it, so clearing it is this call's job.
+        await signalClient.resetSignalPathPreference()
+
         try Task.checkCancellation()
 
         // Wire RPC internals before any engine activity so incoming v2 streams aren't
