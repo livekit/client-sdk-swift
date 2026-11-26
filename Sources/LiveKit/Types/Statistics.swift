@@ -690,8 +690,13 @@ public class OutboundRtpStreamStatistics: SentRtpStreamStatistics {
     public let retransmittedBytesSent: UInt64?
     /// FlexFEC repair packets sent for this stream, also counted in `packetsSent`.
     /// Present once the first repair packet is sent.
+    ///
+    /// - Note: Reported by LiveKit's WebRTC build only, it is not part of the W3C WebRTC statistics.
     public let fecPacketsSent: UInt64?
     /// FlexFEC repair bytes sent for this stream, also counted in `bytesSent`.
+    /// Repairs share the stream's bitrate with the media.
+    ///
+    /// - Note: Reported by LiveKit's WebRTC build only, it is not part of the W3C WebRTC statistics.
     public let fecBytesSent: UInt64?
     public let targetBitrate: Double?
     public let totalEncodedBytesTarget: UInt64?

@@ -23,40 +23,44 @@ public extension RemoteTrackPublication {
     /// cost of extra bandwidth. The protection changes without renegotiation, and also applies while
     /// adaptive stream manages the track.
     ///
-    /// - Note: Repairs are only sent when the server has downstream FlexFEC enabled and FlexFEC was
-    ///   negotiated, which requires ``LiveKitSDK/setFlexFECEnabled(_:)``. Otherwise the request has
-    ///   no effect.
+    /// - Note: Repairs are only sent when the server has downstream FlexFEC enabled, otherwise the
+    ///   request has no effect. Receiving them does not require ``LiveKitSDK/setFlexFECEnabled(_:)``.
     func set(fecProtection newValue: FECProtection) async throws {
         guard kind == .video else {
             throw LiveKitError(.invalidState, message: "FEC protection is only supported for video tracks")
         }
         // No-op if already the desired value
-        let trackSettings = _state.trackSettings
-        guard trackSettings.fecProtection != newValue else { return }
+        guard fecProtection != newValue else { return }
 
         guard isSubscribed else {
             throw LiveKitError(.invalidState, message: "Track must be subscribed")
         }
 
-        let settings = trackSettings.copyWith(fecProtection: .value(newValue))
         // Attempt to set the new settings
-        try await send(trackSettings: settings)
+        try await send(trackSettings: _state.trackSettings, fecProtection: .value(newValue))
     }
 
     /// The FlexFEC protection requested with ``set(fecProtection:)``.
-    var fecProtection: FECProtection { _state.trackSettings.fecProtection ?? .disabled }
+    var fecProtection: FECProtection { _state.fecProtection ?? .disabled }
 }
 
 extension RemoteTrackPublication {
-    /// Sends the requested FEC protection again for a newly attached track.
+    /// Whether a newly attached track needs its settings sent again: settings the user chose
+    /// without adaptive stream, or FEC protection other than disabled.
+    var shouldReplayTrackSettings: Bool {
+        let state = _state.copy()
+        return state.hasManualTrackSettings || state.fecProtection.map { $0 != .disabled } == true
+    }
+
+    /// Sends the current track settings and FEC protection again for a newly attached track.
     ///
-    /// A resubscription can create a new server subscription, which starts at `FEC_MODE_DISABLED`.
-    /// Sending the same value to a subscription that kept it changes nothing.
-    func replayFECProtection() async {
+    /// A resubscription can create a new server subscription, which starts from defaults.
+    /// Sending the same values to a subscription that kept them changes nothing.
+    func replayTrackSettings() async {
         do {
             try await send(trackSettings: _state.trackSettings)
         } catch {
-            log("Failed to replay FEC protection, sid: \(sid), error: \(error)", .warning)
+            log("Failed to replay track settings, sid: \(sid), error: \(error)", .warning)
         }
     }
 }

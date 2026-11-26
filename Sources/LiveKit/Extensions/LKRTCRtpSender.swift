@@ -26,7 +26,7 @@ extension LKRTCRtpSender: Loggable {
     /// from the primary encoder.
     ///
     /// FlexFEC protection applies to the whole send stream, takes effect on the next media packet,
-    /// and has no effect unless FlexFEC was negotiated. `nil` keeps WebRTC's adaptive default.
+    /// and has no effect unless FlexFEC was negotiated. `nil` keeps the current setting.
     @RTC
     func set(degradationPreference: LKRTCDegradationPreference, fecProtection: FECProtection? = nil) {
         // Changing params directly doesn't work so we need to update params and set it back to sender.parameters

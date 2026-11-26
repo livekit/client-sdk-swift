@@ -895,7 +895,7 @@ extension LocalParticipant {
 
                         let degradationPreference = publishOptions.degradationPreference.resolve(for: track.source)
 
-                        self.log("[publish] set degradationPreference to \(degradationPreference), fecProtection to \(String(describing: publishOptions.fecProtection))")
+                        self.log("[publish] set degradationPreference to \(degradationPreference), fecProtection to \(publishOptions.fecProtection)")
                         transceiver.sender.set(degradationPreference: degradationPreference, fecProtection: publishOptions.fecProtection)
 
                         if let preferredCodec = publishOptions.preferredCodec {
@@ -903,6 +903,9 @@ extension LocalParticipant {
                         }
 
                         if transInit.sendEncodings.count > 1 {
+                            if publishOptions.fecProtection != .disabled {
+                                self.log("[publish] fecProtection \(publishOptions.fecProtection) is ignored, a simulcast track does not offer FlexFEC", .warning)
+                            }
                             try transceiver.removeFlexFEC()
                         }
                     }

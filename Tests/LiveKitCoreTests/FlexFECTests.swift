@@ -59,26 +59,15 @@ struct FECProtectionTests {
         #expect(set.fec.level == .fecLevelMedium)
     }
 
-    @Test func settingsKeepRequestedProtection() {
-        let initial = TrackSettings(enabled: true)
-        #expect(initial.fecProtection == nil)
-
-        let requested = initial.copyWith(fecProtection: .value(.fixed(.high)))
-        #expect(requested.fecProtection == .fixed(.high))
-        #expect(requested.copyWith(preferredFPS: .value(15)).fecProtection == .fixed(.high))
-    }
-
     @Test func initialSettingsMatchServerSubscription() {
         // without adaptive stream the server starts at high quality, so an update must not lower it
-        let manual = TrackSettings.initial(adaptiveStream: false, fecProtection: .fixed(.high))
+        let manual = TrackSettings.initial(adaptiveStream: false)
         #expect(manual.isEnabled)
         #expect(manual.videoQuality == .high)
-        #expect(manual.fecProtection == .fixed(.high))
 
-        let adaptive = TrackSettings.initial(adaptiveStream: true, fecProtection: nil)
+        let adaptive = TrackSettings.initial(adaptiveStream: true)
         #expect(!adaptive.isEnabled)
         #expect(adaptive.videoQuality == .low)
-        #expect(adaptive.fecProtection == nil)
     }
 
     @Test func mapsToSenderProtection() {
@@ -97,7 +86,7 @@ struct FECProtectionTests {
     }
 
     @Test func publishOptionsCompareProtection() {
-        #expect(VideoPublishOptions().fecProtection == nil)
+        #expect(VideoPublishOptions().fecProtection == .disabled)
         #expect(VideoPublishOptions(fecProtection: .fixed(.high)) == VideoPublishOptions(fecProtection: .fixed(.high)))
         #expect(VideoPublishOptions(fecProtection: .fixed(.high)) != VideoPublishOptions(fecProtection: .fixed(.low)))
         #expect(VideoPublishOptions(fecProtection: .fixed(.high)) != VideoPublishOptions())
@@ -116,7 +105,7 @@ struct FlexFECTests {
     }
 
     @Test func subscriberReceivesRepairs() async throws {
-        try await withSubscribedVideo(publishOptions: VideoPublishOptions(simulcast: false, preferredCodec: .vp8, preferredBackupCodec: .none)) { _, videoPublication, videoTrack in
+        try await withSubscribedVideo(publishOptions: VideoPublishOptions(simulcast: false, preferredCodec: .vp8, preferredBackupCodec: .none)) { _, _, videoPublication, videoTrack in
             func fecPacketsReceived() -> UInt64 {
                 videoTrack.statistics?.inboundRtpStream.compactMap(\.fecPacketsReceived).max() ?? 0
             }
@@ -146,7 +135,7 @@ struct FlexFECTests {
         let publishOptions = VideoPublishOptions(simulcast: false, preferredCodec: .vp8, preferredBackupCodec: .none,
                                                  fecProtection: .fixed(.high))
 
-        try await withSubscribedVideo(publishOptions: publishOptions) { localTrack, _, videoTrack in
+        try await withSubscribedVideo(publishOptions: publishOptions) { _, localTrack, _, videoTrack in
             func fecPacketsSent() -> UInt64 {
                 localTrack.statistics?.outboundRtpStream.compactMap(\.fecPacketsSent).max() ?? 0
             }
@@ -164,7 +153,7 @@ struct FlexFECTests {
     @Test func protectionKeepsSimulcastLayer() async throws {
         let publishOptions = VideoPublishOptions(simulcast: true, preferredCodec: .vp8, preferredBackupCodec: .none)
 
-        try await withSubscribedVideo(publishOptions: publishOptions, dimensions: .h720_169) { _, videoPublication, videoTrack in
+        try await withSubscribedVideo(publishOptions: publishOptions, dimensions: .h720_169) { _, _, videoPublication, videoTrack in
             func frameWidth() -> UInt64 {
                 UInt64(videoTrack.statistics?.inboundRtpStream.compactMap(\.frameWidth).max() ?? 0)
             }
@@ -186,7 +175,7 @@ struct FlexFECTests {
     @Test func resubscribeKeepsProtection() async throws {
         let publishOptions = VideoPublishOptions(simulcast: false, preferredCodec: .vp8, preferredBackupCodec: .none)
 
-        try await withSubscribedVideo(publishOptions: publishOptions) { _, videoPublication, _ in
+        try await withSubscribedVideo(publishOptions: publishOptions) { _, _, videoPublication, _ in
             try await videoPublication.set(fecProtection: .fixed(.high))
 
             try await videoPublication.set(subscribed: false)
@@ -194,16 +183,7 @@ struct FlexFECTests {
             try await Task.sleep(nanoseconds: 5_000_000_000)
             try await videoPublication.set(subscribed: true)
 
-            var resubscribed: RemoteVideoTrack?
-            let deadline = Date().addingTimeInterval(30)
-            while Date() < deadline {
-                if let track = videoPublication.track as? RemoteVideoTrack {
-                    resubscribed = track
-                    break
-                }
-                try await Task.sleep(nanoseconds: 200_000_000)
-            }
-            let videoTrack = try #require(resubscribed)
+            let videoTrack = try #require(await waitForTrack(videoPublication))
             #expect(videoPublication.fecProtection == .fixed(.high))
 
             let received = try await waitFor(above: 50) {
@@ -211,6 +191,48 @@ struct FlexFECTests {
             }
             #expect(received > 50, "Expected FlexFEC repairs after resubscribing, got \(received)")
         }
+    }
+
+    /// A paused track stays paused when the publisher revokes and restores access: the server keeps
+    /// the subscription's settings, and the replay for the new track must not overwrite them.
+    @Test func permissionRestoreKeepsPausedProtectedTrack() async throws {
+        let publishOptions = VideoPublishOptions(simulcast: false, preferredCodec: .vp8, preferredBackupCodec: .none)
+
+        try await withSubscribedVideo(publishOptions: publishOptions) { publisherRoom, _, videoPublication, _ in
+            try await videoPublication.set(fecProtection: .fixed(.high))
+            try await videoPublication.set(enabled: false)
+
+            try await publisherRoom.localParticipant.setTrackSubscriptionPermissions(allParticipantsAllowed: false)
+            let deadline = Date().addingTimeInterval(30)
+            while videoPublication.track != nil, Date() < deadline {
+                try await Task.sleep(nanoseconds: 200_000_000)
+            }
+            try #require(videoPublication.track == nil, "Expected the track to be removed after revoking access")
+
+            try await publisherRoom.localParticipant.setTrackSubscriptionPermissions(allParticipantsAllowed: true)
+            let videoTrack = try #require(await waitForTrack(videoPublication))
+
+            #expect(!videoPublication.isEnabled)
+            #expect(videoPublication.fecProtection == .fixed(.high))
+
+            // let the replay reach the server, then check that no video arrives
+            try await Task.sleep(nanoseconds: 3_000_000_000)
+            func framesReceived() -> UInt {
+                videoTrack.statistics?.inboundRtpStream.compactMap(\.framesReceived).max() ?? 0
+            }
+            let before = framesReceived()
+            try await Task.sleep(nanoseconds: 3_000_000_000)
+            #expect(framesReceived() == before, "Expected the paused track to stay paused after access was restored")
+        }
+    }
+
+    private func waitForTrack(_ publication: RemoteTrackPublication) async throws -> RemoteVideoTrack? {
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            if let track = publication.track as? RemoteVideoTrack { return track }
+            try await Task.sleep(nanoseconds: 200_000_000)
+        }
+        return nil
     }
 
     private func waitFor(above threshold: UInt64, _ value: () -> UInt64) async throws -> UInt64 {
@@ -244,7 +266,7 @@ struct FlexFECTests {
 
     private func withSubscribedVideo(publishOptions: VideoPublishOptions,
                                      dimensions: Dimensions = .h360_169,
-                                     _ block: @escaping @Sendable (LocalVideoTrack, RemoteTrackPublication, RemoteVideoTrack) async throws -> Void) async throws
+                                     _ block: @escaping @Sendable (Room, LocalVideoTrack, RemoteTrackPublication, RemoteVideoTrack) async throws -> Void) async throws
     {
         try await TestEnvironment.withRooms([RoomTestingOptions(isE2eeEnabled: false, canPublish: true),
                                              RoomTestingOptions(isE2eeEnabled: false, canSubscribe: true)])
@@ -275,7 +297,7 @@ struct FlexFECTests {
             let videoPublication = try #require(publication)
             let videoTrack = try #require(videoPublication.track as? RemoteVideoTrack)
 
-            try await block(bufferTrack, videoPublication, videoTrack)
+            try await block(room1, bufferTrack, videoPublication, videoTrack)
         }
     }
 }

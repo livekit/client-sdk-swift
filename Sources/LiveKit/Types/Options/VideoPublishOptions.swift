@@ -41,16 +41,16 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
 
     public let streamName: String?
 
-    /// Proactive FlexFEC protection this client adds to the published track.
+    /// Proactive FlexFEC protection this client adds to the published track, ``FECProtection/disabled`` by default.
     ///
-    /// `nil` keeps WebRTC's default, which adapts protection to the observed packet loss like
-    /// ``FECProtection/adaptive``.
+    /// Repair packets are sent out of the track's own bitrate, so more protection leaves less
+    /// bitrate for the video itself.
     ///
     /// - Note: Repairs are only sent when FlexFEC was negotiated, which requires
     ///   ``LiveKitSDK/setFlexFECEnabled(_:)`` and a server with upstream FlexFEC enabled.
     ///   WebRTC does not allocate a FlexFEC stream for simulcast, so a simulcast track does not
     ///   offer FlexFEC and this only takes effect with `simulcast: false`.
-    public let fecProtection: FECProtection?
+    public let fecProtection: FECProtection
 
     public init(name: String? = nil,
                 encoding: VideoEncoding? = nil,
@@ -62,7 +62,7 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
                 preferredBackupCodec: VideoCodec? = nil,
                 degradationPreference: DegradationPreference = .auto,
                 streamName: String? = nil,
-                fecProtection: FECProtection? = nil)
+                fecProtection: FECProtection = .disabled)
     {
         self.name = name
         self.encoding = encoding
@@ -77,7 +77,7 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
         self.fecProtection = fecProtection
     }
 
-    /// The initializer without `fecProtection`, which defaults to `nil`.
+    /// The initializer without `fecProtection`, which defaults to ``FECProtection/disabled``.
     /// Keeps code and binaries built against the earlier signature working.
     public convenience init(name: String? = nil,
                             encoding: VideoEncoding? = nil,
@@ -100,7 +100,7 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
                   preferredBackupCodec: preferredBackupCodec,
                   degradationPreference: degradationPreference,
                   streamName: streamName,
-                  fecProtection: nil)
+                  fecProtection: .disabled)
     }
 
     // MARK: - Equal

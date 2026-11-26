@@ -72,6 +72,12 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
         //
         var streamState: StreamState = .paused
         var trackSettings = TrackSettings()
+        /// `true` once settings were sent without adaptive stream. These are the user's choices and
+        /// are kept when a new track attaches.
+        var hasManualTrackSettings: Bool = false
+        /// The FlexFEC protection requested for this track, `nil` until requested.
+        /// Kept apart from ``trackSettings`` so that every update sends the latest request.
+        var fecProtection: FECProtection?
         //
         var isSendingTrackSettings: Bool = false
 

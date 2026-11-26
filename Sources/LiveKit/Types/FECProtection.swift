@@ -69,13 +69,9 @@ public final class FECProtection: NSObject, Sendable {
     /// The protection level, used by ``FECProtectionMode/fixed`` and ``FECProtectionMode/minimum``.
     public let level: FECProtectionLevel
 
-    /// Creates a FlexFEC protection setting.
-    ///
-    /// - Parameters:
-    ///   - mode: How the protection is controlled.
-    ///   - level: The protection level, ignored unless `mode` is ``FECProtectionMode/fixed``
-    ///     or ``FECProtectionMode/minimum``.
-    public init(mode: FECProtectionMode, level: FECProtectionLevel = .low) {
+    /// Internal, so that only the factories below can create a setting and every mode carries a
+    /// meaningful level.
+    init(mode: FECProtectionMode, level: FECProtectionLevel = .low) {
         self.mode = mode
         self.level = level
     }

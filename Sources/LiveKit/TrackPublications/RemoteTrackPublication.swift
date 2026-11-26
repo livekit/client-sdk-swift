@@ -164,9 +164,9 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
 
                 log("[adaptiveStream] did reset trackSettings: \(_state.trackSettings), kind: \(newValue.kind)")
 
-                // a new server subscription starts without FEC protection
-                if _state.trackSettings.fecProtection.map({ $0 != .disabled }) == true {
-                    Task { [weak self] in await self?.replayFECProtection() }
+                // a new server subscription starts from defaults, so send what was requested again
+                if shouldReplayTrackSettings {
+                    Task { [weak self] in await self?.replayTrackSettings() }
                 }
 
                 // start adaptiveStream timer only if it's a video track
@@ -266,39 +266,43 @@ extension RemoteTrackPublication {
     // reset track settings
     func resetTrackSettings() {
         let adaptiveStream = isAdaptiveStreamEnabled
-        // keep the requested FEC protection, it is replayed to the new subscription
-        _state.mutate { $0.trackSettings = .initial(adaptiveStream: adaptiveStream, fecProtection: $0.trackSettings.fecProtection) }
+        _state.mutate {
+            // Without adaptive stream, settings the user sent are kept for the new track
+            guard adaptiveStream || !$0.hasManualTrackSettings else { return }
+            $0.trackSettings = .initial(adaptiveStream: adaptiveStream)
+        }
     }
 
-    // attempt to send track settings
-    func send(trackSettings newValue: TrackSettings) async throws {
+    /// Sends `newValue`, along with `fecProtection` when given or the requested FEC protection otherwise.
+    func send(trackSettings newValue: TrackSettings, fecProtection: ValueOrAbsent<FECProtection?> = .absent) async throws {
         let participant = try await requireParticipant()
         let room = try participant.requireRoom()
+        let isManual = !isAdaptiveStreamEnabled
 
-        log("[adaptiveStream] sending \(newValue), sid: \(sid)")
-
-        let state = _state.copy()
-
-        if state.isSendingTrackSettings {
-            log("send(trackSettings:) called while previous send not completed", .error)
-            // Previous send hasn't completed yet...
-            throw LiveKitError(.invalidState, message: "Already busy sending new track settings")
+        // check and update state atomically, so concurrent sends cannot overwrite each other
+        let previous = try _state.mutate { state -> State in
+            let previous = state
+            guard !previous.isSendingTrackSettings else {
+                throw LiveKitError(.invalidState, message: "Already busy sending new track settings")
+            }
+            state.trackSettings = newValue
+            state.fecProtection = fecProtection.value(ifAbsent: state.fecProtection)
+            state.hasManualTrackSettings = state.hasManualTrackSettings || isManual
+            state.isSendingTrackSettings = true
+            return previous
         }
+        let newFECProtection = _state.fecProtection
+        log("[adaptiveStream] sending \(newValue), fecProtection: \(String(describing: newFECProtection)), sid: \(sid)")
 
-        // update state
-        _state.mutate {
-            $0.trackSettings = newValue
-            $0.isSendingTrackSettings = true
-        }
-
-        // Attempt to set the new settings
         do {
-            try await room.signalClient.sendUpdateTrackSettings(trackSid: sid, settings: newValue)
+            try await room.signalClient.sendUpdateTrackSettings(trackSid: sid, settings: newValue, fecProtection: newFECProtection)
             _state.mutate { $0.isSendingTrackSettings = false }
         } catch {
             // Revert track settings on failure
             _state.mutate {
-                $0.trackSettings = state.trackSettings
+                $0.trackSettings = previous.trackSettings
+                $0.fecProtection = previous.fecProtection
+                $0.hasManualTrackSettings = previous.hasManualTrackSettings
                 $0.isSendingTrackSettings = false
             }
 

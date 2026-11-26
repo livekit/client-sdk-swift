@@ -693,7 +693,8 @@ extension SignalClient {
         return try await completer.wait()
     }
 
-    func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings) async throws {
+    /// Sends `settings` together with `fecProtection`, which is omitted when `nil` so the server keeps its value.
+    func sendUpdateTrackSettings(trackSid: Track.Sid, settings: TrackSettings, fecProtection: FECProtection?) async throws {
         let r = Livekit_SignalRequest.with {
             $0.trackSetting = Livekit_UpdateTrackSettings.with {
                 $0.trackSids = [trackSid.stringValue]
@@ -702,7 +703,7 @@ extension SignalClient {
                 $0.height = UInt32(settings.dimensions.height)
                 $0.quality = settings.videoQuality.toPBType()
                 $0.fps = UInt32(settings.preferredFPS)
-                if let fecProtection = settings.fecProtection {
+                if let fecProtection {
                     $0.fec = fecProtection.toPBType()
                 }
             }

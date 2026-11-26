@@ -17,13 +17,14 @@
 import Foundation
 
 public extension LiveKitSDK {
-    /// Enables FlexFEC forward error correction for video.
+    /// Enables sending FlexFEC forward error correction for published video.
     ///
-    /// When enabled, peer connections negotiate `flexfec-03`, which lets subscribed video tracks
-    /// receive repair packets from the server, see ``RemoteTrackPublication/set(fecProtection:)``.
-    /// Published video tracks without simulcast then also send FlexFEC to the server, see
-    /// ``VideoPublishOptions/fecProtection``.
+    /// When enabled, published video tracks without simulcast offer `flexfec-03` and can send
+    /// repair packets to the server, see ``VideoPublishOptions/fecProtection``.
     /// Disabled by default.
+    ///
+    /// Receiving needs no switch: WebRTC always accepts `flexfec-03` on subscribed video tracks,
+    /// see ``RemoteTrackPublication/set(fecProtection:)``.
     ///
     /// ```swift
     /// try LiveKitSDK.setFlexFECEnabled(true)
