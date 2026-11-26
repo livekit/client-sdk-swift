@@ -1,0 +1,5 @@
+---
+"client-sdk-swift": patch
+---
+
+Cover repeated unsubscribe/resubscribe of the same track in single peer connection mode, where the SFU alternates between two receive sections
