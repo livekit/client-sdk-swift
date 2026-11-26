@@ -77,6 +77,32 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
         self.fecProtection = fecProtection
     }
 
+    /// The initializer without `fecProtection`, which defaults to `nil`.
+    /// Keeps code and binaries built against the earlier signature working.
+    public convenience init(name: String? = nil,
+                            encoding: VideoEncoding? = nil,
+                            screenShareEncoding: VideoEncoding? = nil,
+                            simulcast: Bool = true,
+                            simulcastLayers: [VideoParameters] = [],
+                            screenShareSimulcastLayers: [VideoParameters] = [],
+                            preferredCodec: VideoCodec? = nil,
+                            preferredBackupCodec: VideoCodec? = nil,
+                            degradationPreference: DegradationPreference = .auto,
+                            streamName: String? = nil)
+    {
+        self.init(name: name,
+                  encoding: encoding,
+                  screenShareEncoding: screenShareEncoding,
+                  simulcast: simulcast,
+                  simulcastLayers: simulcastLayers,
+                  screenShareSimulcastLayers: screenShareSimulcastLayers,
+                  preferredCodec: preferredCodec,
+                  preferredBackupCodec: preferredBackupCodec,
+                  degradationPreference: degradationPreference,
+                  streamName: streamName,
+                  fecProtection: nil)
+    }
+
     // MARK: - Equal
 
     override public func isEqual(_ object: Any?) -> Bool {
