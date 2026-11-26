@@ -21,9 +21,42 @@ import Foundation
 @testable import LiveKit
 import Testing
 
-/// Audio session events (interruptions and media services resets) through the engine observer chain.
-/// `AVAudioSession` is never touched.
+/// Audio session events (interruptions and media services resets) through the engine observer chain,
+/// and the bookkeeping of ``AudioSessionEngineObserver`` around them. `AVAudioSession` is never
+/// touched: configuration is recorded instead of applied.
 struct AudioSessionEventTests {
+    private typealias Observer = AudioSessionEngineObserver
+
+    private final class RecordingObserver: AudioSessionEngineObserver, @unchecked Sendable {
+        struct Configuration {
+            let oldState: Observer.State
+            let newState: Observer.State
+            var activates: Bool { Observer.requiresActivation(oldState: oldState, newState: newState) }
+        }
+
+        let configurations = StateSync<[Configuration]>([])
+
+        override func configureAudioSession(oldState: Observer.State, newState: Observer.State) throws {
+            configurations.mutate { $0.append(Configuration(oldState: oldState, newState: newState)) }
+        }
+
+        func takeConfigurations() -> [Configuration] {
+            configurations.mutate {
+                let configurations = $0
+                $0 = []
+                return configurations
+            }
+        }
+    }
+
+    private func startedObserver() -> (RecordingObserver, AVAudioEngine) {
+        let observer = RecordingObserver()
+        let engine = AVAudioEngine()
+        _ = observer.engineWillEnable(engine, isPlayoutEnabled: true, isRecordingEnabled: true)
+        _ = observer.takeConfigurations()
+        return (observer, engine)
+    }
+
     /// Implements none of the audio session hooks, so the protocol's default implementations apply.
     private final class PassThroughObserver: AudioEngineObserver, @unchecked Sendable {
         var next: (any AudioEngineObserver)?
@@ -76,6 +109,103 @@ struct AudioSessionEventTests {
         observer.audioSessionDidEndInterruption(shouldResume: true)
 
         #expect(collector.events.copy() == [.interruptionBegan(reason: .default), .interruptionEnded(shouldResume: true)])
+    }
+
+    // MARK: - Activation decision
+
+    @Test func activationFollowsRequirementsAndNeedsActivation() {
+        var inactive = Observer.State()
+        var active = Observer.State()
+        active.sessionRequirements = [UUID(): .playbackOnly]
+
+        #expect(Observer.requiresActivation(oldState: inactive, newState: active))
+        #expect(!Observer.requiresActivation(oldState: active, newState: active))
+        #expect(!Observer.requiresActivation(oldState: active, newState: inactive))
+
+        active.needsActivation = true
+        #expect(Observer.requiresActivation(oldState: active, newState: active))
+        // Nothing to activate for when no requirement is held.
+        inactive.needsActivation = true
+        #expect(!Observer.requiresActivation(oldState: active, newState: inactive))
+    }
+
+    // MARK: - Media services reset
+
+    /// With automatic configuration disabled the observer only updates its bookkeeping, so this runs
+    /// without the engine rebuild that would otherwise be scheduled.
+    @Test func mediaServicesResetMarksTheSessionForActivationAndForwards() throws {
+        let (observer, engine) = startedObserver()
+        let collector = EventCollector()
+        observer.next = collector
+        observer.isAutomaticConfigurationEnabled = false
+
+        observer.audioSessionMediaServicesWereReset()
+
+        #expect(observer._state.needsActivation)
+        #expect(collector.events.copy() == [.mediaServicesWereReset])
+        #expect(observer.takeConfigurations().isEmpty)
+
+        // Once the app turns automatic configuration back on, the next change activates.
+        observer.isAutomaticConfigurationEnabled = true
+        _ = observer.engineDidDisable(engine, isPlayoutEnabled: true, isRecordingEnabled: false)
+        let configuration = try #require(observer.takeConfigurations().first)
+        #expect(configuration.activates)
+        #expect(!observer._state.needsActivation)
+    }
+
+    @Test func reactivationAfterResetAppliesTheConfiguration() throws {
+        let (observer, _) = startedObserver()
+        observer._state.mutate { $0.needsActivation = true }
+
+        try observer.reactivateSessionIfNeeded()
+
+        let configuration = try #require(observer.takeConfigurations().first)
+        #expect(configuration.activates)
+        #expect(!observer._state.needsActivation)
+
+        // Nothing left to do.
+        try observer.reactivateSessionIfNeeded()
+        #expect(observer.takeConfigurations().isEmpty)
+    }
+
+    /// The engine rebuild releases the engine, which drops its requirement, then creates a new one.
+    /// Holding the current requirement keeps every configuration in between on an active session.
+    @Test func heldRequirementKeepsTheSessionActiveAcrossAnEngineRebuild() throws {
+        let (observer, engine) = startedObserver()
+
+        let hold = try #require(observer.acquireCurrentRequirement())
+        _ = observer.takeConfigurations()
+
+        _ = observer.engineDidDisable(engine, isPlayoutEnabled: false, isRecordingEnabled: false)
+        _ = observer.engineWillEnable(AVAudioEngine(), isPlayoutEnabled: true, isRecordingEnabled: true)
+        try hold.release()
+
+        let configurations = observer.takeConfigurations()
+        #expect(!configurations.isEmpty)
+        for configuration in configurations {
+            #expect(configuration.newState.isPlayoutEnabled)
+            #expect(configuration.newState.isRecordingEnabled)
+            #expect(!configuration.activates)
+        }
+        #expect(observer._state.isPlayoutEnabled)
+        #expect(observer._state.isRecordingEnabled)
+    }
+
+    /// Without the hold, the same sequence deactivates the session in between.
+    @Test func engineRebuildWithoutAHoldDeactivatesTheSession() throws {
+        let (observer, engine) = startedObserver()
+
+        _ = observer.engineDidDisable(engine, isPlayoutEnabled: false, isRecordingEnabled: false)
+
+        let configuration = try #require(observer.takeConfigurations().first)
+        #expect(!configuration.newState.isPlayoutEnabled)
+        #expect(!configuration.newState.isRecordingEnabled)
+    }
+
+    @Test func nothingToHoldWhenTheSessionIsNotRequired() {
+        let observer = RecordingObserver()
+        #expect(observer.acquireCurrentRequirement() == nil)
+        #expect(observer.takeConfigurations().isEmpty)
     }
 }
 
