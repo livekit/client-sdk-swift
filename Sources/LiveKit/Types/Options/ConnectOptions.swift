@@ -26,7 +26,8 @@ public final class ConnectOptions: NSObject, Sendable {
     /// The number of attempts to reconnect when the network disconnects.
     ///
     /// The first attempt resumes the session (``ReconnectMode/quick``). If it fails, every later
-    /// attempt rejoins from scratch (``ReconnectMode/full``).
+    /// attempt rejoins from scratch (``ReconnectMode/full``). With one attempt, that attempt is a
+    /// full reconnect. A requested full reconnect runs on the first attempt.
     public let reconnectAttempts: Int
 
     /// The minimum delay value for reconnection attempts.

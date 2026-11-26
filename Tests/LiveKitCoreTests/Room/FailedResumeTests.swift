@@ -27,7 +27,7 @@ import LiveKitTestSupport
 struct FailedResumeTests {
     @Test func aFailedResumeIsFollowedByAFullReconnect() async throws {
         try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
-            let room = rooms[0]
+            let room = try #require(rooms.first)
             let validToken = try #require(room._state.token)
             room._state.mutate {
                 $0.connectOptions = ConnectOptions(reconnectAttempts: 4,
@@ -54,6 +54,31 @@ struct FailedResumeTests {
             try await room.startReconnect(reason: .debug)
 
             #expect(failedAttempts.copy() == 1)
+            #expect(room.connectionState == .connected)
+            #expect(room.localParticipant.sid != sid, "a full reconnect joins as a new participant")
+        }
+    }
+
+    @Test func aRequestedFullReconnectRunsOnTheFirstAttempt() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions()]) { rooms in
+            let room = try #require(rooms.first)
+
+            let signalState = await room.signalClient._state
+            let onDidMutate = signalState.onDidMutate
+            let attemptModes = StateSync<[ReconnectMode?]>([])
+            signalState.onDidMutate = { state, oldState in
+                onDidMutate?(state, oldState)
+                guard oldState.connectionState != .reconnecting,
+                      state.connectionState == .reconnecting else { return }
+                let mode = room._state.isReconnectingWithMode
+                attemptModes.mutate { $0.append(mode) }
+            }
+            defer { signalState.onDidMutate = onDidMutate }
+
+            let sid = room.localParticipant.sid
+            try await room.startReconnect(reason: .debug, nextReconnectMode: .full)
+
+            #expect(attemptModes.copy() == [.full])
             #expect(room.connectionState == .connected)
             #expect(room.localParticipant.sid != sid, "a full reconnect joins as a new participant")
         }

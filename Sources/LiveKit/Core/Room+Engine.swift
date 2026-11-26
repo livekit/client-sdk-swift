@@ -517,6 +517,7 @@ extension Room {
                     throw LiveKitError(.onlyForCloud)
                 }
 
+                await regionManager.resetAttempts()
                 finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
                                                                     initialUrl: connectedUrl,
                                                                     initialRegion: nil,
