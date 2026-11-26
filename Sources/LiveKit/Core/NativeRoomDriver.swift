@@ -296,8 +296,7 @@ extension NativeRoomDriver {
                     Room.log("Native RPC unregister was not confirmed: \(error)", .warning)
                 }
                 guard session === native, !closing else { return }
-                // A failed removal can leave a native handler, but Swift rejects it while absent
-                // from handlers. Re-registering replaces the core handler, so require a fresh ack.
+                // Swift rejects residual handlers after failed removal; re-registering replaces the core handler and needs a fresh ack.
                 confirmedRpcMethods.remove(method)
             } else if let (method, registration) = handlers.first(where: { !confirmedRpcMethods.contains($0.key) }) {
                 do {

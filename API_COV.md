@@ -46,8 +46,8 @@ TODO: When a `livekit-ffi-xcframework` release ships the room API, replace the l
 package in `Package.swift` with that release.
 
 No published LiveKitFFI package has the room API. `Package.swift` reads the package
-from `../livekit-ffi-xcframework`, a directory next to this checkout. To use a
-different directory, set the environment variable `LIVEKIT_FFI_PACKAGE_PATH` to its path.
+from `LIVEKIT_FFI_PACKAGE_PATH` when set, otherwise from `../livekit-ffi-xcframework`
+relative to this package. This is a local package directory, not a published dependency.
 
 To build the macOS package, you need Rust, Xcode and `tera` (`cargo install tera-cli`).
 
@@ -60,7 +60,7 @@ To build the macOS package, you need Rust, Xcode and `tera` (`cargo install tera
 5. In this checkout, build the SDK:
    `xcodebuild build -scheme LiveKit -destination 'platform=macOS'`
 
-This package has only the macOS arm64 slice. For the iOS slices, see
+The macOS packaging command above produces only the macOS arm64 slice. For the iOS slices, see
 `build-room-ios.sh` and `package-room-apple.sh` in `livekit-ffi/README.md` of the Rust branch.
 
 ## Host network transport
@@ -68,7 +68,12 @@ This package has only the macOS arm64 slice. For the iOS slices, see
 The current Swift source requires matching host-transport bindings and binary, including
 `livekit_net.swift`, from Rust `20f8ae7fa746caf48bce8e7e808389f52b549860`.
 The earlier artifact/checkpoint above records prior room validation, not this transport build.
-Only the supplied macOS arm64 host slice has been validated; matching iOS slices are pending.
+Matching native macOS arm64, iOS device arm64 and iOS simulator arm64 packages are
+validated in `/Users/blaze/livekit/research-v3/apple-host-validation/REPORT.txt`.
+The combined Swift Release/library-evolution device and simulator builds pass at
+iOS15 with Xcode27.2; native mobile slices declare iOS14 (macOS11 for macOS).
+Xcode27.2 rejects the iOS14 Swift deployment target before compilation. This is
+package/compile evidence, not a final app-link or device/simulator runtime proof.
 Do not combine bindings or binaries from the older bundled-network package.
 
 Module graph: `LiveKit → LiveKitTransport → LiveKitFFI`; transport otherwise uses
@@ -88,9 +93,12 @@ The socket fixture and separate-process registry tests are in `Tests/LiveKitTran
 Set `LIVEKIT_TRANSPORT_TEST_URL` and `LIVEKIT_TRANSPORT_TLS_URL` for socket tests.
 Run `TransportRegistryTests` separately for each `LIVEKIT_TRANSPORT_REGISTRY_CASE`:
 `roundtrip`, `pending-connect`, `foreign-timeout`, `ws-only`, `http-only`. Never run registry
-scenarios by replacing clients in one process. Pending connect checks prompt public return
-with actual `NativeSessionError.Cancelled`; foreign callback cancellation is bounded separately
-by Rust's signaling deadline. Neither proves destruction of all descendant tasks within one second.
+scenarios by replacing clients in one process. Pending connect checks prompt return from
+`NativeRoomSession.connect` with actual `NativeSessionError.Cancelled`. The v2
+`Room.connect` façade still awaits native teardown in its preexisting catch path,
+so cancellation may wait on native deadlines/retries. Foreign callback cancellation
+is bounded separately by Rust's signaling deadline. Neither proves destruction of
+all descendant tasks within one second.
 
 Swift remains the v2 compatibility façade over the authoritative Rust contracts; future direct
 UniFFI v3 consumers can reuse `LiveKitTransport` independently. The small internal
@@ -112,7 +120,7 @@ it is not acceptance or independent source review. All existing compatibility/pl
 | Public Swift/ObjC declarations, enum values, selectors, availability | macOS Release/distribution at `23dfa1f7` and matching-safe iOS device at `3d4754e1`: digester reports zero breaking changes and zero additions. ObjC header differs only by relocating the unchanged Room.prepareConnection category; exact header line multiset is equal. Enum/selector/availability text is unchanged. This is surface evidence, not behavioral compatibility. |
 | Existing unmodified public E2E | 21 existing Objective-C test methods passed unchanged, including streams/file/incremental writers, data tracks, RPC and Room delegates. Current participant identity/membership, PublishDataTests and DataTrackApiTests also pass with original unchanged shared-key/statistics-enabled fixtures; this does not imply all default/media behavior is compatible. |
 | Lifecycle/default/error/delegate/observation semantics | Two-room state/delegate/data/rejoin, invalid-token, cancellation and release proof exists. Sequential name callback ordering/getter consistency and SwiftUI notification delivery now pass. Involuntary reconnect, full error parity and default-option parity remain unproved. New unsupported throws and ineffective nonthrowing controls are **compatibility breaks**. |
-| Supported build/package/target matrix | Current safe macOS arm64 Debug/Release pass. Matching-safe iOS device Release/API and arm64 simulator Release compilation pass; iOS14 native minimum remains incompatible with SDK declaration13. Catalyst/tvOS/visionOS/Intel simulator slices absent. Absolute local artifact pin is research packaging, not a distributable minor release. |
+| Supported build/package/target matrix | Current safe macOS arm64 Debug/Release pass. Matching-safe iOS device Release/API and arm64 simulator Release compilation pass; iOS14 native minimum remains incompatible with SDK declaration13. Catalyst/tvOS/visionOS/Intel simulator slices absent. Environment-selected or relative local package directories are research packaging, not a distributable minor release. |
 
 ## Single capability/blocker ledger
 
