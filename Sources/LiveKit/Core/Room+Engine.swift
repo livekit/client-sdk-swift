@@ -423,27 +423,25 @@ extension Room {
             throw LiveKitError(.invalidState)
         }
 
-        // The state can change after the guards above. One mutation checks it and marks the
-        // room, so that only one of several concurrent callers starts a reconnect.
-        try _state.mutate {
-            guard case .connected = $0.connectionState else {
-                log("[Connect] Must be called with connected state", .error)
-                throw LiveKitError(.invalidState)
+        // Recheck and mark atomically so concurrent callers cannot start competing reconnects.
+        var rejection: (message: String, level: LogLevel)?
+        _state.mutate {
+            if $0.connectionState != .connected {
+                rejection = ("[Connect] Must be called with connected state", .error)
+            } else if $0.transport == nil {
+                rejection = ("[Connect] Transport is nil", .error)
+            } else if $0.isReconnectingWithMode != nil {
+                rejection = ("[Connect] Reconnect already in progress...", .warning)
             }
-
-            guard $0.transport != nil else {
-                log("[Connect] Transport is nil", .error)
-                throw LiveKitError(.invalidState)
-            }
-
-            guard $0.isReconnectingWithMode == nil else {
-                log("[Connect] Reconnect already in progress...", .warning)
-                throw LiveKitError(.invalidState)
-            }
+            guard rejection == nil else { return }
 
             // Mark as Re-connecting internally
             $0.isReconnectingWithMode = .quick
             $0.nextReconnectMode = nextReconnectMode
+        }
+        if let rejection {
+            log(rejection.message, rejection.level)
+            throw LiveKitError(.invalidState)
         }
 
         // quick connect sequence, does not update connection state
