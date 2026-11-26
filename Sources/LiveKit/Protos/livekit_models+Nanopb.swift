@@ -3445,6 +3445,7 @@ struct Livekit_ClientInfo_SDK: NanopbEnum {
     static let node = Self(rawValue: 12)
     static let unreal = Self(rawValue: 13)
     static let esp32 = Self(rawValue: 14)
+    static let dotnet = Self(rawValue: 15)
 }
 
 struct Livekit_ClientInfo_Capability: NanopbEnum {

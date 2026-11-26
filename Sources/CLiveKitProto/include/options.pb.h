@@ -17,12 +17,12 @@ typedef enum _logger_Sensitivity {
     /* User-identifying or user-controlled data: display names, phone numbers,
  metadata, attributes, custom headers, auth usernames, semi-public account
  identifiers (AWS role ARNs, Azure account names).
- Redacted by logger.Proto(); exposed by logger.UnredactedProto() for
- operator-facing observability events. */
+ Recorded under a sensitivity tag by a sink that can tag; redacted by one
+ that cannot. */
     logger_Sensitivity_SENSITIVITY_PII = 1,
     /* Credentials and authentication material: passwords, access keys, session
  tokens, signing keys, API keys, ICE credentials.
- ALWAYS redacted, including by logger.UnredactedProto(). */
+ ALWAYS redacted: no sink may record it. */
     logger_Sensitivity_SENSITIVITY_SECRET = 2
 } logger_Sensitivity;
 

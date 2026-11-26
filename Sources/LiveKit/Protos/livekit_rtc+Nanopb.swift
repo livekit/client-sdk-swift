@@ -646,6 +646,7 @@ enum Livekit_SignalResponse_OneOf_Message: Equatable {
     case dataTrackSubscriberHandles(Livekit_DataTrackSubscriberHandles)
     case storeDataBlobResponse(Livekit_StoreDataBlobResponse)
     case getDataBlobResponse(Livekit_GetDataBlobResponse)
+    case dataTrackDemandUpdate(Livekit_DataTrackDemandUpdate)
 }
 
 extension livekit_SignalResponse: NanopbStorage {
@@ -717,6 +718,8 @@ extension Livekit_SignalResponse {
                 return .storeDataBlobResponse(_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_StoreDataBlobResponse._empty)
             case lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
                 return .getDataBlobResponse(_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_data_track_demand_update_tag):
+                return .dataTrackDemandUpdate(_pointer.pointee.message.data_track_demand_update.map { Livekit_DataTrackDemandUpdate(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackDemandUpdate._empty)
             default: return nil
             }
         }
@@ -871,6 +874,11 @@ extension Livekit_SignalResponse {
             _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag) ? (_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _owner) } ?? Livekit_GetDataBlobResponse._empty) : Livekit_GetDataBlobResponse()
         }
     }
+    var dataTrackDemandUpdate: Livekit_DataTrackDemandUpdate {
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_data_track_demand_update_tag) ? (_pointer.pointee.message.data_track_demand_update.map { Livekit_DataTrackDemandUpdate(_sharing: $0, owner: _owner) } ?? Livekit_DataTrackDemandUpdate._empty) : Livekit_DataTrackDemandUpdate()
+        }
+    }
 
 }
 
@@ -938,6 +946,8 @@ extension Livekit_SignalResponse.Builder {
                 return .storeDataBlobResponse(_pointer.pointee.message.store_data_blob_response.map { Livekit_StoreDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_StoreDataBlobResponse._empty)
             case lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
                 return .getDataBlobResponse(_pointer.pointee.message.get_data_blob_response.map { Livekit_GetDataBlobResponse(_sharing: $0, owner: _box) } ?? Livekit_GetDataBlobResponse._empty)
+            case lk_pb_size_t(livekit_SignalResponse_data_track_demand_update_tag):
+                return .dataTrackDemandUpdate(_pointer.pointee.message.data_track_demand_update.map { Livekit_DataTrackDemandUpdate(_sharing: $0, owner: _box) } ?? Livekit_DataTrackDemandUpdate._empty)
             default: return nil
             }
         }
@@ -971,6 +981,7 @@ extension Livekit_SignalResponse.Builder {
             case let .dataTrackSubscriberHandles(value): .dataTrackSubscriberHandles(value.owned())
             case let .storeDataBlobResponse(value): .storeDataBlobResponse(value.owned())
             case let .getDataBlobResponse(value): .getDataBlobResponse(value.owned())
+            case let .dataTrackDemandUpdate(value): .dataTrackDemandUpdate(value.owned())
             default: newValue
             }
             _clearMessage()
@@ -1065,6 +1076,9 @@ extension Livekit_SignalResponse.Builder {
             case let .getDataBlobResponse(value):
                 _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag)
                 lkSetMessage(&_pointer.pointee.message.get_data_blob_response, value)
+            case let .dataTrackDemandUpdate(value):
+                _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_data_track_demand_update_tag)
+                lkSetMessage(&_pointer.pointee.message.data_track_demand_update, value)
             case nil: break
             }
         }
@@ -1337,6 +1351,15 @@ extension Livekit_SignalResponse.Builder {
             lkSetMessage(&_pointer.pointee.message.get_data_blob_response, newValue)
         }
     }
+    var dataTrackDemandUpdate: Livekit_DataTrackDemandUpdate {
+        get { _pointer.pointee.which_message == lk_pb_size_t(livekit_SignalResponse_data_track_demand_update_tag) ? (_pointer.pointee.message.data_track_demand_update.map { Livekit_DataTrackDemandUpdate(_sharing: $0, owner: _box) } ?? Livekit_DataTrackDemandUpdate._empty) : Livekit_DataTrackDemandUpdate() }
+        nonmutating set {
+            let newValue = newValue.owned()
+            _clearMessage()
+            _pointer.pointee.which_message = lk_pb_size_t(livekit_SignalResponse_data_track_demand_update_tag)
+            lkSetMessage(&_pointer.pointee.message.data_track_demand_update, newValue)
+        }
+    }
     private func _clearMessage() {
         switch _pointer.pointee.which_message {
         case lk_pb_size_t(livekit_SignalResponse_join_tag):
@@ -1399,6 +1422,8 @@ extension Livekit_SignalResponse.Builder {
             lkRelease(message: &_pointer.pointee.message.store_data_blob_response, Livekit_StoreDataBlobResponse.descriptor)
         case lk_pb_size_t(livekit_SignalResponse_get_data_blob_response_tag):
             lkRelease(message: &_pointer.pointee.message.get_data_blob_response, Livekit_GetDataBlobResponse.descriptor)
+        case lk_pb_size_t(livekit_SignalResponse_data_track_demand_update_tag):
+            lkRelease(message: &_pointer.pointee.message.data_track_demand_update, Livekit_DataTrackDemandUpdate.descriptor)
         default: break
         }
         _pointer.pointee.which_message = 0
@@ -1968,6 +1993,41 @@ extension Livekit_DataTrackSubscriberHandles.Builder {
             lkSetRepeatedMessages(&count, &base, entries)
             _pointer.pointee.sub_handles_count = count; _pointer.pointee.sub_handles = base
         }
+    }
+
+}
+
+extension livekit_DataTrackDemandUpdate: NanopbStorage {
+    package static var descriptor: lk_pb_msgdesc_t { livekit_DataTrackDemandUpdate_msg }
+    package static let _emptyBox = NanopbBox<livekit_DataTrackDemandUpdate>(zero: livekit_DataTrackDemandUpdate(), descriptor: livekit_DataTrackDemandUpdate_msg)
+}
+typealias Livekit_DataTrackDemandUpdate = NanopbMsg<livekit_DataTrackDemandUpdate>
+extension Livekit_DataTrackDemandUpdate {
+    var pubHandle: UInt32 {
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.pub_handle?.pointee ?? 0
+        }
+    }
+    var hasPubHandle: Bool { withExtendedLifetime(_owner) { _pointer.pointee.pub_handle != nil } }
+
+    var hasSubscribers_p: Bool {
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.has_subscribers?.pointee ?? false
+        }
+    }
+    var hasHasSubscribers_p: Bool { withExtendedLifetime(_owner) { _pointer.pointee.has_subscribers != nil } }
+
+}
+
+extension Livekit_DataTrackDemandUpdate.Builder {
+    var pubHandle: UInt32 {
+        get { _pointer.pointee.pub_handle?.pointee ?? 0 }
+        nonmutating set { lkSetValue(&_pointer.pointee.pub_handle, newValue) }
+    }
+
+    var hasSubscribers_p: Bool {
+        get { _pointer.pointee.has_subscribers?.pointee ?? false }
+        nonmutating set { lkSetValue(&_pointer.pointee.has_subscribers, newValue) }
     }
 
 }
@@ -3912,6 +3972,13 @@ extension Livekit_SyncState {
         }
     }
 
+    var dataSubscription: Livekit_UpdateDataSubscription {
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _owner) } ?? Livekit_UpdateDataSubscription._empty
+        }
+    }
+    var hasDataSubscription: Bool { withExtendedLifetime(_owner) { _pointer.pointee.data_subscription != nil } }
+
 }
 
 extension Livekit_SyncState.Builder {
@@ -3973,6 +4040,11 @@ extension Livekit_SyncState.Builder {
             lkSetRepeatedMessages(&count, &base, newValue)
             _pointer.pointee.publish_data_tracks_count = count; _pointer.pointee.publish_data_tracks = base
         }
+    }
+
+    var dataSubscription: Livekit_UpdateDataSubscription {
+        get { _pointer.pointee.data_subscription.map { Livekit_UpdateDataSubscription(_sharing: $0, owner: _box) } ?? Livekit_UpdateDataSubscription._empty }
+        nonmutating set { lkSetMessage(&_pointer.pointee.data_subscription, newValue) }
     }
 
 }
@@ -4856,6 +4928,13 @@ extension Livekit_ConnectionSettings {
     }
     var hasAutoSubscribeDataTrack: Bool { withExtendedLifetime(_owner) { _pointer.pointee.auto_subscribe_data_track != nil } }
 
+    var candidateProtocol: Livekit_CandidateProtocol {
+        withExtendedLifetime(_owner) {
+            _pointer.pointee.candidate_protocol.map { lkEnum($0.pointee) } ?? Livekit_CandidateProtocol()
+        }
+    }
+    var hasCandidateProtocol: Bool { withExtendedLifetime(_owner) { _pointer.pointee.candidate_protocol != nil } }
+
 }
 
 extension Livekit_ConnectionSettings.Builder {
@@ -4882,6 +4961,11 @@ extension Livekit_ConnectionSettings.Builder {
     var autoSubscribeDataTrack: Bool {
         get { _pointer.pointee.auto_subscribe_data_track?.pointee ?? false }
         nonmutating set { lkSetValue(&_pointer.pointee.auto_subscribe_data_track, newValue) }
+    }
+
+    var candidateProtocol: Livekit_CandidateProtocol {
+        get { _pointer.pointee.candidate_protocol.map { lkEnum($0.pointee) } ?? Livekit_CandidateProtocol() }
+        nonmutating set { lkSetEnumPointer(&_pointer.pointee.candidate_protocol, newValue) }
     }
 
 }

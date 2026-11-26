@@ -45,6 +45,13 @@ typedef enum _livekit_StreamState {
     livekit_StreamState_PAUSED = 1
 } livekit_StreamState;
 
+typedef enum _livekit_NegotiatedDataChannelID {
+    livekit_NegotiatedDataChannelID_NDCI_INVALID = 0,
+    livekit_NegotiatedDataChannelID_NDCI_RELIABLE = 100,
+    livekit_NegotiatedDataChannelID_NDCI_LOSSY = 101,
+    livekit_NegotiatedDataChannelID_NDCI_DATA_TRACK = 102
+} livekit_NegotiatedDataChannelID;
+
 typedef enum _livekit_CandidateProtocol {
     livekit_CandidateProtocol_UDP = 0,
     livekit_CandidateProtocol_TCP = 1,
@@ -191,6 +198,8 @@ typedef struct _livekit_SignalResponse {
         struct _livekit_StoreDataBlobResponse *store_data_blob_response;
         /* Sent in response to `GetDataBlobRequest`. */
         struct _livekit_GetDataBlobResponse *get_data_blob_response;
+        /* Sent to data track publisher to indicate a change in demand. */
+        struct _livekit_DataTrackDemandUpdate *data_track_demand_update;
     } message;
 } livekit_SignalResponse;
 
@@ -281,6 +290,13 @@ typedef struct _livekit_DataTrackSubscriberHandles_SubHandlesEntry {
     uint32_t *key;
     struct _livekit_DataTrackSubscriberHandles_PublishedDataTrack *value;
 } livekit_DataTrackSubscriberHandles_SubHandlesEntry;
+
+typedef struct _livekit_DataTrackDemandUpdate {
+    /* Publisher handle of the track. */
+    uint32_t *pub_handle;
+    /* Whether or not the track currently has any subscribers. */
+    bool *has_subscribers;
+} livekit_DataTrackDemandUpdate;
 
 typedef struct _livekit_TrickleRequest {
     char *candidateInit;
@@ -596,6 +612,7 @@ typedef struct _livekit_SyncState {
     struct _livekit_DataChannelReceiveState *datachannel_receive_states;
     pb_size_t publish_data_tracks_count;
     struct _livekit_PublishDataTrackResponse *publish_data_tracks;
+    struct _livekit_UpdateDataSubscription *data_subscription;
 } livekit_SyncState;
 
 typedef struct _livekit_DataChannelReceiveState {
@@ -689,6 +706,8 @@ typedef struct _livekit_ConnectionSettings {
     bool *subscriber_allow_pause;
     bool *disable_ice_lite;
     bool *auto_subscribe_data_track;
+    /* preferred ICE candidate protocol, UDP means no preference */
+    livekit_CandidateProtocol *candidate_protocol;
 } livekit_ConnectionSettings;
 
 typedef struct _livekit_JoinRequest {
@@ -746,6 +765,10 @@ extern "C" {
 #define _livekit_StreamState_MAX livekit_StreamState_PAUSED
 #define _livekit_StreamState_ARRAYSIZE ((livekit_StreamState)(livekit_StreamState_PAUSED+1))
 
+#define _livekit_NegotiatedDataChannelID_MIN livekit_NegotiatedDataChannelID_NDCI_INVALID
+#define _livekit_NegotiatedDataChannelID_MAX livekit_NegotiatedDataChannelID_NDCI_DATA_TRACK
+#define _livekit_NegotiatedDataChannelID_ARRAYSIZE ((livekit_NegotiatedDataChannelID)(livekit_NegotiatedDataChannelID_NDCI_DATA_TRACK+1))
+
 #define _livekit_CandidateProtocol_MIN livekit_CandidateProtocol_UDP
 #define _livekit_CandidateProtocol_MAX livekit_CandidateProtocol_TLS
 #define _livekit_CandidateProtocol_ARRAYSIZE ((livekit_CandidateProtocol)(livekit_CandidateProtocol_TLS+1))
@@ -774,6 +797,7 @@ extern "C" {
 #define livekit_AddTrackRequest_packet_trailer_features_ENUMTYPE livekit_PacketTrailerFeature
 
 #define livekit_PublishDataTrackRequest_encryption_ENUMTYPE livekit_Encryption_Type
+
 
 
 
@@ -845,6 +869,7 @@ extern "C" {
 #define livekit_RequestResponse_reason_ENUMTYPE livekit_RequestResponse_Reason
 
 
+#define livekit_ConnectionSettings_candidate_protocol_ENUMTYPE livekit_CandidateProtocol
 
 #define livekit_JoinRequest_reconnect_reason_ENUMTYPE livekit_ReconnectReason
 
@@ -865,6 +890,7 @@ extern "C" {
 #define livekit_DataTrackSubscriberHandles_init_default {0, NULL}
 #define livekit_DataTrackSubscriberHandles_PublishedDataTrack_init_default {NULL, NULL, NULL}
 #define livekit_DataTrackSubscriberHandles_SubHandlesEntry_init_default {NULL, NULL}
+#define livekit_DataTrackDemandUpdate_init_default {NULL, NULL}
 #define livekit_TrickleRequest_init_default      {NULL, NULL, NULL}
 #define livekit_MuteTrackRequest_init_default    {NULL, NULL}
 #define livekit_JoinResponse_init_default        {NULL, NULL, 0, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL}
@@ -904,7 +930,7 @@ extern "C" {
 #define livekit_SubscriptionPermission_init_default {NULL, 0, NULL}
 #define livekit_SubscriptionPermissionUpdate_init_default {NULL, NULL, NULL}
 #define livekit_RoomMovedResponse_init_default   {NULL, NULL, NULL, 0, NULL}
-#define livekit_SyncState_init_default           {NULL, NULL, 0, NULL, 0, NULL, NULL, 0, NULL, 0, NULL, 0, NULL}
+#define livekit_SyncState_init_default           {NULL, NULL, 0, NULL, 0, NULL, NULL, 0, NULL, 0, NULL, 0, NULL, NULL}
 #define livekit_DataChannelReceiveState_init_default {NULL, NULL}
 #define livekit_DataChannelInfo_init_default     {NULL, NULL, NULL}
 #define livekit_SimulateScenario_init_default    {0, {NULL}}
@@ -915,7 +941,7 @@ extern "C" {
 #define livekit_SubscriptionResponse_init_default {NULL, NULL}
 #define livekit_RequestResponse_init_default     {NULL, NULL, NULL, 0, {NULL}}
 #define livekit_TrackSubscribed_init_default     {NULL}
-#define livekit_ConnectionSettings_init_default  {NULL, NULL, NULL, NULL, NULL}
+#define livekit_ConnectionSettings_init_default  {NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_JoinRequest_init_default         {NULL, NULL, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_JoinRequest_ParticipantAttributesEntry_init_default {NULL, NULL}
 #define livekit_WrappedJoinRequest_init_default  {NULL, NULL}
@@ -931,6 +957,7 @@ extern "C" {
 #define livekit_DataTrackSubscriberHandles_init_zero {0, NULL}
 #define livekit_DataTrackSubscriberHandles_PublishedDataTrack_init_zero {NULL, NULL, NULL}
 #define livekit_DataTrackSubscriberHandles_SubHandlesEntry_init_zero {NULL, NULL}
+#define livekit_DataTrackDemandUpdate_init_zero  {NULL, NULL}
 #define livekit_TrickleRequest_init_zero         {NULL, NULL, NULL}
 #define livekit_MuteTrackRequest_init_zero       {NULL, NULL}
 #define livekit_JoinResponse_init_zero           {NULL, NULL, 0, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL}
@@ -970,7 +997,7 @@ extern "C" {
 #define livekit_SubscriptionPermission_init_zero {NULL, 0, NULL}
 #define livekit_SubscriptionPermissionUpdate_init_zero {NULL, NULL, NULL}
 #define livekit_RoomMovedResponse_init_zero      {NULL, NULL, NULL, 0, NULL}
-#define livekit_SyncState_init_zero              {NULL, NULL, 0, NULL, 0, NULL, NULL, 0, NULL, 0, NULL, 0, NULL}
+#define livekit_SyncState_init_zero              {NULL, NULL, 0, NULL, 0, NULL, NULL, 0, NULL, 0, NULL, 0, NULL, NULL}
 #define livekit_DataChannelReceiveState_init_zero {NULL, NULL}
 #define livekit_DataChannelInfo_init_zero        {NULL, NULL, NULL}
 #define livekit_SimulateScenario_init_zero       {0, {NULL}}
@@ -981,7 +1008,7 @@ extern "C" {
 #define livekit_SubscriptionResponse_init_zero   {NULL, NULL}
 #define livekit_RequestResponse_init_zero        {NULL, NULL, NULL, 0, {NULL}}
 #define livekit_TrackSubscribed_init_zero        {NULL}
-#define livekit_ConnectionSettings_init_zero     {NULL, NULL, NULL, NULL, NULL}
+#define livekit_ConnectionSettings_init_zero     {NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_JoinRequest_init_zero            {NULL, NULL, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_JoinRequest_ParticipantAttributesEntry_init_zero {NULL, NULL}
 #define livekit_WrappedJoinRequest_init_zero     {NULL, NULL}
@@ -1040,6 +1067,7 @@ extern "C" {
 #define livekit_SignalResponse_data_track_subscriber_handles_tag 29
 #define livekit_SignalResponse_store_data_blob_response_tag 30
 #define livekit_SignalResponse_get_data_blob_response_tag 31
+#define livekit_SignalResponse_data_track_demand_update_tag 32
 #define livekit_SimulcastCodec_codec_tag         1
 #define livekit_SimulcastCodec_cid_tag           2
 #define livekit_SimulcastCodec_layers_tag        4
@@ -1076,6 +1104,8 @@ extern "C" {
 #define livekit_DataTrackSubscriberHandles_PublishedDataTrack_track_sid_tag 3
 #define livekit_DataTrackSubscriberHandles_SubHandlesEntry_key_tag 1
 #define livekit_DataTrackSubscriberHandles_SubHandlesEntry_value_tag 2
+#define livekit_DataTrackDemandUpdate_pub_handle_tag 1
+#define livekit_DataTrackDemandUpdate_has_subscribers_tag 2
 #define livekit_TrickleRequest_candidateInit_tag 1
 #define livekit_TrickleRequest_target_tag        2
 #define livekit_TrickleRequest_final_tag         3
@@ -1196,6 +1226,7 @@ extern "C" {
 #define livekit_SyncState_track_sids_disabled_tag 6
 #define livekit_SyncState_datachannel_receive_states_tag 7
 #define livekit_SyncState_publish_data_tracks_tag 8
+#define livekit_SyncState_data_subscription_tag  9
 #define livekit_DataChannelReceiveState_publisher_sid_tag 1
 #define livekit_DataChannelReceiveState_last_seq_tag 2
 #define livekit_DataChannelInfo_label_tag        1
@@ -1237,6 +1268,7 @@ extern "C" {
 #define livekit_ConnectionSettings_subscriber_allow_pause_tag 3
 #define livekit_ConnectionSettings_disable_ice_lite_tag 4
 #define livekit_ConnectionSettings_auto_subscribe_data_track_tag 5
+#define livekit_ConnectionSettings_candidate_protocol_tag 6
 #define livekit_JoinRequest_client_info_tag      1
 #define livekit_JoinRequest_connection_settings_tag 2
 #define livekit_JoinRequest_metadata_tag         3
@@ -1332,7 +1364,8 @@ X(a, POINTER,  ONEOF,    MESSAGE,  (message,publish_data_track_response,message.
 X(a, POINTER,  ONEOF,    MESSAGE,  (message,unpublish_data_track_response,message.unpublish_data_track_response),  28) \
 X(a, POINTER,  ONEOF,    MESSAGE,  (message,data_track_subscriber_handles,message.data_track_subscriber_handles),  29) \
 X(a, POINTER,  ONEOF,    MESSAGE,  (message,store_data_blob_response,message.store_data_blob_response),  30) \
-X(a, POINTER,  ONEOF,    MESSAGE,  (message,get_data_blob_response,message.get_data_blob_response),  31)
+X(a, POINTER,  ONEOF,    MESSAGE,  (message,get_data_blob_response,message.get_data_blob_response),  31) \
+X(a, POINTER,  ONEOF,    MESSAGE,  (message,data_track_demand_update,message.data_track_demand_update),  32)
 #define livekit_SignalResponse_CALLBACK NULL
 #define livekit_SignalResponse_DEFAULT NULL
 #define livekit_SignalResponse_message_join_MSGTYPE livekit_JoinResponse
@@ -1363,6 +1396,7 @@ X(a, POINTER,  ONEOF,    MESSAGE,  (message,get_data_blob_response,message.get_d
 #define livekit_SignalResponse_message_data_track_subscriber_handles_MSGTYPE livekit_DataTrackSubscriberHandles
 #define livekit_SignalResponse_message_store_data_blob_response_MSGTYPE livekit_StoreDataBlobResponse
 #define livekit_SignalResponse_message_get_data_blob_response_MSGTYPE livekit_GetDataBlobResponse
+#define livekit_SignalResponse_message_data_track_demand_update_MSGTYPE livekit_DataTrackDemandUpdate
 
 #define livekit_SimulcastCodec_FIELDLIST(X, a) \
 X(a, POINTER,  SINGULAR, STRING,   codec,             1) \
@@ -1444,6 +1478,12 @@ X(a, POINTER,  OPTIONAL, MESSAGE,  value,             2)
 #define livekit_DataTrackSubscriberHandles_SubHandlesEntry_CALLBACK NULL
 #define livekit_DataTrackSubscriberHandles_SubHandlesEntry_DEFAULT NULL
 #define livekit_DataTrackSubscriberHandles_SubHandlesEntry_value_MSGTYPE livekit_DataTrackSubscriberHandles_PublishedDataTrack
+
+#define livekit_DataTrackDemandUpdate_FIELDLIST(X, a) \
+X(a, POINTER,  SINGULAR, UINT32,   pub_handle,        1) \
+X(a, POINTER,  SINGULAR, BOOL,     has_subscribers,   2)
+#define livekit_DataTrackDemandUpdate_CALLBACK NULL
+#define livekit_DataTrackDemandUpdate_DEFAULT NULL
 
 #define livekit_TrickleRequest_FIELDLIST(X, a) \
 X(a, POINTER,  SINGULAR, STRING,   candidateInit,     1) \
@@ -1757,7 +1797,8 @@ X(a, POINTER,  REPEATED, MESSAGE,  data_channels,     4) \
 X(a, POINTER,  OPTIONAL, MESSAGE,  offer,             5) \
 X(a, POINTER,  REPEATED, STRING,   track_sids_disabled,   6) \
 X(a, POINTER,  REPEATED, MESSAGE,  datachannel_receive_states,   7) \
-X(a, POINTER,  REPEATED, MESSAGE,  publish_data_tracks,   8)
+X(a, POINTER,  REPEATED, MESSAGE,  publish_data_tracks,   8) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  data_subscription,   9)
 #define livekit_SyncState_CALLBACK NULL
 #define livekit_SyncState_DEFAULT NULL
 #define livekit_SyncState_answer_MSGTYPE livekit_SessionDescription
@@ -1767,6 +1808,7 @@ X(a, POINTER,  REPEATED, MESSAGE,  publish_data_tracks,   8)
 #define livekit_SyncState_offer_MSGTYPE livekit_SessionDescription
 #define livekit_SyncState_datachannel_receive_states_MSGTYPE livekit_DataChannelReceiveState
 #define livekit_SyncState_publish_data_tracks_MSGTYPE livekit_PublishDataTrackResponse
+#define livekit_SyncState_data_subscription_MSGTYPE livekit_UpdateDataSubscription
 
 #define livekit_DataChannelReceiveState_FIELDLIST(X, a) \
 X(a, POINTER,  SINGULAR, STRING,   publisher_sid,     1) \
@@ -1858,7 +1900,8 @@ X(a, POINTER,  SINGULAR, BOOL,     auto_subscribe,    1) \
 X(a, POINTER,  SINGULAR, BOOL,     adaptive_stream,   2) \
 X(a, POINTER,  OPTIONAL, BOOL,     subscriber_allow_pause,   3) \
 X(a, POINTER,  SINGULAR, BOOL,     disable_ice_lite,   4) \
-X(a, POINTER,  OPTIONAL, BOOL,     auto_subscribe_data_track,   5)
+X(a, POINTER,  OPTIONAL, BOOL,     auto_subscribe_data_track,   5) \
+X(a, POINTER,  SINGULAR, UENUM,    candidate_protocol,   6)
 #define livekit_ConnectionSettings_CALLBACK NULL
 #define livekit_ConnectionSettings_DEFAULT NULL
 
@@ -1911,6 +1954,7 @@ extern const pb_msgdesc_t livekit_UnpublishDataTrackResponse_msg;
 extern const pb_msgdesc_t livekit_DataTrackSubscriberHandles_msg;
 extern const pb_msgdesc_t livekit_DataTrackSubscriberHandles_PublishedDataTrack_msg;
 extern const pb_msgdesc_t livekit_DataTrackSubscriberHandles_SubHandlesEntry_msg;
+extern const pb_msgdesc_t livekit_DataTrackDemandUpdate_msg;
 extern const pb_msgdesc_t livekit_TrickleRequest_msg;
 extern const pb_msgdesc_t livekit_MuteTrackRequest_msg;
 extern const pb_msgdesc_t livekit_JoinResponse_msg;
@@ -1979,6 +2023,7 @@ extern const pb_msgdesc_t livekit_MediaSectionsRequirement_msg;
 #define livekit_DataTrackSubscriberHandles_fields &livekit_DataTrackSubscriberHandles_msg
 #define livekit_DataTrackSubscriberHandles_PublishedDataTrack_fields &livekit_DataTrackSubscriberHandles_PublishedDataTrack_msg
 #define livekit_DataTrackSubscriberHandles_SubHandlesEntry_fields &livekit_DataTrackSubscriberHandles_SubHandlesEntry_msg
+#define livekit_DataTrackDemandUpdate_fields &livekit_DataTrackDemandUpdate_msg
 #define livekit_TrickleRequest_fields &livekit_TrickleRequest_msg
 #define livekit_MuteTrackRequest_fields &livekit_MuteTrackRequest_msg
 #define livekit_JoinResponse_fields &livekit_JoinResponse_msg
@@ -2047,6 +2092,7 @@ extern const pb_msgdesc_t livekit_MediaSectionsRequirement_msg;
 /* livekit_DataTrackSubscriberHandles_size depends on runtime parameters */
 /* livekit_DataTrackSubscriberHandles_PublishedDataTrack_size depends on runtime parameters */
 /* livekit_DataTrackSubscriberHandles_SubHandlesEntry_size depends on runtime parameters */
+/* livekit_DataTrackDemandUpdate_size depends on runtime parameters */
 /* livekit_TrickleRequest_size depends on runtime parameters */
 /* livekit_MuteTrackRequest_size depends on runtime parameters */
 /* livekit_JoinResponse_size depends on runtime parameters */

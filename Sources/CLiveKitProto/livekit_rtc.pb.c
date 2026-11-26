@@ -39,6 +39,9 @@ PB_BIND(livekit_DataTrackSubscriberHandles_PublishedDataTrack, livekit_DataTrack
 PB_BIND(livekit_DataTrackSubscriberHandles_SubHandlesEntry, livekit_DataTrackSubscriberHandles_SubHandlesEntry, AUTO)
 
 
+PB_BIND(livekit_DataTrackDemandUpdate, livekit_DataTrackDemandUpdate, AUTO)
+
+
 PB_BIND(livekit_TrickleRequest, livekit_TrickleRequest, AUTO)
 
 
@@ -202,6 +205,8 @@ PB_BIND(livekit_WrappedJoinRequest, livekit_WrappedJoinRequest, AUTO)
 
 
 PB_BIND(livekit_MediaSectionsRequirement, livekit_MediaSectionsRequirement, AUTO)
+
+
 
 
 

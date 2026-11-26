@@ -95,6 +95,10 @@ typedef struct _livekit_MetricsRecordingHeader {
     char *job_id;
     bool *simulated; /* session is a simulation; the collector skips PII redaction for it unless redaction_enabled is set */
     bool *redaction_enabled; /* force PII redaction on for this session (only ever enables, never disables) */
+    /* JSON object of session facts for agent evals, at most 16 KiB. Its schema is
+ evalschema/session-summary.schema.json in livekit/cloud-protocol. The collector
+ stores it without reading individual keys. */
+    char *session_summary;
 } livekit_MetricsRecordingHeader;
 
 typedef struct _livekit_MetricsRecordingHeader_RoomTagsEntry {
@@ -124,13 +128,13 @@ extern "C" {
 #define livekit_TimeSeriesMetric_init_default    {NULL, NULL, NULL, 0, NULL, NULL}
 #define livekit_MetricSample_init_default        {NULL, NULL, NULL}
 #define livekit_EventMetric_init_default         {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
-#define livekit_MetricsRecordingHeader_init_default {NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL}
+#define livekit_MetricsRecordingHeader_init_default {NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_MetricsRecordingHeader_RoomTagsEntry_init_default {NULL, NULL}
 #define livekit_MetricsBatch_init_zero           {NULL, NULL, 0, NULL, 0, NULL, 0, NULL}
 #define livekit_TimeSeriesMetric_init_zero       {NULL, NULL, NULL, 0, NULL, NULL}
 #define livekit_MetricSample_init_zero           {NULL, NULL, NULL}
 #define livekit_EventMetric_init_zero            {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
-#define livekit_MetricsRecordingHeader_init_zero {NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL}
+#define livekit_MetricsRecordingHeader_init_zero {NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_MetricsRecordingHeader_RoomTagsEntry_init_zero {NULL, NULL}
 
 /* Field tags (for use in manual encoding/decoding) */
@@ -165,6 +169,7 @@ extern "C" {
 #define livekit_MetricsRecordingHeader_job_id_tag 8
 #define livekit_MetricsRecordingHeader_simulated_tag 9
 #define livekit_MetricsRecordingHeader_redaction_enabled_tag 10
+#define livekit_MetricsRecordingHeader_session_summary_tag 11
 #define livekit_MetricsRecordingHeader_RoomTagsEntry_key_tag 1
 #define livekit_MetricsRecordingHeader_RoomTagsEntry_value_tag 2
 
@@ -223,7 +228,8 @@ X(a, POINTER,  SINGULAR, STRING,   room_name,         6) \
 X(a, POINTER,  OPTIONAL, MESSAGE,  room_start_time,   7) \
 X(a, POINTER,  SINGULAR, STRING,   job_id,            8) \
 X(a, POINTER,  SINGULAR, BOOL,     simulated,         9) \
-X(a, POINTER,  SINGULAR, BOOL,     redaction_enabled,  10)
+X(a, POINTER,  SINGULAR, BOOL,     redaction_enabled,  10) \
+X(a, POINTER,  SINGULAR, STRING,   session_summary,  11)
 #define livekit_MetricsRecordingHeader_CALLBACK NULL
 #define livekit_MetricsRecordingHeader_DEFAULT NULL
 #define livekit_MetricsRecordingHeader_start_time_MSGTYPE google_protobuf_Timestamp
