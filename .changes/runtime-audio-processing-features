@@ -1,0 +1,1 @@
+patch type="fixed" "Fix the audio features reported to the server not following `LocalAudioTrack.setAudioProcessingOptions(_:)`. After a successful runtime change the track now reports echo cancellation, noise suppression and auto gain control from the new options, and re-sends them when published"

@@ -73,6 +73,38 @@ struct PublishTrackTests {
         }
     }
 
+    /// The server keeps the features it was last sent, so a runtime processing change has to re-send them.
+    @Test func runtimeAudioProcessingChangeUpdatesFeatures() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canPublish: true), RoomTestingOptions(canSubscribe: true)]) { rooms in
+            let publisher = rooms[0].localParticipant
+            let publisherIdentity = try #require(publisher.identity)
+            let remote = try #require(rooms[1].remoteParticipants[publisherIdentity])
+
+            let track = TestAudioTrack()
+            let publication = try await publisher.publish(audioTrack: track)
+
+            let voiceFeatures: Set<Livekit_AudioTrackFeature> = [.tfEchoCancellation, .tfNoiseSuppression, .tfAutoGainControl]
+            var remoteFeatures: Set<Livekit_AudioTrackFeature> = []
+
+            var deadline = Date().addingTimeInterval(15)
+            while !remoteFeatures.isSuperset(of: voiceFeatures), Date() < deadline {
+                try await Task.sleep(nanoseconds: 100_000_000)
+                remoteFeatures = Set(remote.trackPublications[publication.sid]?._state.latestInfo?.audioFeatures ?? [])
+            }
+            #expect(remoteFeatures.isSuperset(of: voiceFeatures))
+
+            try track.setAudioProcessingOptions(.noProcessing)
+
+            deadline = Date().addingTimeInterval(15)
+            while !remoteFeatures.isDisjoint(with: voiceFeatures), Date() < deadline {
+                try await Task.sleep(nanoseconds: 100_000_000)
+                remoteFeatures = Set(remote.trackPublications[publication.sid]?._state.latestInfo?.audioFeatures ?? [])
+            }
+            #expect(publication._state.audioTrackFeatures?.isDisjoint(with: voiceFeatures) == true)
+            #expect(remoteFeatures.isDisjoint(with: voiceFeatures))
+        }
+    }
+
     @Test func publishWithoutPermissions() async throws {
         try await TestEnvironment.withRoom(RoomTestingOptions(canPublish: false)) { room in
             let audioTrack = await LocalAudioTrack.createTrack()

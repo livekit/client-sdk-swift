@@ -32,6 +32,9 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
 
     let _frameWatcherState = StateSync(FrameWatcherState())
 
+    /// The options last accepted by ``setAudioProcessingOptions(_:)``, or `nil` before any runtime change.
+    let runtimeAudioProcessing = StateSync<AudioProcessingOptions?>(nil)
+
     init(name: String,
          source: Track.Source,
          track: RTCMediaTrack,
@@ -117,6 +120,9 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     /// the active sender. Effective APM configuration is shared by the WebRTC voice engine,
     /// so conflicting updates from multiple local audio tracks are last-writer-wins.
     ///
+    /// Once the options are accepted, the echo cancellation, noise suppression and auto gain
+    /// control features this track reports to the server follow them instead of ``captureOptions``.
+    ///
     /// - Returns: Whether the options were applied immediately or stored for reapplication.
     /// - Throws: ``AudioProcessingOptionsError`` when the options cannot be applied.
     /// - Note: Blocks the calling thread until WebRTC's signaling thread applies the options.
@@ -129,8 +135,12 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
                     message: "Media track is not an audio track",
                 )
             }
-            return try audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
+            let result = try audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
+            // Recorded on the RTC executor, so concurrent calls are recorded in the order WebRTC applied them.
+            runtimeAudioProcessing.mutate { $0 = options }
+            return result
         }
+        notifyAudioFeaturesMayHaveChanged()
         // Track-level options reach the ADM through the sender, so inform the
         // session observer here to keep the session mode in sync with the
         // requested voice processing implementation.
@@ -166,14 +176,28 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
 }
 
 extension LocalAudioTrack {
-    /// Everything the server is told about this track: capture processing, publish options and Krisp.
+    /// The voice processing options this track asks for: the last options accepted at runtime,
+    /// otherwise the ones it was captured with.
+    var audioProcessing: AudioProcessingOptions {
+        runtimeAudioProcessing.copy() ?? captureOptions.audioProcessing
+    }
+
+    /// Everything the server is told about this track: voice processing, publish options and Krisp.
     func features(publishOptions: AudioPublishOptions?) -> Set<Livekit_AudioTrackFeature> {
-        var features = captureOptions.toFeatures()
+        var features = audioProcessing.toFeatures()
         features.formUnion(publishOptions?.toFeatures() ?? [])
         if AudioManager.shared.capturePostProcessingDelegate?.audioProcessingName == kLiveKitKrispAudioProcessorName {
             features.insert(.tfEnhancedNoiseCancellation)
         }
         return features
+    }
+
+    /// Asks the publication, if any, to re-send ``features(publishOptions:)``. It sends only when they changed.
+    func notifyAudioFeaturesMayHaveChanged() {
+        delegates.notify(label: { "track.didUpdateAudioFeatures" }) { [weak self] delegate in
+            guard let self, let delegate = delegate as? LocalAudioTrackDelegateInternal else { return }
+            delegate.localAudioTrackDidUpdateAudioFeatures(self)
+        }
     }
 }
 
