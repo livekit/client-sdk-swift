@@ -311,6 +311,8 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
             AppStateListener.shared.delegates.add(delegate: self)
         }
 
+        ConnectivityListener.shared.add(delegate: self)
+
         Task {
             await metricsManager.register(room: self)
         }
@@ -751,6 +753,25 @@ extension Room {
         // reset track settings for all RemoteTrackPublication
         for publication in remoteTrackPublications {
             publication.resetTrackSettings()
+        }
+    }
+}
+
+// MARK: - ConnectivityListenerDelegate
+
+extension Room: ConnectivityListenerDelegate {
+    func connectivityListener(_: ConnectivityListener, didUpdate hasConnectivity: Bool) {
+        // A connection from before the loss can stay silent for a long time before it fails
+        guard hasConnectivity,
+              _state.read({ $0.connectionState == .connected && $0.isReconnectingWithMode == nil })
+        else { return }
+
+        Task {
+            do {
+                try await startReconnect(reason: .networkSwitch)
+            } catch {
+                log("Failed calling startReconnect, error: \(error)")
+            }
         }
     }
 }
