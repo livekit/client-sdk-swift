@@ -35,6 +35,25 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         set { _state.mutate { $0.isAutomaticConfigurationEnabled = newValue } }
     }
 
+    /// Controls whether the audio session is activated when the audio engine starts.
+    ///
+    /// - When `true`: The `AVAudioSession` is activated when the audio engine needs it
+    /// - When `false`: The SDK still configures the category, mode and options, but never activates
+    ///   the `AVAudioSession`. The app, or the system (e.g. CallKit's `provider(_:didActivate:)` or
+    ///   LiveCommunicationKit's `conversationManager(_:didActivate:)`), must activate it
+    ///
+    /// > Note: This value is only used when `isAutomaticConfigurationEnabled` is `true`.
+    /// > Set it before connecting to a room. Changing it while the audio engine is running
+    /// > only takes effect the next time the engine starts.
+    ///
+    /// > Tip: Set to `false` together with `isAutomaticDeactivationEnabled` when CallKit (or LiveCommunicationKit) manages the audio session.
+    ///
+    /// Default value: `true`
+    public var isAutomaticActivationEnabled: Bool {
+        get { _state.isAutomaticActivationEnabled }
+        set { _state.mutate { $0.isAutomaticActivationEnabled = newValue } }
+    }
+
     /// Controls whether the audio session is deactivated when the audio engine stops.
     ///
     /// - When `true`: The `AVAudioSession` is deactivated when both playout and recording are disabled
@@ -68,6 +87,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         var next: (any AudioEngineObserver)?
 
         var isAutomaticConfigurationEnabled: Bool = true
+        var isAutomaticActivationEnabled: Bool = true
         var isAutomaticDeactivationEnabled: Bool = true
         var isSpeakerOutputPreferred: Bool = true
 
@@ -228,12 +248,16 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             }
 
             if !oldState.isPlayoutEnabled, !oldState.isRecordingEnabled {
-                do {
-                    log("AudioSession activating...")
-                    try session.setActive(true)
-                } catch {
-                    log("AudioSession failed to activate AudioSession with error: \(error)", .error)
-                    throw error
+                if newState.isAutomaticActivationEnabled {
+                    do {
+                        log("AudioSession activating...")
+                        try session.setActive(true)
+                    } catch {
+                        log("AudioSession failed to activate AudioSession with error: \(error)", .error)
+                        throw error
+                    }
+                } else {
+                    log("AudioSession activation skipped...")
                 }
             }
         }
