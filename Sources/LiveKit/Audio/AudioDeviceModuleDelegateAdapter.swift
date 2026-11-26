@@ -31,6 +31,22 @@ class AudioDeviceModuleDelegateAdapter: NSObject, LKRTCAudioDeviceModuleDelegate
         audioManager._state.onDevicesDidUpdate?(audioManager)
     }
 
+    // Audio session events
+
+    #if os(iOS) || os(visionOS) || os(tvOS)
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, didBeginInterruptionWithReason reason: AVAudioSession.InterruptionReason) {
+        audioManager?.handle(audioSessionEvent: .interruptionBegan(reason: reason))
+    }
+
+    func audioDeviceModule(_: LKRTCAudioDeviceModule, didEndInterruptionWithShouldResume shouldResume: Bool) {
+        audioManager?.handle(audioSessionEvent: .interruptionEnded(shouldResume: shouldResume))
+    }
+
+    func audioDeviceModuleMediaServicesWereReset(_: LKRTCAudioDeviceModule) {
+        audioManager?.handle(audioSessionEvent: .mediaServicesWereReset)
+    }
+    #endif
+
     // Engine events
 
     func audioDeviceModule(_: LKRTCAudioDeviceModule, didCreateEngine engine: AVAudioEngine) -> Int {
