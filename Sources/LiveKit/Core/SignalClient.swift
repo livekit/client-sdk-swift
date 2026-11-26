@@ -59,6 +59,27 @@ actor SignalClient: Loggable {
 
     var useV0SignalPath: Bool { _state.useV0SignalPath }
 
+    /// Whether the v1 signal path may be attempted against `url`.
+    ///
+    /// A fallback to `/rtc` records the host it was negotiated with, because the decision belongs
+    /// to that endpoint and not to this client: a different server — a fresh connect elsewhere, or
+    /// a region failover — may well speak v1. Honouring the flag across endpoints would pin a
+    /// whole `Room` to the legacy path after one legacy server.
+    func mayUseV1(for url: URL) -> Bool {
+        _state.read { !($0.useV0SignalPath && $0.v0SignalPathHost == url.host) }
+    }
+
+    /// Forgets a previously negotiated signal path, so the next connect probes from scratch.
+    ///
+    /// Called when a `Room` starts a new session rather than recovering one: the server it is
+    /// about to reach may differ from the last, or may have been upgraded since.
+    func resetSignalPathPreference() {
+        _state.mutate {
+            $0.useV0SignalPath = false
+            $0.v0SignalPathHost = nil
+        }
+    }
+
     // MARK: - Private
 
     let _delegate = AsyncSerialDelegate<SignalClientDelegate>()
@@ -110,6 +131,9 @@ actor SignalClient: Loggable {
         // Tracks whether the v0 signal path (/rtc) is in use, set during connect.
         // Reused by reconnect to avoid re-attempting the unsupported v1 path.
         var useV0SignalPath: Bool = false
+        // The host `useV0SignalPath` was negotiated with. The flag only applies there; see
+        // `mayUseV1(for:)`.
+        var v0SignalPathHost: String?
     }
 
     let _state = StateSync(State())
@@ -177,6 +201,10 @@ actor SignalClient: Loggable {
             log("[Connect] mode: \(String(describing: reconnectMode))")
         }
 
+        // Before `url` is shadowed by the built join URL below. The builders keep the host, but
+        // the preference is about the endpoint, so read it from what the caller passed.
+        let endpointHost = url.host
+
         let url: URL = if singlePeerConnection {
             try Utils.buildJoinRequestUrl(url,
                                           connectOptions: connectOptions,
@@ -192,7 +220,10 @@ actor SignalClient: Loggable {
                                adaptiveStream: adaptiveStream)
         }
 
-        _state.mutate { $0.useV0SignalPath = !singlePeerConnection }
+        _state.mutate {
+            $0.useV0SignalPath = !singlePeerConnection
+            $0.v0SignalPathHost = singlePeerConnection ? nil : endpointHost
+        }
 
         let isReconnect = reconnectMode != nil
 

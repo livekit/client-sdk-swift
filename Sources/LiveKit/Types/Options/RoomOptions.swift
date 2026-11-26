@@ -66,7 +66,11 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
 
     /// Use a single peer connection for both publishing and subscribing.
     ///
-    /// - Note: Requires LiveKit Cloud or LiveKit OSS >= 1.9.2.
+    /// Defaults to `true`, matching client-sdk-js and rust-sdks.
+    ///
+    /// - Note: Requires LiveKit Cloud or LiveKit OSS >= 1.9.2. Against an older server the SDK
+    ///   falls back to the legacy dual peer connection path automatically, so this costs one
+    ///   failed request rather than a failed connect.
     public let singlePeerConnection: Bool
 
     override public init() {
@@ -84,7 +88,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
         e2eeOptions = nil
         encryptionOptions = nil
         reportRemoteTrackStatistics = false
-        singlePeerConnection = false
+        singlePeerConnection = true
     }
 
     public init(defaultCameraCaptureOptions: CameraCaptureOptions = CameraCaptureOptions(),
@@ -101,7 +105,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
                 e2eeOptions: E2EEOptions? = nil,
                 encryptionOptions: EncryptionOptions? = nil,
                 reportRemoteTrackStatistics: Bool = false,
-                singlePeerConnection: Bool = false)
+                singlePeerConnection: Bool = true)
     {
         self.defaultCameraCaptureOptions = defaultCameraCaptureOptions
         self.defaultScreenShareCaptureOptions = defaultScreenShareCaptureOptions
@@ -141,7 +145,7 @@ public final class RoomOptions: NSObject, Sendable, Loggable {
                             e2eeOptions: E2EEOptions? = nil,
                             encryptionOptions: EncryptionOptions? = nil,
                             reportRemoteTrackStatistics: Bool = false,
-                            singlePeerConnection: Bool = false)
+                            singlePeerConnection: Bool = true)
     {
         self.init(defaultCameraCaptureOptions: defaultCameraCaptureOptions,
                   defaultScreenShareCaptureOptions: defaultScreenShareCaptureOptions,
