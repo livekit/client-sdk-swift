@@ -517,6 +517,7 @@ extension Room {
                     throw LiveKitError(.onlyForCloud)
                 }
 
+                await regionManager.resetAttempts()
                 finalUrl = try await connectWithCloudRegionFailover(regionManager: regionManager,
                                                                     initialUrl: connectedUrl,
                                                                     initialRegion: nil,
@@ -550,8 +551,8 @@ extension Room {
 
                 self.log("[Connect] Starting retry attempt \(currentAttempt)/\(totalAttempts) with mode: \(currentMode)")
 
-                // Try full reconnect for the final attempt
-                if totalAttempts == currentAttempt, self._state.nextReconnectMode == nil {
+                // Only the first of several attempts resumes
+                if currentAttempt > 1 || totalAttempts == currentAttempt, self._state.nextReconnectMode == nil {
                     self._state.mutate { $0.nextReconnectMode = .full }
                 }
 
