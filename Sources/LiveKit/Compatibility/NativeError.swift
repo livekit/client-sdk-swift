@@ -19,11 +19,11 @@ import Foundation
 
 extension LiveKitError {
     static func mappingNative(_ error: Error) -> Error {
-        guard let native = error as? NativeSessionError else { return error }
+        guard let native = error as? FfiRoomError else { return error }
         return from(native: native)
     }
 
-    static func from(native: NativeSessionError) -> LiveKitError {
+    static func from(native: FfiRoomError) -> LiveKitError {
         switch native {
         case .Cancelled: LiveKitError(.cancelled, internalError: native)
         case .Closed, .TrackAlreadyPublished: LiveKitError(.invalidState, internalError: native)
@@ -40,7 +40,7 @@ extension LiveKitError {
 
     // Exhaustive native signal variants; retain typed causes instead of parsing reasons.
     // swiftlint:disable:next cyclomatic_complexity
-    private static func from(signal: NativeSignalFailure, original: NativeSessionError) -> LiveKitError {
+    private static func from(signal: NativeSignalFailure, original: FfiRoomError) -> LiveKitError {
         switch signal {
         case let .urlParse(reason): LiveKitError(.failedToParseUrl, message: reason, internalError: original)
         case .tokenFormat: LiveKitError(.validation, internalError: original)

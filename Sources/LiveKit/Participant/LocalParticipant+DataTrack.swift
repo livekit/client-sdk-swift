@@ -42,7 +42,7 @@ public extension LocalParticipant {
     /// See ``publishDataTrack(name:)``; the declared metadata is surfaced to subscribers via
     /// ``DataTrackInfo``.
     func publishDataTrack(name: String, options: DataTrackPublishOptions?) async throws -> LocalDataTrack {
-        let session = try requireRoom().requireNativeSession(forMedia: true)
+        let session = try requireRoom().requireNativeRoom(forMedia: true)
         do {
             return try await LocalDataTrack(session.publishDataTrack(options: .init(name: name,
                                                                                     schema: options?.schema?.ffi,
@@ -68,8 +68,8 @@ public extension LocalParticipant {
             throw LiveKitError(.invalidState, message: "Not connected to a room")
         }
         do {
-            try await room.requireNativeSession().defineSchema(id: id.ffi, definition: definition)
-        } catch let error as LiveKitFFI.NativeSessionError {
+            try await room.requireNativeRoom().defineSchema(id: id.ffi, definition: definition)
+        } catch let error as LiveKitFFI.FfiRoomError {
             throw LiveKitError(.invalidState, message: error.localizedDescription)
         }
     }
@@ -87,8 +87,8 @@ public extension LocalParticipant {
             throw LiveKitError(.invalidState, message: "Not connected to a room")
         }
         do {
-            return try await room.requireNativeSession().getSchema(id: id.ffi, participant: participant.stringValue)
-        } catch let error as LiveKitFFI.NativeSessionError {
+            return try await room.requireNativeRoom().getSchema(id: id.ffi, participant: participant.stringValue)
+        } catch let error as LiveKitFFI.FfiRoomError {
             throw LiveKitError(.invalidState, message: error.localizedDescription)
         }
     }

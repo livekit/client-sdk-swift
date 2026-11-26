@@ -19,12 +19,12 @@ import Foundation
 
 extension Room {
     @nonobjc func applyNativeSnapshot(_ snapshot: NativeRoomState, restoreDataTracks: Bool = false, restoreMedia: Bool = false) async {
-        guard let native = nativeSession.copy() else { return }
+        guard let native = nativeRoom.copy() else { return }
         if let info = snapshot.room { _state.mutate { $0.apply(roomInfo: info) } }
         let identities = Set(snapshot.remoteParticipants.map { Participant.Identity(from: $0.identity) })
         for identity in remoteParticipants.keys where !identities.contains(identity) {
             try? await _onParticipantDidDisconnect(identity: identity)
-            guard nativeSession.copy() === native else { return }
+            guard nativeRoom.copy() === native else { return }
         }
         if let participant = snapshot.localParticipant {
             applyNativeParticipant(participant, to: localParticipant, publications: snapshot.publications)
@@ -61,7 +61,7 @@ extension Room {
     private func restoreNativeDataTracks(_ snapshot: NativeRoomState) {
         // Data-track events update the live handles separately. Snapshot recovery is only needed
         // at join or cursor replacement; the native lookup never creates a second transport.
-        if let session = nativeSession.copy() {
+        if let session = nativeRoom.copy() {
             let sids = Set(snapshot.dataTracks.map(\.info.sid))
             for participant in remoteParticipants.values {
                 for track in participant._state.dataTracks where !sids.contains(track.info.sid.stringValue) {
@@ -113,7 +113,7 @@ extension Room {
 
 extension Room {
     func applyNativeMedia(_ snapshot: NativeRoomState) async {
-        guard let session = nativeSession.copy() else { return }
+        guard let session = nativeRoom.copy() else { return }
         for info in snapshot.publications {
             guard let participant = remoteParticipants[Participant.Identity(from: info.participantIdentity)],
                   let publication = participant.trackPublications[Track.Sid(from: info.sid)] as? RemoteTrackPublication else { continue }
@@ -155,7 +155,7 @@ extension Room {
                                           participant: RemoteParticipant, session: FfiRoom) async
     {
         await track.set(reportStatistics: track._state.reportStatistics)
-        guard nativeSession.copy() === session, publication.track == nil else {
+        guard nativeRoom.copy() === session, publication.track == nil else {
             await discardNativeAttachment(track)
             return
         }

@@ -221,7 +221,7 @@ extension LiveKitError {
             return error
         }
 
-        if let native = error as? NativeSessionError { return from(native: native) }
+        if let native = error as? FfiRoomError { return from(native: native) }
 
         if error is CancellationError {
             return LiveKitError(.cancelled)

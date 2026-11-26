@@ -114,7 +114,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     public func setE2EEEnabled(_ enabled: Bool) {
         let options = _state.roomOptions
         guard options.encryptionOptions != nil || options.e2eeOptions != nil,
-              nativeSession.copy() != nil else { return }
+              nativeRoom.copy() != nil else { return }
         nativeEncryptionRequested.mutate { $0 = !enabled }
         if !enabled {
             log("Dynamic native encryption disable is not exported; encrypted outgoing operations reject this request", .error)
@@ -126,19 +126,19 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     let activeParticipantCompleters = CompleterMapActor<Void>(label: "Participant active", defaultTimeout: .defaultParticipantActiveTimeout)
 
     let nativeDriver = NativeRoomDriver()
-    let nativeSession = StateSync<FfiRoom?>(nil)
+    let nativeRoom = StateSync<FfiRoom?>(nil)
     let nativeEncryptionRequested = StateSync(false)
     let nativeE2EE = StateSync<E2EEManager?>(nil)
     let dataStreams = DataStreams()
 
-    func requireNativeSession(forEncryptedPayload: Bool = false, forMedia: Bool = false) throws -> FfiRoom {
+    func requireNativeRoom(forEncryptedPayload: Bool = false, forMedia: Bool = false) throws -> FfiRoom {
         let options = _state.roomOptions
         let configured = options.encryptionOptions != nil || options.e2eeOptions != nil
         let encryptedOperation = (forMedia && configured) || (forEncryptedPayload && options.encryptionOptions != nil)
         guard !encryptedOperation || !nativeEncryptionRequested.copy() else {
             throw LiveKitError(.invalidState, message: "Dynamic native encryption disable is not exported")
         }
-        guard let session = nativeSession.copy(), connectionState == .connected || connectionState == .reconnecting else {
+        guard let session = nativeRoom.copy(), connectionState == .connected || connectionState == .reconnecting else {
             throw LiveKitError(.invalidState, message: "Room is not connected")
         }
         return session

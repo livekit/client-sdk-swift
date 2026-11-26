@@ -39,25 +39,25 @@ struct NativeParticipant: Equatable, Sendable {
 }
 
 extension NativeParticipant {
-    init(_ core: FfiParticipant) {
-        identity = core.identity()
-        sid = core.sid()
-        isLocal = core.isLocal()
-        name = core.name()
-        state = core.state()
-        kind = core.kind()
-        kindDetails = core.kindDetails()
-        metadata = core.metadata()
-        attributes = core.attributes()
-        isSpeaking = core.isSpeaking()
-        audioLevel = core.audioLevel()
-        connectionQuality = core.connectionQuality()
-        joinedAt = core.joinedAt()
-        permission = core.permission().map(NativeParticipantPermission.init)
-        isEncrypted = core.isEncrypted()
-        disconnectReason = core.disconnectReason()
-        clientProtocol = core.clientProtocol()
-        capabilities = core.capabilities()
+    init(_ ffi: FfiParticipant) {
+        identity = ffi.identity()
+        sid = ffi.sid()
+        isLocal = ffi.isLocal()
+        name = ffi.name()
+        state = ffi.state()
+        kind = ffi.kind()
+        kindDetails = ffi.kindDetails()
+        metadata = ffi.metadata()
+        attributes = ffi.attributes()
+        isSpeaking = ffi.isSpeaking()
+        audioLevel = ffi.audioLevel()
+        connectionQuality = ffi.connectionQuality()
+        joinedAt = ffi.joinedAt()
+        permission = ffi.permission().map(NativeParticipantPermission.init)
+        isEncrypted = ffi.isEncrypted()
+        disconnectReason = ffi.disconnectReason()
+        clientProtocol = ffi.clientProtocol()
+        capabilities = ffi.capabilities()
     }
 }
 
@@ -78,19 +78,19 @@ struct NativeTrackPublication: Equatable, Sendable {
 
 extension NativeTrackPublication {
     init(_ entry: FfiPublication) {
-        let core = entry.publication
-        sid = core.sid()
+        let ffi = entry.publication
+        sid = ffi.sid()
         participantIdentity = entry.participant.identity()
-        name = core.name()
-        kind = core.kind()
-        source = core.source()
-        isMuted = core.isMuted()
-        simulcasted = core.simulcasted()
-        width = core.dimensions().width()
-        height = core.dimensions().height()
-        mimeType = core.mimeType()
-        encryptionType = core.encryptionType()
-        remote = core.remote().map {
+        name = ffi.name()
+        kind = ffi.kind()
+        source = ffi.source()
+        isMuted = ffi.isMuted()
+        simulcasted = ffi.simulcasted()
+        width = ffi.dimensions().width()
+        height = ffi.dimensions().height()
+        mimeType = ffi.mimeType()
+        encryptionType = ffi.encryptionType()
+        remote = ffi.remote().map {
             NativeRemotePublicationState(subscriptionStatus: $0.subscriptionStatus(), permissionStatus: $0.permissionStatus(), isEnabled: $0.isEnabled(), streamState: $0.mediaTrack()?.streamState())
         }
     }
@@ -115,15 +115,15 @@ struct NativeRoomState: Equatable, Sendable {
 }
 
 extension NativeRoomState {
-    init(_ core: FfiRoomState) {
-        dataTracks = core.dataTracks.map { NativeDataTrackPublication(info: $0.info(), publisherIdentity: $0.publisherIdentity()) }
-        revision = core.revision
-        connection = core.connection
-        disconnectReason = core.disconnectReason
-        room = core.room
-        localParticipant = core.localParticipant.map(NativeParticipant.init)
-        remoteParticipants = core.remoteParticipants.map(NativeParticipant.init)
-        publications = core.publications.map(NativeTrackPublication.init)
+    init(_ ffi: FfiRoomState) {
+        dataTracks = ffi.dataTracks.map { NativeDataTrackPublication(info: $0.info(), publisherIdentity: $0.publisherIdentity()) }
+        revision = ffi.revision
+        connection = ffi.connection
+        disconnectReason = ffi.disconnectReason
+        room = ffi.room
+        localParticipant = ffi.localParticipant.map(NativeParticipant.init)
+        remoteParticipants = ffi.remoteParticipants.map(NativeParticipant.init)
+        publications = ffi.publications.map(NativeTrackPublication.init)
     }
 }
 
@@ -139,11 +139,11 @@ struct NativeParticipantPermission: Equatable, Sendable {
 }
 
 extension NativeParticipantPermission {
-    init(_ core: LiveKitFFI.ParticipantPermission) {
-        canSubscribe = core.canSubscribe
-        canPublish = core.canPublish
-        canPublishData = core.canPublishData
-        canPublishSources = core.canPublishSources.compactMap {
+    init(_ ffi: LiveKitFFI.ParticipantPermission) {
+        canSubscribe = ffi.canSubscribe
+        canPublish = ffi.canPublish
+        canPublishData = ffi.canPublishData
+        canPublishSources = ffi.canPublishSources.compactMap {
             switch $0 {
             case 0: .unknown
             case 1: .camera
@@ -153,10 +153,10 @@ extension NativeParticipantPermission {
             default: nil
             }
         }
-        hidden = core.hidden
-        canUpdateMetadata = core.canUpdateMetadata
-        canSubscribeMetrics = core.canSubscribeMetrics
-        canManageAgentSession = core.canManageAgentSession
+        hidden = ffi.hidden
+        canUpdateMetadata = ffi.canUpdateMetadata
+        canSubscribeMetrics = ffi.canSubscribeMetrics
+        canManageAgentSession = ffi.canManageAgentSession
     }
 }
 

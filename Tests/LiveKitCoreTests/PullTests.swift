@@ -81,8 +81,8 @@ struct PullTests {
     }
 
     @Test func domainErrorPassesThrough() async {
-        let pull = Pull<Int>({ throw NativeSessionError.Overflow(items: 1, bytes: 1) }, cancel: {})
-        await #expect(throws: NativeSessionError.Overflow(items: 1, bytes: 1)) { try await pull.next() }
+        let pull = Pull<Int>({ throw FfiRoomError.Overflow(items: 1, bytes: 1) }, cancel: {})
+        await #expect(throws: FfiRoomError.Overflow(items: 1, bytes: 1)) { try await pull.next() }
     }
 
     @Test func replacingNativeCursorEndsPreviousOwner() async throws {
@@ -90,7 +90,7 @@ struct PullTests {
         let first = session.events(options: .init())
         let second = session.events(options: .init())
         defer { second.cancel(); session.cancel() }
-        await #expect(throws: NativeSessionError.Cancelled) {
+        await #expect(throws: FfiRoomError.Cancelled) {
             try await Pull {
                 try await first.next()
             } cancel: {

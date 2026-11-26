@@ -71,7 +71,7 @@ actor NativeRoomDriver {
         session = native
         reportedPacketMetadataGap = false
         cursor = events
-        room.nativeSession.mutate { $0 = native }
+        room.nativeRoom.mutate { $0 = native }
         room._state.mutate {
             $0.connectOptions = connect
             $0.roomOptions = options
@@ -107,7 +107,7 @@ actor NativeRoomDriver {
         }
         guard let native = session else { return }
         closing = true
-        room.nativeSession.mutate { $0 = nil }
+        room.nativeRoom.mutate { $0 = nil }
         room._state.mutate { if $0.connectionState != .connecting { $0.connectionState = .disconnecting } }
         eventLoop = nil
         rpcTasks.removeAll()
@@ -150,7 +150,7 @@ actor NativeRoomDriver {
 
     private func eventFailure(_ error: Error, session native: FfiRoom, room: Room) async {
         guard session === native, !closing else { return }
-        if case NativeSessionError.Overflow = error {
+        if case FfiRoomError.Overflow = error {
             let replacement = native.events(options: .init())
             let snapshot = NativeRoomState(replacement.startState())
             projection = snapshot
@@ -231,8 +231,8 @@ actor NativeRoomDriver {
             updateSpeakers(speakers, in: &snapshot, room: room)
             projection = snapshot
             return
-        case let .trackSubscriptionFailed(coreParticipant, sid, error):
-            let identity = coreParticipant.identity()
+        case let .trackSubscriptionFailed(ffiParticipant, sid, error):
+            let identity = ffiParticipant.identity()
             if let participant = room.remoteParticipants[Participant.Identity(from: identity)] {
                 room.delegates.notify { $0.room?(room, participant: participant, didFailToSubscribeTrackWithSid: Track.Sid(from: sid), error: LiveKitError(.invalidState, message: String(describing: error))) }
             }

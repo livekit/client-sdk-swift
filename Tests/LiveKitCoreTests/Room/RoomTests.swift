@@ -80,7 +80,7 @@ import LiveKitTestSupport
             // Verify cleanup actually ran (not skipped due to cancellation)
             #expect(room.connectionState == .disconnected)
 
-            #expect(room.nativeSession.copy() == nil)
+            #expect(room.nativeRoom.copy() == nil)
         }
 
         // Allow time for deallocation

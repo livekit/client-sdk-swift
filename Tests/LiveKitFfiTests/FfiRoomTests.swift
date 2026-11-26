@@ -55,7 +55,7 @@ struct FfiRoomTests {
             #expect(publication.isMuted())
             await room.disconnect()
             #expect(participant.metadata() == "direct metadata")
-            await #expect(throws: NativeSessionError.Closed) { try await room.setName(name: "closed") }
+            await #expect(throws: FfiRoomError.Closed) { try await room.setName(name: "closed") }
             #expect(room.state().connection == .disconnected)
             while try await events.next() != nil {}
         } catch {
@@ -113,13 +113,13 @@ struct FfiRoomTests {
         let token = try roomToken(name: "cancelled")
         let cancelled = FfiRoom()
         await Task.detached { cancelled.cancel() }.value
-        await #expect(throws: NativeSessionError.Cancelled) {
+        await #expect(throws: FfiRoomError.Cancelled) {
             _ = try await cancelled.connect(url: url, token: token, options: .init())
         }
         await cancelled.disconnect()
     }
 
-    @Test func coreOptionsKeepDefaultsAndNestedValues() async throws {
+    @Test func ffiOptionsKeepCoreDefaultsAndNestedValues() async throws {
         let defaults = FfiRoomOptions()
         let configured = try defaults
             .withConnectTimeout(value: 1.234567)

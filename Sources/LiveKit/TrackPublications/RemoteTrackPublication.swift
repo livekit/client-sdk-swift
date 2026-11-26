@@ -68,7 +68,7 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
         let room = try participant.requireRoom()
         guard let identity = participant.identity else { throw LiveKitError(.invalidState) }
         do {
-            let native = try room.requireNativeSession().publication(identity: identity.stringValue, sid: sid.stringValue)
+            let native = try room.requireNativeRoom().publication(identity: identity.stringValue, sid: sid.stringValue)
             try await native.setSubscribed(subscribed: newValue)
         } catch { throw LiveKitError.mappingNative(error) }
         _state.mutate { $0.isSubscribePreferred = newValue }
@@ -271,7 +271,7 @@ extension RemoteTrackPublication {
         let room = try participant.requireRoom()
         guard let identity = participant.identity else { throw LiveKitError(.invalidState) }
         do {
-            let native = try room.requireNativeSession().publication(identity: identity.stringValue, sid: sid.stringValue)
+            let native = try room.requireNativeRoom().publication(identity: identity.stringValue, sid: sid.stringValue)
             if settings.dimensions != previous.dimensions, settings.dimensions.width > 0, settings.dimensions.height > 0 {
                 try await native.setVideoDimensions(width: UInt32(settings.dimensions.width), height: UInt32(settings.dimensions.height))
             }

@@ -94,7 +94,7 @@ Set `LIVEKIT_TRANSPORT_TEST_URL` and `LIVEKIT_TRANSPORT_TLS_URL` for socket test
 Run `TransportRegistryTests` separately for each `LIVEKIT_TRANSPORT_REGISTRY_CASE`:
 `roundtrip`, `pending-connect`, `foreign-timeout`, `ws-only`, `http-only`. Never run registry
 scenarios by replacing clients in one process. Pending connect checks prompt return from
-`FfiRoom.connect` with actual `NativeSessionError.Cancelled`. The v2
+`FfiRoom.connect` with actual `FfiRoomError.Cancelled`. The v2
 `Room.connect` façade still awaits native teardown in its preexisting catch path,
 so cancellation may wait on native deadlines/retries. Foreign callback cancellation
 is bounded separately by Rust's signaling deadline. Neither proves destruction of

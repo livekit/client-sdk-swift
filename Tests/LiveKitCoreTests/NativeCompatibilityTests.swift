@@ -38,7 +38,7 @@ struct NativeCompatibilityTests {
     @Test
     func publishingOptionsUseCoreValues() throws {
         let audio = try AudioPublishOptions(encoding: .init(maxBitrate: 32000), dtx: false,
-                                            streamName: "voice", preConnect: true).coreOptions()
+                                            streamName: "voice", preConnect: true).ffiOptions()
         #expect(audio.audioEncoding?.maxBitrate == 32000)
         #expect(!audio.dtx && audio.red && audio.preconnectBuffer)
         #expect(audio.source == .microphone && audio.stream == "voice")
@@ -47,16 +47,16 @@ struct NativeCompatibilityTests {
                                         simulcastLayers: [.init(dimensions: .init(width: 320, height: 180),
                                                                 encoding: .init(maxBitrate: 100_000, maxFps: 15))],
                                         preferredCodec: .vp9, degradationPreference: .maintainResolution)
-        let camera = try video.coreOptions(screenShare: false)
-        let screen = try video.coreOptions(screenShare: true)
+        let camera = try video.ffiOptions(screenShare: false)
+        let screen = try video.ffiOptions(screenShare: true)
         #expect(camera.videoEncoding?.maxBitrate == 800_000)
         #expect(camera.simulcastLayers?.first?.width == 320)
         #expect(camera.videoCodec == .vp9 && camera.degradationPreference == .maintainResolution)
         #expect(screen.source == .screenshare && screen.videoEncoding?.maxFramerate == 10)
         #expect(screen.simulcastLayers == nil)
-        #expect(throws: LiveKitError.self) { try AudioPublishOptions(encoding: .init(maxBitrate: -1)).coreOptions() }
-        #expect(throws: LiveKitError.self) { try VideoPublishOptions(encoding: .init(maxBitrate: 1, maxFps: 0)).coreOptions(screenShare: false) }
-        #expect(throws: LiveKitError.self) { try VideoPublishOptions(preferredBackupCodec: .vp8).coreOptions(screenShare: false) }
+        #expect(throws: LiveKitError.self) { try AudioPublishOptions(encoding: .init(maxBitrate: -1)).ffiOptions() }
+        #expect(throws: LiveKitError.self) { try VideoPublishOptions(encoding: .init(maxBitrate: 1, maxFps: 0)).ffiOptions(screenShare: false) }
+        #expect(throws: LiveKitError.self) { try VideoPublishOptions(preferredBackupCodec: .vp8).ffiOptions(screenShare: false) }
     }
 
     @Test
@@ -82,7 +82,7 @@ extension NativeRoomTests {
                 Issue.record("Expected server permission rejection")
             } catch let error as LiveKitError {
                 #expect(error.type == .insufficientPermissions)
-                guard case .RequestFailure(code: .notAllowed, reason: _) = error.internalError as? NativeSessionError else {
+                guard case .RequestFailure(code: .notAllowed, reason: _) = error.internalError as? FfiRoomError else {
                     Issue.record("Original typed request error missing")
                     await room.disconnect()
                     return

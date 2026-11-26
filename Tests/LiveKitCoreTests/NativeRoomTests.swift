@@ -54,7 +54,7 @@ struct NativeRoomTests {
             try await bob.connect(url: url, token: bobToken)
             try await eventually { alice.remoteParticipants.count == 1 && bob.remoteParticipants.count == 1 }
             let remoteAlice = try #require(bob.remoteParticipants[.init(from: "alice")])
-            try checkEventValues(#require(alice.nativeSession.copy()))
+            try checkEventValues(#require(alice.nativeRoom.copy()))
             #expect(alice.connectionState == .connected)
             #expect(alice.localParticipant.identity?.stringValue == "alice")
             #expect(try await alice.sid() == bob.sid())
@@ -78,8 +78,8 @@ struct NativeRoomTests {
             #expect(try await alice.localParticipant.performRpc(destinationIdentity: .init(from: "bob"), method: "echo", payload: "rejoin") == "rejoin")
             await alice.disconnect()
             await bob.disconnect()
-            #expect(alice.nativeSession.copy() == nil)
-            #expect(bob.nativeSession.copy() == nil)
+            #expect(alice.nativeRoom.copy() == nil)
+            #expect(bob.nativeRoom.copy() == nil)
         } catch {
             await alice.disconnect()
             await bob.disconnect()
@@ -222,7 +222,7 @@ struct NativeRoomTests {
         let room = Room()
         await #expect(throws: LiveKitError.self) { try await room.connect(url: url, token: "invalid") }
         #expect(room.connectionState == .disconnected)
-        #expect(room.nativeSession.copy() == nil)
+        #expect(room.nativeRoom.copy() == nil)
         let validToken = try token("cancel", room: "swift-native-\(UUID().uuidString)")
         await #expect(throws: LiveKitError.self) {
             try await room.connect(url: url, token: validToken, connectOptions: .init(reconnectAttempts: 3))
@@ -233,7 +233,7 @@ struct NativeRoomTests {
         }
         task.cancel()
         _ = await task.result
-        #expect(room.nativeSession.copy() == nil)
+        #expect(room.nativeRoom.copy() == nil)
         try await room.connect(url: url, token: validToken)
         let cleanup = Task {
             do { try await Task.sleep(nanoseconds: 60_000_000_000) } catch {}
@@ -244,7 +244,7 @@ struct NativeRoomTests {
         await cleanup.value
         await alsoDisconnect
         #expect(room.connectionState == .disconnected)
-        #expect(room.nativeSession.copy() == nil)
+        #expect(room.nativeRoom.copy() == nil)
     }
 
     @Test

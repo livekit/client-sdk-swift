@@ -111,19 +111,19 @@ extension NativeRoomTests {
         // A failed native request keeps the previous local value, so a later request is not skipped.
         let closedRoom = Room()
         try await closedRoom.connect(url: url, token: token("closed", room: "swift-closed-\(UUID().uuidString)"))
-        let closed = closedRoom.nativeSession.copy()
+        let closed = closedRoom.nativeRoom.copy()
         await closedRoom.disconnect()
-        let live = receiver.nativeSession.copy()
-        receiver.nativeSession.mutate { $0 = closed }
+        let live = receiver.nativeRoom.copy()
+        receiver.nativeRoom.mutate { $0 = closed }
         await #expect(throws: LiveKitError.self) { try await remote.set(videoQuality: .high) }
-        receiver.nativeSession.mutate { $0 = live }
+        receiver.nativeRoom.mutate { $0 = live }
         #expect(remote._state.trackSettings.videoQuality == .medium)
         try await remote.set(videoQuality: .high)
         #expect(remote._state.trackSettings.videoQuality == .high)
 
         // The native command is video-only and rejects audio, so success shows audio never reaches it.
         let audio = await LocalAudioTrack.createTrack(reportStatistics: false)
-        let source = try await sender.requireNativeSession().createAudioTrack(name: audio.name, channels: 1)
+        let source = try await sender.requireNativeRoom().createAudioTrack(name: audio.name, channels: 1)
         audio.nativeAudio.mutate { $0 = source }
         try await sender.localParticipant.publish(audioTrack: audio)
         try await eventually { receiver.remoteParticipants.values.first?.audioTracks.first?.track != nil }

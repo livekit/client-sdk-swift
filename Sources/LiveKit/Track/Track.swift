@@ -98,7 +98,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         let kind: Kind
         let source: Source
 
-        weak var nativeSession: FfiRoom?
+        weak var nativeRoom: FfiRoom?
         var sid: Sid?
         var dimensions: Dimensions?
         var videoFrame: VideoFrame?
@@ -452,7 +452,7 @@ extension Track {
             video.nativeVideo.mutate { $0 = nil }
         }
         nativePublication.mutate { $0 = nil }
-        _state.mutate { $0.nativeSession = nil }
+        _state.mutate { $0.nativeRoom = nil }
         try? await stop()
     }
 }

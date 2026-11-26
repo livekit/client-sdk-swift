@@ -52,7 +52,7 @@ extension NativeRoomTests {
             } else {
                 await #expect(throws: LiveKitError.self) { try await alice.localParticipant.publish(data: Data()) }
             }
-            #expect(throws: LiveKitError.self) { try alice.requireNativeSession(forMedia: true) }
+            #expect(throws: LiveKitError.self) { try alice.requireNativeRoom(forMedia: true) }
             alice.setE2EEEnabled(true)
             try await alice.localParticipant.publish(data: Data("restored".utf8))
             await alice.disconnect()
@@ -82,9 +82,9 @@ extension NativeRoomTests {
                 room.e2eeManager = manager
                 room.setE2EEEnabled(false)
                 if mode == "plaintext" {
-                    _ = try room.requireNativeSession(forMedia: true)
+                    _ = try room.requireNativeRoom(forMedia: true)
                 } else {
-                    #expect(throws: LiveKitError.self) { try room.requireNativeSession(forMedia: true) }
+                    #expect(throws: LiveKitError.self) { try room.requireNativeRoom(forMedia: true) }
                 }
                 if mode == "modern" {
                     await #expect(throws: LiveKitError.self) { try await room.localParticipant.publish(data: Data()) }
@@ -93,7 +93,7 @@ extension NativeRoomTests {
                 }
                 room.e2eeManager = nil
                 room.setE2EEEnabled(true)
-                _ = try room.requireNativeSession(forMedia: true)
+                _ = try room.requireNativeRoom(forMedia: true)
                 try await room.localParticipant.publish(data: Data("enabled".utf8))
             }
             await room.disconnect()
@@ -148,7 +148,7 @@ extension NativeRoomTests {
     private func checkResidualRpcRegistration(caller: Room, receiver: Room) async throws {
         await receiver.unregisterRpcMethod("duplicate")
         // A native-only registration represents a handler left behind by an unconfirmed removal.
-        try await receiver.requireNativeSession().registerRpcMethod(method: "duplicate")
+        try await receiver.requireNativeRoom().registerRpcMethod(method: "duplicate")
         do {
             _ = try await caller.localParticipant.performRpc(destinationIdentity: .init(from: "bob"), method: "duplicate", payload: "")
             Issue.record("Residual native handler must not reach an unregistered Swift handler")

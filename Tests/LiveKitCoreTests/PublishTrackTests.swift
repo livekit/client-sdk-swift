@@ -55,7 +55,7 @@ struct PublishTrackTests {
 
         try await TestEnvironment.withRoom(options) { room in
             let track = await LocalAudioTrack.createTrack(reportStatistics: false)
-            let source = try await room.requireNativeSession().createAudioTrack(name: track.name, channels: 1)
+            let source = try await room.requireNativeRoom().createAudioTrack(name: track.name, channels: 1)
             track.nativeAudio.mutate { $0 = source }
             _ = try await room.localParticipant.publish(audioTrack: track)
 

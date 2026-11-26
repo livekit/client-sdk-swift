@@ -17,21 +17,21 @@
 internal import LiveKitFFI
 
 extension AudioPublishOptions {
-    func coreOptions() throws -> LiveKitFFI.TrackPublishOptions {
-        var core = LiveKitFFI.TrackPublishOptions(source: .microphone, dtx: dtx, red: red, stream: streamName ?? "")
-        core.preconnectBuffer = preConnect
+    func ffiOptions() throws -> LiveKitFFI.TrackPublishOptions {
+        var ffi = LiveKitFFI.TrackPublishOptions(source: .microphone, dtx: dtx, red: red, stream: streamName ?? "")
+        ffi.preconnectBuffer = preConnect
         if let encoding {
             guard encoding.maxBitrate > 0, encoding.bitratePriority == nil, encoding.networkPriority == nil else {
                 throw LiveKitError(.invalidParameter, message: "Core audio encoding requires a positive bitrate and does not expose RTP priorities")
             }
-            core.audioEncoding = .init(maxBitrate: UInt64(encoding.maxBitrate))
+            ffi.audioEncoding = .init(maxBitrate: UInt64(encoding.maxBitrate))
         }
-        return core
+        return ffi
     }
 }
 
 extension VideoEncoding {
-    func coreEncoding() throws -> LiveKitFFI.VideoEncoding {
+    func ffiEncoding() throws -> LiveKitFFI.VideoEncoding {
         guard maxBitrate > 0, maxFps > 0, bitratePriority == nil, networkPriority == nil else {
             throw LiveKitError(.invalidParameter, message: "Core video encoding requires positive bitrate/FPS and does not expose RTP priorities")
         }
@@ -40,30 +40,30 @@ extension VideoEncoding {
 }
 
 extension VideoPublishOptions {
-    func coreOptions(screenShare: Bool) throws -> LiveKitFFI.TrackPublishOptions {
+    func ffiOptions(screenShare: Bool) throws -> LiveKitFFI.TrackPublishOptions {
         guard preferredBackupCodec == nil else {
             throw LiveKitError(.invalidParameter, message: "Core publishing does not expose a backup codec")
         }
-        var core = LiveKitFFI.TrackPublishOptions(source: screenShare ? .screenshare : .camera, simulcast: simulcast, stream: streamName ?? "")
-        core.videoEncoding = try (screenShare ? screenShareEncoding : encoding)?.coreEncoding()
+        var ffi = LiveKitFFI.TrackPublishOptions(source: screenShare ? .screenshare : .camera, simulcast: simulcast, stream: streamName ?? "")
+        ffi.videoEncoding = try (screenShare ? screenShareEncoding : encoding)?.ffiEncoding()
         let layers = screenShare ? screenShareSimulcastLayers : simulcastLayers
         if !layers.isEmpty {
             guard layers.count <= 2 else {
                 throw LiveKitError(.invalidParameter, message: "Core custom simulcast accepts at most two lower layers")
             }
-            core.simulcastLayers = try layers.map {
+            ffi.simulcastLayers = try layers.map {
                 guard $0.dimensions.width > 0, $0.dimensions.height > 0 else {
                     throw LiveKitError(.invalidParameter, message: "Simulcast dimensions must be positive")
                 }
-                return try .init(encoding: $0.encoding.coreEncoding(), width: UInt32($0.dimensions.width), height: UInt32($0.dimensions.height))
+                return try .init(encoding: $0.encoding.ffiEncoding(), width: UInt32($0.dimensions.width), height: UInt32($0.dimensions.height))
             }
         }
-        core.videoCodec = try coreCodec()
-        core.degradationPreference = coreDegradationPreference()
-        return core
+        ffi.videoCodec = try ffiCodec()
+        ffi.degradationPreference = ffiDegradationPreference()
+        return ffi
     }
 
-    private func coreCodec() throws -> LiveKitFFI.VideoCodec {
+    private func ffiCodec() throws -> LiveKitFFI.VideoCodec {
         let name = preferredCodec?.name
         switch name {
         case nil, "vp8": return .vp8
@@ -75,7 +75,7 @@ extension VideoPublishOptions {
         }
     }
 
-    private func coreDegradationPreference() -> LiveKitFFI.DegradationPreference? {
+    private func ffiDegradationPreference() -> LiveKitFFI.DegradationPreference? {
         switch degradationPreference {
         case .auto: nil
         case .disabled, .maintainFramerateAndResolution: .maintainFramerateAndResolution

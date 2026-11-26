@@ -140,7 +140,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         guard _state.identity != nil else {
             throw LiveKitError(.invalidState, message: "identity is nil")
         }
-        let session = try room.requireNativeSession(forEncryptedPayload: true)
+        let session = try room.requireNativeRoom(forEncryptedPayload: true)
         do {
             try await session.publishData(payload: data, options: .init(reliable: options.reliable, topic: options.topic ?? "",
                                                                         destinationIdentities: options.destinationIdentities.map(\.stringValue)))
@@ -165,7 +165,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         let room = try requireRoom()
         // Core sends DTMF reliably without data E2EE, so the encrypted-payload guard does not apply.
         do {
-            try await room.requireNativeSession().publishDtmf(code: code, digit: digit, destinationIdentities: [])
+            try await room.requireNativeRoom().publishDtmf(code: code, digit: digit, destinationIdentities: [])
         } catch { throw LiveKitError.mappingNative(error) }
     }
 
@@ -203,8 +203,8 @@ public class LocalParticipant: Participant, @unchecked Sendable {
                 .map { try permission.toNative(identity: $0.key.stringValue) }
         }
         do {
-            try await room.requireNativeSession().setTrackSubscriptionPermissions(allParticipantsAllowed: allParticipantsAllowed,
-                                                                                  permissions: permissions)
+            try await room.requireNativeRoom().setTrackSubscriptionPermissions(allParticipantsAllowed: allParticipantsAllowed,
+                                                                               permissions: permissions)
         } catch { throw LiveKitError.mappingNative(error) }
     }
 
@@ -213,7 +213,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(metadata: String) async throws {
         let room = try requireRoom()
-        do { try await room.requireNativeSession().setMetadata(metadata: metadata) } catch { throw LiveKitError.mappingNative(error) }
+        do { try await room.requireNativeRoom().setMetadata(metadata: metadata) } catch { throw LiveKitError.mappingNative(error) }
         _state.mutate { $0.metadata = metadata }
     }
 
@@ -222,13 +222,13 @@ public class LocalParticipant: Participant, @unchecked Sendable {
     /// Note: this requires `CanUpdateOwnMetadata` permission encoded in the token.
     public func set(name: String) async throws {
         let room = try requireRoom()
-        do { try await room.requireNativeSession().setName(name: name) } catch { throw LiveKitError.mappingNative(error) }
+        do { try await room.requireNativeRoom().setName(name: name) } catch { throw LiveKitError.mappingNative(error) }
         _state.mutate { $0.name = name }
     }
 
     public func set(attributes: [String: String]) async throws {
         let room = try requireRoom()
-        do { try await room.requireNativeSession().setAttributes(attributes: attributes) } catch { throw LiveKitError.mappingNative(error) }
+        do { try await room.requireNativeRoom().setAttributes(attributes: attributes) } catch { throw LiveKitError.mappingNative(error) }
         _state.mutate { $0.attributes = attributes }
     }
 

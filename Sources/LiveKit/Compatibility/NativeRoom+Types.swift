@@ -93,7 +93,7 @@ extension NativeDisconnectReason {
     }
 }
 
-// v2 compatibility names stay outside the generated core boundary.
+// v2 compatibility names stay outside the generated FFI boundary.
 typealias NativeRoomInfo = LiveKitFFI.RoomInfo
 typealias NativeIceServer = LiveKitFFI.IceServer
 

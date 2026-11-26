@@ -78,7 +78,7 @@ extension NativeRoomTests {
     private func publishAudio(_ sender: Room, microphone: Bool) async throws -> (LocalTrackPublication, NativeLocalAudioTrack?) {
         if microphone { return try (#require(try await sender.localParticipant.setMicrophone(enabled: true)), nil) }
         let track = await LocalAudioTrack.createTrack(reportStatistics: true)
-        let source = try await sender.requireNativeSession().createAudioTrack(name: track.name, channels: 1)
+        let source = try await sender.requireNativeRoom().createAudioTrack(name: track.name, channels: 1)
         track.nativeAudio.mutate { $0 = source }
         let publication = try await sender.localParticipant.publish(audioTrack: track)
         #expect(publication.track === track)
