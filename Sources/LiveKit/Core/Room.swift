@@ -579,6 +579,7 @@ extension Room {
     //   recursive cleanUp call through the onFailure path.
     //
     // Cancellation contract — cleanUp() must NEVER be guarded by Task.isCancelled:
+    // A Leave handler continues cleanup after SignalClient.cleanUp cancels its message loop.
     //
     //   disconnect()
     //       cancelReconnect() ──► reconnectTask cancelled

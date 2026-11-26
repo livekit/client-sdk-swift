@@ -767,9 +767,11 @@ extension LocalParticipant {
 
             var sendEncodings: [LKRTCRtpEncodingParameters]?
             var populatorFunc: SignalClient.AddTrackRequestPopulator?
+            let resolvedOptions: TrackPublishOptions
 
             if let track = track as? LocalVideoTrack {
                 let videoPublishOptions = (options as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
+                resolvedOptions = videoPublishOptions
 
                 if isFastPublishMode, let preferredCodec = videoPublishOptions.preferredCodec {
                     if !_internalState.enabledPublishVideoCodecs.contains(preferredCodec) {
@@ -824,16 +826,18 @@ extension LocalParticipant {
                     populator.layers = videoLayers
                     populator.simulcastCodecs = simulcastCodecs
 
-                    if let streamName = options?.streamName {
+                    if let streamName = videoPublishOptions.streamName {
                         // Set stream name if specified in options
                         populator.stream = streamName
                     }
 
                     self.log("[publish] requesting add track to server: \(populator.width)x\(populator.height), \(populator.layers.count) layer(s)...")
                 }
-            } else if track is LocalAudioTrack {
+            } else if let track = track as? LocalAudioTrack {
                 // additional params for Audio
                 let audioPublishOptions = (options as? AudioPublishOptions) ?? room._state.roomOptions.defaultAudioPublishOptions
+                resolvedOptions = audioPublishOptions
+                let audioFeatures = Array(track.features(publishOptions: audioPublishOptions))
                 publishName = audioPublishOptions.name
 
                 let encoding = audioPublishOptions.encoding ?? AudioEncoding.presetMusic
@@ -847,13 +851,15 @@ extension LocalParticipant {
                 populatorFunc = { populator in
                     populator.disableDtx = !audioPublishOptions.dtx
                     populator.disableRed = !audioPublishOptions.red
-                    populator.audioFeatures = Array(audioPublishOptions.toFeatures())
+                    populator.audioFeatures = audioFeatures
 
-                    if let streamName = options?.streamName {
+                    if let streamName = audioPublishOptions.streamName {
                         // Set stream name if specified in options
                         populator.stream = streamName
                     }
                 }
+            } else {
+                throw LiveKitError(.invalidState, message: "Unknown LocalTrack type")
             }
 
             guard let sendEncodings, let populatorFunc else { throw LiveKitError(.invalidState) }
@@ -942,7 +948,7 @@ extension LocalParticipant {
             }
 
             // Store publishOptions used for this track...
-            track._state.mutate { $0.lastPublishOptions = options }
+            track._state.mutate { $0.lastPublishOptions = resolvedOptions }
 
             let publication = LocalTrackPublication(info: trackInfo, participant: self)
             await publication.set(track: track)

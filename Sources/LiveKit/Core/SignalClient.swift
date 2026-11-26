@@ -389,9 +389,18 @@ extension SignalClient {
         default: break
         }
 
+        // Handled before the next message is read: the server's close frame follows its leave, and that failure must
+        // not reconnect a participant the server removed.
+        // In its own task: the delegate's cleanup cancels this message loop, which must not cancel the cleanup.
+        // Awaiting `.value` keeps the ordering and does not forward that cancellation.
+        if case .leave = response.message {
+            await Task { await self._process(response, encoded: rawData) }.value
+            return
+        }
+
         Task.detached {
             let alwaysProcess = switch response.message {
-            case .join, .reconnect, .leave: true
+            case .join, .reconnect: true
             default: false
             }
             // Always process join or reconnect messages even if suspended...
@@ -476,7 +485,11 @@ private extension SignalClient {
             _delegate.notifyDetached { await $0.signalClient(self, didUpdateRemoteMute: Track.Sid(from: mute.sid), muted: mute.muted) }
 
         case let .leave(leave):
-            _delegate.notifyDetached {
+            // A delegate callback ahead of the leave can still hold or register a publication: it fails too, until `cleanUp()`.
+            if [.disconnect, .resume, .reconnect].contains(leave.action) {
+                await _addTrackCompleters.reset(throwing: LiveKitError.from(reason: leave.reason), rejectingNew: true)
+            }
+            try? await _delegate.notifyAsync {
                 await $0.signalClient(self,
                                       didReceiveLeave: leave.action,
                                       reason: leave.reason,

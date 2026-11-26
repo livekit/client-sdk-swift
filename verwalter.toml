@@ -1,0 +1,11 @@
+#:schema https://raw.githubusercontent.com/livekit/verwalter/main/schemas/v1.json
+
+[packages.client-sdk-swift]
+path = "."
+versioning.files = [
+  { path = ".version", regex = "(?<version>.+)" },
+  { path = "LiveKitClient.podspec", regex = 'spec\.version = "(?<version>[^"]+)"' },
+  { path = "Sources/LiveKit/LiveKit.swift", regex = 'static let version = "(?<version>[^"]+)"' },
+  { path = "README.md", regex = 'upToNextMajor\("(?<version>[^"]+)"\)' },
+]
+release.tag = "{version}"

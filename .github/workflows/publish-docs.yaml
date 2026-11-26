@@ -10,8 +10,14 @@ on:
         description: Git ref to get docs from (branch, tag, or SHA)
         default: main
         type: string
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      dry_run:
+        default: true
+        type: boolean
+      ref:
+        default: main
+        type: string
 
 permissions:
   contents: read
@@ -31,7 +37,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.ref || 'main' }}
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -65,7 +71,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.ref || 'main' }}
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -93,7 +99,7 @@ jobs:
         run: ls -la docs
 
       - name: S3 Upload
-        if: github.event_name == 'release' || github.event.inputs.dry_run != 'true'
+        if: ${{ !inputs.dry_run }}
         run: aws s3 cp docs/ s3://livekit-docs/client-sdk-swift --recursive
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
@@ -101,7 +107,7 @@ jobs:
           AWS_DEFAULT_REGION: "us-east-1"
 
       - name: Invalidate cache
-        if: github.event_name == 'release' || github.event.inputs.dry_run != 'true'
+        if: ${{ !inputs.dry_run }}
         run: aws cloudfront create-invalidation --distribution-id EJJ40KLJ3TRY9 --paths "/*"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY }}
