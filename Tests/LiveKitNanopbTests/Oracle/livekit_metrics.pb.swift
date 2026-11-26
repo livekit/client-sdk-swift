@@ -356,6 +356,11 @@ nonisolated struct Livekit_MetricsRecordingHeader: Sendable {
   /// force PII redaction on for this session (only ever enables, never disables)
   var redactionEnabled: Bool = false
 
+  /// JSON object of session facts for agent evals, at most 16 KiB. Its schema is
+  /// evalschema/session-summary.schema.json in livekit/cloud-protocol. The collector
+  /// stores it without reading individual keys.
+  var sessionSummary: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -596,7 +601,7 @@ nonisolated extension Livekit_EventMetric: SwiftProtobuf.Message, SwiftProtobuf.
 
 nonisolated extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".MetricsRecordingHeader"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}room_id\0\u{2}\u{2}duration\0\u{3}start_time\0\u{3}room_tags\0\u{3}room_name\0\u{3}room_start_time\0\u{3}job_id\0\u{1}simulated\0\u{3}redaction_enabled\0\u{c}\u{2}\u{1}")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}room_id\0\u{2}\u{2}duration\0\u{3}start_time\0\u{3}room_tags\0\u{3}room_name\0\u{3}room_start_time\0\u{3}job_id\0\u{1}simulated\0\u{3}redaction_enabled\0\u{3}session_summary\0\u{c}\u{2}\u{1}")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -613,6 +618,7 @@ nonisolated extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, Swi
       case 8: try { try decoder.decodeSingularStringField(value: &self.jobID) }()
       case 9: try { try decoder.decodeSingularBoolField(value: &self.simulated) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.redactionEnabled) }()
+      case 11: try { try decoder.decodeSingularStringField(value: &self.sessionSummary) }()
       default: break
       }
     }
@@ -650,6 +656,9 @@ nonisolated extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, Swi
     if self.redactionEnabled != false {
       try visitor.visitSingularBoolField(value: self.redactionEnabled, fieldNumber: 10)
     }
+    if !self.sessionSummary.isEmpty {
+      try visitor.visitSingularStringField(value: self.sessionSummary, fieldNumber: 11)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -663,6 +672,7 @@ nonisolated extension Livekit_MetricsRecordingHeader: SwiftProtobuf.Message, Swi
     if lhs.jobID != rhs.jobID {return false}
     if lhs.simulated != rhs.simulated {return false}
     if lhs.redactionEnabled != rhs.redactionEnabled {return false}
+    if lhs.sessionSummary != rhs.sessionSummary {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

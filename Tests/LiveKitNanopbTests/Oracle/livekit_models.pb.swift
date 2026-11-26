@@ -294,7 +294,9 @@ nonisolated enum Livekit_TrackSource: SwiftProtobuf.Enum, Swift.CaseIterable {
 nonisolated enum Livekit_DataTrackExtensionID: SwiftProtobuf.Enum, Swift.CaseIterable {
   typealias RawValue = Int
   case dteiInvalid // = 0
-  case dteiParticipantSid // = 1
+  case dteiE2Ee // = 1
+  case dteiUserTimestamp // = 2
+  case dteiParticipantSid // = 255
   case UNRECOGNIZED(Int)
 
   init() {
@@ -304,7 +306,9 @@ nonisolated enum Livekit_DataTrackExtensionID: SwiftProtobuf.Enum, Swift.CaseIte
   init?(rawValue: Int) {
     switch rawValue {
     case 0: self = .dteiInvalid
-    case 1: self = .dteiParticipantSid
+    case 1: self = .dteiE2Ee
+    case 2: self = .dteiUserTimestamp
+    case 255: self = .dteiParticipantSid
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -312,7 +316,9 @@ nonisolated enum Livekit_DataTrackExtensionID: SwiftProtobuf.Enum, Swift.CaseIte
   var rawValue: Int {
     switch self {
     case .dteiInvalid: return 0
-    case .dteiParticipantSid: return 1
+    case .dteiE2Ee: return 1
+    case .dteiUserTimestamp: return 2
+    case .dteiParticipantSid: return 255
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -320,6 +326,8 @@ nonisolated enum Livekit_DataTrackExtensionID: SwiftProtobuf.Enum, Swift.CaseIte
   // The compiler won't synthesize support with the UNRECOGNIZED case.
   static let allCases: [Livekit_DataTrackExtensionID] = [
     .dteiInvalid,
+    .dteiE2Ee,
+    .dteiUserTimestamp,
     .dteiParticipantSid,
   ]
 
@@ -569,6 +577,67 @@ nonisolated enum Livekit_DisconnectReason: SwiftProtobuf.Enum, Swift.CaseIterabl
     .connectionTimeout,
     .mediaFailure,
     .agentError,
+  ]
+
+}
+
+/// why a room ended, reported on room-ended telemetry
+nonisolated enum Livekit_RoomEndReason: SwiftProtobuf.Enum, Swift.CaseIterable {
+  typealias RawValue = Int
+  case roomEndUnknown // = 0
+
+  /// RoomService.DeleteRoom was called
+  case roomEndApiDelete // = 1
+
+  /// the room sat empty past its empty or departure timeout
+  case roomEndIdleTimeout // = 2
+
+  /// the server instance is shutting down
+  case roomEndServerShutdown // = 3
+
+  /// the room was restarted or replaced elsewhere
+  case roomEndSuperseded // = 4
+
+  /// the room failed to finish opening
+  case roomEndOpenFailed // = 5
+  case UNRECOGNIZED(Int)
+
+  init() {
+    self = .roomEndUnknown
+  }
+
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .roomEndUnknown
+    case 1: self = .roomEndApiDelete
+    case 2: self = .roomEndIdleTimeout
+    case 3: self = .roomEndServerShutdown
+    case 4: self = .roomEndSuperseded
+    case 5: self = .roomEndOpenFailed
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  var rawValue: Int {
+    switch self {
+    case .roomEndUnknown: return 0
+    case .roomEndApiDelete: return 1
+    case .roomEndIdleTimeout: return 2
+    case .roomEndServerShutdown: return 3
+    case .roomEndSuperseded: return 4
+    case .roomEndOpenFailed: return 5
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static let allCases: [Livekit_RoomEndReason] = [
+    .roomEndUnknown,
+    .roomEndApiDelete,
+    .roomEndIdleTimeout,
+    .roomEndServerShutdown,
+    .roomEndSuperseded,
+    .roomEndOpenFailed,
   ]
 
 }
@@ -2639,6 +2708,7 @@ nonisolated struct Livekit_ClientInfo: Sendable {
     case node // = 12
     case unreal // = 13
     case esp32 // = 14
+    case dotnet // = 15
     case UNRECOGNIZED(Int)
 
     init() {
@@ -2662,6 +2732,7 @@ nonisolated struct Livekit_ClientInfo: Sendable {
       case 12: self = .node
       case 13: self = .unreal
       case 14: self = .esp32
+      case 15: self = .dotnet
       default: self = .UNRECOGNIZED(rawValue)
       }
     }
@@ -2683,6 +2754,7 @@ nonisolated struct Livekit_ClientInfo: Sendable {
       case .node: return 12
       case .unreal: return 13
       case .esp32: return 14
+      case .dotnet: return 15
       case .UNRECOGNIZED(let i): return i
       }
     }
@@ -2704,6 +2776,7 @@ nonisolated struct Livekit_ClientInfo: Sendable {
       .node,
       .unreal,
       .esp32,
+      .dotnet,
     ]
 
   }
@@ -3133,7 +3206,6 @@ nonisolated struct Livekit_RTPStats: @unchecked Sendable {
   /// Clears the value of `rebasedReportDrift`. Subsequent reads from it will return its default value.
   mutating func clearRebasedReportDrift() {_uniqueStorage()._rebasedReportDrift = nil}
 
-  /// NEXT_ID: 48
   var receivedReportDrift: Livekit_RTPDrift {
     get {_storage._receivedReportDrift ?? Livekit_RTPDrift()}
     set {_uniqueStorage()._receivedReportDrift = newValue}
@@ -3142,6 +3214,27 @@ nonisolated struct Livekit_RTPStats: @unchecked Sendable {
   var hasReceivedReportDrift: Bool {_storage._receivedReportDrift != nil}
   /// Clears the value of `receivedReportDrift`. Subsequent reads from it will return its default value.
   mutating func clearReceivedReportDrift() {_uniqueStorage()._receivedReportDrift = nil}
+
+  var fecPackets: UInt32 {
+    get {_storage._fecPackets}
+    set {_uniqueStorage()._fecPackets = newValue}
+  }
+
+  var fecBytes: UInt64 {
+    get {_storage._fecBytes}
+    set {_uniqueStorage()._fecBytes = newValue}
+  }
+
+  var fecPacketsDiscarded: UInt32 {
+    get {_storage._fecPacketsDiscarded}
+    set {_uniqueStorage()._fecPacketsDiscarded = newValue}
+  }
+
+  /// NEXT_ID: 52
+  var fecPacketsRecovered: UInt32 {
+    get {_storage._fecPacketsRecovered}
+    set {_uniqueStorage()._fecPacketsRecovered = newValue}
+  }
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -3232,6 +3325,15 @@ nonisolated struct Livekit_RTPForwarderState: @unchecked Sendable {
     set {_uniqueStorage()._senderReportState = newValue}
   }
 
+  var dependencyDescriptorForwarder: Livekit_DependencyDescriptorForwarderState {
+    get {_storage._dependencyDescriptorForwarder ?? Livekit_DependencyDescriptorForwarderState()}
+    set {_uniqueStorage()._dependencyDescriptorForwarder = newValue}
+  }
+  /// Returns true if `dependencyDescriptorForwarder` has been explicitly set.
+  var hasDependencyDescriptorForwarder: Bool {_storage._dependencyDescriptorForwarder != nil}
+  /// Clears the value of `dependencyDescriptorForwarder`. Subsequent reads from it will return its default value.
+  mutating func clearDependencyDescriptorForwarder() {_uniqueStorage()._dependencyDescriptorForwarder = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   nonisolated enum OneOf_CodecMunger: Equatable, Sendable {
@@ -3242,6 +3344,21 @@ nonisolated struct Livekit_RTPForwarderState: @unchecked Sendable {
   init() {}
 
   fileprivate var _storage = _StorageClass.defaultInstance
+}
+
+/// State of a forwarder that writes the dependency descriptor for the subscriber, so
+/// its frame numbers continue on a migrated subscriber.
+nonisolated struct Livekit_DependencyDescriptorForwarderState: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// highest extended frame number sent to the subscriber
+  var extLastFrameNumber: UInt64 = 0
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
 }
 
 nonisolated struct Livekit_RTPMungerState: Sendable {
@@ -3651,7 +3768,7 @@ nonisolated extension Livekit_TrackSource: SwiftProtobuf._ProtoNameProviding {
 }
 
 nonisolated extension Livekit_DataTrackExtensionID: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0DTEI_INVALID\0\u{1}DTEI_PARTICIPANT_SID\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0DTEI_INVALID\0\u{1}DTEI_E2EE\0\u{1}DTEI_USER_TIMESTAMP\0\u{2}}\u{3}DTEI_PARTICIPANT_SID\0")
 }
 
 nonisolated extension Livekit_VideoQuality: SwiftProtobuf._ProtoNameProviding {
@@ -3668,6 +3785,10 @@ nonisolated extension Livekit_ClientConfigSetting: SwiftProtobuf._ProtoNameProvi
 
 nonisolated extension Livekit_DisconnectReason: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0UNKNOWN_REASON\0\u{1}CLIENT_INITIATED\0\u{1}DUPLICATE_IDENTITY\0\u{1}SERVER_SHUTDOWN\0\u{1}PARTICIPANT_REMOVED\0\u{1}ROOM_DELETED\0\u{1}STATE_MISMATCH\0\u{1}JOIN_FAILURE\0\u{1}MIGRATION\0\u{1}SIGNAL_CLOSE\0\u{1}ROOM_CLOSED\0\u{1}USER_UNAVAILABLE\0\u{1}USER_REJECTED\0\u{1}SIP_TRUNK_FAILURE\0\u{1}CONNECTION_TIMEOUT\0\u{1}MEDIA_FAILURE\0\u{1}AGENT_ERROR\0")
+}
+
+nonisolated extension Livekit_RoomEndReason: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ROOM_END_UNKNOWN\0\u{1}ROOM_END_API_DELETE\0\u{1}ROOM_END_IDLE_TIMEOUT\0\u{1}ROOM_END_SERVER_SHUTDOWN\0\u{1}ROOM_END_SUPERSEDED\0\u{1}ROOM_END_OPEN_FAILED\0")
 }
 
 nonisolated extension Livekit_ReconnectReason: SwiftProtobuf._ProtoNameProviding {
@@ -6277,7 +6398,7 @@ nonisolated extension Livekit_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._
 }
 
 nonisolated extension Livekit_ClientInfo.SDK: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0UNKNOWN\0\u{1}JS\0\u{1}SWIFT\0\u{1}ANDROID\0\u{1}FLUTTER\0\u{1}GO\0\u{1}UNITY\0\u{1}REACT_NATIVE\0\u{1}RUST\0\u{1}PYTHON\0\u{1}CPP\0\u{1}UNITY_WEB\0\u{1}NODE\0\u{1}UNREAL\0\u{1}ESP32\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0UNKNOWN\0\u{1}JS\0\u{1}SWIFT\0\u{1}ANDROID\0\u{1}FLUTTER\0\u{1}GO\0\u{1}UNITY\0\u{1}REACT_NATIVE\0\u{1}RUST\0\u{1}PYTHON\0\u{1}CPP\0\u{1}UNITY_WEB\0\u{1}NODE\0\u{1}UNREAL\0\u{1}ESP32\0\u{1}DOTNET\0")
 }
 
 nonisolated extension Livekit_ClientInfo.Capability: SwiftProtobuf._ProtoNameProviding {
@@ -6479,7 +6600,7 @@ nonisolated extension Livekit_RTPDrift: SwiftProtobuf.Message, SwiftProtobuf._Me
 
 nonisolated extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RTPStats"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}start_time\0\u{3}end_time\0\u{1}duration\0\u{1}packets\0\u{3}packet_rate\0\u{1}bytes\0\u{1}bitrate\0\u{3}packets_lost\0\u{3}packet_loss_rate\0\u{3}packet_loss_percentage\0\u{3}packets_duplicate\0\u{3}packet_duplicate_rate\0\u{3}bytes_duplicate\0\u{3}bitrate_duplicate\0\u{3}packets_padding\0\u{3}packet_padding_rate\0\u{3}bytes_padding\0\u{3}bitrate_padding\0\u{3}packets_out_of_order\0\u{1}frames\0\u{3}frame_rate\0\u{3}jitter_current\0\u{3}jitter_max\0\u{3}gap_histogram\0\u{1}nacks\0\u{3}nack_misses\0\u{1}plis\0\u{3}last_pli\0\u{1}firs\0\u{3}last_fir\0\u{3}rtt_current\0\u{3}rtt_max\0\u{3}key_frames\0\u{3}last_key_frame\0\u{3}layer_lock_plis\0\u{3}last_layer_lock_pli\0\u{3}nack_acks\0\u{3}nack_repeated\0\u{3}header_bytes\0\u{3}header_bytes_duplicate\0\u{3}header_bytes_padding\0\u{4}\u{3}packet_drift\0\u{3}ntp_report_drift\0\u{3}rebased_report_drift\0\u{3}received_report_drift\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}start_time\0\u{3}end_time\0\u{1}duration\0\u{1}packets\0\u{3}packet_rate\0\u{1}bytes\0\u{1}bitrate\0\u{3}packets_lost\0\u{3}packet_loss_rate\0\u{3}packet_loss_percentage\0\u{3}packets_duplicate\0\u{3}packet_duplicate_rate\0\u{3}bytes_duplicate\0\u{3}bitrate_duplicate\0\u{3}packets_padding\0\u{3}packet_padding_rate\0\u{3}bytes_padding\0\u{3}bitrate_padding\0\u{3}packets_out_of_order\0\u{1}frames\0\u{3}frame_rate\0\u{3}jitter_current\0\u{3}jitter_max\0\u{3}gap_histogram\0\u{1}nacks\0\u{3}nack_misses\0\u{1}plis\0\u{3}last_pli\0\u{1}firs\0\u{3}last_fir\0\u{3}rtt_current\0\u{3}rtt_max\0\u{3}key_frames\0\u{3}last_key_frame\0\u{3}layer_lock_plis\0\u{3}last_layer_lock_pli\0\u{3}nack_acks\0\u{3}nack_repeated\0\u{3}header_bytes\0\u{3}header_bytes_duplicate\0\u{3}header_bytes_padding\0\u{4}\u{3}packet_drift\0\u{3}ntp_report_drift\0\u{3}rebased_report_drift\0\u{3}received_report_drift\0\u{3}fec_packets\0\u{3}fec_bytes\0\u{3}fec_packets_discarded\0\u{3}fec_packets_recovered\0")
 
   fileprivate class _StorageClass {
     var _startTime: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
@@ -6527,6 +6648,10 @@ nonisolated extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._Me
     var _ntpReportDrift: Livekit_RTPDrift? = nil
     var _rebasedReportDrift: Livekit_RTPDrift? = nil
     var _receivedReportDrift: Livekit_RTPDrift? = nil
+    var _fecPackets: UInt32 = 0
+    var _fecBytes: UInt64 = 0
+    var _fecPacketsDiscarded: UInt32 = 0
+    var _fecPacketsRecovered: UInt32 = 0
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -6582,6 +6707,10 @@ nonisolated extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._Me
       _ntpReportDrift = source._ntpReportDrift
       _rebasedReportDrift = source._rebasedReportDrift
       _receivedReportDrift = source._receivedReportDrift
+      _fecPackets = source._fecPackets
+      _fecBytes = source._fecBytes
+      _fecPacketsDiscarded = source._fecPacketsDiscarded
+      _fecPacketsRecovered = source._fecPacketsRecovered
     }
   }
 
@@ -6645,6 +6774,10 @@ nonisolated extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._Me
         case 45: try { try decoder.decodeSingularMessageField(value: &_storage._ntpReportDrift) }()
         case 46: try { try decoder.decodeSingularMessageField(value: &_storage._rebasedReportDrift) }()
         case 47: try { try decoder.decodeSingularMessageField(value: &_storage._receivedReportDrift) }()
+        case 48: try { try decoder.decodeSingularUInt32Field(value: &_storage._fecPackets) }()
+        case 49: try { try decoder.decodeSingularUInt64Field(value: &_storage._fecBytes) }()
+        case 50: try { try decoder.decodeSingularUInt32Field(value: &_storage._fecPacketsDiscarded) }()
+        case 51: try { try decoder.decodeSingularUInt32Field(value: &_storage._fecPacketsRecovered) }()
         default: break
         }
       }
@@ -6792,6 +6925,18 @@ nonisolated extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._Me
       try { if let v = _storage._receivedReportDrift {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 47)
       } }()
+      if _storage._fecPackets != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._fecPackets, fieldNumber: 48)
+      }
+      if _storage._fecBytes != 0 {
+        try visitor.visitSingularUInt64Field(value: _storage._fecBytes, fieldNumber: 49)
+      }
+      if _storage._fecPacketsDiscarded != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._fecPacketsDiscarded, fieldNumber: 50)
+      }
+      if _storage._fecPacketsRecovered != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._fecPacketsRecovered, fieldNumber: 51)
+      }
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -6846,6 +6991,10 @@ nonisolated extension Livekit_RTPStats: SwiftProtobuf.Message, SwiftProtobuf._Me
         if _storage._ntpReportDrift != rhs_storage._ntpReportDrift {return false}
         if _storage._rebasedReportDrift != rhs_storage._rebasedReportDrift {return false}
         if _storage._receivedReportDrift != rhs_storage._receivedReportDrift {return false}
+        if _storage._fecPackets != rhs_storage._fecPackets {return false}
+        if _storage._fecBytes != rhs_storage._fecBytes {return false}
+        if _storage._fecPacketsDiscarded != rhs_storage._fecPacketsDiscarded {return false}
+        if _storage._fecPacketsRecovered != rhs_storage._fecPacketsRecovered {return false}
         return true
       }
       if !storagesAreEqual {return false}
@@ -6917,7 +7066,7 @@ nonisolated extension Livekit_RTCPSenderReportState: SwiftProtobuf.Message, Swif
 
 nonisolated extension Livekit_RTPForwarderState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RTPForwarderState"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}started\0\u{3}reference_layer_spatial\0\u{3}pre_start_time\0\u{3}ext_first_timestamp\0\u{3}dummy_start_timestamp_offset\0\u{3}rtp_munger\0\u{3}vp8_munger\0\u{3}sender_report_state\0")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}started\0\u{3}reference_layer_spatial\0\u{3}pre_start_time\0\u{3}ext_first_timestamp\0\u{3}dummy_start_timestamp_offset\0\u{3}rtp_munger\0\u{3}vp8_munger\0\u{3}sender_report_state\0\u{3}dependency_descriptor_forwarder\0")
 
   fileprivate class _StorageClass {
     var _started: Bool = false
@@ -6928,6 +7077,7 @@ nonisolated extension Livekit_RTPForwarderState: SwiftProtobuf.Message, SwiftPro
     var _rtpMunger: Livekit_RTPMungerState? = nil
     var _codecMunger: Livekit_RTPForwarderState.OneOf_CodecMunger?
     var _senderReportState: [Livekit_RTCPSenderReportState] = []
+    var _dependencyDescriptorForwarder: Livekit_DependencyDescriptorForwarderState? = nil
 
       // This property is used as the initial default value for new instances of the type.
       // The type itself is protecting the reference to its storage via CoW semantics.
@@ -6946,6 +7096,7 @@ nonisolated extension Livekit_RTPForwarderState: SwiftProtobuf.Message, SwiftPro
       _rtpMunger = source._rtpMunger
       _codecMunger = source._codecMunger
       _senderReportState = source._senderReportState
+      _dependencyDescriptorForwarder = source._dependencyDescriptorForwarder
     }
   }
 
@@ -6984,6 +7135,7 @@ nonisolated extension Livekit_RTPForwarderState: SwiftProtobuf.Message, SwiftPro
           }
         }()
         case 8: try { try decoder.decodeRepeatedMessageField(value: &_storage._senderReportState) }()
+        case 9: try { try decoder.decodeSingularMessageField(value: &_storage._dependencyDescriptorForwarder) }()
         default: break
         }
       }
@@ -7020,6 +7172,9 @@ nonisolated extension Livekit_RTPForwarderState: SwiftProtobuf.Message, SwiftPro
       if !_storage._senderReportState.isEmpty {
         try visitor.visitRepeatedMessageField(value: _storage._senderReportState, fieldNumber: 8)
       }
+      try { if let v = _storage._dependencyDescriptorForwarder {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -7037,10 +7192,41 @@ nonisolated extension Livekit_RTPForwarderState: SwiftProtobuf.Message, SwiftPro
         if _storage._rtpMunger != rhs_storage._rtpMunger {return false}
         if _storage._codecMunger != rhs_storage._codecMunger {return false}
         if _storage._senderReportState != rhs_storage._senderReportState {return false}
+        if _storage._dependencyDescriptorForwarder != rhs_storage._dependencyDescriptorForwarder {return false}
         return true
       }
       if !storagesAreEqual {return false}
     }
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Livekit_DependencyDescriptorForwarderState: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".DependencyDescriptorForwarderState"
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}ext_last_frame_number\0")
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt64Field(value: &self.extLastFrameNumber) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.extLastFrameNumber != 0 {
+      try visitor.visitSingularUInt64Field(value: self.extLastFrameNumber, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Livekit_DependencyDescriptorForwarderState, rhs: Livekit_DependencyDescriptorForwarderState) -> Bool {
+    if lhs.extLastFrameNumber != rhs.extLastFrameNumber {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -144,6 +144,9 @@ PB_BIND(livekit_RTCPSenderReportState, livekit_RTCPSenderReportState, AUTO)
 PB_BIND(livekit_RTPForwarderState, livekit_RTPForwarderState, AUTO)
 
 
+PB_BIND(livekit_DependencyDescriptorForwarderState, livekit_DependencyDescriptorForwarderState, AUTO)
+
+
 PB_BIND(livekit_RTPMungerState, livekit_RTPMungerState, AUTO)
 
 
@@ -184,6 +187,8 @@ PB_BIND(livekit_WebhookConfig, livekit_WebhookConfig, AUTO)
 
 
 PB_BIND(livekit_SubscribedAudioCodec, livekit_SubscribedAudioCodec, AUTO)
+
+
 
 
 

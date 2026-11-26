@@ -60,7 +60,9 @@ typedef enum _livekit_TrackSource {
 
 typedef enum _livekit_DataTrackExtensionID {
     livekit_DataTrackExtensionID_DTEI_INVALID = 0,
-    livekit_DataTrackExtensionID_DTEI_PARTICIPANT_SID = 1
+    livekit_DataTrackExtensionID_DTEI_E2EE = 1,
+    livekit_DataTrackExtensionID_DTEI_USER_TIMESTAMP = 2,
+    livekit_DataTrackExtensionID_DTEI_PARTICIPANT_SID = 255
 } livekit_DataTrackExtensionID;
 
 typedef enum _livekit_VideoQuality {
@@ -118,6 +120,21 @@ typedef enum _livekit_DisconnectReason {
     /* agent encountered an error */
     livekit_DisconnectReason_AGENT_ERROR = 16
 } livekit_DisconnectReason;
+
+/* why a room ended, reported on room-ended telemetry */
+typedef enum _livekit_RoomEndReason {
+    livekit_RoomEndReason_ROOM_END_UNKNOWN = 0,
+    /* RoomService.DeleteRoom was called */
+    livekit_RoomEndReason_ROOM_END_API_DELETE = 1,
+    /* the room sat empty past its empty or departure timeout */
+    livekit_RoomEndReason_ROOM_END_IDLE_TIMEOUT = 2,
+    /* the server instance is shutting down */
+    livekit_RoomEndReason_ROOM_END_SERVER_SHUTDOWN = 3,
+    /* the room was restarted or replaced elsewhere */
+    livekit_RoomEndReason_ROOM_END_SUPERSEDED = 4,
+    /* the room failed to finish opening */
+    livekit_RoomEndReason_ROOM_END_OPEN_FAILED = 5
+} livekit_RoomEndReason;
 
 typedef enum _livekit_ReconnectReason {
     livekit_ReconnectReason_RR_UNKNOWN = 0,
@@ -268,7 +285,8 @@ typedef enum _livekit_ClientInfo_SDK {
     livekit_ClientInfo_SDK_UNITY_WEB = 11,
     livekit_ClientInfo_SDK_NODE = 12,
     livekit_ClientInfo_SDK_UNREAL = 13,
-    livekit_ClientInfo_SDK_ESP32 = 14
+    livekit_ClientInfo_SDK_ESP32 = 14,
+    livekit_ClientInfo_SDK_DOTNET = 15
 } livekit_ClientInfo_SDK;
 
 /* Optional capabilities advertised by the client at connect time. The SFU
@@ -829,7 +847,11 @@ typedef struct _livekit_RTPStats {
     struct _livekit_RTPDrift *packet_drift;
     struct _livekit_RTPDrift *ntp_report_drift;
     struct _livekit_RTPDrift *rebased_report_drift;
-    struct _livekit_RTPDrift *received_report_drift; /* NEXT_ID: 48 */
+    struct _livekit_RTPDrift *received_report_drift;
+    uint32_t *fec_packets;
+    uint64_t *fec_bytes;
+    uint32_t *fec_packets_discarded;
+    uint32_t *fec_packets_recovered; /* NEXT_ID: 52 */
 } livekit_RTPStats;
 
 typedef struct _livekit_RTPStats_GapHistogramEntry {
@@ -860,7 +882,15 @@ typedef struct _livekit_RTPForwarderState {
     } codec_munger;
     pb_size_t sender_report_state_count;
     struct _livekit_RTCPSenderReportState *sender_report_state;
+    struct _livekit_DependencyDescriptorForwarderState *dependency_descriptor_forwarder;
 } livekit_RTPForwarderState;
+
+/* State of a forwarder that writes the dependency descriptor for the subscriber, so
+ its frame numbers continue on a migrated subscriber. */
+typedef struct _livekit_DependencyDescriptorForwarderState {
+    /* highest extended frame number sent to the subscriber */
+    uint64_t *ext_last_frame_number;
+} livekit_DependencyDescriptorForwarderState;
 
 typedef struct _livekit_RTPMungerState {
     uint64_t *ext_last_sequence_number;
@@ -1018,6 +1048,10 @@ extern "C" {
 #define _livekit_DisconnectReason_MAX livekit_DisconnectReason_AGENT_ERROR
 #define _livekit_DisconnectReason_ARRAYSIZE ((livekit_DisconnectReason)(livekit_DisconnectReason_AGENT_ERROR+1))
 
+#define _livekit_RoomEndReason_MIN livekit_RoomEndReason_ROOM_END_UNKNOWN
+#define _livekit_RoomEndReason_MAX livekit_RoomEndReason_ROOM_END_OPEN_FAILED
+#define _livekit_RoomEndReason_ARRAYSIZE ((livekit_RoomEndReason)(livekit_RoomEndReason_ROOM_END_OPEN_FAILED+1))
+
 #define _livekit_ReconnectReason_MIN livekit_ReconnectReason_RR_UNKNOWN
 #define _livekit_ReconnectReason_MAX livekit_ReconnectReason_RR_SWITCH_CANDIDATE
 #define _livekit_ReconnectReason_ARRAYSIZE ((livekit_ReconnectReason)(livekit_ReconnectReason_RR_SWITCH_CANDIDATE+1))
@@ -1071,8 +1105,8 @@ extern "C" {
 #define _livekit_ServerInfo_Edition_ARRAYSIZE ((livekit_ServerInfo_Edition)(livekit_ServerInfo_Edition_Cloud+1))
 
 #define _livekit_ClientInfo_SDK_MIN livekit_ClientInfo_SDK_UNKNOWN
-#define _livekit_ClientInfo_SDK_MAX livekit_ClientInfo_SDK_ESP32
-#define _livekit_ClientInfo_SDK_ARRAYSIZE ((livekit_ClientInfo_SDK)(livekit_ClientInfo_SDK_ESP32+1))
+#define _livekit_ClientInfo_SDK_MAX livekit_ClientInfo_SDK_DOTNET
+#define _livekit_ClientInfo_SDK_ARRAYSIZE ((livekit_ClientInfo_SDK)(livekit_ClientInfo_SDK_DOTNET+1))
 
 #define _livekit_ClientInfo_Capability_MIN livekit_ClientInfo_Capability_CAP_UNUSED
 #define _livekit_ClientInfo_Capability_MAX livekit_ClientInfo_Capability_CAP_COMPRESSION_DEFLATE_RAW
@@ -1162,6 +1196,7 @@ extern "C" {
 
 
 
+
 #define livekit_DataStream_TextHeader_operation_type_ENUMTYPE livekit_DataStream_OperationType
 
 
@@ -1219,10 +1254,11 @@ extern "C" {
 #define livekit_VideoConfiguration_init_default  {NULL}
 #define livekit_DisabledCodecs_init_default      {0, NULL, 0, NULL}
 #define livekit_RTPDrift_init_default            {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
-#define livekit_RTPStats_init_default            {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+#define livekit_RTPStats_init_default            {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_RTPStats_GapHistogramEntry_init_default {NULL, NULL}
 #define livekit_RTCPSenderReportState_init_default {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
-#define livekit_RTPForwarderState_init_default   {NULL, NULL, NULL, NULL, NULL, NULL, 0, {NULL}, 0, NULL}
+#define livekit_RTPForwarderState_init_default   {NULL, NULL, NULL, NULL, NULL, NULL, 0, {NULL}, 0, NULL, NULL}
+#define livekit_DependencyDescriptorForwarderState_init_default {NULL}
 #define livekit_RTPMungerState_init_default      {NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_VP8MungerState_init_default      {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_TimedVersion_init_default        {NULL, NULL}
@@ -1279,10 +1315,11 @@ extern "C" {
 #define livekit_VideoConfiguration_init_zero     {NULL}
 #define livekit_DisabledCodecs_init_zero         {0, NULL, 0, NULL}
 #define livekit_RTPDrift_init_zero               {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
-#define livekit_RTPStats_init_zero               {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+#define livekit_RTPStats_init_zero               {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_RTPStats_GapHistogramEntry_init_zero {NULL, NULL}
 #define livekit_RTCPSenderReportState_init_zero  {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
-#define livekit_RTPForwarderState_init_zero      {NULL, NULL, NULL, NULL, NULL, NULL, 0, {NULL}, 0, NULL}
+#define livekit_RTPForwarderState_init_zero      {NULL, NULL, NULL, NULL, NULL, NULL, 0, {NULL}, 0, NULL, NULL}
+#define livekit_DependencyDescriptorForwarderState_init_zero {NULL}
 #define livekit_RTPMungerState_init_zero         {NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_VP8MungerState_init_zero         {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 #define livekit_TimedVersion_init_zero           {NULL, NULL}
@@ -1569,6 +1606,10 @@ extern "C" {
 #define livekit_RTPStats_ntp_report_drift_tag    45
 #define livekit_RTPStats_rebased_report_drift_tag 46
 #define livekit_RTPStats_received_report_drift_tag 47
+#define livekit_RTPStats_fec_packets_tag         48
+#define livekit_RTPStats_fec_bytes_tag           49
+#define livekit_RTPStats_fec_packets_discarded_tag 50
+#define livekit_RTPStats_fec_packets_recovered_tag 51
 #define livekit_RTPStats_GapHistogramEntry_key_tag 1
 #define livekit_RTPStats_GapHistogramEntry_value_tag 2
 #define livekit_RTCPSenderReportState_rtp_timestamp_tag 1
@@ -1586,6 +1627,8 @@ extern "C" {
 #define livekit_RTPForwarderState_rtp_munger_tag 6
 #define livekit_RTPForwarderState_vp8_munger_tag 7
 #define livekit_RTPForwarderState_sender_report_state_tag 8
+#define livekit_RTPForwarderState_dependency_descriptor_forwarder_tag 9
+#define livekit_DependencyDescriptorForwarderState_ext_last_frame_number_tag 1
 #define livekit_RTPMungerState_ext_last_sequence_number_tag 1
 #define livekit_RTPMungerState_ext_second_last_sequence_number_tag 2
 #define livekit_RTPMungerState_ext_last_timestamp_tag 3
@@ -2124,7 +2167,11 @@ X(a, POINTER,  SINGULAR, UINT64,   header_bytes_padding,  41) \
 X(a, POINTER,  OPTIONAL, MESSAGE,  packet_drift,     44) \
 X(a, POINTER,  OPTIONAL, MESSAGE,  ntp_report_drift,  45) \
 X(a, POINTER,  OPTIONAL, MESSAGE,  rebased_report_drift,  46) \
-X(a, POINTER,  OPTIONAL, MESSAGE,  received_report_drift,  47)
+X(a, POINTER,  OPTIONAL, MESSAGE,  received_report_drift,  47) \
+X(a, POINTER,  SINGULAR, UINT32,   fec_packets,      48) \
+X(a, POINTER,  SINGULAR, UINT64,   fec_bytes,        49) \
+X(a, POINTER,  SINGULAR, UINT32,   fec_packets_discarded,  50) \
+X(a, POINTER,  SINGULAR, UINT32,   fec_packets_recovered,  51)
 #define livekit_RTPStats_CALLBACK NULL
 #define livekit_RTPStats_DEFAULT NULL
 #define livekit_RTPStats_start_time_MSGTYPE google_protobuf_Timestamp
@@ -2164,12 +2211,19 @@ X(a, POINTER,  SINGULAR, UINT64,   ext_first_timestamp,   4) \
 X(a, POINTER,  SINGULAR, UINT64,   dummy_start_timestamp_offset,   5) \
 X(a, POINTER,  OPTIONAL, MESSAGE,  rtp_munger,        6) \
 X(a, POINTER,  ONEOF,    MESSAGE,  (codec_munger,vp8_munger,codec_munger.vp8_munger),   7) \
-X(a, POINTER,  REPEATED, MESSAGE,  sender_report_state,   8)
+X(a, POINTER,  REPEATED, MESSAGE,  sender_report_state,   8) \
+X(a, POINTER,  OPTIONAL, MESSAGE,  dependency_descriptor_forwarder,   9)
 #define livekit_RTPForwarderState_CALLBACK NULL
 #define livekit_RTPForwarderState_DEFAULT NULL
 #define livekit_RTPForwarderState_rtp_munger_MSGTYPE livekit_RTPMungerState
 #define livekit_RTPForwarderState_codec_munger_vp8_munger_MSGTYPE livekit_VP8MungerState
 #define livekit_RTPForwarderState_sender_report_state_MSGTYPE livekit_RTCPSenderReportState
+#define livekit_RTPForwarderState_dependency_descriptor_forwarder_MSGTYPE livekit_DependencyDescriptorForwarderState
+
+#define livekit_DependencyDescriptorForwarderState_FIELDLIST(X, a) \
+X(a, POINTER,  SINGULAR, UINT64,   ext_last_frame_number,   1)
+#define livekit_DependencyDescriptorForwarderState_CALLBACK NULL
+#define livekit_DependencyDescriptorForwarderState_DEFAULT NULL
 
 #define livekit_RTPMungerState_FIELDLIST(X, a) \
 X(a, POINTER,  SINGULAR, UINT64,   ext_last_sequence_number,   1) \
@@ -2330,6 +2384,7 @@ extern const pb_msgdesc_t livekit_RTPStats_msg;
 extern const pb_msgdesc_t livekit_RTPStats_GapHistogramEntry_msg;
 extern const pb_msgdesc_t livekit_RTCPSenderReportState_msg;
 extern const pb_msgdesc_t livekit_RTPForwarderState_msg;
+extern const pb_msgdesc_t livekit_DependencyDescriptorForwarderState_msg;
 extern const pb_msgdesc_t livekit_RTPMungerState_msg;
 extern const pb_msgdesc_t livekit_VP8MungerState_msg;
 extern const pb_msgdesc_t livekit_TimedVersion_msg;
@@ -2392,6 +2447,7 @@ extern const pb_msgdesc_t livekit_SubscribedAudioCodec_msg;
 #define livekit_RTPStats_GapHistogramEntry_fields &livekit_RTPStats_GapHistogramEntry_msg
 #define livekit_RTCPSenderReportState_fields &livekit_RTCPSenderReportState_msg
 #define livekit_RTPForwarderState_fields &livekit_RTPForwarderState_msg
+#define livekit_DependencyDescriptorForwarderState_fields &livekit_DependencyDescriptorForwarderState_msg
 #define livekit_RTPMungerState_fields &livekit_RTPMungerState_msg
 #define livekit_VP8MungerState_fields &livekit_VP8MungerState_msg
 #define livekit_TimedVersion_fields &livekit_TimedVersion_msg
@@ -2453,6 +2509,7 @@ extern const pb_msgdesc_t livekit_SubscribedAudioCodec_msg;
 /* livekit_RTPStats_GapHistogramEntry_size depends on runtime parameters */
 /* livekit_RTCPSenderReportState_size depends on runtime parameters */
 /* livekit_RTPForwarderState_size depends on runtime parameters */
+/* livekit_DependencyDescriptorForwarderState_size depends on runtime parameters */
 /* livekit_RTPMungerState_size depends on runtime parameters */
 /* livekit_VP8MungerState_size depends on runtime parameters */
 /* livekit_TimedVersion_size depends on runtime parameters */

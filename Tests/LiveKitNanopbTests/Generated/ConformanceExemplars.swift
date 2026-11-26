@@ -1111,6 +1111,20 @@ func oracleExemplar_Livekit_DataTrackSubscriberHandles_PublishedDataTrack() -> L
     }
 }
 
+func exemplar_Livekit_DataTrackDemandUpdate() -> LiveKit.Livekit_DataTrackDemandUpdate {
+    LiveKit.Livekit_DataTrackDemandUpdate.with { m in
+        m.pubHandle = 1
+        m.hasSubscribers_p = true
+    }
+}
+
+func oracleExemplar_Livekit_DataTrackDemandUpdate() -> Livekit_DataTrackDemandUpdate {
+    Livekit_DataTrackDemandUpdate.with { m in
+        m.pubHandle = 1
+        m.hasSubscribers_p = true
+    }
+}
+
 func exemplar_Livekit_TrickleRequest() -> LiveKit.Livekit_TrickleRequest {
     LiveKit.Livekit_TrickleRequest.with { m in
         m.candidateInit = "candidateInit"
@@ -1357,6 +1371,20 @@ func oracleExemplar_Livekit_GetDataBlobResponse() -> Livekit_GetDataBlobResponse
     }
 }
 
+func exemplar_Livekit_FECProtection() -> LiveKit.Livekit_FECProtection {
+    LiveKit.Livekit_FECProtection.with { m in
+        m.mode = .fecModeAdaptive
+        m.level = .fecLevelLow
+    }
+}
+
+func oracleExemplar_Livekit_FECProtection() -> Livekit_FECProtection {
+    Livekit_FECProtection.with { m in
+        m.mode = .fecModeAdaptive
+        m.level = .fecLevelLow
+    }
+}
+
 func exemplar_Livekit_UpdateTrackSettings() -> LiveKit.Livekit_UpdateTrackSettings {
     LiveKit.Livekit_UpdateTrackSettings.with { m in
         m.trackSids = ["track_sids_0", "track_sids_1"]
@@ -1366,6 +1394,7 @@ func exemplar_Livekit_UpdateTrackSettings() -> LiveKit.Livekit_UpdateTrackSettin
         m.height = 6
         m.fps = 7
         m.priority = 8
+        m.fec = exemplar_Livekit_FECProtection()
     }
 }
 
@@ -1378,6 +1407,7 @@ func oracleExemplar_Livekit_UpdateTrackSettings() -> Livekit_UpdateTrackSettings
         m.height = 6
         m.fps = 7
         m.priority = 8
+        m.fec = oracleExemplar_Livekit_FECProtection()
     }
 }
 
@@ -1691,6 +1721,7 @@ func exemplar_Livekit_SyncState() -> LiveKit.Livekit_SyncState {
         m.trackSidsDisabled = ["track_sids_disabled_0", "track_sids_disabled_1"]
         m.datachannelReceiveStates = [exemplar_Livekit_DataChannelReceiveState()]
         m.publishDataTracks = [exemplar_Livekit_PublishDataTrackResponse()]
+        m.dataSubscription = exemplar_Livekit_UpdateDataSubscription()
     }
 }
 
@@ -1704,6 +1735,7 @@ func oracleExemplar_Livekit_SyncState() -> Livekit_SyncState {
         m.trackSidsDisabled = ["track_sids_disabled_0", "track_sids_disabled_1"]
         m.datachannelReceiveStates = [oracleExemplar_Livekit_DataChannelReceiveState()]
         m.publishDataTracks = [oracleExemplar_Livekit_PublishDataTrackResponse()]
+        m.dataSubscription = oracleExemplar_Livekit_UpdateDataSubscription()
     }
 }
 
@@ -1856,6 +1888,7 @@ func exemplar_Livekit_ConnectionSettings() -> LiveKit.Livekit_ConnectionSettings
         m.subscriberAllowPause = true
         m.disableIceLite = true
         m.autoSubscribeDataTrack = true
+        m.candidateProtocol = .tcp
     }
 }
 
@@ -1866,6 +1899,7 @@ func oracleExemplar_Livekit_ConnectionSettings() -> Livekit_ConnectionSettings {
         m.subscriberAllowPause = true
         m.disableIceLite = true
         m.autoSubscribeDataTrack = true
+        m.candidateProtocol = .tcp
     }
 }
 
@@ -2265,6 +2299,12 @@ let conformanceExemplars: [ConformanceExemplar] = [
         reencode: { try LiveKit.Livekit_DataTrackSubscriberHandles_PublishedDataTrack(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
+        name: "Livekit_DataTrackDemandUpdate",
+        facade: { try exemplar_Livekit_DataTrackDemandUpdate().serializedData() },
+        oracle: { try oracleExemplar_Livekit_DataTrackDemandUpdate().serializedData() },
+        reencode: { try LiveKit.Livekit_DataTrackDemandUpdate(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
         name: "Livekit_TrickleRequest",
         facade: { try exemplar_Livekit_TrickleRequest().serializedData() },
         oracle: { try oracleExemplar_Livekit_TrickleRequest().serializedData() },
@@ -2353,6 +2393,12 @@ let conformanceExemplars: [ConformanceExemplar] = [
         facade: { try exemplar_Livekit_GetDataBlobResponse().serializedData() },
         oracle: { try oracleExemplar_Livekit_GetDataBlobResponse().serializedData() },
         reencode: { try LiveKit.Livekit_GetDataBlobResponse(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_FECProtection",
+        facade: { try exemplar_Livekit_FECProtection().serializedData() },
+        oracle: { try oracleExemplar_Livekit_FECProtection().serializedData() },
+        reencode: { try LiveKit.Livekit_FECProtection(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(
         name: "Livekit_UpdateTrackSettings",
@@ -3075,6 +3121,12 @@ let oneofVariantExemplars: [ConformanceExemplar] = [
         name: "Livekit_SignalResponse.message.getDataBlobResponse",
         facade: { try LiveKit.Livekit_SignalResponse.with { $0.getDataBlobResponse = exemplar_Livekit_GetDataBlobResponse() }.serializedData() },
         oracle: { try Livekit_SignalResponse.with { $0.getDataBlobResponse = oracleExemplar_Livekit_GetDataBlobResponse() }.serializedData() },
+        reencode: { try LiveKit.Livekit_SignalResponse(serializedData: $0).serializedData() },
+    ),
+    ConformanceExemplar(
+        name: "Livekit_SignalResponse.message.dataTrackDemandUpdate",
+        facade: { try LiveKit.Livekit_SignalResponse.with { $0.dataTrackDemandUpdate = exemplar_Livekit_DataTrackDemandUpdate() }.serializedData() },
+        oracle: { try Livekit_SignalResponse.with { $0.dataTrackDemandUpdate = oracleExemplar_Livekit_DataTrackDemandUpdate() }.serializedData() },
         reencode: { try LiveKit.Livekit_SignalResponse(serializedData: $0).serializedData() },
     ),
     ConformanceExemplar(

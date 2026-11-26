@@ -33,6 +33,14 @@ struct TrackSettings: Equatable, Hashable {
         self.preferredFPS = preferredFPS
     }
 
+    /// The settings a new server subscription starts with, so that the first update keeps the
+    /// current layer: adaptive stream starts disabled at low quality, otherwise the server sends
+    /// the highest quality.
+    static func initial(adaptiveStream: Bool) -> TrackSettings {
+        TrackSettings(enabled: !adaptiveStream,
+                      videoQuality: adaptiveStream ? .low : .high)
+    }
+
     func copyWith(isEnabled: ValueOrAbsent<Bool> = .absent,
                   dimensions: ValueOrAbsent<Dimensions> = .absent,
                   videoQuality: ValueOrAbsent<VideoQuality> = .absent,

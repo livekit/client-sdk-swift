@@ -18,17 +18,23 @@ internal import LiveKitWebRTC
 import Foundation
 
 extension LKRTCRtpSender: Loggable {
-    /// Sets the degradation preference on this sender.
+    /// Sets the degradation preference and, if given, the FlexFEC protection on this sender.
     ///
-    /// Degradation preference is a property of the sender, not of the track, so every sender
-    /// publishing a track needs it applied separately. A backup codec publishes over its own
-    /// sender, which would otherwise let WebRTC resolve a preference implicitly from the native
-    /// source and diverge from the primary encoder.
+    /// Both are properties of the sender, not of the track, so every sender publishing a track
+    /// needs them applied separately. A backup codec publishes over its own sender, which would
+    /// otherwise let WebRTC resolve a preference implicitly from the native source and diverge
+    /// from the primary encoder.
+    ///
+    /// FlexFEC protection applies to the whole send stream, takes effect on the next media packet,
+    /// and has no effect unless FlexFEC was negotiated. `nil` keeps the current setting.
     @RTC
-    func set(degradationPreference: LKRTCDegradationPreference) {
+    func set(degradationPreference: LKRTCDegradationPreference, fecProtection: FECProtection? = nil) {
         // Changing params directly doesn't work so we need to update params and set it back to sender.parameters
         let _parameters = parameters
         _parameters.degradationPreference = NSNumber(value: degradationPreference.rawValue)
+        if let fecProtection {
+            _parameters.fecProtection = fecProtection.toRTCType()
+        }
         parameters = _parameters
     }
 

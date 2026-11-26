@@ -41,6 +41,17 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
 
     public let streamName: String?
 
+    /// Proactive FlexFEC protection this client adds to the published track, ``FECProtection/disabled`` by default.
+    ///
+    /// Repair packets are sent out of the track's own bitrate, so more protection leaves less
+    /// bitrate for the video itself.
+    ///
+    /// - Note: Repairs are only sent when FlexFEC was negotiated, which requires
+    ///   ``LiveKitSDK/setFlexFECEnabled(_:)`` and a server with upstream FlexFEC enabled.
+    ///   WebRTC does not allocate a FlexFEC stream for simulcast, so a simulcast track does not
+    ///   offer FlexFEC and this only takes effect with `simulcast: false`.
+    public let fecProtection: FECProtection
+
     public init(name: String? = nil,
                 encoding: VideoEncoding? = nil,
                 screenShareEncoding: VideoEncoding? = nil,
@@ -50,7 +61,8 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
                 preferredCodec: VideoCodec? = nil,
                 preferredBackupCodec: VideoCodec? = nil,
                 degradationPreference: DegradationPreference = .auto,
-                streamName: String? = nil)
+                streamName: String? = nil,
+                fecProtection: FECProtection = .disabled)
     {
         self.name = name
         self.encoding = encoding
@@ -62,6 +74,33 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
         self.preferredBackupCodec = preferredBackupCodec
         self.degradationPreference = degradationPreference
         self.streamName = streamName
+        self.fecProtection = fecProtection
+    }
+
+    /// The initializer without `fecProtection`, which defaults to ``FECProtection/disabled``.
+    /// Keeps code and binaries built against the earlier signature working.
+    public convenience init(name: String? = nil,
+                            encoding: VideoEncoding? = nil,
+                            screenShareEncoding: VideoEncoding? = nil,
+                            simulcast: Bool = true,
+                            simulcastLayers: [VideoParameters] = [],
+                            screenShareSimulcastLayers: [VideoParameters] = [],
+                            preferredCodec: VideoCodec? = nil,
+                            preferredBackupCodec: VideoCodec? = nil,
+                            degradationPreference: DegradationPreference = .auto,
+                            streamName: String? = nil)
+    {
+        self.init(name: name,
+                  encoding: encoding,
+                  screenShareEncoding: screenShareEncoding,
+                  simulcast: simulcast,
+                  simulcastLayers: simulcastLayers,
+                  screenShareSimulcastLayers: screenShareSimulcastLayers,
+                  preferredCodec: preferredCodec,
+                  preferredBackupCodec: preferredBackupCodec,
+                  degradationPreference: degradationPreference,
+                  streamName: streamName,
+                  fecProtection: .disabled)
     }
 
     // MARK: - Equal
@@ -77,7 +116,8 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
             preferredCodec == other.preferredCodec &&
             preferredBackupCodec == other.preferredBackupCodec &&
             degradationPreference == other.degradationPreference &&
-            streamName == other.streamName
+            streamName == other.streamName &&
+            fecProtection == other.fecProtection
     }
 
     override public var hash: Int {
@@ -92,6 +132,7 @@ public final class VideoPublishOptions: NSObject, TrackPublishOptions, Sendable 
         hasher.combine(preferredBackupCodec)
         hasher.combine(degradationPreference)
         hasher.combine(streamName)
+        hasher.combine(fecProtection)
         return hasher.finalize()
     }
 }
