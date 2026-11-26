@@ -423,17 +423,24 @@ extension Room {
             throw LiveKitError(.invalidState)
         }
 
-        guard _state.transport != nil else {
-            log("[Connect] Transport is nil", .error)
-            throw LiveKitError(.invalidState)
-        }
+        // The state can change after the guards above. One mutation checks it and marks the
+        // room, so that only one of several concurrent callers starts a reconnect.
+        try _state.mutate {
+            guard case .connected = $0.connectionState else {
+                log("[Connect] Must be called with connected state", .error)
+                throw LiveKitError(.invalidState)
+            }
 
-        guard _state.isReconnectingWithMode == nil else {
-            log("[Connect] Reconnect already in progress...", .warning)
-            throw LiveKitError(.invalidState)
-        }
+            guard $0.transport != nil else {
+                log("[Connect] Transport is nil", .error)
+                throw LiveKitError(.invalidState)
+            }
 
-        _state.mutate {
+            guard $0.isReconnectingWithMode == nil else {
+                log("[Connect] Reconnect already in progress...", .warning)
+                throw LiveKitError(.invalidState)
+            }
+
             // Mark as Re-connecting internally
             $0.isReconnectingWithMode = .quick
             $0.nextReconnectMode = nextReconnectMode
