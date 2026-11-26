@@ -9,6 +9,7 @@ import ssl
 import struct
 import sys
 import threading
+import urllib.parse
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -18,6 +19,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
+        # RFC 9112: origins accept absolute-form targets as well as origin-form.
+        self.path = urllib.parse.urlsplit(self.path).path
         if self.path.startswith('/pending'):
             # Wait for the client to close, so cancellation also releases the fixture.
             self.connection.settimeout(40)

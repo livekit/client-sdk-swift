@@ -1,0 +1,162 @@
+/*
+ * Copyright 2026 LiveKit
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import Foundation
+
+/// Waiters are always resumed outside `_lock`: the runtime resumes a continuation under the task's
+/// status-record lock, and a cancellation handler runs under that same lock while taking `_lock`.
+final class AsyncCompleter<T: Sendable>: @unchecked Sendable {
+    //
+    struct WaitEntry {
+        let continuation: CheckedContinuation<T, Error>
+        let timeoutBlock: DispatchWorkItem
+
+        func cancel(throwing error: WebSocketError? = nil) {
+            continuation.resume(throwing: error ?? WebSocketError(.cancelled))
+            timeoutBlock.cancel()
+        }
+
+        func timeout() {
+            continuation.resume(throwing: WebSocketError(.timedOut))
+            timeoutBlock.cancel()
+        }
+
+        func resume(with result: Result<T, Error>) {
+            continuation.resume(with: result)
+            timeoutBlock.cancel()
+        }
+    }
+
+    let label: String
+
+    private let _timerQueue = DispatchQueue(label: "LiveKitSDK.AsyncCompleter", qos: .utility)
+
+    // Internal states
+    private var _defaultTimeout: DispatchTimeInterval
+    private var _entries: [UUID: WaitEntry] = [:]
+    private var _result: Result<T, Error>?
+
+    private let _lock: some Lock = createLock()
+
+    init(label: String, defaultTimeout: TimeInterval) {
+        self.label = label
+        _defaultTimeout = defaultTimeout.toDispatchTimeInterval
+    }
+
+    deinit {
+        reset()
+    }
+
+    func reset(throwing error: Error? = nil) {
+        let entries = _lock.sync {
+            let entries = Array(_entries.values)
+            _entries.removeAll()
+            _result = nil
+            return entries
+        }
+        for entry in entries {
+            entry.cancel(throwing: WebSocketError.from(error: error))
+        }
+    }
+
+    func resume(with result: Result<T, Error>) {
+        let entries = _lock.sync {
+            let entries = Array(_entries.values)
+            _entries.removeAll()
+            _result = result
+            return entries
+        }
+        for entry in entries {
+            entry.resume(with: result)
+        }
+    }
+
+    func resume(returning value: T) {
+        resume(with: .success(value))
+    }
+
+    func resume(throwing error: Error) {
+        resume(with: .failure(error))
+    }
+
+    func wait(timeout: TimeInterval? = nil) async throws -> T {
+        // Read value
+        if let result = _lock.sync({ _result }) {
+            // Already resolved...
+            if case let .success(value) = result {
+                // resume(returning:) already called
+                return value
+            } else if case let .failure(error) = result {
+                // resume(throwing:) already called
+                throw error
+            }
+        }
+
+        // Create ids for continuation & timeoutBlock
+        let entryId = UUID()
+
+        // Create a cancel-aware timed continuation
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                // Create time-out block
+                let timeoutBlock = DispatchWorkItem { [weak self] in
+                    guard let self else { return }
+                    _lock.sync { self._entries.removeValue(forKey: entryId) }?.timeout()
+                }
+
+                // Two things are decided under the lock that registers the waiter, because both
+                // are races against that registration:
+                //
+                // `_result` — the read above is only a fast path, and a `resume` landing between
+                // the two caches its result and finds no waiter to hand it to, stranding this
+                // continuation on an already-resolved completer until its timeout.
+                //
+                // `Task.isCancelled` — `withTaskCancellationHandler` runs `onCancel` immediately
+                // for a task that is already cancelled, so it looks for an entry that does not
+                // exist yet and never runs again. Checking here closes both orderings: either this
+                // sees the cancellation, or `onCancel` runs after registration and finds the entry.
+                //
+                // Both outcomes are carried out of the lock and resumed after it. Resuming takes
+                // the task's status-record lock, and cancellation takes that lock before running
+                // `onCancel`, which takes `_lock` — resuming under `_lock` is the inversion that
+                // deadlocked this type on CI. Every other resume here settles outside the lock; so
+                // does this.
+                let settled: Result<T, Error>? = _lock.sync {
+                    if let _result { return _result }
+                    if Task.isCancelled { return .failure(WebSocketError(.cancelled)) }
+
+                    // Schedule time-out block
+                    let computedTimeout = (timeout?.toDispatchTimeInterval ?? _defaultTimeout)
+                    _timerQueue.asyncAfter(deadline: .now() + computedTimeout, execute: timeoutBlock)
+                    // Store entry
+                    _entries[entryId] = WaitEntry(continuation: continuation, timeoutBlock: timeoutBlock)
+
+                    return nil
+                }
+                // No entry was stored and the timer was never scheduled on this path, so nothing
+                // else can reach this continuation.
+                if let settled { continuation.resume(with: settled) }
+            }
+        } onCancel: {
+            // Cancel only this completer when Task gets cancelled
+            _lock.sync { _entries.removeValue(forKey: entryId) }?.cancel()
+        }
+    }
+}
+
+extension TimeInterval {
+    var toDispatchTimeInterval: DispatchTimeInterval { .milliseconds(Int(self * 1000)) }
+}
