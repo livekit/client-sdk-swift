@@ -86,7 +86,7 @@ struct PullTests {
     }
 
     @Test func replacingNativeCursorEndsPreviousOwner() async throws {
-        let session = NativeRoomSession()
+        let session = FfiRoom()
         let first = session.events(options: .init())
         let second = session.events(options: .init())
         defer { second.cancel(); session.cancel() }

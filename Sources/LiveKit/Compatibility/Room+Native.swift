@@ -152,7 +152,7 @@ extension Room {
     }
 
     private func finishNativeSubscription(_ track: Track, publication: RemoteTrackPublication,
-                                          participant: RemoteParticipant, session: NativeRoomSession) async
+                                          participant: RemoteParticipant, session: FfiRoom) async
     {
         await track.set(reportStatistics: track._state.reportStatistics)
         guard nativeSession.copy() === session, publication.track == nil else {

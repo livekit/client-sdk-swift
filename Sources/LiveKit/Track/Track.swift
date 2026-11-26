@@ -98,7 +98,7 @@ public class Track: NSObject, @unchecked Sendable, Loggable {
         let kind: Kind
         let source: Source
 
-        weak var nativeSession: NativeRoomSession?
+        weak var nativeSession: FfiRoom?
         var sid: Sid?
         var dimensions: Dimensions?
         var videoFrame: VideoFrame?

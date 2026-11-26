@@ -28,7 +28,8 @@ xcrun simctl list devices
 
 ```
 Sources/LiveKit/
-├── Core/                  # Room, NativeRoomDriver (Rust session owner), RTC factory
+├── Core/                  # Room and RTC factory
+├── Compatibility/         # Removable FfiRoom-to-v2 state/delegate/error adapters
 ├── Participant/           # LocalParticipant, RemoteParticipant
 ├── Track/                 # LocalAudioTrack, LocalVideoTrack, RemoteTrack, Capturers
 ├── TrackPublications/     # TrackPublication, LocalTrackPublication, RemoteTrackPublication
@@ -54,7 +55,7 @@ Key components:
 
 - `Room` - main entry point; manages connection state, participants, and tracks via `StateSync`
 - `Participant` - base class for `LocalParticipant`/`RemoteParticipant`; holds track publications
-- `NativeRoomDriver` - owns the Rust `NativeRoomSession` (signaling, peer connections, data, region failover) and projects its ordered events into `Room` state
+- `NativeRoomDriver` - adapts Rust `FfiRoom` ordered events to v2 `Room` state and delegates; Rust owns signaling, peer connections, data and region failover
 - `StateSync<T>` - thread-safe state container with `@dynamicMemberLookup`; triggers `onDidMutate` callbacks
 - `MulticastDelegate<T>` - weak-reference delegate collection for event broadcasting
 
@@ -64,7 +65,7 @@ Dependencies: LiveKitWebRTC (local capture/render), LiveKitFFI (room session).
 
 The Rust core owns the wire protocol. Native records (`NativeParticipant`,
 `NativeTrackPublication`, `NativeRoomInfo`) feed the existing `StateSync` entities
-directly (`Core/NativeRoom+Types.swift`); there is no Swift protobuf layer.
+directly (`Compatibility/NativeRoom+Types.swift`); there is no Swift protobuf layer.
 
 ## Compile-Time Flags
 

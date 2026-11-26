@@ -22,7 +22,7 @@ import Foundation
 /// Room-scoped topic handlers; native sessions own stream transport and lifetime.
 /// The weak room reference is assigned only during Room.init, before it can escape.
 final class DataStreams: NSObject, @unchecked Sendable, Loggable {
-    private func outgoing() throws -> LiveKitFFI.NativeRoomSession {
+    private func outgoing() throws -> LiveKitFFI.FfiRoom {
         guard let room else { throw LiveKitError(.invalidState, message: "Room is gone") }
         return try room.requireNativeSession(forEncryptedPayload: true)
     }
@@ -186,7 +186,7 @@ final class DataStreams: NSObject, @unchecked Sendable, Loggable {
 
     /// Runs `call` on the active native session. A cancel ends the wait at once, since the
     /// UniFFI call ignores it, and an FFI error becomes a ``StreamError``.
-    private func calling<T: Sendable>(_ call: @escaping @Sendable (LiveKitFFI.NativeRoomSession) async throws -> T) async throws -> T {
+    private func calling<T: Sendable>(_ call: @escaping @Sendable (LiveKitFFI.FfiRoom) async throws -> T) async throws -> T {
         let outgoing = try outgoing()
         do {
             return try await abandoningOnCancel { try await call(outgoing) }

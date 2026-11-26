@@ -18,9 +18,9 @@ internal import LiveKitFFI
 internal import LiveKitTransport
 import Foundation
 
-/// Owns the native lifecycle and ordered event projection. Public getters remain in Room.StateSync.
+/// Removable v2 state/delegate adapter; FfiRoom owns connection, commands and teardown.
 actor NativeRoomDriver {
-    private var session: NativeRoomSession?
+    private var session: FfiRoom?
     private var cursor: NativeRoomEventCursor?
     private var eventLoop: AnyTaskCancellable?
     private var projection: NativeRoomState?
@@ -66,7 +66,7 @@ actor NativeRoomDriver {
             room.nativeE2EE.mutate { $0 = E2EEManager(e2eeOptions: encryption) }
         }
         try Task.checkCancellation()
-        let native = NativeRoomSession()
+        let native = FfiRoom()
         let events = native.events(options: .init())
         session = native
         reportedPacketMetadataGap = false
@@ -127,7 +127,7 @@ actor NativeRoomDriver {
         }
     }
 
-    private func startEvents(_ events: NativeRoomEventCursor, session native: NativeRoomSession, room: Room) {
+    private func startEvents(_ events: NativeRoomEventCursor, session native: FfiRoom, room: Room) {
         cursor = events
         // events() replaces the session's previous cursor; this loop owns this cursor only.
         eventLoop = Task { [weak self, weak room] in
@@ -148,7 +148,7 @@ actor NativeRoomDriver {
         }.cancellable()
     }
 
-    private func eventFailure(_ error: Error, session native: NativeRoomSession, room: Room) async {
+    private func eventFailure(_ error: Error, session native: FfiRoom, room: Room) async {
         guard session === native, !closing else { return }
         if case NativeSessionError.Overflow = error {
             let replacement = native.events(options: .init())
@@ -195,7 +195,7 @@ actor NativeRoomDriver {
 
     // The exhaustive state-event projection intentionally mirrors the native event enum.
     // swiftlint:disable:next cyclomatic_complexity
-    private func receive(_ update: NativeRoomUpdate, session native: NativeRoomSession, room: Room) async {
+    private func receive(_ update: NativeRoomUpdate, session native: FfiRoom, room: Room) async {
         guard session === native, !closing, var snapshot = projection else { return }
         if receiveTransient(update.event, room: room) { return }
         guard update.revision > snapshot.revision else { return }
@@ -283,11 +283,11 @@ extension NativeRoomDriver {
         try? await synchronizeRpcMethods(on: session)
     }
 
-    private func synchronizeRpcMethods(on native: NativeRoomSession) async throws {
+    private func synchronizeRpcMethods(on native: FfiRoom) async throws {
         try await rpcOperations.run { try await self.reconcileRpcMethods(on: native) }
     }
 
-    private func reconcileRpcMethods(on native: NativeRoomSession) async throws {
+    private func reconcileRpcMethods(on native: FfiRoom) async throws {
         while session === native, !closing, projection != nil {
             if let method = confirmedRpcMethods.first(where: { handlers[$0] == nil }) {
                 do {

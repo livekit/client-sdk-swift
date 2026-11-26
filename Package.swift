@@ -36,6 +36,10 @@ let package = Package(
             .product(name: "LiveKitFFI", package: "livekit-ffi-xcframework"),
         ]),
         .testTarget(name: "LiveKitTransportTests", dependencies: ["LiveKitTransport"], exclude: ["Fixtures"]),
+        .testTarget(name: "LiveKitFfiTests", dependencies: [
+            "LiveKitTransport",
+            .product(name: "LiveKitFFI", package: "livekit-ffi-xcframework"),
+        ]),
         .target(
             name: "LKObjCHelpers",
             publicHeadersPath: "include",

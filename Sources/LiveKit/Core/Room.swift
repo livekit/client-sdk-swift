@@ -126,12 +126,12 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
     let activeParticipantCompleters = CompleterMapActor<Void>(label: "Participant active", defaultTimeout: .defaultParticipantActiveTimeout)
 
     let nativeDriver = NativeRoomDriver()
-    let nativeSession = StateSync<NativeRoomSession?>(nil)
+    let nativeSession = StateSync<FfiRoom?>(nil)
     let nativeEncryptionRequested = StateSync(false)
     let nativeE2EE = StateSync<E2EEManager?>(nil)
     let dataStreams = DataStreams()
 
-    func requireNativeSession(forEncryptedPayload: Bool = false, forMedia: Bool = false) throws -> NativeRoomSession {
+    func requireNativeSession(forEncryptedPayload: Bool = false, forMedia: Bool = false) throws -> FfiRoom {
         let options = _state.roomOptions
         let configured = options.encryptionOptions != nil || options.e2eeOptions != nil
         let encryptedOperation = (forMedia && configured) || (forEncryptedPayload && options.encryptionOptions != nil)

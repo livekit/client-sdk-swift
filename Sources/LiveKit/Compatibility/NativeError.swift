@@ -33,7 +33,7 @@ extension LiveKitError {
         case let .Rtc(_, reason): LiveKitError(.webRTC, message: reason, internalError: native)
         case let .RequestFailure(code, reason): LiveKitError(code == .notAllowed ? .insufficientPermissions : .invalidState, message: reason, internalError: native)
         case let .Signal(failure): from(signal: failure, original: native)
-        case .Request, .Internal, .Overflow: LiveKitError(.unknown, internalError: native)
+        case .Internal, .Overflow: LiveKitError(.unknown, internalError: native)
         @unknown default: LiveKitError(.unknown, internalError: native)
         }
     }
