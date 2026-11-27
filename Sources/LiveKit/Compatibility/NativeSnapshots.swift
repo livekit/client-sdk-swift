@@ -40,24 +40,25 @@ struct NativeParticipant: Equatable, Sendable {
 
 extension NativeParticipant {
     init(_ ffi: FfiParticipant) {
-        identity = ffi.identity()
-        sid = ffi.sid()
+        let values = ffi.observeState().state().values
+        identity = values.identity
+        sid = values.sid
         isLocal = ffi.isLocal()
-        name = ffi.name()
-        state = ffi.state()
-        kind = ffi.kind()
-        kindDetails = ffi.kindDetails()
-        metadata = ffi.metadata()
-        attributes = ffi.attributes()
-        isSpeaking = ffi.isSpeaking()
-        audioLevel = ffi.audioLevel()
-        connectionQuality = ffi.connectionQuality()
-        joinedAt = ffi.joinedAt()
-        permission = ffi.permission().map(NativeParticipantPermission.init)
-        isEncrypted = ffi.isEncrypted()
-        disconnectReason = ffi.disconnectReason()
-        clientProtocol = ffi.clientProtocol()
-        capabilities = ffi.capabilities()
+        name = values.name
+        state = values.state
+        kind = values.kind
+        kindDetails = values.kindDetails
+        metadata = values.metadata
+        attributes = values.attributes
+        isSpeaking = values.speaking
+        audioLevel = values.audioLevel
+        connectionQuality = values.connectionQuality
+        joinedAt = values.joinedAt
+        permission = values.permission.map(NativeParticipantPermission.init)
+        isEncrypted = values.isEncrypted
+        disconnectReason = values.disconnectReason
+        clientProtocol = values.clientProtocol
+        capabilities = isLocal ? nil : values.capabilities
     }
 }
 
@@ -79,19 +80,27 @@ struct NativeTrackPublication: Equatable, Sendable {
 extension NativeTrackPublication {
     init(_ entry: FfiPublication) {
         let ffi = entry.publication
-        sid = ffi.sid()
+        let snapshot = ffi.observeState().state()
+        let values = snapshot.values
+        let track = snapshot.track?.observeState().state().values
+        sid = values.sid
         participantIdentity = entry.participant.identity()
-        name = ffi.name()
-        kind = ffi.kind()
-        source = ffi.source()
-        isMuted = ffi.isMuted()
-        simulcasted = ffi.simulcasted()
-        width = ffi.dimensions().width()
-        height = ffi.dimensions().height()
-        mimeType = ffi.mimeType()
-        encryptionType = ffi.encryptionType()
-        remote = ffi.remote().map {
-            NativeRemotePublicationState(subscriptionStatus: $0.subscriptionStatus(), permissionStatus: $0.permissionStatus(), isEnabled: $0.isEnabled(), streamState: $0.mediaTrack()?.streamState())
+        name = values.name
+        kind = values.kind
+        source = values.source
+        // Child state has its own revision; this v2 adapter makes no aggregate atomicity claim.
+        isMuted = ffi.isRemote() ? values.muted : track?.muted ?? values.muted
+        simulcasted = values.simulcasted
+        width = values.width
+        height = values.height
+        mimeType = values.mimeType
+        encryptionType = values.encryptionType
+        remote = values.desired.map { desired in
+            NativeRemotePublicationState(subscriptionStatus: !desired ? .unsubscribed : snapshot.track == nil ? .desired : .subscribed,
+                                         permissionStatus: values.allowed == true ? .allowed : .notAllowed,
+                                         // Native-owned values stay Rust-mediated live queries.
+                                         isEnabled: snapshot.track?.isEnabled() ?? false,
+                                         streamState: track?.streamState)
         }
     }
 }
@@ -112,6 +121,15 @@ struct NativeRoomState: Equatable, Sendable {
     var localParticipant: NativeParticipant?
     var remoteParticipants: [NativeParticipant]
     var publications: [NativeTrackPublication]
+}
+
+extension NativeRoomState {
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.dataTracks == rhs.dataTracks && lhs.connection == rhs.connection
+            && lhs.disconnectReason == rhs.disconnectReason && lhs.room == rhs.room
+            && lhs.localParticipant == rhs.localParticipant && lhs.remoteParticipants == rhs.remoteParticipants
+            && lhs.publications == rhs.publications
+    }
 }
 
 extension NativeRoomState {

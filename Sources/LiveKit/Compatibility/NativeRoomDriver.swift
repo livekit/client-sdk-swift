@@ -23,6 +23,7 @@ actor NativeRoomDriver {
     private var session: FfiRoom?
     private var cursor: NativeRoomEventCursor?
     private var eventLoop: AnyTaskCancellable?
+    private var stateLoop: AnyTaskCancellable?
     private var projection: NativeRoomState?
     private struct RpcRegistration {
         let id = UUID()
@@ -80,9 +81,10 @@ actor NativeRoomDriver {
             $0.connectionState = .connecting
         }
         do {
-            let snapshot = try await cancellingNative({ native.cancel() }) {
-                try await NativeRoomState(native.connect(url: url, token: token, options: nativeOptions))
+            let connected = try await cancellingNative({ native.cancel() }) {
+                try await native.connect(url: url, token: token, options: nativeOptions)
             }
+            let snapshot = try await initialState(native, connected: connected)
             try Task.checkCancellation()
             guard session === native, !closing else { throw CancellationError() }
             projection = snapshot
@@ -94,6 +96,7 @@ actor NativeRoomDriver {
             await room.applyNativeMedia(snapshot)
             guard session === native, !closing else { throw CancellationError() }
             startEvents(events, session: native, room: room)
+            startStateObservation(native, room: room)
         } catch {
             if session === native, !closing { await disconnect(room: room, error: error) }
             throw LiveKitError.from(error: error) ?? LiveKitError(.invalidState, message: String(describing: error))
@@ -110,6 +113,7 @@ actor NativeRoomDriver {
         room.nativeRoom.mutate { $0 = nil }
         room._state.mutate { if $0.connectionState != .connecting { $0.connectionState = .disconnecting } }
         eventLoop = nil
+        stateLoop = nil
         rpcTasks.removeAll()
         let events = cursor
         await Task.detached { events?.cancel() }.value
@@ -132,6 +136,25 @@ actor NativeRoomDriver {
         for waiter in waiters {
             waiter.resume()
         }
+    }
+
+    private func startStateObservation(_ native: FfiRoom, room: Room) {
+        stateLoop = native.states.subscribe(self) { [weak room] driver, state in
+            guard let room else { return }
+            await driver.receiveRoomValues(state.values, native: native, room: room)
+        } onFailure: { [weak room] _, error in
+            room?.log("Native state observation ended: \(error)", .warning)
+        }
+    }
+
+    private func receiveRoomValues(_ values: NativeRoomValues, native: FfiRoom, room: Room) {
+        guard session === native, !closing, var info = values.room, projection != nil else { return }
+        // Metadata and connection transitions remain event-owned for v2 delegates.
+        // Other room values no longer depend on RoomUpdated delta events.
+        info.metadata = projection?.room?.metadata ?? info.metadata
+        guard info != projection?.room else { return }
+        projection?.room = info
+        room.applyNativeRoomValues(info)
     }
 
     private func startEvents(_ events: NativeRoomEventCursor, session native: FfiRoom, room: Room) {
@@ -196,11 +219,14 @@ actor NativeRoomDriver {
             room.nativeDataTrackUnpublished(sid: sid, identity: identity)
             return true
         case .dtmfReceived: return true // The public Swift API has no DTMF receive callback.
+        case .roomUpdated: return true // Authoritative room observation replaces this state-only delta.
         default: return false
         }
     }
 
-    // The exhaustive state-event projection intentionally mirrors the native event enum.
+    // This projection preserves v2 ordered delegate transitions and membership.
+    // Coalescing observations cannot replace it: an A→B→A name change must still
+    // deliver both event-owned values. Core values come from immutable observations.
     // swiftlint:disable:next cyclomatic_complexity
     private func receive(_ update: NativeRoomUpdate, session native: FfiRoom, room: Room) async {
         guard session === native, !closing, var snapshot = projection else { return }
@@ -213,7 +239,8 @@ actor NativeRoomDriver {
         case let .disconnected(reason):
             await disconnect(room: room, error: reason == .clientInitiated ? nil : LiveKitError(reason.lkErrorType))
             return
-        case let .roomUpdated(info), let .roomMetadataChanged(info, _), let .roomMoved(info): snapshot.room = info
+        case let .roomMetadataChanged(info, _): snapshot.room?.metadata = info.metadata
+        case let .roomMoved(info): snapshot.room = info
         case let .tokenRefreshed(token): room._state.mutate { $0.token = token }
         case let .participantDisconnected(participant):
             let participant = NativeParticipant(participant)
@@ -268,6 +295,19 @@ actor NativeRoomDriver {
 }
 
 extension NativeRoomDriver {
+    private func initialState(_ native: FfiRoom, connected: FfiRoomState) async throws -> NativeRoomState {
+        var states = native.states.makeAsyncIterator()
+        guard let initial = try await states.next() else { throw CancellationError() }
+        // Keep the ordered cursor's membership baseline. Child values are owned
+        // observations, and room values come from the authoritative state stream.
+        var snapshot = NativeRoomState(connected)
+        if var info = initial.values.room {
+            info.metadata = snapshot.room?.metadata ?? info.metadata
+            snapshot.room = info
+        }
+        return snapshot
+    }
+
     func registerRpcMethod(_ method: String, handler: @escaping RpcHandler) async throws {
         guard handlers[method] == nil else { throw LiveKitError(.invalidState, message: "RPC handler already registered") }
         let registration = RpcRegistration(handler: handler)

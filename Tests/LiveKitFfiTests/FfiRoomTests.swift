@@ -68,6 +68,83 @@ struct FfiRoomTests {
         #expect(releasedTrack == nil)
     }
 
+    @Test func generatedTypedObservationOwnsValuesAndCancellation() async throws {
+        LiveKitTransport.initialize()
+        let url = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"] ?? "ws://127.0.0.1:19980"
+        let room = FfiRoom()
+        let events = room.events(options: .init())
+        defer { events.cancel(); room.cancel() }
+        let source = try await room.createAudioTrack(name: "observed", channels: 1)
+        let track = try source.info()
+        let initial = try await room.connect(url: url, token: roomToken(name: "observe-\(UUID())"), options: startupOptions(track: track))
+        let participant = try #require(initial.localParticipant)
+        let publication = try #require(initial.publications.first?.publication)
+        let observer = participant.observeState()
+        let sibling = participant.observeState()
+        let historical = try #require(await observer.stateDidChange(since: nil))
+        let trackObserver = track.observeState()
+        let historicalTrack = trackObserver.state()
+        let publicationState = publication.observeState().state()
+        #expect(publicationState.values.publishOptions?.source == .microphone)
+        #expect(publicationState.track?.name() == "observed")
+        try await room.setMetadata(metadata: "direct metadata")
+        try await expectMetadata(events: events, after: initial.revision)
+        let changed = try #require(await observer.stateDidChange(since: historical.revision))
+        #expect(changed.values.metadata == "direct metadata")
+        #expect(historical.values.metadata != changed.values.metadata)
+        #expect(await sibling.stateDidChange(since: historical.revision)?.values.metadata == "direct metadata")
+        try await source.setMuted(muted: true)
+        #expect(await trackObserver.stateDidChange(since: historicalTrack.revision)?.values.muted == true)
+        #expect(!historicalTrack.values.muted)
+        await Task.detached { observer.cancel() }.value
+        #expect(await observer.stateDidChange(since: changed.revision) == nil)
+        #expect(room.state().connection == .connected)
+        try await room.disconnect()
+        let terminal = sibling.state()
+        #expect(terminal.terminal)
+        #expect(await sibling.stateDidChange(since: terminal.revision) == nil)
+        #expect(!trackObserver.state().terminal, "Local tracks retain their reusable lifetime")
+    }
+
+    @Test func remoteRemovalFinishesOnlyRemovedObjects() async throws {
+        LiveKitTransport.initialize()
+        let url = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"] ?? "ws://127.0.0.1:19980"
+        let name = "removed-\(UUID())"
+        let receiver = FfiRoom()
+        let sender = FfiRoom()
+        let events = receiver.events(options: .init())
+        defer { events.cancel(); receiver.cancel(); sender.cancel() }
+        _ = try await receiver.connect(url: url, token: roomToken(name: name), options: .init())
+        let audio = try await sender.createAudioTrack(name: "remote observation", channels: 1)
+        _ = try await sender.connect(url: url, token: roomToken(name: name, identity: "sender"), options: startupOptions(track: audio.info()))
+        let entry = try await subscribedPublication(events)
+        let participant = entry.participant.observeState()
+        let publication = entry.publication.observeState()
+        let original = publication.state()
+        let track = try #require(original.track).observeState()
+        #expect(!participant.state().terminal)
+        #expect(!original.terminal)
+        #expect(!track.state().terminal)
+        try await sender.disconnect()
+        while let update = try await events.next() {
+            if case .participantDisconnected = update.event { break }
+        }
+        #expect(participant.state().terminal)
+        #expect(publication.state().terminal)
+        #expect(track.state().terminal)
+        #expect(!original.terminal, "Historical values do not change on removal")
+        #expect(receiver.state().connection == .connected)
+        #expect(await publication.stateDidChange(since: publication.state().revision) == nil)
+        try await receiver.disconnect()
+    }
+
+    private func subscribedPublication(_ events: NativeRoomEventCursor) async throws -> FfiPublication {
+        while let update = try await events.next() {
+            if case let .trackSubscribed(publication, _) = update.event { return publication }
+        }
+        throw FfiRoomError.Closed
+    }
+
     private func expectMetadata(events: NativeRoomEventCursor, after revision: UInt64) async throws {
         var received = false
         while let update = try await events.next() {
@@ -98,14 +175,14 @@ struct FfiRoomTests {
         return try FfiRoomOptions().withPublishTrack(track: track, publishOptions: publish)
     }
 
-    private func roomToken(name: String) throws -> String {
+    private func roomToken(name: String, identity: String = "direct") throws -> String {
         try tokenGenerate(options: .init(videoGrants: .init(
             roomCreate: false, roomList: false, roomRecord: false, roomAdmin: false,
             roomJoin: true, room: name, destinationRoom: "", canPublish: true,
             canSubscribe: true, canPublishData: true, canPublishSources: [],
             canUpdateOwnMetadata: true, ingressAdmin: false, hidden: false,
             recorder: false, agent: false,
-        ), identity: "direct"), credentials: .init(key: "devkey", secret: "secret"))
+        ), identity: identity), credentials: .init(key: "devkey", secret: "secret"))
     }
 
     @Test func cancellationBeforeConnect() async throws {

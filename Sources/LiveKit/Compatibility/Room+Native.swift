@@ -18,6 +18,10 @@ internal import LiveKitFFI
 import Foundation
 
 extension Room {
+    @nonobjc func applyNativeRoomValues(_ info: NativeRoomInfo) {
+        _state.mutate { $0.apply(roomInfo: info) }
+    }
+
     @nonobjc func applyNativeSnapshot(_ snapshot: NativeRoomState, restoreDataTracks: Bool = false, restoreMedia: Bool = false) async {
         guard let native = nativeRoom.copy() else { return }
         if let info = snapshot.room { _state.mutate { $0.apply(roomInfo: info) } }

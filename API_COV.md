@@ -49,19 +49,48 @@ No published LiveKitFFI package has the room API. `Package.swift` reads the pack
 from `LIVEKIT_FFI_PACKAGE_PATH` when set, otherwise from `../livekit-ffi-xcframework`
 relative to this package. This is a local package directory, not a published dependency.
 
-To build the macOS package, you need Rust, Xcode and `tera` (`cargo install tera-cli`).
+Build the matching macOS arm64 package using the Rust checkout's existing
+cargo-make flow (pinned cargo-swift / UniFFI 0.31.1):
 
-1. Get the Rust branch from https://github.com/livekit/rust-sdks/pull/1739 with its submodules.
-2. In the Rust checkout, build the host library:
-   `cargo rustc -p livekit-ffi --lib --crate-type cdylib --no-default-features --features room-apis-host-transport`
-3. Assemble the package. The script deletes the output directory first:
-   `sh livekit-ffi/support/swift/package-room-macos.sh . target/debug/liblivekit_ffi.dylib <output directory>`
-4. Move the output directory to `../livekit-ffi-xcframework`, or set `LIVEKIT_FFI_PACKAGE_PATH`.
-5. In this checkout, build the SDK:
-   `xcodebuild build -scheme LiveKit -destination 'platform=macOS'`
+```sh
+cd livekit-ffi
+SPM_PLATFORMS=macos SPM_TARGET_FLAG='--target aarch64-apple-darwin' cargo make swift-room-host-package
+```
 
-The macOS packaging command above produces only the macOS arm64 slice. For the iOS slices, see
-`build-room-ios.sh` and `package-room-apple.sh` in `livekit-ffi/README.md` of the Rust branch.
+Set `LIVEKIT_FFI_PACKAGE_PATH` to the resulting
+`livekit-ffi/packages/swift/LiveKitFFI` directory before building this SDK.
+The generated package deliberately uses Swift 5; the consuming SDK supports
+Swift 5 and Swift 6. Forcing Swift 6 onto the generated dependency exposes an
+existing UniFFI 0.31.1 static-vtable concurrency diagnostic.
+
+## Core-owned state observation
+
+`FfiRoom`, `FfiParticipant`, `FfiTrackPublication`, and `FfiTrack` expose
+`observeState()`. Its typed observer supplies `state()` and
+`stateDidChange(since:)`; pass `nil` for an immediate initial value and the last
+revision for a race-free wait. The internal generic `NativeStateObservation`
+provides the corresponding `.states` async sequence with independent iterator
+cancellation. Native cancellation remains deferred through the existing helper
+to avoid the pinned UniFFI cancellation-handler deadlock.
+
+Each snapshot owns its core values. Compare `.values` separately from revision;
+live child handles are explicitly separate and have their own observations.
+There is no atomic snapshot across objects. Revisions belong to one object
+instance, may coalesce, and may advance without changing value content.
+Removal publishes a terminal value before EOF; reconnect is not terminal and
+unpublishing a local track leaves that reusable track alive.
+
+WebRTC-owned enabled/codec properties remain live queries through the existing
+Rust/UniFFI objects, outside snapshot revision and equality. Rust remains the
+owner as WebRTC moves under Rust; future native notifications can extend that
+boundary without introducing mobile ownership or a new Swift WebRTC dependency.
+Existing dual-library compatibility is unchanged.
+
+The v2 adapter now reads coherent per-object values and observes room-only
+value changes. Ordered membership, metadata and connection delegates, RPC,
+data and media events retain their event cursor: coalescing observation cannot
+replace their historical transitions. This intentionally retains the v2
+compatibility projection for ordered events.
 
 ## Host network transport
 
