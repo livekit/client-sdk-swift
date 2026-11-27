@@ -73,9 +73,3 @@ public final class VideoCodec: NSObject, Codec {
         "VideoCodec(name: \(name))"
     }
 }
-
-extension Livekit_SubscribedCodec {
-    func toVideoCodec() -> VideoCodec? {
-        VideoCodec.from(name: codec)
-    }
-}

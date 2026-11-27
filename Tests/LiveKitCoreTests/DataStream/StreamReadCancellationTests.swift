@@ -133,7 +133,7 @@ extension ByteStreamReaderTests {
         let (capture, manager) = try await openStalledReader(kind, streamID: id)
         defer { manager.abortAllStreams() }
         let reader = try #require(capture.take())
-        feed(manager) { $0.streamTrailer = Livekit_DataStream.Trailer.with { $0.streamID = id } }
+        manager.finish()
         let open = await manager.openStreamCount()
         #expect(open == 0)
         let task = Task {
@@ -182,7 +182,7 @@ extension ByteStreamReaderTests {
         let reader = try #require(capture.take())
         let all = Task { try await reader.readPayload() }
         try await capture.signals.readEntered.wait()
-        feed(manager) { $0.streamChunk = Livekit_DataStream.Chunk.with { $0.streamID = id; $0.content = Data("abc".utf8) } }
+        manager.push(Data("abc".utf8))
         try await paused.wait()
         let started = AsyncCompleter<Void>(label: "Iterator started", defaultTimeout: 5)
         let iterator = Task {
@@ -194,8 +194,8 @@ extension ByteStreamReaderTests {
         await #expect {
             try await otherEntered.wait(timeout: 0.05)
         } throws: { ($0 as? LiveKitError)?.type == .timedOut }
-        feed(manager) { $0.streamChunk = Livekit_DataStream.Chunk.with { $0.streamID = id; $0.chunkIndex = 1; $0.content = Data("de".utf8) } }
-        feed(manager) { $0.streamTrailer = Livekit_DataStream.Trailer.with { $0.streamID = id } }
+        manager.push(Data("de".utf8))
+        manager.finish()
         release.resume(returning: ())
         let payload = try await within("Exclusive aggregate completed") { try await all.value }
         #expect(payload == Data("abcde".utf8))

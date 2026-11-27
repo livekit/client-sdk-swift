@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 import Foundation
 
 @objcMembers
@@ -42,15 +43,5 @@ public final class ParticipantTrackPermission: NSObject, Sendable {
         self.participantSid = participantSid
         self.allTracksAllowed = allTracksAllowed
         self.allowedTrackSids = allowedTrackSids
-    }
-}
-
-extension ParticipantTrackPermission {
-    func toPBType() -> Livekit_TrackPermission {
-        Livekit_TrackPermission.with {
-            $0.participantSid = self.participantSid
-            $0.allTracks = self.allTracksAllowed
-            $0.trackSids = self.allowedTrackSids
-        }
     }
 }

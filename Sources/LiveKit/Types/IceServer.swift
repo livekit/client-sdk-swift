@@ -40,12 +40,3 @@ extension IceServer {
         LKRTCIceServer(urlStrings: urls, username: username, credential: credential)
     }
 }
-
-extension Livekit_ICEServer {
-    func toRTCType() -> LKRTCIceServer {
-        let rtcUsername = !username.isEmpty ? username : nil
-        let rtcCredential = !credential.isEmpty ? credential : nil
-        // Plain value object, no libwebrtc proxy: nothing to wait on.
-        return LKRTCIceServer(urlStrings: urls, username: rtcUsername, credential: rtcCredential)
-    }
-}

@@ -16,43 +16,61 @@
 
 import Foundation
 @testable import LiveKit
-import LiveKitWebRTC
+import LiveKitFFI
 import Testing
+#if canImport(LiveKitTestSupport)
+import LiveKitTestSupport
+#endif
 
-@Suite(.tags(.dataChannel, .e2ee))
+/// Who a received data packet is attributed to.
+///
+/// The native core reads the sender from the server-stamped packet identity and hands Swift only
+/// that typed identity, so a forged inner identity cannot reach Swift through the public API. The
+/// end-to-end case proves attribution to the server-stamped sender on the wire; the unit case pins
+/// the Swift mapping from a core identity that names no known participant.
+@Suite(.serialized, .tags(.dataChannel, .e2ee))
 struct DataSenderAttributionTests {
-    @Test(arguments: ["B", ""], [false, true])
-    func serverStampedSenderWins(inner: String, encrypted: Bool) async throws {
-        let deliveries = try await receive(outer: "A", inner: inner, encrypted: encrypted)
-        let expected = expectedDelivery(sender: "A", encrypted: encrypted)
-        #expect(deliveries.room == [expected])
-        #expect(deliveries.a == [expected])
-        #expect(deliveries.b.isEmpty)
+    /// The sender's data is attributed to it in the room and participant delegates, and not to a
+    /// bystander. Encrypted packets should report `.gcm`; the native core omits that metadata
+    /// today (API_COV), so the encrypted case keeps that expectation as a known failing regression.
+    @Test(.tags(.e2e), arguments: [false, true])
+    func serverStampedSenderWins(encrypted: Bool) async throws {
+        let receiver = DataReceiver()
+        let options = [
+            RoomTestingOptions(identity: "A", isE2eeEnabled: encrypted, canPublishData: true),
+            RoomTestingOptions(identity: "B", isE2eeEnabled: encrypted, canPublishData: true),
+            RoomTestingOptions(delegate: receiver, identity: "R", isE2eeEnabled: encrypted, canSubscribe: true),
+        ]
+        try await TestEnvironment.withRooms(options) { rooms in
+            let observer = rooms[2]
+            let a = try #require(observer.remoteParticipants[Participant.Identity(from: "A")])
+            let b = try #require(observer.remoteParticipants[Participant.Identity(from: "B")])
+            let aReceiver = DataReceiver()
+            let bReceiver = DataReceiver()
+            a.add(delegate: aReceiver)
+            b.add(delegate: bReceiver)
+
+            try await rooms[0].localParticipant.publish(data: Data("payload".utf8), options: DataPublishOptions(topic: "topic", reliable: true))
+            try await poll(timeout: 15, for: "the payload at the observer") {
+                !receiver.deliveries.copy().isEmpty && !aReceiver.deliveries.copy().isEmpty
+            }
+
+            let expected = Delivery(sender: "A", payload: Data("payload".utf8), topic: "topic", encryptionType: encrypted ? .gcm : .none)
+            #expect(receiver.deliveries.copy().map(\.sender) == ["A"])
+            #expect(aReceiver.deliveries.copy().map(\.sender) == ["A"])
+            #expect(bReceiver.deliveries.copy().isEmpty)
+            #expect(receiver.deliveries.copy() == [expected])
+        }
     }
 
-    @Test(arguments: ["", "H"], [false, true])
-    func unknownSenderIsUnattributed(outer: String, encrypted: Bool) async throws {
-        let deliveries = try await receive(outer: outer, inner: "B", encrypted: encrypted)
-        let expected = expectedDelivery(sender: nil, encrypted: encrypted)
-        #expect(deliveries.room == [expected])
-        #expect(deliveries.a.isEmpty)
-        #expect(deliveries.b.isEmpty)
-    }
-
-    private func receive(outer: String, inner: String, encrypted: Bool,
-                         sourceLocation: SourceLocation = #_sourceLocation) async throws -> ReceivedDeliveries
-    {
+    /// A core identity that is empty or names nobody in the room reaches the room delegate without a
+    /// participant, and no participant delegate.
+    @Test(arguments: ["", "H"])
+    func unknownSenderIsUnattributed(identity: String) async {
         let room = Room()
-        // Avoid connection-state callbacks that initialize the lazy local participant.
         room._state.onDidMutate = nil
-        let a = RemoteParticipant(info: .with {
-            $0.identity = "A"
-            $0.sid = "PA_A"
-        }, room: room, connectionState: .connected)
-        let b = RemoteParticipant(info: .with {
-            $0.identity = "B"
-            $0.sid = "PA_B"
-        }, room: room, connectionState: .connected)
+        let a = RemoteParticipant(info: participant("A"), publications: [], room: room, connectionState: .connected)
+        let b = RemoteParticipant(info: participant("B"), publications: [], room: room, connectionState: .connected)
         room._state.mutate {
             $0.remoteParticipants = [Participant.Identity(from: "A"): a, Participant.Identity(from: "B"): b]
             $0.connectionState = .connected
@@ -63,71 +81,44 @@ struct DataSenderAttributionTests {
         room.add(delegate: roomReceiver)
         a.add(delegate: aReceiver)
         b.add(delegate: bReceiver)
-        let pair = DataChannelPair(delegate: room)
-        var packet = Livekit_DataPacket.with {
-            $0.participantIdentity = outer
-            $0.user = .with {
-                $0.participantIdentity = inner
-                $0.payload = Data("payload".utf8)
-                $0.topic = "topic"
-            }
-        }
-        if encrypted {
-            let keys = BaseKeyProvider(options: KeyProviderOptions(sharedKey: true))
-            keys.setKey(key: "sender-attribution-test-key")
-            let manager = E2EEManager(options: EncryptionOptions(keyProvider: keys))
-            manager.addDataChannelCryptor()
-            pair.set(e2eeManager: manager)
-            let cryptor = try #require(LKRTCDataPacketCryptor(algorithm: .aesGcm, keyProvider: keys.rtcKeyProvider), sourceLocation: sourceLocation)
-            packet = try encrypt(packet, for: cryptor, sourceLocation: sourceLocation)
-        }
-        try pair.handle(received: packet.serializedData(), isReliable: true)
-        await pair.delegates.notifyAsync { _ in }
+
+        room.didReceive(data: Data("payload".utf8), topic: "topic", participantIdentity: identity)
         await room.delegates.notifyAsync { _ in }
         await a.delegates.notifyAsync { _ in }
         await b.delegates.notifyAsync { _ in }
-        return ReceivedDeliveries(room: roomReceiver.deliveries.copy(), a: aReceiver.deliveries.copy(), b: bReceiver.deliveries.copy())
+
+        #expect(roomReceiver.deliveries.copy() == [Delivery(sender: nil, payload: Data("payload".utf8), topic: "topic", encryptionType: .none)])
+        #expect(aReceiver.deliveries.copy().isEmpty)
+        #expect(bReceiver.deliveries.copy().isEmpty)
     }
 
-    private func encrypt(_ packet: Livekit_DataPacket, for cryptor: LKRTCDataPacketCryptor,
-                         sourceLocation: SourceLocation = #_sourceLocation) throws -> Livekit_DataPacket
-    {
-        let payload = Livekit_EncryptedPacketPayload.with { $0.user = packet.user }
-        let payloadData = try payload.serializedData()
-        let ciphertext = try #require(cryptor.encrypt("A", keyIndex: 0, data: payloadData), sourceLocation: sourceLocation)
-        return packet.modifying { $0.encryptedPacket = Livekit_EncryptedPacket(rtcPacket: ciphertext) }
+    private func participant(_ identity: String) -> LiveKitFFI.ParticipantInfo {
+        LiveKitFFI.ParticipantInfo(isEncrypted: false, sid: "PA_\(identity)", identity: identity, name: "",
+                                   state: .active, metadata: "", attributes: [:], speaking: false, audioLevel: 0,
+                                   connectionQuality: .good, kind: .standard, kindDetails: [],
+                                   disconnectReason: .unknownReason, joinedAt: 0, permission: nil, clientProtocol: 2, capabilities: [])
     }
-
-    private func expectedDelivery(sender: String?, encrypted: Bool) -> Delivery {
-        Delivery(sender: sender, payload: Data("payload".utf8), topic: "topic", encryptionType: encrypted ? .gcm : .none)
-    }
-}
-
-private struct ReceivedDeliveries {
-    let room: [Delivery]
-    let a: [Delivery]
-    let b: [Delivery]
 }
 
 private struct Delivery: Equatable {
     let sender: String?
     let payload: Data
     let topic: String
-    let encryptionType: EncryptionType
+    let encryptionType: LiveKit.EncryptionType
 }
 
 private final class DataReceiver: RoomDelegate, ParticipantDelegate, Sendable {
     let deliveries = StateSync([Delivery]())
 
-    func room(_: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType) {
+    func room(_: Room, participant: RemoteParticipant?, didReceiveData data: Data, forTopic topic: String, encryptionType: LiveKit.EncryptionType) {
         record(participant, data: data, topic: topic, encryptionType: encryptionType)
     }
 
-    func participant(_ participant: RemoteParticipant, didReceiveData data: Data, forTopic topic: String, encryptionType: EncryptionType) {
+    func participant(_ participant: RemoteParticipant, didReceiveData data: Data, forTopic topic: String, encryptionType: LiveKit.EncryptionType) {
         record(participant, data: data, topic: topic, encryptionType: encryptionType)
     }
 
-    private func record(_ participant: RemoteParticipant?, data: Data, topic: String, encryptionType: EncryptionType) {
+    private func record(_ participant: RemoteParticipant?, data: Data, topic: String, encryptionType: LiveKit.EncryptionType) {
         let delivery = Delivery(sender: participant?.identity?.stringValue, payload: data, topic: topic, encryptionType: encryptionType)
         deliveries.mutate { $0.append(delivery) }
     }

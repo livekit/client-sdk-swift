@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -27,9 +28,9 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         _state.dataTracks.reduce(into: [:]) { $0[$1.name] = $1 }
     }
 
-    init(info: Livekit_ParticipantInfo, room: Room, connectionState: ConnectionState) {
+    init(info: LiveKitFFI.ParticipantInfo, publications: [NativeTrackPublication], room: Room, connectionState: ConnectionState) {
         super.init(room: room, sid: Participant.Sid(from: info.sid), identity: Participant.Identity(from: info.identity))
-        set(info: info, connectionState: connectionState)
+        set(info: info, publications: publications, connectionState: connectionState)
     }
 
     /// Adds the track, returning `false` if this exact track is already attached. Identity-based
@@ -60,13 +61,13 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         _state.mutate { $0.dataTracks = [] }
     }
 
-    override func set(info: Livekit_ParticipantInfo, connectionState: ConnectionState) {
-        super.set(info: info, connectionState: connectionState)
+    override func set(info: LiveKitFFI.ParticipantInfo, publications: [NativeTrackPublication], connectionState: ConnectionState) {
+        super.set(info: info, publications: publications, connectionState: connectionState)
 
         var validTrackPublications = [Track.Sid: RemoteTrackPublication]()
         var newTrackPublications = [Track.Sid: RemoteTrackPublication]()
 
-        for trackInfo in info.tracks {
+        for trackInfo in publications where trackInfo.participantIdentity == info.identity {
             let trackSid = Track.Sid(from: trackInfo.sid)
             var publication = _state.trackPublications[trackSid] as? RemoteTrackPublication
             if publication == nil {
@@ -107,72 +108,6 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
                     self.log("Failed to unpublish with error: \(error)")
                 }
             }
-        }
-    }
-
-    private func notifyDidFailToSubscribe(trackSid: Track.Sid, room: Room, message: String) -> LiveKitError {
-        let error = LiveKitError(.invalidState, message: message)
-        delegates.notify(label: { "participant.didFailToSubscribe trackSid: \(trackSid)" }) {
-            $0.participant?(self, didFailToSubscribeTrackWithSid: trackSid, error: error)
-        }
-        room.delegates.notify(label: { "room.didFailToSubscribe trackSid: \(trackSid)" }) {
-            $0.room?(room, participant: self, didFailToSubscribeTrackWithSid: trackSid, error: error)
-        }
-        return error
-    }
-
-    func addSubscribedMediaTrack(mediaTrack: RTCMediaTrack, rtpReceiver: RTCReceiver, trackSid: Track.Sid) async throws {
-        let room = try requireRoom()
-        let track: Track
-
-        guard let publication = trackPublications[trackSid] as? RemoteTrackPublication else {
-            log("Could not subscribe to mediaTrack \(trackSid), unable to locate track publication. existing sids: (\(_state.trackPublications.keys.map { String(describing: $0) }.joined(separator: ", ")))", .error)
-            throw notifyDidFailToSubscribe(trackSid: trackSid, room: room,
-                                           message: "Could not find published track with sid: \(trackSid)")
-        }
-
-        // Constructed on the RTC executor: attaching the audio sink an audio track needs is a
-        // signaling-thread BlockingCall, and this runs on a cooperative-pool task.
-        let reportStatistics = room._state.roomOptions.reportRemoteTrackStatistics
-
-        switch mediaTrack.kind {
-        case "audio":
-            track = await RTC.run { () -> Track in
-                RemoteAudioTrack(name: publication.name,
-                                 source: publication.source,
-                                 track: mediaTrack,
-                                 reportStatistics: reportStatistics)
-            }
-        case "video":
-            track = await RTC.run { () -> Track in
-                RemoteVideoTrack(name: publication.name,
-                                 source: publication.source,
-                                 track: mediaTrack,
-                                 reportStatistics: reportStatistics)
-            }
-        default:
-            throw notifyDidFailToSubscribe(trackSid: trackSid, room: room,
-                                           message: "Unsupported type: \(mediaTrack.kind)")
-        }
-
-        await publication.set(track: track)
-        publication.set(subscriptionAllowed: true)
-
-        if let transport = room._state.transport?.subscriber {
-            await track.set(transport: transport, rtpReceiver: rtpReceiver)
-        } else {
-            log("Transport is nil", .error)
-        }
-
-        add(publication: publication)
-
-        try await track.start()
-
-        delegates.notify(label: { "participant.didSubscribe \(publication)" }) {
-            $0.participant?(self, didSubscribeTrack: publication)
-        }
-        room.delegates.notify(label: { "room.didSubscribe \(publication)" }) {
-            $0.room?(room, participant: self, didSubscribeTrack: publication)
         }
     }
 

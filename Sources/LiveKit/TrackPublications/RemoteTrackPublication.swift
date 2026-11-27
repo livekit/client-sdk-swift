@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 
 @objc
@@ -39,10 +40,10 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     // this must be on .main queue
     private var _asTimer = AsyncTimer(interval: 0.3)
 
-    override func updateFromInfo(info: Livekit_TrackInfo) {
+    override func updateFromInfo(info: NativeTrackPublication) {
         super.updateFromInfo(info: info)
-        track?.set(muted: info.muted)
-        set(metadataMuted: info.muted)
+        track?.set(muted: info.isMuted)
+        set(metadataMuted: info.isMuted)
     }
 
     override public var isSubscribed: Bool {
@@ -59,28 +60,21 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
         return isSubscribed ? .subscribed : .unsubscribed
     }
 
+    // swiftformat:disable unusedArguments
+
     /// Subscribe or unsubscribe from this track.
     public func set(subscribed newValue: Bool) async throws {
-        guard _state.isSubscribePreferred != newValue else { return }
-
         let participant = try await requireParticipant()
         let room = try participant.requireRoom()
-
-        guard let participantSid = participant.sid else { return }
-
+        guard let identity = participant.identity else { throw LiveKitError(.invalidState) }
+        do {
+            let native = try room.requireNativeRoom().publication(identity: identity.stringValue, sid: sid.stringValue)
+            try await native.setSubscribed(subscribed: newValue)
+        } catch { throw LiveKitError.mappingNative(error) }
         _state.mutate { $0.isSubscribePreferred = newValue }
-
-        if !newValue {
-            // Proactively clear the track. In single PC mode the transceiver is
-            // reused (direction changes) rather than removed, so the WebRTC
-            // didRemove(rtpReceiver:) callback may never fire.
-            await set(track: nil)
-        }
-
-        try await room.signalClient.sendUpdateSubscription(participantSid: participantSid,
-                                                           trackSid: sid,
-                                                           isSubscribed: newValue)
     }
+
+    // swiftformat:enable unusedArguments
 
     /// Enable or disable server from sending down data for this track.
     ///
@@ -131,6 +125,8 @@ public class RemoteTrackPublication: TrackPublication, @unchecked Sendable {
     /// This indicates the highest quality the client can accept. if network
     /// bandwidth does not allow, server will automatically reduce quality to
     /// optimize for uninterrupted video.
+    /// - Note: Completion means the request was accepted, not that the server selected this layer.
+    ///   The native core ignores it for a track that is not simulcast.
     public func set(videoQuality newValue: VideoQuality) async throws {
         // No-op if already the desired value
         let trackSettings = _state.trackSettings
@@ -266,39 +262,28 @@ extension RemoteTrackPublication {
     }
 
     // attempt to send track settings
-    func send(trackSettings newValue: TrackSettings) async throws {
+    func send(trackSettings settings: TrackSettings) async throws {
+        let previous = _state.trackSettings
+        guard settings.preferredFPS == previous.preferredFPS else {
+            throw LiveKitError(.invalidParameter, message: "Native preferred FPS control is not exported")
+        }
         let participant = try await requireParticipant()
         let room = try participant.requireRoom()
-
-        log("[adaptiveStream] sending \(newValue), sid: \(sid)")
-
-        let state = _state.copy()
-
-        if state.isSendingTrackSettings {
-            log("send(trackSettings:) called while previous send not completed", .error)
-            // Previous send hasn't completed yet...
-            throw LiveKitError(.invalidState, message: "Already busy sending new track settings")
-        }
-
-        // update state
-        _state.mutate {
-            $0.trackSettings = newValue
-            $0.isSendingTrackSettings = true
-        }
-
-        // Attempt to set the new settings
+        guard let identity = participant.identity else { throw LiveKitError(.invalidState) }
         do {
-            try await room.signalClient.sendUpdateTrackSettings(trackSid: sid, settings: newValue)
-            _state.mutate { $0.isSendingTrackSettings = false }
-        } catch {
-            // Revert track settings on failure
-            _state.mutate {
-                $0.trackSettings = state.trackSettings
-                $0.isSendingTrackSettings = false
+            let native = try room.requireNativeRoom().publication(identity: identity.stringValue, sid: sid.stringValue)
+            if settings.dimensions != previous.dimensions, settings.dimensions.width > 0, settings.dimensions.height > 0 {
+                try await native.setVideoDimensions(width: UInt32(settings.dimensions.width), height: UInt32(settings.dimensions.height))
             }
-
-            log("Failed to send track settings: \(newValue), sid: \(sid), error: \(error)")
-        }
+            // The server ignores quality for audio, so only video reaches the video-only native command.
+            if settings.videoQuality != previous.videoQuality, kind == .video {
+                try await native.setVideoQuality(quality: settings.videoQuality.toNativeType())
+            }
+            if settings.isEnabled != previous.isEnabled {
+                try await native.setEnabled(enabled: settings.isEnabled)
+            }
+        } catch { throw LiveKitError.mappingNative(error) }
+        _state.mutate { $0.trackSettings = settings }
     }
 }
 

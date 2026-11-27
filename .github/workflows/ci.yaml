@@ -195,7 +195,7 @@ jobs:
         env:
           EXPECTED: ${{ matrix.swift-language-mode || '6' }}
         run: |
-          for module in LiveKit LiveKitNanopb; do
+          for module in LiveKit; do
             grep -- "-swift-version $EXPECTED " "$RUNNER_TEMP/xcodebuild.log" | grep -c -E -- "-module-name $module( |$)" > /dev/null \
               || { echo "::error::$module was not compiled in Swift $EXPECTED mode"; exit 1; }
           done
@@ -336,37 +336,6 @@ jobs:
         run: |
           swiftly run +xcode swift-sh .github/size-check/size-check.swift \
             --baseline "$SIZE_BASELINE_MB"
-
-  check-protocol:
-    name: Check Protocol
-    runs-on: xcode-27
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-
-      - name: Install swift-protobuf
-        run: brew install protobuf swift-protobuf
-
-      - name: Generate Swift protobuf files
-        run: make proto
-
-      - name: Check working tree
-        run: |
-          if ! git diff --quiet; then
-            echo "::error::Working tree is not clean after running 'make proto'"
-            echo "The following files have been modified:"
-            git diff --name-only
-            echo ""
-            echo "Please run 'make proto' locally and commit the changes."
-            exit 1
-          else
-            echo "Working tree is clean - all Swift protobuf files are up to date"
-          fi
 
   check-tuist:
     name: Check Tuist

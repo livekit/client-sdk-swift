@@ -28,7 +28,8 @@ xcrun simctl list devices
 
 ```
 Sources/LiveKit/
-├── Core/                  # Room, SignalClient, Transport (WebRTC peer connections)
+├── Core/                  # Room and RTC factory
+├── Compatibility/         # Removable FfiRoom-to-v2 state/delegate/error adapters
 ├── Participant/           # LocalParticipant, RemoteParticipant
 ├── Track/                 # LocalAudioTrack, LocalVideoTrack, RemoteTrack, Capturers
 ├── TrackPublications/     # TrackPublication, LocalTrackPublication, RemoteTrackPublication
@@ -43,40 +44,31 @@ Sources/LiveKit/
 ├── Support/
 │   ├── Async/             # AsyncCompleter, AsyncTimer, AsyncSequence+Subscribe
 │   ├── Sync/              # StateSync, Locks (thread-safe state management)
-│   ├── Schedulers/        # QueueActor, SerialRunnerActor (ordered execution)
-│   ├── Network/           # WebSocket, HTTP, ConnectivityListener
+│   ├── Schedulers/        # SerialRunnerActor (ordered execution)
+│   ├── Network/           # HTTP connection prewarm
 │   └── Audio/Video/       # Audio converters, device management
 ├── SwiftUI/               # SwiftUIVideoView, LocalMedia
-├── Views/                 # VideoView, SampleBufferVideoRenderer
-└── Protos/                # Generated protobuf types (excluded from linting)
+└── Views/                 # VideoView, SampleBufferVideoRenderer
 ```
 
 Key components:
 
 - `Room` - main entry point; manages connection state, participants, and tracks via `StateSync`
 - `Participant` - base class for `LocalParticipant`/`RemoteParticipant`; holds track publications
-- `SignalClient` - WebSocket connection to LiveKit server; handles signaling protocol as an `actor`
-- `Transport` - WebRTC `PeerConnection` wrapper; manages ICE, SDP negotiation as an `actor`
+- `NativeRoomDriver` - adapts Rust `FfiRoom` ordered events to v2 `Room` state and delegates; Rust owns signaling, peer connections, data and region failover
 - `StateSync<T>` - thread-safe state container with `@dynamicMemberLookup`; triggers `onDidMutate` callbacks
 - `MulticastDelegate<T>` - weak-reference delegate collection for event broadcasting
 
-Dependencies: LiveKitWebRTC, LiveKitFFI. (SwiftProtobuf is test-only — see below.)
+Dependencies: LiveKitWebRTC (local capture/render), LiveKitFFI (room session).
 
-## Protocol Layer (protobuf)
+## Native backend
 
-The wire protocol is nanopb-based, not SwiftProtobuf: generated C in
-`Sources/CLiveKitProto`, a fixed-cost Swift runtime in `Sources/LiveKitNanopb`,
-and generated facades in `Sources/LiveKit/Protos`. Every message is the one
-generic `NanopbMsg<Storage>`, so the schema contributes no Swift types;
-`Livekit_Room` is a typealias. Messages are immutable — build with `.with { }`.
-
-**See [PROTOCOL.md](PROTOCOL.md)** for the update workflow, the design and its
-constraints, memory/concurrency semantics, and the invariants to preserve when
-editing. Regenerate with `make proto`; never edit generated files by hand.
+The Rust core owns the wire protocol. Owned FFI participant values and compatibility records
+(`NativeTrackPublication`, `NativeRoomInfo`) feed the existing `StateSync` entities
+directly (`Compatibility/NativeRoom+Types.swift`); there is no Swift protobuf layer.
 
 ## Compile-Time Flags
 
-- `LK_XCFRAMEWORK` — set in the generated xcodeproj by `scripts/xcframework.swift`; that build compiles `CLiveKitProto`/`LiveKitNanopb` sources into the framework target directly, so the guards in those files switch to `internal`/`package import CLiveKitProto` (resolved via its modulemap) and drop `import LiveKitNanopb`, keeping both out of the emitted `.swiftinterface`
 - `LK_BENCHMARK` — set when building benchmarks (`Benchmarks/`); skips `DeviceManager`/`AudioManager` init in `Room.init` to allow headless benchmark runs
 - `LK_SIGNPOSTS` — enables `os.signpost` instrumentation in `StateSync` for profiling lock contention in Instruments
 
@@ -86,8 +78,7 @@ WebRTC handles the actual media transport (audio/video/data) between participant
 
 Key files:
 
-- `Core/RTC.swift` - factory for creating WebRTC objects (peer connections, tracks, data channels, etc.)
-- `Core/Transport.swift` - wraps `LKRTCPeerConnection`; handles ICE candidates, SDP offer/answer
+- `Core/RTC.swift` - factory for local WebRTC objects (sources, tracks, audio device module)
 - `Audio/Manager/` - `AudioManager` and `AudioDeviceModule` integration
 - `Extensions/RTC*.swift` - convenience extensions on WebRTC types
 
@@ -98,10 +89,10 @@ Threading:
   serializes those calls itself; the SDK adds no caller-side serialization for thread safety
 - Thread-safety is not liveness: a blocking WebRTC call must never run on Swift Concurrency's
   width-limited cooperative pool. It runs inside the `@RTC` global actor (`Core/RTC.swift`), whose
-  executor is a private dispatch queue that is allowed to block. `Transport` is `@RTC`-isolated;
-  other async code wraps such calls in `await RTC.run { }`. `DispatchQueue.liveKitWebRTC` is
+  executor is a private dispatch queue that is allowed to block. Async code wraps such calls in
+  `await RTC.run { }`. `DispatchQueue.liveKitWebRTC` is
   deprecated public API
-- Releases and teardown (`deinit`, `parkChannelRelease`) go to `RTC.park`, which runs them on a
+- Releases and teardown (`deinit`) go to `RTC.park`, which runs them on a
   *concurrent* queue — not the serial `@RTC` executor. A release flood is a flood of blocking
   destructors; routing it through the one serial executor head-of-lines all other RTC work and
   wedged CI under the sanitizers
@@ -109,14 +100,9 @@ Threading:
   `volume`, renderer attach) block their caller by documented contract — say so in the docstring;
   new API should be `async` and hop instead
 - The `@RTC` executor carries no priority: every hop runs at the queue's `.default` QoS
-- Exception, by design: the data-channel send path (`sendData`, `readyState`, `LKRTCDataBuffer`
-  construction) is `nonisolated` — it is per-packet and latency-sensitive; `sendData` blocks only on
-  the network thread (`PROXY_SECONDARY_*`), `readyState` is `BYPASS`, the buffer init is a plain
-  byte container
 - Do not enable the `NonisolatedNonsendingByDefault` upcoming feature (SE-0461) without auditing the
   `@RTC` callers first: under it a `nonisolated async` function runs on its caller's executor, so
-  the `Room` methods `@RTC Transport` awaits — negotiation, signal sends — would start running on
-  the WebRTC queue. Those would each need `@concurrent`
+  code awaited from `@RTC` would start running on the WebRTC queue and would need `@concurrent`
 - Completion handlers written inside `@RTC` code must be `@Sendable`: a non-Sendable closure
   inherits `@RTC` isolation, and WebRTC invokes it on its own threads — Swift 6.1-built binaries
   enforce that in the closure prologue and trap (Xcode 16.4 CI caught exactly this)

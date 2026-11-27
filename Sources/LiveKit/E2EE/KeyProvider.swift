@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -153,9 +154,9 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
     // MARK: - State
 
     struct State {
+        var native: NativeKeyProvider?
+        var keys: [String: [Int32: Data]] = [:]
         var currentKeyIndex: Int32 = 0
-        var keyIndexGeneration: UInt64 = 0
-        var keyIndexObservers = [ObjectIdentifier: @Sendable (Int32, UInt64) -> Void]()
     }
 
     private let _state = StateSync(State())
@@ -176,6 +177,7 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
         if isSharedKey, sharedKey != nil {
             let keyData = sharedKey!.data(using: .utf8)!
             rtcKeyProvider.setSharedKey(keyData, with: 0)
+            _state.mutate { $0.keys["", default: [:]][0] = keyData }
         }
     }
 
@@ -210,6 +212,22 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
     ///   - index: The key index to set. Defaults to the current key index.
     public func setKey(keyData: Data, participantId: String? = nil, index: Int32? = nil) {
         let targetIndex = index ?? getCurrentKeyIndex()
+        guard options.sharedKey || participantId != nil else {
+            log("setKey requires a participant identity in non-shared mode", .error)
+            return
+        }
+        guard _state.native == nil || targetIndex == getCurrentKeyIndex() else {
+            log("Changing the native media/data key index is not exported", .error)
+            return
+        }
+        _state.mutate {
+            $0.keys[options.sharedKey ? "" : participantId ?? "", default: [:]][targetIndex] = keyData
+            do {
+                try $0.native?.setKey(key: keyData, participantIdentity: options.sharedKey ? nil : participantId, index: targetIndex)
+            } catch {
+                log("Native key update failed: \(error)", .error)
+            }
+        }
 
         if options.sharedKey {
             rtcKeyProvider.setSharedKey(keyData, with: targetIndex)
@@ -227,9 +245,14 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
 
     public func ratchetKey(participantId: String? = nil, index: Int32? = nil) -> Data? {
         let targetIndex = index ?? getCurrentKeyIndex()
+        if let native = _state.native {
+            return try? native.ratchetKey(participantIdentity: options.sharedKey ? nil : participantId, index: targetIndex)
+        }
 
         if options.sharedKey {
-            return rtcKeyProvider.ratchetSharedKey(targetIndex)
+            let result = rtcKeyProvider.ratchetSharedKey(targetIndex)
+            _state.mutate { $0.keys["", default: [:]][targetIndex] = result }
+            return result
         }
 
         if participantId == nil {
@@ -237,11 +260,16 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
             return nil
         }
 
-        return rtcKeyProvider.ratchetKey(participantId!, with: targetIndex)
+        let result = rtcKeyProvider.ratchetKey(participantId!, with: targetIndex)
+        _state.mutate { $0.keys[participantId!, default: [:]][targetIndex] = result }
+        return result
     }
 
     public func exportKey(participantId: String? = nil, index: Int32? = nil) -> Data? {
         let targetIndex = index ?? getCurrentKeyIndex()
+        if let native = _state.native {
+            return try? native.exportKey(participantIdentity: options.sharedKey ? nil : participantId, index: targetIndex)
+        }
 
         if options.sharedKey {
             return rtcKeyProvider.exportSharedKey(targetIndex)
@@ -256,6 +284,7 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
     }
 
     public func setSifTrailer(trailer: Data) {
+        do { try _state.native?.setSifTrailer(trailer: trailer) } catch { log("Native SIF trailer update failed: \(error)", .error) }
         rtcKeyProvider.setSifTrailer(trailer)
     }
 
@@ -270,34 +299,41 @@ public final class BaseKeyProvider: NSObject, Loggable, Sendable {
     /// Takes effect immediately for the media tracks already published and for every data packet
     /// sent afterwards. Receivers are unaffected: they read the index from each frame.
     public func setCurrentKeyIndex(_ index: Int32) {
-        let (currentKeyIndex, generation, observers) = _state.mutate {
-            $0.currentKeyIndex = index % options.keyRingSize
-            $0.keyIndexGeneration += 1
-            return ($0.currentKeyIndex, $0.keyIndexGeneration, Array($0.keyIndexObservers.values))
+        guard _state.native == nil || index == getCurrentKeyIndex() else {
+            log("Independent native media/data key-index switching is not exported", .error)
+            return
         }
-        for observer in observers {
-            observer(currentKeyIndex, generation)
-        }
+        _state.mutate { $0.currentKeyIndex = index % options.keyRingSize }
     }
 
     // MARK: - Internal
 
-    /// The current key index with the generation of the change that set it. Observers are
-    /// notified outside the lock, so the generation is what lets them order concurrent changes.
-    func currentKeyIndexWithGeneration() -> (index: Int32, generation: UInt64) {
-        _state.read { ($0.currentKeyIndex, $0.keyIndexGeneration) }
-    }
-
-    var keyIndexObserverCount: Int {
-        _state.keyIndexObservers.count
-    }
-
-    func addKeyIndexObserver(_ owner: AnyObject, _ observer: @escaping @Sendable (Int32, UInt64) -> Void) {
-        _state.mutate { $0.keyIndexObservers[ObjectIdentifier(owner)] = observer }
-    }
-
-    func removeKeyIndexObserver(_ owner: AnyObject) {
-        _state.mutate { $0.keyIndexObservers[ObjectIdentifier(owner)] = nil }
+    func nativeProvider() throws -> NativeKeyProvider {
+        try _state.mutate { state in
+            if let native = state.native { return native }
+            guard state.currentKeyIndex == 0 else {
+                throw LiveKitError(.invalidParameter, message: "Native media key-index switching is not exported")
+            }
+            let native = try NativeKeyProvider(options: .init(sharedKey: options.sharedKey,
+                                                              ratchetSalt: options.ratchetSalt, ratchetWindowSize: options.ratchetWindowSize,
+                                                              failureTolerance: options.failureTolerance, keyRingSize: options.keyRingSize,
+                                                              keyDerivationAlgorithm: options.keyDerivationAlgorithm == .pbkdf2 ? .pbkdf2 : .hkdf,
+                                                              uncryptedMagicBytes: options.uncryptedMagicBytes,
+                                                              discardFrameWhenCryptorNotReady: options.discardFrameWhenCryptorNotReady,
+                                                              keySize: UInt16(options.keySize.rawValue)), sharedKey: state.keys[""]?[0])
+            for (identity, keys) in state.keys {
+                for (index, key) in keys {
+                    try native.setKey(key: key, participantIdentity: options.sharedKey ? nil : identity, index: index)
+                }
+            }
+            // Core setKey also changes the outgoing data index. Restore index zero after
+            // populating the ring; native media cryptors currently support only that index.
+            if let initial = state.keys.first(where: { $0.value[0] != nil }), let key = initial.value[0] {
+                try native.setKey(key: key, participantIdentity: options.sharedKey ? nil : initial.key, index: 0)
+            }
+            state.native = native
+            return native
+        }
     }
 
     // MARK: - Equal

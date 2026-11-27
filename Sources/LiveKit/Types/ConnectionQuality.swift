@@ -26,15 +26,3 @@ public enum ConnectionQuality: Int, Sendable {
     case good
     case excellent
 }
-
-extension Livekit_ConnectionQuality {
-    func toLKType() -> ConnectionQuality {
-        switch self {
-        case .poor: .poor
-        case .good: .good
-        case .excellent: .excellent
-        case .lost: .lost
-        default: .unknown
-        }
-    }
-}

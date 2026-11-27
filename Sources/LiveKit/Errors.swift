@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Foundation
 
@@ -220,6 +221,8 @@ extension LiveKitError {
             return error
         }
 
+        if let native = error as? FfiRoomError { return from(native: native) }
+
         if error is CancellationError {
             return LiveKitError(.cancelled)
         }
@@ -230,10 +233,6 @@ extension LiveKitError {
 
         log("Uncategorized error for: \(String(describing: error))")
         return LiveKitError(.unknown)
-    }
-
-    static func from(reason: Livekit_DisconnectReason) -> LiveKitError {
-        LiveKitError(reason.toLKType())
     }
 }
 
@@ -287,21 +286,6 @@ extension Error {
         }
 
         return isNetworkError
-    }
-}
-
-extension Livekit_DisconnectReason {
-    func toLKType() -> LiveKitErrorType {
-        switch self {
-        case .clientInitiated: .cancelled
-        case .duplicateIdentity: .duplicateIdentity
-        case .serverShutdown: .serverShutdown
-        case .participantRemoved: .participantRemoved
-        case .roomDeleted: .roomDeleted
-        case .stateMismatch: .stateMismatch
-        case .joinFailure: .joinFailure
-        default: .unknown
-        }
     }
 }
 

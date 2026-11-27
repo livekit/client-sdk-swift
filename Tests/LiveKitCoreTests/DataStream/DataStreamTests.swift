@@ -109,32 +109,16 @@ struct DataStreamTests {
             }
 
             let received = try await Self.receiving(on: receivers, from: sender)
-            let packets = try sender.recordDataStreamPackets()
 
             try await send.perform(payload, topic: "some-topic", from: sender.localParticipant)
 
             for receiver in received {
                 #expect(try await receiver.wait() == payload)
             }
-            guard case let .streamHeader(header)? = packets.copy().first?.value else {
-                Issue.record("The first packet is not a stream header")
-                return
-            }
-            // Expected from what the sender sees of the participants a broadcast goes to, which is
-            // what its registry reports to the core.
-            let recipients = Array(sender.remoteParticipants.values)
-            #expect(recipients.count == receivers.count)
-            let allReadV2 = recipients.allSatisfy { $0.clientProtocol >= .v2 }
-            let allDecompress = allReadV2 && recipients.allSatisfy { $0.capabilities.contains(.compressionDeflateRaw) }
-            #expect(header.hasInlineContent == (send.mayGoInline && allReadV2))
-            if !allDecompress {
-                #expect(header.compression.rawValue == Livekit_DataStream_CompressionType.none.rawValue)
-            }
         }
     }
 
-    /// A large payload whose compressed form still takes several chunks: a one-shot send goes out
-    /// compressed in chunks, a stream in plain chunks, and the receiver reads back what was sent.
+    /// A large payload that takes several chunks reads back as sent.
     @Test(arguments: Send.allCases)
     func largePayloadRoundTrips(via send: Send) async throws {
         let payload = Self.noisy(200_000)
@@ -142,26 +126,33 @@ struct DataStreamTests {
         try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
             let sender = rooms[1]
             let received = try await Self.receiving(on: [rooms[0]], from: sender)
-            let packets = try sender.recordDataStreamPackets()
 
             try await send.perform(payload, topic: "some-topic", from: sender.localParticipant)
 
             #expect(try await received[0].wait() == payload)
-            let sent = packets.copy()
-            guard case let .streamHeader(header)? = sent.first?.value else {
-                Issue.record("The first packet is not a stream header")
+        }
+    }
+
+    /// A disconnect fails a reader still waiting for its trailer, so `readAll()` can't return the
+    /// chunks received so far as if they were the whole payload.
+    @Test func openReaderFailsOnTeardown() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let receiver = rooms[0]
+            let opened = AsyncCompleter<LiveKit.ByteStreamReader>(label: "Stream opened", defaultTimeout: 15)
+            try await receiver.registerByteStreamHandler(for: "teardown") { reader, _ in opened.resume(returning: reader) }
+
+            let writer = try await rooms[1].localParticipant.streamBytes(options: LiveKit.StreamByteOptions(topic: "teardown"))
+            try await writer.write(Data(repeating: 0x01, count: 64))
+            let reader = try await opened.wait()
+
+            await receiver.disconnect()
+
+            let error = try #require(await #expect(throws: StreamError.self) { try await reader.readAll() })
+            guard case .abnormalEnd = error else {
+                Issue.record("Expected .abnormalEnd, got \(error)")
                 return
             }
-            let chunks = sent.compactMap { packet -> Data? in
-                if case let .streamChunk(chunk)? = packet.value { return chunk.content }
-                return nil
-            }
-            #expect(!header.hasInlineContent)
-            #expect(chunks.count > 1)
-            let compression: Livekit_DataStream_CompressionType = send.isOneShot ? .deflateRaw : .none
-            #expect(header.compression.rawValue == compression.rawValue)
-            let wireLength = chunks.reduce(0) { $0 + $1.count }
-            #expect(send.isOneShot ? wireLength < payload.count : wireLength == payload.count)
+            _ = writer
         }
     }
 

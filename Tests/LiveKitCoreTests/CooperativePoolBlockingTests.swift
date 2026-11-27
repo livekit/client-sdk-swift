@@ -39,34 +39,6 @@ import LiveKitTestSupport
        .disabled("Wedges the test process on hosted CI runners"),
        .bug("https://github.com/livekit/client-sdk-swift/issues/1100"))
 struct CooperativePoolBlockingTests {
-    private final class StubTransportDelegate: TransportDelegate {
-        func transport(_: Transport, didUpdateState _: LKRTCPeerConnectionState) {}
-        func transport(_: Transport, didGenerateIceCandidate _: IceCandidate) {}
-        func transport(_: Transport, didOpenDataChannel _: LKRTCDataChannel) {}
-        func transport(_: Transport, didAddTrack _: RTCMediaTrack, rtpReceiver _: RTCReceiver, streamIds _: [String]) {}
-        func transport(_: Transport, didRemoveTrackWithId _: String) {}
-        func transportShouldNegotiate(_: Transport) {}
-    }
-
-    /// `Room.disconnect()` → `cleanUpRTC` → `Transport.close()` → `PeerConnection::Close`, which
-    /// blocks on the signaling thread; `Transport` is `@RTC`-isolated.
-    @Test func transportCloseKeepsTheCooperativePoolResponsive() async throws {
-        let width = ProcessInfo.processInfo.activeProcessorCount + 2
-        var created: [Transport] = []
-        for _ in 0 ..< width {
-            try await created.append(Transport(config: .liveKitDefault(), target: .publisher, primary: true, delegate: StubTransportDelegate()))
-        }
-        let transports = created
-        let wedge = try await SignalingThreadWedge.engage()
-
-        let outcome = await poolStaysResponsive(width: width, release: wedge.release) { index in
-            await transports[index].close()
-        }
-
-        #expect(outcome.responsive, "cooperative pool was starved while transports were closing")
-        #expect(outcome.finishedBeforeProbe == 0, "no close was still in flight; the probe proved nothing")
-    }
-
     /// `Track.start()` → `enable()` → `set_enabled`, which blocks on the signaling thread; a
     /// non-isolated call site that hops through `RTC.run`.
     @Test func trackEnableKeepsTheCooperativePoolResponsive() async throws {
@@ -102,29 +74,14 @@ struct CooperativePoolBlockingTests {
         #expect(outcome.finishedBeforeProbe == width, "a release ran inline instead of being parked")
     }
 
-    /// Building a configuration — the first thing `Room.connect()` does — is a plain value-object
-    /// init and must not serialize behind WebRTC teardown. Fails if a queue hop is reintroduced
-    /// for value objects: the channel release parked below holds the signaling thread.
-    @Test func configurationBuildsWithoutWaitingOnWebRTC() async throws {
-        let wedge = try await SignalingThreadWedge.engage(afterCreatingDataChannel: true)
-        // Dropping the last channel reference is the blocking part: the proxy destructor runs on
-        // the signaling thread.
-        parkChannelRelease(wedge.takeDataChannel(), closing: true)
-
-        let outcome = await poolStaysResponsive(release: wedge.release) { _ in
-            _ = LKRTCConfiguration.liveKitDefault()
-        }
-
-        #expect(outcome.responsive, "cooperative pool was starved while building configurations")
-        #expect(outcome.finishedBeforeProbe > 0, "building a configuration waited on a WebRTC thread")
-    }
-
     /// A parked release runs on the concurrent release queue, never on the serial RTC executor:
     /// a blocking destructor must not head-of-line every other hop. Routing releases through the
     /// executor wedged the SDK under the sanitizers on CI.
     @Test func parkedReleaseDoesNotBlockTheRTCExecutor() async throws {
         let wedge = try await SignalingThreadWedge.engage(afterCreatingDataChannel: true)
-        parkChannelRelease(wedge.takeDataChannel(), closing: true)
+        // Dropping the last channel reference is the blocking part: the proxy destructor runs on
+        // the signaling thread.
+        if let channel = wedge.takeDataChannel() { RTC.park(channel) }
 
         let hopped = DispatchSemaphore(value: 0)
         Task.detached {
@@ -233,17 +190,19 @@ private final class SignalingThreadWedge: NSObject, LKRTCPeerConnectionDelegate,
     private var peerConnection: LKRTCPeerConnection?
     private var dataChannel: LKRTCDataChannel?
 
+    private static let constraints = LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
+
     static func engage(afterCreatingDataChannel: Bool = false) async throws -> SignalingThreadWedge {
         let wedge = SignalingThreadWedge()
-        let peerConnection = try #require(RTC.peerConnectionFactory.peerConnection(with: .liveKitDefault(),
-                                                                                   constraints: .defaultPCConstraints,
+        let peerConnection = try #require(RTC.peerConnectionFactory.peerConnection(with: LKRTCConfiguration(),
+                                                                                   constraints: Self.constraints,
                                                                                    delegate: wedge))
         wedge.peerConnection = peerConnection
         if afterCreatingDataChannel {
             wedge.dataChannel = peerConnection.dataChannel(forLabel: "wedge", configuration: .init())
         }
         let offer = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LKRTCSessionDescription, Error>) in
-            peerConnection.offer(for: .defaultPCConstraints) { sd, error in
+            peerConnection.offer(for: Self.constraints) { sd, error in
                 if let sd {
                     continuation.resume(returning: sd)
                 } else {

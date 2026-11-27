@@ -18,44 +18,12 @@ import Foundation
 
 // MARK: - Room+Region
 
-extension Room {
-    // MARK: - Internal
-
-    func regionManager(for providedUrl: URL) async -> RegionManager? {
-        guard providedUrl.isCloud, providedUrl.host != nil else {
-            let old = _regionManager.mutate { manager -> RegionManager? in
-                let old = manager
-                manager = nil
-                return old
-            }
-            if let old { await old.cancel() }
-            return nil
-        }
-
-        let (manager, old) = _regionManager.mutate { current -> (RegionManager, RegionManager?) in
-            if let manager = current, manager.providedUrl.matchesRegionManagerKey(of: providedUrl) {
-                return (manager, nil)
-            }
-
-            let old = current
-            let manager = RegionManager(providedUrl: providedUrl)
-            current = manager
-            return (manager, old)
-        }
-
-        if let old { await old.cancel() }
-        return manager
-    }
-
-    // MARK: - Public
-
-    // prepareConnection should be called as soon as the page is loaded, in order
-    // to speed up the connection attempt.
-    //
-    // With LiveKit Cloud, it will also determine the best edge data center for
-    // the current client to connect to if a token is provided.
-    public func prepareConnection(url providedUrlString: String, token: String? = nil) async throws {
-        // Must be in disconnected state.
+public extension Room {
+    /// Validates the URL and warms the HTTP connection to it, to speed up a later ``connect(url:token:connectOptions:roomOptions:)``.
+    ///
+    /// - Note: The native session resolves the LiveKit Cloud region during connect, so this method
+    ///   no longer fetches region settings and does not report region errors.
+    func prepareConnection(url providedUrlString: String, token: String? = nil) async throws {
         guard _state.connectionState == .disconnected else {
             throw LiveKitError(.stateMismatch, message: "Cannot prepare connection when in state \(_state.connectionState)")
         }
@@ -70,146 +38,12 @@ extension Room {
             _state.mutate {
                 $0.providedUrl = providedUrl
                 $0.token = token
-                $0.preparedRegion = nil
-            }
-
-            guard let regionManager = await regionManager(for: providedUrl) else {
-                Task {
-                    await HTTP.prewarmConnection(url: providedUrl)
-                    log("Prepared connection to \(providedUrl)")
-                }
-                return
-            }
-
-            // Nothing to prewarm if every region has already been tried; the connect path will
-            // surface why.
-            if let bestRegion = try await regionManager.resolveBest(token: token) {
-                _state.mutate { $0.preparedRegion = bestRegion }
-                Task {
-                    await HTTP.prewarmConnection(url: bestRegion.url)
-                    log("Prepared connection to \(bestRegion.url)")
-                }
-            }
-        } else {
-            // Not cloud or no token, just warm the provided URL
-            Task {
-                await HTTP.prewarmConnection(url: providedUrl)
-                log("Prepared connection to \(providedUrl)")
             }
         }
-    }
 
-    // MARK: - Internal
-
-    func consumePreparedRegion(for providedUrl: URL) -> RegionInfo? {
-        let snapshot = _state.read { (region: $0.preparedRegion, url: $0.providedUrl) }
-        let isPreparedUrlMatching = if let existing = snapshot.url {
-            existing.matchesRegionManagerKey(of: providedUrl)
-        } else {
-            false
-        }
-
-        if snapshot.region != nil, !isPreparedUrlMatching {
-            log("Discarding prepared region, URL changed to \(providedUrl)", .info)
-        }
-
-        return _state.mutate { state -> RegionInfo? in
-            let prepared = isPreparedUrlMatching ? snapshot.region : nil
-            state.preparedRegion = nil
-            return prepared
-        }
-    }
-
-    /// Bounds ``connectWithCloudRegionFailover``, independently of how the region list is
-    /// maintained.
-    ///
-    /// The list is refreshed from the server *inside* the loop, so termination must not rest on an
-    /// invariant about how `remaining` is kept. rust-sdks gets this structurally — its fallback
-    /// iterates a list fetched once (`for region_url in urls.iter()` in `livekit-signaling`), so
-    /// nothing can refill it mid-loop. Until this loop is reshaped the same way, the cap is what
-    /// guarantees `connect` returns rather than hangs. Comfortably above any real region count.
-    private static let maxRegionFailoverAttempts = 10
-
-    /// Connects using LiveKit Cloud region settings and fails over across regions on retryable errors.
-    func connectWithCloudRegionFailover(
-        regionManager: RegionManager,
-        initialUrl: URL,
-        initialRegion: RegionInfo?,
-        token: String,
-    ) async throws -> URL {
-        var nextUrl = initialUrl
-        var nextRegion = initialRegion
-        var attempts = 0
-
-        while true {
-            do {
-                try await fullConnectSequence(nextUrl, token)
-
-                // Scope the failed set to this failover cycle. Regions excluded by `markFailed`
-                // now survive a settings refresh, so without clearing them on success a region
-                // that failed transiently before another one connected would stay excluded for
-                // the life of the manager — and a later failover would skip it even once it
-                // recovered. Only a successful *reconnect* used to clear them.
-                await regionManager.resetAttempts()
-                return nextUrl
-            } catch {
-                // Re-throw if is cancel.
-                if error is CancellationError {
-                    throw error
-                }
-
-                // Validation errors are terminal — another region will reject the same token the
-                // same way — except for the 403 Cloud uses to signal project-level region pinning,
-                // which is precisely the case region failover exists to recover from.
-                // `isRetryableForRegionFailover` makes that distinction on the HTTP status.
-                guard error.isRetryableForRegionFailover else {
-                    throw error
-                }
-
-                if let region = nextRegion {
-                    nextRegion = nil
-                    log("Connect failed with region: \(region)")
-                    await regionManager.markFailed(region: region)
-                }
-
-                try Task.checkCancellation()
-
-                await cleanUp(isFullReconnect: true)
-
-                // Counts regions resolved from the manager, not total connects — the provided URL
-                // failed before any of them and must not consume part of the budget, or a project
-                // with exactly this many regions would never reach its last one.
-                attempts += 1
-                guard attempts <= Self.maxRegionFailoverAttempts else {
-                    log("Region failover giving up after \(attempts - 1) region attempts", .warning)
-                    throw error
-                }
-
-                // Every way of failing to get another region surfaces the *connection* error:
-                // exhaustion, and a failure to fetch or parse the region settings alike. The
-                // caller asked to connect, not to look up regions, so replacing "the server
-                // rejected your token with 403" by "no more remaining regions" or "failed to
-                // parse region settings" loses the half they can act on. rust-sdks makes the same
-                // call explicitly — it logs the lookup failure and returns the original connect
-                // error rather than masking it.
-                let nextCandidate: RegionInfo?
-                do {
-                    nextCandidate = try await regionManager.resolveBest(token: token)
-                } catch is CancellationError {
-                    // Cancellation is not a lookup failure: the caller asked to stop, and the
-                    // loop's own guard above rethrows it rather than reporting a connect error.
-                    throw CancellationError()
-                } catch let lookupError {
-                    log("Failed to resolve next region: \(lookupError); surfacing the connection error", .warning)
-                    nextCandidate = nil
-                }
-
-                guard let region = nextCandidate else {
-                    throw error
-                }
-                nextUrl = region.url
-                nextRegion = region
-            }
+        Task {
+            await HTTP.prewarmConnection(url: providedUrl)
+            log("Prepared connection to \(providedUrl)")
         }
     }
 }

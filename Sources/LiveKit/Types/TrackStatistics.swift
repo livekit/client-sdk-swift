@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-internal import LiveKitWebRTC
 import Foundation
 
 @objcMembers
@@ -35,9 +34,7 @@ public class TrackStatistics: NSObject, @unchecked Sendable, Loggable {
     public let remoteInboundRtpStream: [RemoteInboundRtpStreamStatistics]
     public let remoteOutboundRtpStream: [RemoteOutboundRtpStreamStatistics]
 
-    init(from stats: [LKRTCStatistics], prevStatistics: TrackStatistics?) {
-        let stats = stats.map { $0.toLKType(prevStatistics: prevStatistics) }.compactMap(\.self)
-
+    @nonobjc init(statistics stats: [Statistics]) {
         codec = stats.compactMap { $0 as? CodecStatistics }
         videoSource = stats.compactMap { $0 as? VideoSourceStatistics }
         certificate = stats.compactMap { $0 as? CertificateStatistics }
@@ -72,32 +69,32 @@ public class TrackStatistics: NSObject, @unchecked Sendable, Loggable {
     }
 }
 
-extension LKRTCStatistics {
+extension Statistics {
     // swiftlint:disable:next cyclomatic_complexity
-    func toLKType(prevStatistics: TrackStatistics?) -> Statistics? {
+    @nonobjc static func decode(id: String, type: String, timestamp: Double, values: [String: NSObject], prevStatistics: TrackStatistics?) -> Statistics? {
         switch type {
-        case "codec": return CodecStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "codec": return CodecStatistics(id: id, timestamp: timestamp, rawValues: values)
         case "inbound-rtp":
             let previous = prevStatistics?.inboundRtpStream.first(where: { $0.id == id })
-            return InboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values, previous: previous)
+            return InboundRtpStreamStatistics(id: id, timestamp: timestamp, rawValues: values, previous: previous)
         case "outbound-rtp":
             let previous = prevStatistics?.outboundRtpStream.first(where: { $0.id == id })
-            return OutboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values, previous: previous)
-        case "remote-inbound-rtp": return RemoteInboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
-        case "remote-outbound-rtp": return RemoteOutboundRtpStreamStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+            return OutboundRtpStreamStatistics(id: id, timestamp: timestamp, rawValues: values, previous: previous)
+        case "remote-inbound-rtp": return RemoteInboundRtpStreamStatistics(id: id, timestamp: timestamp, rawValues: values)
+        case "remote-outbound-rtp": return RemoteOutboundRtpStreamStatistics(id: id, timestamp: timestamp, rawValues: values)
         case "media-source":
-            guard let mediaSourceStats = MediaSourceStatistics(id: id, timestamp: timestamp_us, rawValues: values) else { return nil }
-            if mediaSourceStats.kind == "audio" { return AudioSourceStatistics(id: id, timestamp: timestamp_us, rawValues: values) }
-            if mediaSourceStats.kind == "video" { return VideoSourceStatistics(id: id, timestamp: timestamp_us, rawValues: values) }
+            guard let mediaSourceStats = MediaSourceStatistics(id: id, timestamp: timestamp, rawValues: values) else { return nil }
+            if mediaSourceStats.kind == "audio" { return AudioSourceStatistics(id: id, timestamp: timestamp, rawValues: values) }
+            if mediaSourceStats.kind == "video" { return VideoSourceStatistics(id: id, timestamp: timestamp, rawValues: values) }
             return nil
-        case "media-playout": return AudioPlayoutStatistics(id: id, timestamp: timestamp_us, rawValues: values)
-        case "peer-connection": return PeerConnectionStatistics(id: id, timestamp: timestamp_us, rawValues: values)
-        case "data-channel": return DataChannelStatistics(id: id, timestamp: timestamp_us, rawValues: values)
-        case "transport": return TransportStatistics(id: id, timestamp: timestamp_us, rawValues: values)
-        case "candidate-pair": return IceCandidatePairStatistics(id: id, timestamp: timestamp_us, rawValues: values)
-        case "local-candidate": return LocalIceCandidateStatistics(id: id, timestamp: timestamp_us, rawValues: values)
-        case "remote-candidate": return RemoteIceCandidateStatistics(id: id, timestamp: timestamp_us, rawValues: values)
-        case "certificate": return CertificateStatistics(id: id, timestamp: timestamp_us, rawValues: values)
+        case "media-playout": return AudioPlayoutStatistics(id: id, timestamp: timestamp, rawValues: values)
+        case "peer-connection": return PeerConnectionStatistics(id: id, timestamp: timestamp, rawValues: values)
+        case "data-channel": return DataChannelStatistics(id: id, timestamp: timestamp, rawValues: values)
+        case "transport": return TransportStatistics(id: id, timestamp: timestamp, rawValues: values)
+        case "candidate-pair": return IceCandidatePairStatistics(id: id, timestamp: timestamp, rawValues: values)
+        case "local-candidate": return LocalIceCandidateStatistics(id: id, timestamp: timestamp, rawValues: values)
+        case "remote-candidate": return RemoteIceCandidateStatistics(id: id, timestamp: timestamp, rawValues: values)
+        case "certificate": return CertificateStatistics(id: id, timestamp: timestamp, rawValues: values)
         default:
             // type: track is not handled
             // print("Unknown stats type: \(type), \(values)")

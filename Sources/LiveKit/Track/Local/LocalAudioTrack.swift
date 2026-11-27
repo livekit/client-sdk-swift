@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import AVFAudio
 import Combine
@@ -34,7 +35,7 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
 
     init(name: String,
          source: Track.Source,
-         track: RTCMediaTrack,
+         track: RTCMediaTrack?,
          reportStatistics: Bool,
          captureOptions: AudioCaptureOptions)
     {
@@ -74,34 +75,11 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
                              options: AudioCaptureOptions?,
                              reportStatistics: Bool) -> LocalAudioTrack
     {
-        let options = options ?? AudioCaptureOptions()
-
-        let constraints: [String: String] = [
-            "googEchoCancellation": options.echoCancellation.toString(),
-            "googAutoGainControl": options.autoGainControl.toString(),
-            "googNoiseSuppression": options.noiseSuppression.toString(),
-            "googTypingNoiseDetection": options.typingNoiseDetection.toString(),
-            "googHighpassFilter": options.highpassFilter.toString(),
-            "echoCancellationMode": options.echoCancellationMode.toConstraintValue(),
-            "autoGainControlMode": options.autoGainControlMode.toConstraintValue(),
-            "noiseSuppressionMode": options.noiseSuppressionMode.toConstraintValue(),
-            "highPassFilterMode": options.highpassFilterMode.toConstraintValue(),
-        ]
-
-        // Plain value object, no libwebrtc proxy: nothing to wait on.
-        let audioConstraints = LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: constraints)
-
-        let audioSource = RTC.createAudioSource(audioConstraints)
-        let rtcTrack = RTC.createAudioTrack(source: audioSource)
-        rtcTrack.isEnabled = true
-        let mediaTrack = RTCMediaTrack(rtcTrack)
-
-        return LocalAudioTrack(name: name,
-                               source: .microphone,
-                               track: mediaTrack,
-                               reportStatistics: reportStatistics,
-                               captureOptions: options)
+        LocalAudioTrack(name: name, source: .microphone, track: nil,
+                        reportStatistics: reportStatistics, captureOptions: options ?? AudioCaptureOptions())
     }
+
+    let nativeAudio = StateSync<NativeLocalAudioTrack?>(nil)
 
     public func mute() async throws {
         try await super._mute()
@@ -121,42 +99,15 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     /// - Throws: ``AudioProcessingOptionsError`` when the options cannot be applied.
     /// - Note: Blocks the calling thread until WebRTC's signaling thread applies the options.
     @discardableResult
-    public func setAudioProcessingOptions(_ options: AudioProcessingOptions) throws -> AudioProcessingOptionsResult {
-        let result = try mediaTrack.blocking { rawTrack in
-            guard let audioTrack = rawTrack as? LKRTCAudioTrack else {
-                throw AudioProcessingOptionsError(
-                    code: .invalidState,
-                    message: "Media track is not an audio track",
-                )
-            }
-            return try audioTrack.setAudioProcessingOptions(options.toRTCType()).toLKType()
-        }
-        // Track-level options reach the ADM through the sender, so inform the
-        // session observer here to keep the session mode in sync with the
-        // requested voice processing implementation.
-        AudioManager.shared.updateExpectedPlatformVoiceProcessing(for: options)
-        return result
+    public func setAudioProcessingOptions(_: AudioProcessingOptions) throws -> AudioProcessingOptionsResult {
+        throw LiveKitError(.audioEngine, message: "Native audio processing and AVAudioEngine configuration are not exported by this artifact")
     }
 
     // MARK: - Internal
 
     override func startCapture() async throws {
-        // The WebRTC audio device no longer prompts for mic permission (see webrtc-sdk#265),
-        // so request it here while foregrounded before starting recording. Manual rendering mode
-        // publishes app audio without ever opening the microphone, and disabled input availability
-        // (CallKit flows, see setEngineAvailability) defers opening it entirely, so neither needs
-        // permission. Reading these flags waits on WebRTC's worker thread, hence the RTC hop.
-        let needsMicrophonePermission = await RTC.run {
-            !AudioManager.shared.isManualRenderingMode && AudioManager.shared.engineAvailability.isInputAvailable
-        }
-        if needsMicrophonePermission {
-            try await LiveKitSDK.ensureMicrophoneAccessForRecording()
-        }
-        // AudioDeviceModule's InitRecording() and StartRecording() automatically get called by WebRTC, but
-        // explicitly init & start it early to detect audio engine failures (mic not accessible for some reason, etc.).
-        let audioProcessingOptions = captureOptions.audioProcessing
-        try await RTC.run {
-            try AudioManager.shared.startLocalRecording(audioProcessingOptions: audioProcessingOptions)
+        guard nativeAudio.copy() != nil else {
+            throw LiveKitError(.invalidState, message: "Native audio capture requires a connected room publication")
         }
     }
 
@@ -165,17 +116,7 @@ public class LocalAudioTrack: Track, LocalTrackProtocol, AudioTrackProtocol, @un
     }
 }
 
-extension LocalAudioTrack {
-    /// Everything the server is told about this track: capture processing, publish options and Krisp.
-    func features(publishOptions: AudioPublishOptions?) -> Set<Livekit_AudioTrackFeature> {
-        var features = captureOptions.toFeatures()
-        features.formUnion(publishOptions?.toFeatures() ?? [])
-        if AudioManager.shared.capturePostProcessingDelegate?.audioProcessingName == kLiveKitKrispAudioProcessorName {
-            features.insert(.tfEnhancedNoiseCancellation)
-        }
-        return features
-    }
-}
+extension LocalAudioTrack {}
 
 public extension LocalAudioTrack {
     var publishOptions: TrackPublishOptions? { super._state.lastPublishOptions }

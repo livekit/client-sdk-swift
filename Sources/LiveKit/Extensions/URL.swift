@@ -21,85 +21,10 @@ extension URL {
         host != nil && (scheme == "ws" || scheme == "wss" || scheme == "https" || scheme == "http")
     }
 
-    var isValidForSocket: Bool {
-        host != nil && (scheme == "ws" || scheme == "wss")
-    }
-
-    var isSecure: Bool {
-        scheme == "https" || scheme == "wss"
-    }
-
     /// Checks whether the URL is a LiveKit Cloud URL.
     var isCloud: Bool {
         guard let host else { return false }
         return host.hasSuffix(".livekit.cloud") || host.hasSuffix(".livekit.run")
-    }
-
-    /// Whether this URL is one the SDK may fail over to after region discovery.
-    ///
-    /// Region lists arrive over the network — from `/settings/regions` and from server-reported
-    /// settings on the signalling channel — and the SDK authenticates to whatever they name,
-    /// sending the participant token as a bearer header. Each entry is therefore checked on its
-    /// own merits rather than inheriting trust from the URL the application supplied.
-    ///
-    /// Distinct from ``isCloud``, which asks the different question of whether to attempt region
-    /// discovery at all for an application-supplied URL. The host match here is case-insensitive
-    /// because, unlike the Rust SDK's URL parser, Foundation does not normalise host case.
-    ///
-    /// Embedded userinfo is refused. It does not redirect the connection — Foundation resolves
-    /// `wss://edge.livekit.cloud@evil.com` to the host `evil.com`, which this already rejects —
-    /// but a genuine region URL never carries credentials, and an accepted one would be carried
-    /// into the connection and into the region log lines. Refusing costs nothing and keeps the
-    /// accepted shape to exactly what discovery is expected to return.
-    var isTrustedRegionURL: Bool {
-        guard isSecure, user == nil, password == nil, let host = host?.lowercased() else {
-            return false
-        }
-        return host.hasSuffix(".livekit.cloud") || host.hasSuffix(".livekit.run")
-    }
-
-    func cloudConfigUrl() -> URL {
-        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
-        components.scheme = scheme?.replacingOccurrences(of: "ws", with: "http")
-        components.user = nil
-        components.password = nil
-        components.query = nil
-        components.fragment = nil
-        components.path = "/settings"
-        return components.url!
-    }
-
-    func regionSettingsUrl() -> URL {
-        cloudConfigUrl().appendingPathComponent("regions")
-    }
-
-    /// Returns the canonical base URL used to key per-URL RegionManager instances.
-    func regionManagerKeyURL() -> URL {
-        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)
-        components?.user = nil
-        components?.password = nil
-        components?.query = nil
-        components?.fragment = nil
-
-        var pathSegments = components?.path.split(separator: "/").map(String.init) ?? []
-        if let last = pathSegments.last, ["rtc", "validate"].contains(last) {
-            pathSegments.removeLast()
-        }
-
-        let basePath = pathSegments.isEmpty ? "/" : "/" + pathSegments.joined(separator: "/") + "/"
-        components?.path = basePath
-
-        return components?.url ?? self
-    }
-
-    func matchesRegionManagerKey(of other: URL) -> Bool {
-        regionManagerKeyURL() == other.regionManagerKeyURL()
-    }
-
-    func toSocketUrl() -> URL {
-        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
-        components.scheme = scheme?.replacingOccurrences(of: "http", with: "ws")
-        return components.url!
     }
 
     func toHTTPUrl() -> URL {

@@ -16,6 +16,7 @@
 
 import Foundation
 @testable import LiveKit
+import LiveKitFFI
 import Testing
 #if canImport(LiveKitTestSupport)
 import LiveKitTestSupport
@@ -25,39 +26,47 @@ import LiveKitTestSupport
 struct ParticipantTests {
     @Test(arguments: [(Int32(-1), ClientProtocol.v0), (0, .v0), (1, .v1), (2, .v2), (3, .v2), (.max, .v2)])
     func remoteClientProtocol(advertised: Int32, expected: ClientProtocol) {
-        let info = Livekit_ParticipantInfo.with {
-            $0.identity = "remote"
-            $0.clientProtocol = advertised
-        }
-        let participant = RemoteParticipant(info: info, room: Room(), connectionState: .connected)
+        let participant = RemoteParticipant(info: info(clientProtocol: advertised), publications: [], room: Room(), connectionState: .connected)
         #expect(participant.clientProtocol == expected)
     }
 
     /// Capabilities come from the participant info: none by default, both known ones, and nothing
-    /// for the protocol's placeholder or a value this SDK does not know.
+    /// for the protocol's placeholder.
     @Test(arguments: [
-        ([Livekit_ClientInfo_Capability](), [ClientCapability]()),
-        ([.capCompressionDeflateRaw, .capPacketTrailer], [.compressionDeflateRaw, .packetTrailer]),
-        ([.capUnused, Livekit_ClientInfo_Capability(rawValue: 9999), .capCompressionDeflateRaw], [.compressionDeflateRaw]),
+        ([LiveKitFFI.ClientCapability](), [LiveKit.ClientCapability]()),
+        ([.compressionDeflateRaw, .packetTrailer], [.compressionDeflateRaw, .packetTrailer]),
+        ([.unused, .compressionDeflateRaw], [.compressionDeflateRaw]),
     ])
-    func remoteCapabilities(advertised: [Livekit_ClientInfo_Capability], expected: [ClientCapability]) {
-        let participant = RemoteParticipant(info: info(capabilities: advertised), room: Room(), connectionState: .connected)
+    func remoteCapabilities(advertised: [LiveKitFFI.ClientCapability], expected: [LiveKit.ClientCapability]) {
+        let participant = RemoteParticipant(info: info(capabilities: advertised), publications: [], room: Room(), connectionState: .connected)
         #expect(participant.capabilities == expected)
     }
 
     /// A later update replaces the capabilities, so one without any clears them.
     @Test func remoteCapabilitiesClearedByLaterUpdate() {
-        let participant = RemoteParticipant(info: info(capabilities: [.capCompressionDeflateRaw]), room: Room(), connectionState: .connected)
+        let participant = RemoteParticipant(info: info(capabilities: [.compressionDeflateRaw]), publications: [], room: Room(), connectionState: .connected)
         #expect(participant.capabilities == [.compressionDeflateRaw])
 
-        participant.set(info: info(capabilities: []), connectionState: .connected)
+        participant.set(info: info(capabilities: []), publications: [], connectionState: .connected)
         #expect(participant.capabilities.isEmpty)
     }
 
-    private func info(capabilities: [Livekit_ClientInfo_Capability]) -> Livekit_ParticipantInfo {
-        Livekit_ParticipantInfo.with {
-            $0.identity = "remote"
-            $0.capabilities = capabilities
+    private func info(clientProtocol: Int32 = 0, capabilities: [LiveKitFFI.ClientCapability] = []) -> LiveKitFFI.ParticipantInfo {
+        LiveKitFFI.ParticipantInfo(isEncrypted: false, sid: "", identity: "remote", name: "",
+                                   state: .active, metadata: "", attributes: [:], speaking: false, audioLevel: 0,
+                                   connectionQuality: .good, kind: .standard, kindDetails: [],
+                                   disconnectReason: .unknownReason, joinedAt: 0, permission: nil, clientProtocol: clientProtocol, capabilities: capabilities)
+    }
+
+    /// The server mirrors each client's advertised capabilities and protocol onto its participant,
+    /// so a peer reads what the native connect advertised.
+    @Test func peerSeesAdvertisedCapabilities() async throws {
+        try await TestEnvironment.withRooms([RoomTestingOptions(canSubscribe: true), RoomTestingOptions(canPublishData: true)]) { rooms in
+            let observer = rooms[0]
+            let peer = try #require(rooms[1].localParticipant.identity)
+            let remote = try #require(observer.remoteParticipants[peer])
+            #expect(remote.capabilities.contains(.compressionDeflateRaw))
+            #expect(remote.clientProtocol == .v2)
         }
     }
 

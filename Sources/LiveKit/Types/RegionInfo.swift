@@ -22,14 +22,8 @@ public class RegionInfo: NSObject, @unchecked Sendable {
     let url: URL
     let distance: Int64
 
-    /// Fails when `url` does not parse or names somewhere the SDK must not fail over to.
-    ///
-    /// The check lives here, at the single point every region is constructed, so that both
-    /// ingestion paths — the `/settings/regions` fetch and server-reported settings — are covered,
-    /// and so a future third path cannot miss it. See ``Foundation/URL/isTrustedRegionURL``.
-    init?(region: String, url: String, distance: Int64) {
-        guard let url = URL(string: url), url.isTrustedRegionURL else { return nil }
-        regionId = region
+    init(regionId: String, url: URL, distance: Int64) {
+        self.regionId = regionId
         self.url = url
         self.distance = distance
     }
@@ -51,13 +45,5 @@ public class RegionInfo: NSObject, @unchecked Sendable {
 
     override public var description: String {
         "RegionInfo(id: \(regionId), url: \(url), distance: \(distance))"
-    }
-}
-
-extension Livekit_RegionInfo {
-    func toLKType() -> RegionInfo? {
-        RegionInfo(region: region,
-                   url: url,
-                   distance: distance)
     }
 }

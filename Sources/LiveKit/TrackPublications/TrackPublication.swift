@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-#if !COCOAPODS && !LK_XCFRAMEWORK
-import LiveKitNanopb
-#endif
+internal import LiveKitFFI
 import Combine
 import Foundation
 
@@ -80,29 +78,21 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
         var isSubscribePreferred: Bool?
         var isMetadataMuted: Bool = false
         var encryptionType: EncryptionType = .none
-
-        var latestInfo: Livekit_TrackInfo?
-
-        var audioTrackFeatures: Set<Livekit_AudioTrackFeature>?
     }
 
     let _state: StateSync<State>
 
-    init(info: Livekit_TrackInfo, participant: Participant) {
+    init(info: NativeTrackPublication, participant: Participant) {
         _state = StateSync(State(
             sid: Track.Sid(from: info.sid),
-            kind: info.type.toLKType(),
-            source: info.source.toLKType(),
+            kind: info.kind == .audio ? .audio : .video,
+            source: info.source.lkType,
             name: info.name,
             mimeType: info.mimeType,
-            isSimulcasted: info.simulcast,
-            dimensions: info.type == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil,
-            isMetadataMuted: info.muted,
-            encryptionType: info.encryption.toLKType(),
-            // owned: `info` is a view into the decoded signal message, which a
-            // stored view would pin for this publication's whole lifetime
-            latestInfo: info.owned(),
-            audioTrackFeatures: Set(info.audioFeatures),
+            isSimulcasted: info.simulcasted,
+            dimensions: info.kind == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil,
+            isMetadataMuted: info.isMuted,
+            encryptionType: info.encryptionType.lkType,
         ))
 
         self.participant = participant
@@ -148,17 +138,12 @@ public class TrackPublication: NSObject, @unchecked Sendable, ObservableObject, 
         }
     }
 
-    func updateFromInfo(info: Livekit_TrackInfo) {
+    func updateFromInfo(info: NativeTrackPublication) {
         _state.mutate {
-            // only muted and name can conceivably update
             $0.name = info.name
-            $0.isSimulcasted = info.simulcast
+            $0.isSimulcasted = info.simulcasted
             $0.mimeType = info.mimeType
-            $0.dimensions = info.type == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil
-
-            // store the whole info (owned: `info` is a view into the decoded
-            // signal message, which it would otherwise pin in memory)
-            $0.latestInfo = info.owned()
+            $0.dimensions = info.kind == .video ? Dimensions(width: Int32(info.width), height: Int32(info.height)) : nil
         }
     }
 
@@ -199,7 +184,8 @@ extension TrackPublication: TrackDelegateInternal {
             let room = try participant.requireRoom()
 
             if shouldSendSignal {
-                try await room.signalClient.sendMuteTrack(trackSid: self.sid, muted: isMuted)
+                guard let native = self.track?.nativePublication.copy() else { throw LiveKitError(.invalidState) }
+                do { try await native.setMuted(muted: isMuted) } catch { throw LiveKitError.mappingNative(error) }
             }
 
             participant.delegates.notify {

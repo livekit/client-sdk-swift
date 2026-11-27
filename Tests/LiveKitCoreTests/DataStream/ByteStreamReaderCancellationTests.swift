@@ -126,13 +126,8 @@ extension ByteStreamReaderTests {
         let openAfterRelease = await manager.openStreamCount()
         #expect(openAfterRelease == 1)
 
-        feed(manager) {
-            $0.streamChunk = Livekit_DataStream.Chunk.with {
-                $0.streamID = streamID
-                $0.content = Data("abcde".utf8)
-            }
-        }
-        feed(manager) { $0.streamTrailer = Livekit_DataStream.Trailer.with { $0.streamID = streamID } }
+        manager.push(Data("abcde".utf8))
+        manager.finish()
         try await within("Progress to the end of the stream") { await observing.value }
         #expect(received.copy().last == 5)
         let openAfterEnd = await manager.openStreamCount()
@@ -194,13 +189,8 @@ extension ByteStreamReaderTests {
         }
         try await capture.signals.progressWaiting.wait()
 
-        feed(manager) {
-            $0.streamChunk = Livekit_DataStream.Chunk.with {
-                $0.streamID = streamID
-                $0.content = Data("abcde".utf8)
-            }
-        }
-        feed(manager) { $0.streamTrailer = Livekit_DataStream.Trailer.with { $0.streamID = streamID } }
+        manager.push(Data("abcde".utf8))
+        manager.finish()
         try await callbackReleased.wait()
         #expect(received.copy().last == 5)
         _ = reader
@@ -287,6 +277,8 @@ extension ByteStreamReaderTests {
             signals.readEntered.resume(returning: ())
             return try await inner.readAll()
         }
+
+        func waitClosed() async { await inner.waitClosed() }
     }
 
     /// Wraps the core's text reader to report to ``Signals``.
@@ -323,10 +315,12 @@ extension ByteStreamReaderTests {
             signals.readEntered.resume(returning: ())
             return try await inner.readAll()
         }
+
+        func waitClosed() async { await inner.waitClosed() }
     }
 
     /// Builds a public reader around a signalling core and hands it over without retaining it.
-    final class ReaderCapture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
+    final class ReaderCapture: @unchecked Sendable {
         let signals: Signals
 
         init(signals: Signals = Signals()) {
@@ -336,17 +330,15 @@ extension ByteStreamReaderTests {
         let opened = AsyncCompleter<Void>(label: "Stream opened", defaultTimeout: 10)
         private let reader = StateSync<AnyReader?>(nil)
 
-        func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
+        func onByteStreamOpened(reader: any LiveKitFFI.ByteStreamReaderProtocol) {
             let stream = LiveKit.ByteStreamReader(SignallingByteReader(reader, signals: signals), onProgressSubscription: signals.onProgressSubscription)
             hand(AnyReader(readAll: { _ = try await stream.readAll() }, readPayload: { try await stream.readAll() }, iterate: { for try await _ in stream {} }, progress: { stream.progress }, readProgress: { stream.readProgress(onProgress: $0) }, stopReadingProgress: { stream.stopReadingProgress() }))
         }
 
-        func onTextStreamOpened(reader: LiveKitFFI.TextStreamReader, identity _: String) {
+        func onTextStreamOpened(reader: any LiveKitFFI.TextStreamReaderProtocol) {
             let stream = LiveKit.TextStreamReader(SignallingTextReader(reader, signals: signals), onProgressSubscription: signals.onProgressSubscription)
             hand(AnyReader(readAll: { _ = try await stream.readAll() }, readPayload: { try await Data(stream.readAll().utf8) }, iterate: { for try await _ in stream {} }, progress: { stream.progress }, readProgress: { stream.readProgress(onProgress: $0) }, stopReadingProgress: { stream.stopReadingProgress() }))
         }
-
-        func onStreamClosed(streamId _: String, identity _: String) {}
 
         /// Takes the reader, so this capture no longer holds it.
         func take() -> AnyReader? {
@@ -363,19 +355,26 @@ extension ByteStreamReaderTests {
     }
 
     /// Opens a stream of `kind` that has only its header, so reads and progress wait in the core.
-    /// Returns the capture that holds the reader, and the manager, which the caller must keep alive.
-    func openStalledReader(_ kind: Kind, streamID: String = UUID().uuidString, signals: Signals = Signals()) async throws -> (ReaderCapture, IncomingDataStreamManager) {
+    /// Returns the capture that holds the reader, and the core handle.
+    func openStalledReader(_ kind: Kind, streamID: String = UUID().uuidString, signals: Signals = Signals()) async throws -> (ReaderCapture, StalledCore) {
         let capture = ReaderCapture(signals: signals)
-        let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
-        feed(manager) {
-            $0.streamHeader = Livekit_DataStream.Header.with {
-                $0.streamID = streamID
-                $0.topic = topic
-                $0.contentHeader = kind == .byte ? .byteHeader(Livekit_DataStream.ByteHeader()) : .textHeader(Livekit_DataStream.TextHeader())
-            }
+        switch kind {
+        case .byte:
+            let info = LiveKitFFI.ByteStreamInfo(id: streamID, topic: topic, timestampMs: 0, totalLength: nil, attributes: [:],
+                                                 mimeType: mimeType, name: name, encryptionType: .none)
+            let core = FakeByteReader(info: info, chunks: [], endReason: nil).core
+            capture.onByteStreamOpened(reader: FakeByteReader(sharing: core, info: info))
+            try await capture.opened.wait()
+            return (capture, StalledCore(push: { core.push($0) }, finish: { core.finish() }, count: { await core.openStreamCount() }, abort: { core.abortAllStreams() }))
+        case .text:
+            let info = LiveKitFFI.TextStreamInfo(id: streamID, topic: topic, timestampMs: 0, totalLength: nil, attributes: [:],
+                                                 mimeType: "text/plain", operationType: .create, version: 0, replyToStreamId: nil,
+                                                 attachedStreamIds: [], generated: false, encryptionType: .none)
+            let core = FakeTextReader(info: info, chunks: [], endReason: nil).core
+            capture.onTextStreamOpened(reader: FakeTextReader(sharing: core, info: info))
+            try await capture.opened.wait()
+            return (capture, StalledCore(push: { core.push(String(bytes: $0, encoding: .utf8) ?? "") }, finish: { core.finish() }, count: { await core.openStreamCount() }, abort: { core.abortAllStreams() }))
         }
-        try await capture.opened.wait()
-        return (capture, manager)
     }
 
     /// Runs `body` in its own task and waits at most 5 s for it, however `body` treats cancellation.

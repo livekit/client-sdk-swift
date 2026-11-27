@@ -95,17 +95,3 @@ public class ParticipantPermissions: NSObject, @unchecked Sendable {
         return hasher.finalize()
     }
 }
-
-extension Livekit_ParticipantPermission {
-    func toLKType() -> ParticipantPermissions {
-        ParticipantPermissions(canSubscribe: canSubscribe,
-                               canPublish: canPublish,
-                               canPublishData: canPublishData,
-                               canPublishSources: Set(canPublishSources.map { $0.toLKType() }),
-                               hidden: hidden,
-                               recorder: recorder,
-                               canUpdateMetadata: canUpdateMetadata,
-                               canSubscribeMetrics: canSubscribeMetrics,
-                               canManageAgentSession: canManageAgentSession)
-    }
-}

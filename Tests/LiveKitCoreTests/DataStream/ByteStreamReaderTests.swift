@@ -22,9 +22,8 @@ import Testing
 import LiveKitTestSupport
 #endif
 
-/// Exercises every ``ByteStreamReader`` interface (iterating, `readAll()`, `writeToFile()`) against
-/// a reader minted by the UniFFI incoming manager: a real `IncomingDataStreamManager` is fed data
-/// stream packets, the opened reader is captured, and its contents are read back through each API.
+/// Exercises every ``ByteStreamReader`` interface (iterating, `readAll()`, `writeToFile()`) over an
+/// in-memory core reader that replays chunks and an end reason.
 @Suite(.tags(.dataStream))
 struct ByteStreamReaderTests {
     let topic = "someTopic"
@@ -165,17 +164,6 @@ struct ByteStreamReaderTests {
         return directory
     }
 
-    /// Releasing the manager, as a disconnect does, fails a reader still waiting for its trailer, so
-    /// `readAll()` can't return the chunks received so far as if they were the whole payload.
-    @Test func releasingManagerFailsOpenReader() async throws {
-        let reader = try await openReader(trailerReason: nil).0
-        let error = try #require(await #expect(throws: StreamError.self) { try await reader.readAll() })
-        guard case .abnormalEnd = error else {
-            Issue.record("Expected .abnormalEnd, got \(error)")
-            return
-        }
-    }
-
     /// The sender chooses the stored name, so a name that leaves the directory is refused before
     /// any file opens. An empty name from the sender means "no name", so it is not listed here.
     @Test(arguments: ["../escape.bin", "nested/escape.bin", "..", ".", "..\\escape.bin", "escape\u{0}.bin", "../\u{0301}escape.bin", "a\\\u{0301}b"])
@@ -233,57 +221,17 @@ struct ByteStreamReaderTests {
 
     // MARK: - Helpers
 
-    /// Delegate that wraps the FFI reader into the public ``ByteStreamReader`` and hands it back
-    /// through a completer, which fails after a timeout instead of hanging.
-    final class Capture: IncomingDataStreamManagerDelegate, @unchecked Sendable {
-        let opened = AsyncCompleter<LiveKit.ByteStreamReader>(label: "Stream opened", defaultTimeout: 10)
-
-        func onByteStreamOpened(reader: LiveKitFFI.ByteStreamReader, identity _: String) {
-            opened.resume(returning: LiveKit.ByteStreamReader(reader))
-        }
-
-        func onTextStreamOpened(reader _: LiveKitFFI.TextStreamReader, identity _: String) {}
-
-        func onStreamClosed(streamId _: String, identity _: String) {}
-    }
-
-    /// Opens a byte stream through the FFI incoming manager and returns the public reader plus the
-    /// manager, which the caller must keep alive while reading. A `nil` reason leaves the stream
-    /// open by sending no trailer.
+    /// Opens a public reader over an in-memory core reader. The second value keeps the core alive,
+    /// as the removed manager was kept alive. A `nil` reason leaves the stream open.
     func openReader(
         fileName: String? = nil,
         chunks: [Data]? = nil,
         trailerReason: String? = "",
-    ) async throws -> (LiveKit.ByteStreamReader, IncomingDataStreamManager) {
-        let capture = Capture()
-        let manager = IncomingDataStreamManager(delegate: capture, maxPayloadByteLength: nil)
-        let streamID = UUID().uuidString
-
-        let header = Livekit_DataStream.Header.with {
-            $0.streamID = streamID
-            $0.topic = topic
-            $0.mimeType = mimeType
-            $0.contentHeader = .byteHeader(.with { $0.name = Self.withoutNUL(fileName ?? name) })
-        }
-        feed(manager, wireName: fileName ?? name) { $0.streamHeader = header }
-
-        for (index, chunk) in (chunks ?? testChunks).enumerated() {
-            let streamChunk = Livekit_DataStream.Chunk.with {
-                $0.streamID = streamID
-                $0.chunkIndex = UInt64(index)
-                $0.content = chunk
-            }
-            feed(manager) { $0.streamChunk = streamChunk }
-        }
-
-        if let trailerReason {
-            let trailer = Livekit_DataStream.Trailer.with {
-                $0.streamID = streamID
-                $0.reason = trailerReason
-            }
-            feed(manager) { $0.streamTrailer = trailer }
-        }
-        return try await (capture.opened.wait(), manager)
+    ) async throws -> (LiveKit.ByteStreamReader, FakeByteReader) {
+        let info = LiveKitFFI.ByteStreamInfo(id: UUID().uuidString, topic: topic, timestampMs: 0, totalLength: nil,
+                                             attributes: [:], mimeType: mimeType, name: fileName ?? name, encryptionType: .none)
+        let core = FakeByteReader(info: info, chunks: chunks ?? testChunks, endReason: trailerReason)
+        return (LiveKit.ByteStreamReader(core), core)
     }
 
     /// Runs `write` against a fresh directory and expects it to throw before creating anything,
@@ -299,27 +247,5 @@ struct ByteStreamReaderTests {
         }
         #expect(try FileManager.default.contentsOfDirectory(atPath: parent.path) == ["target"])
         #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
-    }
-
-    /// nanopb stores strings NUL-terminated, so a name with a NUL is encoded with a one-byte
-    /// placeholder in its place, and ``feed(_:wireName:_:)`` puts the NUL on the wire afterwards.
-    private static func withoutNUL(_ name: String) -> String {
-        name.replacingOccurrences(of: "\u{0}", with: "\u{1}")
-    }
-
-    func feed(
-        _ manager: IncomingDataStreamManager,
-        wireName: String? = nil,
-        _ configure: (inout Livekit_DataPacket.Builder) -> Void,
-    ) {
-        let packet = Livekit_DataPacket.with {
-            $0.participantIdentity = "someName"
-            configure(&$0)
-        }
-        guard var data = try? packet.serializedData() else { return }
-        if let wireName, let range = data.range(of: Data(Self.withoutNUL(wireName).utf8)) {
-            data.replaceSubrange(range, with: Data(wireName.utf8))
-        }
-        manager.handlePacketReceived(packet: data, encryptionType: .none)
     }
 }

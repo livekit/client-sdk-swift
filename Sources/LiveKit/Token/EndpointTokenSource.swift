@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+internal import LiveKitTransport
 import Foundation
 
 /// Protocol for token servers that fetch credentials via HTTP requests.
@@ -49,6 +50,7 @@ public extension EndpointTokenSource {
         urlRequest.httpBody = try JSONEncoder().encode(options.toRequest())
         urlRequest.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        LiveKitTransport.initialize()
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
 
         guard let httpResponse = response as? HTTPURLResponse else {

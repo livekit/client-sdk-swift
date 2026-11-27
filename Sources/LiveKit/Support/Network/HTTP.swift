@@ -14,75 +14,18 @@
  * limitations under the License.
  */
 
+internal import LiveKitTransport
 import Foundation
 
-class HTTP: NSObject {
+enum HTTP {
     private static let operationQueue = OperationQueue()
 
     private static let session: URLSession = .init(configuration: .default,
                                                    delegate: nil,
                                                    delegateQueue: operationQueue)
 
-    /// Perform one request on the shared session.
-    ///
-    /// Both parameters are applied to `request`, overriding whatever it carries, so the
-    /// transport owns them rather than each call site.
-    ///
-    /// - Parameter cachePolicy: Defaults to bypassing the cache: the shared session uses
-    ///   `URLCache.shared`, and a cached validation or region response is a stale one.
-    /// - Parameter timeoutInterval: Defaults to ``TimeInterval/defaultHTTPConnect``.
-    static func request(_ request: URLRequest,
-                        cachePolicy: URLRequest.CachePolicy = .reloadIgnoringLocalAndRemoteCacheData,
-                        timeoutInterval: TimeInterval = .defaultHTTPConnect) async throws -> (Data, HTTPURLResponse)
-    {
-        var request = request
-        request.cachePolicy = cachePolicy
-        request.timeoutInterval = timeoutInterval
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw URLError(.badServerResponse)
-        }
-        return (data, httpResponse)
-    }
-
-    static func requestValidation(from url: URL, token: String) async throws {
-        var request = URLRequest(url: url)
-        // Attach token to header
-        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        let (data, httpResponse) = try await Self.request(request,
-                                                          cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
-                                                          timeoutInterval: .defaultHTTPConnect)
-
-        guard (200 ..< 300).contains(httpResponse.statusCode) else {
-            let statusCode = httpResponse.statusCode
-            let details = "HTTP \(statusCode): \(Self.describeErrorBody(data))"
-
-            // Treat request/token/permissions issues as validation errors.
-            // 404 is reported separately so the v1 → v0 RTC path fallback can
-            // distinguish "endpoint doesn't exist" from other client errors.
-            // The status is carried on the error so callers can tell the Cloud
-            // region-pinning 403 from a terminal 401 without parsing `details`.
-            if (400 ..< 500).contains(statusCode), statusCode != 429 {
-                throw LiveKitError(statusCode == 404 ? .serviceNotFound : .validation,
-                                   message: details,
-                                   statusCode: statusCode)
-            }
-
-            // Treat server/rate-limit issues as network errors.
-            throw LiveKitError(.network, message: "Validation endpoint error: \(details)")
-        }
-    }
-
-    /// The server's message from an error response body, truncated for logging.
-    static func describeErrorBody(_ data: Data) -> String {
-        let rawBody = String(data: data, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let rawBody, !rawBody.isEmpty else { return "(No server message)" }
-        return rawBody.count > 1024 ? String(rawBody.prefix(1024)) + "..." : rawBody
-    }
-
     static func prewarmConnection(url: URL) async {
+        LiveKitTransport.initialize()
         // Convert WebSocket URL to HTTP for warming
         let httpUrl = url.toHTTPUrl()
         do {

@@ -70,6 +70,17 @@ struct DataTrackSendTests {
         }
     }
 
+    /// Sequence completion forwards every frame to the sink; it does not promise network delivery.
+    @Test(arguments: [LocalDataTrack.FrameDropPolicy.drop, .throw])
+    func forwardsAllFramesInOrder(_ policy: LocalDataTrack.FrameDropPolicy) async throws {
+        let sink = RecordingSink()
+        try await sink.sendFrames(from: Self.frames(5), onQueueFull: policy)
+
+        let expected = (0 ..< 5).map { Data([UInt8($0)]) }
+        #expect(sink.offered.copy().map(\.payload) == expected)
+        #expect(sink.accepted.copy().map(\.payload) == expected)
+    }
+
     /// Only the rejected frame is skipped; the rest of the sequence still goes out.
     @Test
     func dropSkipsRejectedFrames() async throws {

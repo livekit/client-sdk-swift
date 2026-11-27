@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-#if !COCOAPODS && !LK_XCFRAMEWORK
-import LiveKitNanopb
-#endif
+internal import LiveKitFFI
 internal import LiveKitWebRTC
 import Combine
 import Foundation
@@ -86,8 +84,6 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         _state.trackPublications.values.filter { $0.kind == .video }
     }
 
-    var info: Livekit_ParticipantInfo?
-
     // Reference to the Room this Participant belongs to
     weak var _room: Room?
 
@@ -118,14 +114,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         var capabilities: [ClientCapability] = []
     }
 
-    struct InternalState: Equatable, Hashable {
-        var enabledPublishVideoCodecs: [VideoCodec] = []
-    }
-
     let _state: StateSync<State>
-
-    // States that do not require `objectWillChange` for Swift UI.
-    let _internalState = StateSync(InternalState())
 
     let _publishSerialRunner = SerialRunnerActor<LocalTrackPublication?>()
 
@@ -198,7 +187,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
                     $0.room?(room, participant: self, didUpdateState: newState.state)
                 }
 
-                guard let identity = identity?.stringValue else { return }
+                guard let identity = newState.identity?.stringValue else { return }
                 if oldState.state != .active, newState.state == .active {
                     Task {
                         await room.activeParticipantCompleters.resume(returning: (), for: identity)
@@ -255,40 +244,33 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         publication.track?._state.mutate { $0.sid = publication.sid }
     }
 
-    func set(info: Livekit_ParticipantInfo, connectionState _: ConnectionState) {
+    func set(info: LiveKitFFI.ParticipantInfo, publications _: [NativeTrackPublication], connectionState _: ConnectionState) {
         _state.mutate {
             $0.sid = Sid(from: info.sid)
             $0.identity = Identity(from: info.identity)
             $0.name = info.name
             $0.metadata = info.metadata
-            $0.kind = info.kind.toLKType()
+            $0.kind = info.kind.lkType
             $0.attributes = info.attributes
             $0.agentAttributes = info.attributes.mapped(to: AgentAttributes.self)
-            $0.state = info.state.toLKType()
+            $0.state = info.state.lkType
             // Each version extends the one before, so a peer newer than this SDK reads as the
             // newest version it knows, not as a legacy client.
             $0.clientProtocol = ClientProtocol(rawValue: min(Int(info.clientProtocol), ClientProtocol.v2.rawValue)) ?? .v0
-            $0.capabilities = info.capabilities.compactMap { ClientCapability(rawValue: $0.rawValue) }
+            $0.capabilities = (self is LocalParticipant ? [] : info.capabilities).compactMap {
+                switch $0 {
+                case .packetTrailer: .packetTrailer
+                case .compressionDeflateRaw: .compressionDeflateRaw
+                default: nil
+                }
+            }
 
-            // Attempt to get millisecond precision.
-            if info.joinedAtMs != 0 {
-                $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(Double(info.joinedAtMs) / 1000))
-            } else if info.joinedAt != 0 {
-                $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(info.joinedAt))
+            if info.joinedAt != 0 {
+                $0.joinedAt = Date(timeIntervalSince1970: TimeInterval(Double(info.joinedAt) / 1000))
             }
         }
 
-        // Detach: a view from a decoded signal message would otherwise keep
-        // the entire response allocation alive for this participant's lifetime.
-        self.info = info.owned()
-        set(permissions: info.permission.toLKType())
-    }
-
-    func set(enabledPublishCodecs codecs: [Livekit_Codec]) {
-        log("enabledPublishCodecs: \(codecs.map(\.mime).joined(separator: ", "))")
-        _internalState.mutate {
-            $0.enabledPublishVideoCodecs = codecs.map { VideoCodec.from(mimeType: $0.mime) }.compactMap(\.self)
-        }
+        set(permissions: info.permission?.lkType ?? ParticipantPermissions())
     }
 
     @discardableResult

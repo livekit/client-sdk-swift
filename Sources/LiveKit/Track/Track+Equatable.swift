@@ -21,12 +21,13 @@ import Foundation
 public extension Track {
     override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? Self else { return false }
-        return mediaTrack.trackId == other.mediaTrack.trackId
+        guard let mediaTrack, let otherTrack = other.mediaTrack else { return self === other }
+        return mediaTrack.trackId == otherTrack.trackId
     }
 
     override var hash: Int {
         var hasher = Hasher()
-        hasher.combine(mediaTrack.trackId)
+        if let mediaTrack { hasher.combine(mediaTrack.trackId) } else { hasher.combine(ObjectIdentifier(self)) }
         return hasher.finalize()
     }
 }

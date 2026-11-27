@@ -47,7 +47,7 @@ public final class ByteStreamWriter: NSObject, Sendable {
         do {
             try await abandoningOnCancel { [writer] in try await writer.write(data: data) }
         } catch let error as LiveKitFFI.DataStreamError {
-            throw StreamError(error)
+            throw StreamError.fromNative(error)
         }
     }
 
@@ -84,7 +84,7 @@ public final class ByteStreamWriter: NSObject, Sendable {
         do {
             try await abandoningOnCancel { [writer] in try await writer.close(reason: reason, attributes: attributes) }
         } catch let error as LiveKitFFI.DataStreamError {
-            throw StreamError(error)
+            throw StreamError.fromNative(error)
         }
     }
 

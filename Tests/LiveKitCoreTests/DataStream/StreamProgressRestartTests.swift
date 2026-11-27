@@ -60,8 +60,8 @@ extension ByteStreamReaderTests {
         if controlled {
             source.final.resume(returning: LiveKitFFI.StreamProgress(bytesProcessed: 5, bytesTotal: 5))
         } else {
-            feed(manager) { $0.streamChunk = Livekit_DataStream.Chunk.with { $0.streamID = id; $0.content = Data("abcde".utf8) } }
-            feed(manager) { $0.streamTrailer = Livekit_DataStream.Trailer.with { $0.streamID = id } }
+            manager.push(Data("abcde".utf8))
+            manager.finish()
         }
         for _ in 0 ..< 2 {
             let updates = try await collectProgress(reader, objc: objc)

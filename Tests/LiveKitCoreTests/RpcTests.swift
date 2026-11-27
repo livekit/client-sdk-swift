@@ -57,7 +57,6 @@ struct RpcTests {
                 payload: "small payload",
             )
             #expect(response == "v2-response")
-            #expect(await caller.rpcClient.pendingCount == 0)
         }
     }
 
@@ -76,7 +75,6 @@ struct RpcTests {
                 payload: largePayload,
             )
             #expect(response == largePayload)
-            #expect(await caller.rpcClient.pendingCount == 0)
         }
     }
 
@@ -121,7 +119,6 @@ struct RpcTests {
                 payload: "go",
             )
             #expect(response == largePayload)
-            #expect(await caller.rpcClient.pendingCount == 0)
         }
     }
 
@@ -144,7 +141,6 @@ struct RpcTests {
                 #expect(error.code == 101)
                 #expect(error.message == "Test error message")
             }
-            #expect(await caller.rpcClient.pendingCount == 0)
         }
     }
 
@@ -164,7 +160,6 @@ struct RpcTests {
                 payload: "x",
             )
             #expect(response == "v1-response")
-            #expect(await caller.rpcClient.pendingCount == 0)
         }
     }
 
@@ -204,7 +199,6 @@ struct RpcTests {
                 payload: "",
             )
             #expect(second == "pong")
-            #expect(await caller.rpcClient.pendingCount == 0)
         }
     }
 
@@ -221,7 +215,6 @@ struct RpcTests {
                     payload: largePayload,
                 )
             }
-            #expect(await caller.rpcClient.pendingCount == 0)
         }
     }
 }

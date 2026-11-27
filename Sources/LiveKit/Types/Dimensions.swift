@@ -129,51 +129,6 @@ extension Dimensions {
         }
         return result
     }
-
-    func encodings(from presets: [VideoParameters?]) -> [LKRTCRtpEncodingParameters] {
-        var result: [LKRTCRtpEncodingParameters] = []
-        for (index, preset) in presets.compactMap(\.self).enumerated() {
-            guard let rid = VideoQuality.RIDs[safe: index] else {
-                continue
-            }
-
-            let parameters = RTC.createRtpEncodingParameters(
-                rid: rid,
-                encoding: preset.encoding,
-                scaleDownBy: Double(max) / Double(preset.dimensions.max),
-            )
-
-            result.append(parameters)
-        }
-
-        return VideoQuality.RIDs.compactMap { rid in result.first(where: { $0.rid == rid }) }
-    }
-
-    func videoLayers(for encodings: [LKRTCRtpEncodingParameters]) -> [Livekit_VideoLayer] {
-        if let firstEncoding = encodings.first,
-           let scalabilityMode = ScalabilityMode.fromString(firstEncoding.scalabilityMode)
-        {
-            (0 ... (scalabilityMode.spatial - 1)).map { idx in
-                Livekit_VideoLayer.with {
-                    $0.width = UInt32((Double(width) / pow(2, Double(idx))).rounded(.down))
-                    $0.height = UInt32((Double(height) / pow(2, Double(idx))).rounded(.down))
-                    $0.quality = Livekit_VideoQuality(rawValue: scalabilityMode.spatial - idx - 1)
-                    $0.bitrate = UInt32((Double(truncating: firstEncoding.maxBitrateBps ?? 0) / pow(3, Double(idx))).rounded(.up))
-                }
-            }
-
-        } else {
-            encodings.filter(\.isActive).map { encoding in
-                let scaleDownBy = encoding.scaleResolutionDownBy?.doubleValue ?? 1.0
-                return Livekit_VideoLayer.with {
-                    $0.width = UInt32((Double(width) / scaleDownBy).rounded(.down))
-                    $0.height = UInt32((Double(height) / scaleDownBy).rounded(.down))
-                    $0.quality = Livekit_VideoQuality.from(rid: encoding.rid) ?? .high
-                    $0.bitrate = encoding.maxBitrateBps?.uint32Value ?? 0
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Convert

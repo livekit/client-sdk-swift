@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Combine
 import Foundation
 
 @objcMembers
@@ -24,23 +23,6 @@ public class LocalTrackPublication: TrackPublication, @unchecked Sendable {
 
     // stream state is always active for local tracks
     override public var streamState: StreamState { .active }
-
-    // MARK: - Private
-
-    private var _cancellable: AnyCancellable?
-
-    override init(info: Livekit_TrackInfo, participant: Participant) {
-        super.init(info: info, participant: participant)
-
-        // Watch audio manager processor changes.
-        _cancellable = AudioManager.shared.capturePostProcessingDelegateSubject.sink { [weak self] _ in
-            self?.sendAudioTrackFeatures()
-        }
-    }
-
-    // MARK: - Private
-
-    private let _debounce = Debounce(delay: 0.1)
 
     public func mute() async throws {
         guard let track = track as? LocalTrack else {
@@ -71,8 +53,6 @@ public class LocalTrackPublication: TrackPublication, @unchecked Sendable {
             newLocalVideoTrack.capturer.add(delegate: self)
         }
 
-        sendAudioTrackFeatures()
-
         return oldValue
     }
 }
@@ -95,11 +75,8 @@ extension LocalTrackPublication {
 
 extension LocalTrackPublication: VideoCapturerDelegate {
     public func capturer(_: VideoCapturer, didUpdate _: Dimensions?) {
-        Task.detached {
-            await self._debounce.schedule {
-                await self.recomputeSenderParameters()
-            }
-        }
+        // Native capture submits frame dimensions; sender encoding changes are not exported.
+        log("Native sender encoding recomputation is not available")
     }
 
     public func capturer(_ capturer: VideoCapturer, didUpdate state: VideoCapturer.CapturerState) {
@@ -128,91 +105,5 @@ extension LocalTrackPublication: VideoCapturerDelegate {
         #endif
 
         return false
-    }
-}
-
-extension LocalTrackPublication {
-    func sendAudioTrackFeatures() {
-        // Only proceed if audio track.
-        guard let audioTrack = track as? LocalAudioTrack else { return }
-
-        let newFeatures = audioTrack.features(publishOptions: audioTrack.publishOptions as? AudioPublishOptions)
-
-        let didUpdateFeatures = _state.mutate {
-            let oldFeatures = $0.audioTrackFeatures
-            $0.audioTrackFeatures = newFeatures
-            return oldFeatures != newFeatures
-        }
-
-        if didUpdateFeatures {
-            log("Sending audio track features: \(newFeatures)")
-            // Send if features updated.
-            Task.detachedDiscarding { [newFeatures] in
-                let participant = try await self.requireParticipant()
-                let room = try participant.requireRoom()
-                try await room.signalClient.sendUpdateLocalAudioTrack(trackSid: self.sid,
-                                                                      features: newFeatures)
-            }
-        }
-    }
-
-    @RTC
-    func recomputeSenderParameters() {
-        guard let track = track as? LocalVideoTrack,
-              let sender = track._state.rtpSender else { return }
-
-        guard let dimensions = track.capturer.dimensions else {
-            log("Cannot re-compute sender parameters without dimensions", .warning)
-            return
-        }
-
-        log("Re-computing sender parameters, dimensions: \(String(describing: track.capturer.dimensions))")
-
-        // get current parameters
-        let parameters = sender.raw.parameters
-
-        guard let participant, let room = participant._room else { return }
-        let publishOptions = (track.publishOptions as? VideoPublishOptions) ?? room._state.roomOptions.defaultVideoPublishOptions
-
-        // re-compute encodings
-        let encodings = Utils.computeVideoEncodings(dimensions: dimensions,
-                                                    publishOptions: publishOptions,
-                                                    isScreenShare: track.source == .screenShareVideo)
-
-        log("Computed encodings: \(encodings)")
-
-        for current in parameters.encodings {
-            //
-            if let updated = encodings.first(where: { $0.rid == current.rid }) {
-                // update parameters for matching rid
-                current.isActive = updated.isActive
-                current.scaleResolutionDownBy = updated.scaleResolutionDownBy
-                current.maxBitrateBps = updated.maxBitrateBps
-                current.maxFramerate = updated.maxFramerate
-            } else {
-                current.isActive = false
-                current.scaleResolutionDownBy = nil
-                current.maxBitrateBps = nil
-                current.maxBitrateBps = nil
-            }
-        }
-
-        // set the updated parameters
-        sender.raw.parameters = parameters
-
-        // Logged from the local copy: each `parameters` read is another signaling-thread round-trip.
-        log("Using encodings: \(parameters.encodings), degradationPreference: \(String(describing: parameters.degradationPreference))")
-
-        // Report updated encodings to server
-
-        let layers = dimensions.videoLayers(for: encodings)
-
-        log("Using encodings layers: \(layers.map { String(describing: $0) }.joined(separator: ", "))")
-
-        Task.detachedDiscarding {
-            let participant = try await self.requireParticipant()
-            let room = try participant.requireRoom()
-            try await room.signalClient.sendUpdateVideoLayers(trackSid: track.sid!, layers: layers)
-        }
     }
 }
