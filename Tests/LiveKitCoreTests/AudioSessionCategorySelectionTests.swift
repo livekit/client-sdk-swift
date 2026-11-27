@@ -158,6 +158,25 @@ struct AudioSessionCategorySelectionTests {
         #expect(!oldState.isPlayoutEnabled && !oldState.isRecordingEnabled)
     }
 
+    /// A release that stays committed is a state change, so state observers must see it even though
+    /// the call throws.
+    @Test func failedReleaseNotifiesStateObservers() throws {
+        let observer = FailingObserver()
+        let handle = try observer.acquire(requirement: .playbackOnly)
+
+        let changes = StateSync<[(new: Observer.State, old: Observer.State)]>([])
+        observer._state.onDidMutate = { new, old in
+            changes.mutate { $0.append((new: new, old: old)) }
+        }
+
+        observer.isFailing.mutate { $0 = true }
+        #expect(throws: LiveKitError.self) { try handle.release() }
+
+        let change = try #require(changes.copy().last)
+        #expect(change.old.isPlayoutEnabled)
+        #expect(change.new.sessionRequirements.isEmpty)
+    }
+
     @Test func failedAcquireIsNotRegistered() {
         let observer = FailingObserver()
         observer.isFailing.mutate { $0 = true }

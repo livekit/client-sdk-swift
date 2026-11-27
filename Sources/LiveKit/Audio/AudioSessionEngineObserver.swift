@@ -146,10 +146,12 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     }
 
     private func updateRequirements(_ block: (inout [UUID: SessionRequirement]) -> Void) throws {
-        try _state.mutate {
+        // The failure is returned from the mutation and thrown after it. A throw from inside
+        // would skip `onDidMutate`, although a release stays committed.
+        let failure: (any Error)? = _state.mutate {
             let oldState = $0
             block(&$0.sessionRequirements)
-            guard $0.sessionRequirements != oldState.sessionRequirements else { return }
+            guard $0.sessionRequirements != oldState.sessionRequirements else { return nil }
 
             if $0.isRecordingEnabled {
                 $0.hasRecorded = true
@@ -171,12 +173,17 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
             do {
                 try configureIfNeeded(oldState: oldState, newState: $0)
+                return nil
             } catch {
                 if !isRelease {
                     $0 = oldState
                 }
-                throw LiveKitError(.audioSession, message: "Failed to configure audio session")
+                return error
             }
+        }
+
+        if failure != nil {
+            throw LiveKitError(.audioSession, message: "Failed to configure audio session")
         }
     }
 
