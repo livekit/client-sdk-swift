@@ -119,6 +119,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     /// of the WebRTC engine lifecycle.
     ///
     /// - Throws: ``LiveKitError`` if the audio session fails to configure or activate.
+    ///   The requirement is not registered in that case.
     public func acquire(requirement: SessionRequirement) throws -> SessionRequirementHandle {
         let id = UUID()
         try set(requirement: requirement, for: id)
@@ -145,10 +146,12 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
     }
 
     private func updateRequirements(_ block: (inout [UUID: SessionRequirement]) -> Void) throws {
-        try _state.mutate {
+        // The failure is returned from the mutation and thrown after it. A throw from inside
+        // would skip `onDidMutate`, although a release stays committed.
+        let failure: (any Error)? = _state.mutate {
             let oldState = $0
             block(&$0.sessionRequirements)
-            guard $0.sessionRequirements != oldState.sessionRequirements else { return }
+            guard $0.sessionRequirements != oldState.sessionRequirements else { return nil }
 
             if $0.isRecordingEnabled {
                 $0.hasRecorded = true
@@ -161,18 +164,32 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
                 $0.hasRecorded = false
             }
 
+            // Every requirement stayed or shrank, so this is a release. Rolling a
+            // release back would leave a requirement that no owner can remove,
+            // and keep the session from deactivating for good.
+            let isRelease = $0.sessionRequirements.allSatisfy { id, requirement in
+                oldState.sessionRequirements[id]?.isSuperset(of: requirement) == true
+            }
+
             do {
                 try configureIfNeeded(oldState: oldState, newState: $0)
+                return nil
             } catch {
-                $0 = oldState
-                throw LiveKitError(.audioSession, message: "Failed to configure audio session")
+                if !isRelease {
+                    $0 = oldState
+                }
+                return error
             }
+        }
+
+        if let failure {
+            throw LiveKitError(.audioSession, message: "Failed to configure audio session", internalError: failure)
         }
     }
 
     // MARK: - Audio Session Configuration
 
-    private func configureIfNeeded(oldState: State, newState: State) throws {
+    func configureIfNeeded(oldState: State, newState: State) throws {
         guard newState.isAutomaticConfigurationEnabled else { return }
 
         // Deprecated: `customConfigureAudioSessionFunc` overrides the default configuration.
