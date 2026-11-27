@@ -79,6 +79,46 @@ struct NativeStateObservationTests {
         #expect(room.state().connection == .idle)
     }
 
+    @Test func equalObservedContentDoesNotMutateRoomForNewRevisions() {
+        let native = FfiRoom()
+        defer { native.cancel() }
+        let room = Room()
+        let mutations = StateSync(0)
+        let original = room._state.onDidMutate
+        room._state.onDidMutate = { new, old in
+            mutations.mutate { $0 += 1 }
+            original?(new, old)
+        }
+        var observation = native.observeState().state()
+        observation.values.room = roomInfo(name: "first", count: 1)
+        room.applyNativeRoomValues(observation.values.room)
+        #expect(mutations.copy() == 1)
+        observation.revision += 1
+        observation.values.room?.metadata = "newer event payload"
+        observation.values.room?.activeRecording = true
+        observation.values.room?.emptyTimeout = 42
+        room.applyNativeRoomValues(observation.values.room)
+        #expect(mutations.copy() == 1)
+
+        observation.values.room?.name = "second"
+        observation.values.room?.numParticipants = 9
+        room.applyNativeRoomValues(observation.values.room)
+        #expect(mutations.copy() == 2)
+        #expect(room.name == "second")
+        #expect(room._state.numParticipants == 9)
+
+        var event = roomInfo(name: "stale", count: 1)
+        event.metadata = "ordered metadata"
+        event.activeRecording = true
+        room.applyNativeRoomEventValues(event)
+        #expect(mutations.copy() == 3)
+        room.applyNativeRoomValues(observation.values.room)
+        #expect(mutations.copy() == 3)
+        #expect(room.metadata == "ordered metadata")
+        #expect(room.isRecording)
+        #expect(room.name == "second")
+    }
+
     @Test func delayedEventSnapshotCannotOverwriteObservedRoomValues() async throws {
         let native = FfiRoom()
         let room = Room()

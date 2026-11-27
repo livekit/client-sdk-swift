@@ -22,6 +22,16 @@ extension Room {
         guard let info else { return }
         // Only the observation loop writes latest room values. Ordered metadata and
         // recording delegates are driven separately by the event cursor.
+        // These fields have one writer on NativeRoomDriver. Compare the applied
+        // content, including empty/zero merge rules, before scheduling notifications.
+        let changed = _state.read { state in
+            var next = state
+            next.apply(roomInfo: info, includingOrderedValues: includingOrderedValues)
+            return (state.sid, state.name, state.numParticipants, state.numPublishers, state.maxParticipants, state.creationTime)
+                != (next.sid, next.name, next.numParticipants, next.numPublishers, next.maxParticipants, next.creationTime)
+                || (includingOrderedValues && (state.metadata != next.metadata || state.isRecording != next.isRecording))
+        }
+        guard changed else { return }
         _state.mutate { $0.apply(roomInfo: info, includingOrderedValues: includingOrderedValues) }
     }
 
