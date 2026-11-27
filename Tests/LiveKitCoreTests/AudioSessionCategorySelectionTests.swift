@@ -124,14 +124,18 @@ struct AudioSessionCategorySelectionTests {
 
     // MARK: - Configuration failures
 
-    /// Replaces the `AVAudioSession` calls so a test can make them fail on demand.
+    /// Replaces the session configuration so a test can make it fail on demand.
+    ///
+    /// Overrides `configureIfNeeded` and not the `AVAudioSession` calls below it. That step returns early
+    /// while `AudioManager.shared` has a custom configure function, which another suite sets, so an
+    /// override below it would be skipped when the suites run in parallel.
     private final class FailingObserver: AudioSessionEngineObserver, @unchecked Sendable {
         struct Failure: Error {}
 
         let isFailing = StateSync(false)
         let lastOldState = StateSync<Observer.State?>(nil)
 
-        override func configureAudioSession(oldState: Observer.State, newState _: Observer.State) throws {
+        override func configureIfNeeded(oldState: Observer.State, newState _: Observer.State) throws {
             lastOldState.mutate { $0 = oldState }
             if isFailing.copy() { throw Failure() }
         }

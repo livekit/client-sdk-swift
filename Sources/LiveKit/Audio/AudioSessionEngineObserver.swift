@@ -182,7 +182,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
 
     // MARK: - Audio Session Configuration
 
-    private func configureIfNeeded(oldState: State, newState: State) throws {
+    func configureIfNeeded(oldState: State, newState: State) throws {
         guard newState.isAutomaticConfigurationEnabled else { return }
 
         // Deprecated: `customConfigureAudioSessionFunc` overrides the default configuration.
@@ -198,7 +198,7 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
         try configureAudioSession(oldState: oldState, newState: newState)
     }
 
-    func configureAudioSession(oldState: State, newState: State) throws {
+    @Sendable private func configureAudioSession(oldState: State, newState: State) throws {
         let session = AVAudioSession.sharedInstance()
 
         log("configure isRecordingEnabled: \(newState.isRecordingEnabled), isPlayoutEnabled: \(newState.isPlayoutEnabled)")
