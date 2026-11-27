@@ -1,0 +1,1 @@
+patch type="fixed" "Ignore disconnect updates for an older participant session so the current session and its tracks remain in the room"
