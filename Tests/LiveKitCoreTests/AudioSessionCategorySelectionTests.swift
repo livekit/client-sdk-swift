@@ -158,6 +158,20 @@ struct AudioSessionCategorySelectionTests {
         #expect(!oldState.isPlayoutEnabled && !oldState.isRecordingEnabled)
     }
 
+    /// The thrown error carries the session's own error, so a caller can tell a busy session, which
+    /// still went inactive, from a real failure.
+    @Test func failureCarriesTheUnderlyingError() throws {
+        let observer = FailingObserver()
+        let handle = try observer.acquire(requirement: .playbackOnly)
+
+        observer.isFailing.mutate { $0 = true }
+        let releaseError = try #require(throws: LiveKitError.self) { try handle.release() }
+        #expect(releaseError.internalError is FailingObserver.Failure)
+
+        let acquireError = try #require(throws: LiveKitError.self) { try observer.acquire(requirement: .playbackOnly) }
+        #expect(acquireError.internalError is FailingObserver.Failure)
+    }
+
     /// A release that stays committed is a state change, so state observers must see it even though
     /// the call throws.
     @Test func failedReleaseNotifiesStateObservers() throws {

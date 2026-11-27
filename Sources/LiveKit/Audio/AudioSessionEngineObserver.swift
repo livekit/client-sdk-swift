@@ -182,8 +182,8 @@ public class AudioSessionEngineObserver: AudioEngineObserver, Loggable, @uncheck
             }
         }
 
-        if failure != nil {
-            throw LiveKitError(.audioSession, message: "Failed to configure audio session")
+        if let failure {
+            throw LiveKitError(.audioSession, message: "Failed to configure audio session", internalError: failure)
         }
     }
 
