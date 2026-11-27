@@ -155,7 +155,8 @@ struct AudioSessionCategorySelectionTests {
         let next = try observer.acquire(requirement: .playbackOnly)
         defer { try? next.release() }
         let oldState = try #require(observer.lastOldState.copy())
-        #expect(!oldState.isPlayoutEnabled && !oldState.isRecordingEnabled)
+        #expect(!oldState.isPlayoutEnabled)
+        #expect(!oldState.isRecordingEnabled)
     }
 
     /// The thrown error carries the session's own error, so a caller can tell a busy session, which
@@ -210,7 +211,7 @@ struct AudioSessionCategorySelectionTests {
     @Test func failedEngineDisableStillRemovesTheRequirement() throws {
         let observer = FailingObserver()
         let engine = AVAudioEngine()
-        _ = observer.engineWillEnable(engine, isPlayoutEnabled: true, isRecordingEnabled: true)
+        #expect(observer.engineWillEnable(engine, isPlayoutEnabled: true, isRecordingEnabled: true) == 0)
 
         observer.isFailing.mutate { $0 = true }
         let result = observer.engineDidDisable(engine, isPlayoutEnabled: false, isRecordingEnabled: false)
@@ -224,7 +225,8 @@ struct AudioSessionCategorySelectionTests {
         let restart = observer.engineWillEnable(engine, isPlayoutEnabled: true, isRecordingEnabled: false)
         #expect(restart == 0)
         let oldState = try #require(observer.lastOldState.copy())
-        #expect(!oldState.isPlayoutEnabled && !oldState.isRecordingEnabled)
+        #expect(!oldState.isPlayoutEnabled)
+        #expect(!oldState.isRecordingEnabled)
         #expect(observer._state.isPlayoutEnabled)
     }
 
@@ -233,7 +235,7 @@ struct AudioSessionCategorySelectionTests {
     @Test func failedPartialEngineDisableStillShrinksTheRequirement() {
         let observer = FailingObserver()
         let engine = AVAudioEngine()
-        _ = observer.engineWillEnable(engine, isPlayoutEnabled: true, isRecordingEnabled: true)
+        #expect(observer.engineWillEnable(engine, isPlayoutEnabled: true, isRecordingEnabled: true) == 0)
 
         observer.isFailing.mutate { $0 = true }
         let result = observer.engineDidDisable(engine, isPlayoutEnabled: true, isRecordingEnabled: false)
