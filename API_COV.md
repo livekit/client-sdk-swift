@@ -86,11 +86,14 @@ owner as WebRTC moves under Rust; future native notifications can extend that
 boundary without introducing mobile ownership or a new Swift WebRTC dependency.
 Existing dual-library compatibility is unchanged.
 
-The v2 adapter now reads coherent per-object values and observes room-only
-value changes. Ordered membership, metadata and connection delegates, RPC,
-data and media events retain their event cursor: coalescing observation cannot
-replace their historical transitions. This intentionally retains the v2
-compatibility projection for ordered events.
+The v2 adapter reads coherent per-object values and observes room-only value
+changes. After initial setup, that observation loop alone writes current room
+identity/count/limit/time values; asynchronous event snapshots never apply a
+copied RoomInfo. Metadata and recording values remain event-owned so every
+ordered delegate transition is delivered. Membership/connection delegates, RPC,
+data and media events also retain their cursor: coalescing observation cannot
+replace historical transitions. Cursor recovery restores event-owned fields
+without overwriting the current observed room values.
 
 ## Host network transport
 

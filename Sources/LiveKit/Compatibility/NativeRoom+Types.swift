@@ -184,3 +184,19 @@ extension ParticipantTrackPermission {
         return NativeTrackPermission(participantIdentity: identity, allowAll: allTracksAllowed, allowedTrackSids: sids)
     }
 }
+
+extension NativeRoomDriver {
+    static func initialState(_ native: FfiRoom, connected: FfiRoomState) async throws -> NativeRoomState {
+        var states = native.states.makeAsyncIterator()
+        guard let initial = try await states.next() else { throw CancellationError() }
+        // Keep the ordered cursor's membership baseline. Child values are owned
+        // observations, and room values come from the authoritative state stream.
+        var snapshot = NativeRoomState(connected)
+        if var info = initial.values.room {
+            info.metadata = snapshot.room?.metadata ?? info.metadata
+            info.activeRecording = snapshot.room?.activeRecording ?? info.activeRecording
+            snapshot.room = info
+        }
+        return snapshot
+    }
+}

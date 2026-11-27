@@ -106,7 +106,7 @@ struct FfiRoomTests {
         #expect(!trackObserver.state().terminal, "Local tracks retain their reusable lifetime")
     }
 
-    @Test func remoteRemovalFinishesOnlyRemovedObjects() async throws {
+    @Test(arguments: [false, true]) func remoteRemovalFinishesOnlyRemovedObjects(closeReceiver: Bool) async throws {
         LiveKitTransport.initialize()
         let url = ProcessInfo.processInfo.environment["LIVEKIT_TESTING_URL"] ?? "ws://127.0.0.1:19980"
         let name = "removed-\(UUID())"
@@ -125,15 +125,19 @@ struct FfiRoomTests {
         #expect(!participant.state().terminal)
         #expect(!original.terminal)
         #expect(!track.state().terminal)
-        try await sender.disconnect()
-        while let update = try await events.next() {
-            if case .participantDisconnected = update.event { break }
+        if closeReceiver {
+            try await receiver.disconnect()
+        } else {
+            try await sender.disconnect()
+            while let update = try await events.next() {
+                if case .participantDisconnected = update.event { break }
+            }
         }
         #expect(participant.state().terminal)
         #expect(publication.state().terminal)
         #expect(track.state().terminal)
         #expect(!original.terminal, "Historical values do not change on removal")
-        #expect(receiver.state().connection == .connected)
+        #expect(receiver.state().connection == (closeReceiver ? .disconnected : .connected))
         #expect(await publication.stateDidChange(since: publication.state().revision) == nil)
         try await receiver.disconnect()
     }

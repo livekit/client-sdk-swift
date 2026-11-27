@@ -18,13 +18,22 @@ internal import LiveKitFFI
 import Foundation
 
 extension Room {
-    @nonobjc func applyNativeRoomValues(_ info: NativeRoomInfo) {
-        _state.mutate { $0.apply(roomInfo: info) }
+    @nonobjc func applyNativeRoomValues(_ info: NativeRoomInfo?, includingOrderedValues: Bool = false) {
+        guard let info else { return }
+        // Only the observation loop writes latest room values. Ordered metadata and
+        // recording delegates are driven separately by the event cursor.
+        _state.mutate { $0.apply(roomInfo: info, includingOrderedValues: includingOrderedValues) }
+    }
+
+    @nonobjc func applyNativeRoomEventValues(_ info: NativeRoomInfo) {
+        _state.mutate {
+            $0.metadata = info.metadata
+            $0.isRecording = info.activeRecording
+        }
     }
 
     @nonobjc func applyNativeSnapshot(_ snapshot: NativeRoomState, restoreDataTracks: Bool = false, restoreMedia: Bool = false) async {
         guard let native = nativeRoom.copy() else { return }
-        if let info = snapshot.room { _state.mutate { $0.apply(roomInfo: info) } }
         let identities = Set(snapshot.remoteParticipants.map { Participant.Identity(from: $0.identity) })
         for identity in remoteParticipants.keys where !identities.contains(identity) {
             try? await _onParticipantDidDisconnect(identity: identity)

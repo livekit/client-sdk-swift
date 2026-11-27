@@ -183,7 +183,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         // initial `JoinResponse.room.sid` is empty). Don't overwrite a known value
         // with an empty one, otherwise `Room.sid()` resolves with an empty SID and
         // never updates.
-        mutating func apply(roomInfo: NativeRoomInfo) {
+        mutating func apply(roomInfo: NativeRoomInfo, includingOrderedValues: Bool = true) {
             if let roomSid = roomInfo.sid, !roomSid.isEmpty {
                 sid = Room.Sid(from: roomSid)
             }
@@ -191,8 +191,10 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
                 name = roomInfo.name
             }
 
-            metadata = roomInfo.metadata
-            isRecording = roomInfo.activeRecording
+            if includingOrderedValues {
+                metadata = roomInfo.metadata
+                isRecording = roomInfo.activeRecording
+            }
             numParticipants = Int(roomInfo.numParticipants)
             numPublishers = Int(roomInfo.numPublishers)
 

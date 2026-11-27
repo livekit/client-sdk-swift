@@ -84,10 +84,11 @@ actor NativeRoomDriver {
             let connected = try await cancellingNative({ native.cancel() }) {
                 try await native.connect(url: url, token: token, options: nativeOptions)
             }
-            let snapshot = try await initialState(native, connected: connected)
+            let snapshot = try await Self.initialState(native, connected: connected)
             try Task.checkCancellation()
             guard session === native, !closing else { throw CancellationError() }
             projection = snapshot
+            room.applyNativeRoomValues(snapshot.room, includingOrderedValues: true)
             await room.applyNativeSnapshot(snapshot, restoreDataTracks: true)
             guard session === native, !closing else { throw CancellationError() }
             try await synchronizeRpcMethods(on: native)
@@ -95,8 +96,7 @@ actor NativeRoomDriver {
             room._state.mutate { $0.connectedUrl = parsed; $0.connectionState = .connected }
             await room.applyNativeMedia(snapshot)
             guard session === native, !closing else { throw CancellationError() }
-            startEvents(events, session: native, room: room)
-            startStateObservation(native, room: room)
+            startObservation(native, events: events, room: room)
         } catch {
             if session === native, !closing { await disconnect(room: room, error: error) }
             throw LiveKitError.from(error: error) ?? LiveKitError(.invalidState, message: String(describing: error))
@@ -138,23 +138,14 @@ actor NativeRoomDriver {
         }
     }
 
-    private func startStateObservation(_ native: FfiRoom, room: Room) {
+    private func startObservation(_ native: FfiRoom, events: NativeRoomEventCursor, room: Room) {
+        startEvents(events, session: native, room: room)
         stateLoop = native.states.subscribe(self) { [weak room] driver, state in
             guard let room else { return }
             await driver.receiveRoomValues(state.values, native: native, room: room)
         } onFailure: { [weak room] _, error in
             room?.log("Native state observation ended: \(error)", .warning)
         }
-    }
-
-    private func receiveRoomValues(_ values: NativeRoomValues, native: FfiRoom, room: Room) {
-        guard session === native, !closing, var info = values.room, projection != nil else { return }
-        // Metadata and connection transitions remain event-owned for v2 delegates.
-        // Other room values no longer depend on RoomUpdated delta events.
-        info.metadata = projection?.room?.metadata ?? info.metadata
-        guard info != projection?.room else { return }
-        projection?.room = info
-        room.applyNativeRoomValues(info)
     }
 
     private func startEvents(_ events: NativeRoomEventCursor, session native: FfiRoom, room: Room) {
@@ -184,6 +175,8 @@ actor NativeRoomDriver {
             let replacement = native.events(options: .init())
             let snapshot = NativeRoomState(replacement.startState())
             projection = snapshot
+            // The existing observation loop remains the sole room-value writer.
+            if let info = snapshot.room { room.applyNativeRoomEventValues(info) }
             await room.applyNativeSnapshot(snapshot, restoreDataTracks: true, restoreMedia: true)
             guard session === native, !closing else { return }
             startEvents(replacement, session: native, room: room)
@@ -219,7 +212,6 @@ actor NativeRoomDriver {
             room.nativeDataTrackUnpublished(sid: sid, identity: identity)
             return true
         case .dtmfReceived: return true // The public Swift API has no DTMF receive callback.
-        case .roomUpdated: return true // Authoritative room observation replaces this state-only delta.
         default: return false
         }
     }
@@ -240,7 +232,10 @@ actor NativeRoomDriver {
             await disconnect(room: room, error: reason == .clientInitiated ? nil : LiveKitError(reason.lkErrorType))
             return
         case let .roomMetadataChanged(info, _): snapshot.room?.metadata = info.metadata
-        case let .roomMoved(info): snapshot.room = info
+        case let .roomUpdated(info): snapshot.room?.activeRecording = info.activeRecording
+        case let .roomMoved(info):
+            snapshot.room?.metadata = info.metadata
+            snapshot.room?.activeRecording = info.activeRecording
         case let .tokenRefreshed(token): room._state.mutate { $0.token = token }
         case let .participantDisconnected(participant):
             let participant = NativeParticipant(participant)
@@ -273,6 +268,9 @@ actor NativeRoomDriver {
         default: snapshot.applyParticipantEvent(update.event)
         }
         projection = snapshot
+        // Commit ordered fields synchronously on this actor, before any suspension.
+        // applyNativeSnapshot deliberately never writes room information.
+        if let info = snapshot.room { room.applyNativeRoomEventValues(info) }
         await room.applyNativeSnapshot(snapshot, restoreMedia: mediaChanged)
     }
 
@@ -295,17 +293,11 @@ actor NativeRoomDriver {
 }
 
 extension NativeRoomDriver {
-    private func initialState(_ native: FfiRoom, connected: FfiRoomState) async throws -> NativeRoomState {
-        var states = native.states.makeAsyncIterator()
-        guard let initial = try await states.next() else { throw CancellationError() }
-        // Keep the ordered cursor's membership baseline. Child values are owned
-        // observations, and room values come from the authoritative state stream.
-        var snapshot = NativeRoomState(connected)
-        if var info = initial.values.room {
-            info.metadata = snapshot.room?.metadata ?? info.metadata
-            snapshot.room = info
-        }
-        return snapshot
+    private func receiveRoomValues(_ values: NativeRoomValues, native: FfiRoom, room: Room) {
+        guard session === native, !closing, let info = values.room, projection != nil else { return }
+        // Do not copy observed values into the event projection. That older copy
+        // can resume after an await; it must never overwrite this authority.
+        room.applyNativeRoomValues(info)
     }
 
     func registerRpcMethod(_ method: String, handler: @escaping RpcHandler) async throws {

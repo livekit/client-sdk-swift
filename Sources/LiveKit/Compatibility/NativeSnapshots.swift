@@ -124,6 +124,7 @@ struct NativeRoomState: Equatable, Sendable {
 }
 
 extension NativeRoomState {
+    // Revision is the only excluded field; add every future content field here.
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.dataTracks == rhs.dataTracks && lhs.connection == rhs.connection
             && lhs.disconnectReason == rhs.disconnectReason && lhs.room == rhs.room
