@@ -28,7 +28,7 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         _state.dataTracks.reduce(into: [:]) { $0[$1.name] = $1 }
     }
 
-    init(info: NativeParticipant, publications: [NativeTrackPublication], room: Room, connectionState: ConnectionState) {
+    init(info: LiveKitFFI.ParticipantInfo, publications: [NativeTrackPublication], room: Room, connectionState: ConnectionState) {
         super.init(room: room, sid: Participant.Sid(from: info.sid), identity: Participant.Identity(from: info.identity))
         set(info: info, publications: publications, connectionState: connectionState)
     }
@@ -61,7 +61,7 @@ public class RemoteParticipant: Participant, @unchecked Sendable {
         _state.mutate { $0.dataTracks = [] }
     }
 
-    override func set(info: NativeParticipant, publications: [NativeTrackPublication], connectionState: ConnectionState) {
+    override func set(info: LiveKitFFI.ParticipantInfo, publications: [NativeTrackPublication], connectionState: ConnectionState) {
         super.set(info: info, publications: publications, connectionState: connectionState)
 
         var validTrackPublications = [Track.Sid: RemoteTrackPublication]()

@@ -51,11 +51,11 @@ struct ParticipantTests {
         #expect(participant.capabilities.isEmpty)
     }
 
-    private func info(clientProtocol: Int32 = 0, capabilities: [LiveKitFFI.ClientCapability]? = nil) -> NativeParticipant {
-        NativeParticipant(identity: "remote", sid: "", isLocal: false, name: "", state: .active, kind: .standard, kindDetails: [],
-                          metadata: "", attributes: [:], isSpeaking: false, audioLevel: 0, connectionQuality: .good, joinedAt: 0,
-                          permission: nil, isEncrypted: false, disconnectReason: .unknownReason, clientProtocol: clientProtocol,
-                          capabilities: capabilities)
+    private func info(clientProtocol: Int32 = 0, capabilities: [LiveKitFFI.ClientCapability] = []) -> LiveKitFFI.ParticipantInfo {
+        LiveKitFFI.ParticipantInfo(isEncrypted: false, sid: "", identity: "remote", name: "",
+                                   state: .active, metadata: "", attributes: [:], speaking: false, audioLevel: 0,
+                                   connectionQuality: .good, kind: .standard, kindDetails: [],
+                                   disconnectReason: .unknownReason, joinedAt: 0, permission: nil, clientProtocol: clientProtocol, capabilities: capabilities)
     }
 
     /// The server mirrors each client's advertised capabilities and protocol onto its participant,

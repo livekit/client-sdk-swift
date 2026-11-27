@@ -104,14 +104,14 @@ struct NativeRoomTests {
                 if let name = participant?.name { observed.mutate { $0.append(name) } }
             }
             defer { observation.cancel() }
-            for name in ["first", "second"] {
+            for name in ["first", "second", "first"] {
                 try await alice.localParticipant.set(name: name)
                 try await eventually {
                     watcher.names.copy().last == name && observed.copy().contains(name)
                 }
                 #expect(bob.remoteParticipants[.init(from: "alice")] === participant)
             }
-            #expect(watcher.names.copy() == ["first", "second"])
+            #expect(watcher.names.copy() == ["first", "second", "first"])
             await alice.disconnect()
             await bob.disconnect()
         } catch {

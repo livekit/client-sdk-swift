@@ -232,7 +232,7 @@ public class LocalParticipant: Participant, @unchecked Sendable {
         _state.mutate { $0.attributes = attributes }
     }
 
-    override func set(info: NativeParticipant, publications: [NativeTrackPublication], connectionState: ConnectionState) {
+    override func set(info: LiveKitFFI.ParticipantInfo, publications: [NativeTrackPublication], connectionState: ConnectionState) {
         super.set(info: info, publications: publications, connectionState: connectionState)
 
         for trackInfo in publications where trackInfo.participantIdentity == info.identity {

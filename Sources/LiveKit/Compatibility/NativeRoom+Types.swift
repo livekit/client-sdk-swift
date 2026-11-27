@@ -65,12 +65,21 @@ extension NativeEncryptionType {
     }
 }
 
-extension NativeParticipantPermission {
+extension LiveKitFFI.ParticipantPermission {
     var lkType: ParticipantPermissions {
         ParticipantPermissions(canSubscribe: canSubscribe,
                                canPublish: canPublish,
                                canPublishData: canPublishData,
-                               canPublishSources: Set(canPublishSources.map(\.lkType)),
+                               canPublishSources: Set(canPublishSources.compactMap { source in
+                                   switch source {
+                                   case 0: Track.Source.unknown
+                                   case 1: .camera
+                                   case 2: .microphone
+                                   case 3: .screenShareVideo
+                                   case 4: .screenShareAudio
+                                   default: nil
+                                   }
+                               }),
                                hidden: hidden,
                                canUpdateMetadata: canUpdateMetadata,
                                canSubscribeMetrics: canSubscribeMetrics,

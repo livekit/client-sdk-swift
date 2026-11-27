@@ -99,11 +99,11 @@ extension Room {
         }
     }
 
-    private func applyNativeParticipant(_ info: NativeParticipant, to participant: Participant, publications: [NativeTrackPublication]) {
+    private func applyNativeParticipant(_ info: LiveKitFFI.ParticipantInfo, to participant: Participant, publications: [NativeTrackPublication]) {
         participant.set(info: info, publications: publications, connectionState: connectionState)
         participant._state.mutate {
-            if info.isSpeaking, !$0.isSpeaking { $0.lastSpokeAt = Date() }
-            $0.isSpeaking = info.isSpeaking
+            if info.speaking, !$0.isSpeaking { $0.lastSpokeAt = Date() }
+            $0.isSpeaking = info.speaking
             $0.audioLevel = info.audioLevel
             switch info.connectionQuality {
             case .excellent: $0.connectionQuality = .excellent

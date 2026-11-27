@@ -208,7 +208,7 @@ public class Room: NSObject, @unchecked Sendable, ObservableObject, Loggable {
         }
 
         @discardableResult
-        mutating func updateRemoteParticipant(info: NativeParticipant, publications: [NativeTrackPublication], room: Room) -> RemoteParticipant {
+        mutating func updateRemoteParticipant(info: LiveKitFFI.ParticipantInfo, publications: [NativeTrackPublication], room: Room) -> RemoteParticipant {
             let identity = Participant.Identity(from: info.identity)
             // Check if RemoteParticipant with same identity exists...
             if let participant = remoteParticipants[identity] { return participant }

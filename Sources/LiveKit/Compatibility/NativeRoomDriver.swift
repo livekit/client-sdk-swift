@@ -238,9 +238,9 @@ actor NativeRoomDriver {
             snapshot.room?.activeRecording = info.activeRecording
         case let .tokenRefreshed(token): room._state.mutate { $0.token = token }
         case let .participantDisconnected(participant):
-            let participant = NativeParticipant(participant)
-            snapshot.remoteParticipants.removeAll { $0.identity == participant.identity }
-            snapshot.publications.removeAll { $0.participantIdentity == participant.identity }
+            let identity = participant.identity()
+            snapshot.remoteParticipants.removeAll { $0.identity == identity }
+            snapshot.publications.removeAll { $0.participantIdentity == identity }
         case let .trackPublished(publication), let .trackMuted(publication), let .trackUnmuted(publication),
              let .localTrackPublished(publication, _), let .trackSubscribed(publication, _), let .trackUnsubscribed(publication, _):
             let publication = NativeTrackPublication(publication)
@@ -278,11 +278,11 @@ actor NativeRoomDriver {
         let levels = Dictionary(speakers.map { ($0.identity(), $0.audioLevel()) }, uniquingKeysWith: { _, newest in newest })
         let localIdentity = snapshot.localParticipant?.identity ?? ""
         snapshot.localParticipant?.audioLevel = levels[localIdentity] ?? 0
-        snapshot.localParticipant?.isSpeaking = levels[localIdentity] != nil
+        snapshot.localParticipant?.speaking = levels[localIdentity] != nil
         for index in snapshot.remoteParticipants.indices {
             let identity = snapshot.remoteParticipants[index].identity
             snapshot.remoteParticipants[index].audioLevel = levels[identity] ?? 0
-            snapshot.remoteParticipants[index].isSpeaking = levels[identity] != nil
+            snapshot.remoteParticipants[index].speaking = levels[identity] != nil
         }
         room.didUpdateSpeakers(speakers.compactMap { speaker in
             let participant: Participant? = room.localParticipant.identity?.stringValue == speaker.identity()

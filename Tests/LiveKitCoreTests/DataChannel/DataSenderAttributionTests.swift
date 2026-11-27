@@ -92,11 +92,11 @@ struct DataSenderAttributionTests {
         #expect(bReceiver.deliveries.copy().isEmpty)
     }
 
-    private func participant(_ identity: String) -> NativeParticipant {
-        NativeParticipant(identity: identity, sid: "PA_\(identity)", isLocal: false, name: "", state: .active, kind: .standard,
-                          kindDetails: [], metadata: "", attributes: [:], isSpeaking: false, audioLevel: 0, connectionQuality: .good,
-                          joinedAt: 0, permission: nil, isEncrypted: false, disconnectReason: .unknownReason, clientProtocol: 2,
-                          capabilities: nil)
+    private func participant(_ identity: String) -> LiveKitFFI.ParticipantInfo {
+        LiveKitFFI.ParticipantInfo(isEncrypted: false, sid: "PA_\(identity)", identity: identity, name: "",
+                                   state: .active, metadata: "", attributes: [:], speaking: false, audioLevel: 0,
+                                   connectionQuality: .good, kind: .standard, kindDetails: [],
+                                   disconnectReason: .unknownReason, joinedAt: 0, permission: nil, clientProtocol: 2, capabilities: [])
     }
 }
 

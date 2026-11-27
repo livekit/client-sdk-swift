@@ -187,7 +187,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
                     $0.room?(room, participant: self, didUpdateState: newState.state)
                 }
 
-                guard let identity = identity?.stringValue else { return }
+                guard let identity = newState.identity?.stringValue else { return }
                 if oldState.state != .active, newState.state == .active {
                     Task {
                         await room.activeParticipantCompleters.resume(returning: (), for: identity)
@@ -244,7 +244,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
         publication.track?._state.mutate { $0.sid = publication.sid }
     }
 
-    func set(info: NativeParticipant, publications _: [NativeTrackPublication], connectionState _: ConnectionState) {
+    func set(info: LiveKitFFI.ParticipantInfo, publications _: [NativeTrackPublication], connectionState _: ConnectionState) {
         _state.mutate {
             $0.sid = Sid(from: info.sid)
             $0.identity = Identity(from: info.identity)
@@ -257,7 +257,7 @@ public class Participant: NSObject, @unchecked Sendable, ObservableObject, Logga
             // Each version extends the one before, so a peer newer than this SDK reads as the
             // newest version it knows, not as a legacy client.
             $0.clientProtocol = ClientProtocol(rawValue: min(Int(info.clientProtocol), ClientProtocol.v2.rawValue)) ?? .v0
-            $0.capabilities = (info.capabilities ?? []).compactMap {
+            $0.capabilities = (self is LocalParticipant ? [] : info.capabilities).compactMap {
                 switch $0 {
                 case .packetTrailer: .packetTrailer
                 case .compressionDeflateRaw: .compressionDeflateRaw

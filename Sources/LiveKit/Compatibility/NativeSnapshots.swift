@@ -17,51 +17,6 @@
 internal import LiveKitFFI
 
 // Value projections belong to the removable v2 compatibility layer.
-struct NativeParticipant: Equatable, Sendable {
-    var identity: String
-    var sid: String
-    var isLocal: Bool
-    var name: String
-    var state: NativeParticipantState
-    var kind: NativeParticipantKind
-    var kindDetails: [NativeParticipantKindDetail]
-    var metadata: String
-    var attributes: [String: String]
-    var isSpeaking: Bool
-    var audioLevel: Float
-    var connectionQuality: NativeConnectionQuality
-    var joinedAt: Int64
-    var permission: NativeParticipantPermission?
-    var isEncrypted: Bool
-    var disconnectReason: NativeDisconnectReason
-    var clientProtocol: Int32
-    var capabilities: [LiveKitFFI.ClientCapability]?
-}
-
-extension NativeParticipant {
-    init(_ ffi: FfiParticipant) {
-        let values = ffi.observeState().state().values
-        identity = values.identity
-        sid = values.sid
-        isLocal = ffi.isLocal()
-        name = values.name
-        state = values.state
-        kind = values.kind
-        kindDetails = values.kindDetails
-        metadata = values.metadata
-        attributes = values.attributes
-        isSpeaking = values.speaking
-        audioLevel = values.audioLevel
-        connectionQuality = values.connectionQuality
-        joinedAt = values.joinedAt
-        permission = values.permission.map(NativeParticipantPermission.init)
-        isEncrypted = values.isEncrypted
-        disconnectReason = values.disconnectReason
-        clientProtocol = values.clientProtocol
-        capabilities = isLocal ? nil : values.capabilities
-    }
-}
-
 struct NativeTrackPublication: Equatable, Sendable {
     var sid: String
     var participantIdentity: String
@@ -118,8 +73,8 @@ struct NativeRoomState: Equatable, Sendable {
     var connection: NativeConnectionState
     var disconnectReason: NativeDisconnectReason?
     var room: NativeRoomInfo?
-    var localParticipant: NativeParticipant?
-    var remoteParticipants: [NativeParticipant]
+    var localParticipant: LiveKitFFI.ParticipantInfo?
+    var remoteParticipants: [LiveKitFFI.ParticipantInfo]
     var publications: [NativeTrackPublication]
 }
 
@@ -140,42 +95,9 @@ extension NativeRoomState {
         connection = ffi.connection
         disconnectReason = ffi.disconnectReason
         room = ffi.room
-        localParticipant = ffi.localParticipant.map(NativeParticipant.init)
-        remoteParticipants = ffi.remoteParticipants.map(NativeParticipant.init)
+        localParticipant = ffi.localParticipant.map { $0.observeState().state().values }
+        remoteParticipants = ffi.remoteParticipants.map { $0.observeState().state().values }
         publications = ffi.publications.map(NativeTrackPublication.init)
-    }
-}
-
-struct NativeParticipantPermission: Equatable, Sendable {
-    var canSubscribe: Bool
-    var canPublish: Bool
-    var canPublishData: Bool
-    var canPublishSources: [NativeTrackSource]
-    var hidden: Bool
-    var canUpdateMetadata: Bool
-    var canSubscribeMetrics: Bool
-    var canManageAgentSession: Bool
-}
-
-extension NativeParticipantPermission {
-    init(_ ffi: LiveKitFFI.ParticipantPermission) {
-        canSubscribe = ffi.canSubscribe
-        canPublish = ffi.canPublish
-        canPublishData = ffi.canPublishData
-        canPublishSources = ffi.canPublishSources.compactMap {
-            switch $0 {
-            case 0: .unknown
-            case 1: .camera
-            case 2: .microphone
-            case 3: .screenshare
-            case 4: .screenshareAudio
-            default: nil
-            }
-        }
-        hidden = ffi.hidden
-        canUpdateMetadata = ffi.canUpdateMetadata
-        canSubscribeMetrics = ffi.canSubscribeMetrics
-        canManageAgentSession = ffi.canManageAgentSession
     }
 }
 
@@ -185,8 +107,8 @@ struct NativeDataTrackPublication: Equatable, Sendable {
 }
 
 extension NativeRoomState {
-    mutating func updateParticipant(_ participant: NativeParticipant, allowInsert: Bool = false) {
-        if participant.isLocal { localParticipant = participant } else {
+    mutating func updateParticipant(_ participant: LiveKitFFI.ParticipantInfo, isLocal: Bool, allowInsert: Bool = false) {
+        if isLocal { localParticipant = participant } else {
             guard allowInsert || remoteParticipants.contains(where: { $0.identity == participant.identity }) else { return }
             remoteParticipants.removeAll { $0.identity == participant.identity }
             remoteParticipants.append(participant)
@@ -198,33 +120,33 @@ extension NativeRoomState {
     mutating func applyParticipantEvent(_ event: NativeRoomEvent) {
         switch event {
         case let .participantConnected(participant):
-            updateParticipant(NativeParticipant(participant), allowInsert: true)
+            updateParticipant(participant.observeState().state().values, isLocal: participant.isLocal(), allowInsert: true)
         case let .participantActive(participant), let .participantAttributesChanged(participant, _):
-            updateParticipant(NativeParticipant(participant))
+            updateParticipant(participant.observeState().state().values, isLocal: participant.isLocal())
         case let .participantsUpdated(participants):
             for participant in participants {
-                updateParticipant(NativeParticipant(participant))
+                updateParticipant(participant.observeState().state().values, isLocal: participant.isLocal())
             }
         case let .participantMetadataChanged(participant, _, metadata):
-            var value = NativeParticipant(participant)
+            var value = participant.observeState().state().values
             value.metadata = metadata
-            updateParticipant(value)
+            updateParticipant(value, isLocal: participant.isLocal())
         case let .participantNameChanged(participant, _, name):
-            var value = NativeParticipant(participant)
+            var value = participant.observeState().state().values
             value.name = name
-            updateParticipant(value)
+            updateParticipant(value, isLocal: participant.isLocal())
         case let .participantPermissionChanged(participant, permission):
-            var value = NativeParticipant(participant)
-            value.permission = permission.map(NativeParticipantPermission.init)
-            updateParticipant(value)
+            var value = participant.observeState().state().values
+            value.permission = permission
+            updateParticipant(value, isLocal: participant.isLocal())
         case let .participantEncryptionStatusChanged(participant, isEncrypted):
-            var value = NativeParticipant(participant)
+            var value = participant.observeState().state().values
             value.isEncrypted = isEncrypted
-            updateParticipant(value)
+            updateParticipant(value, isLocal: participant.isLocal())
         case let .connectionQualityChanged(participant, quality):
-            var value = NativeParticipant(participant)
+            var value = participant.observeState().state().values
             value.connectionQuality = quality
-            updateParticipant(value)
+            updateParticipant(value, isLocal: participant.isLocal())
         default: break
         }
     }

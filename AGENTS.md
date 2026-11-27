@@ -63,8 +63,8 @@ Dependencies: LiveKitWebRTC (local capture/render), LiveKitFFI (room session).
 
 ## Native backend
 
-The Rust core owns the wire protocol. Native records (`NativeParticipant`,
-`NativeTrackPublication`, `NativeRoomInfo`) feed the existing `StateSync` entities
+The Rust core owns the wire protocol. Owned FFI participant values and compatibility records
+(`NativeTrackPublication`, `NativeRoomInfo`) feed the existing `StateSync` entities
 directly (`Compatibility/NativeRoom+Types.swift`); there is no Swift protobuf layer.
 
 ## Compile-Time Flags
